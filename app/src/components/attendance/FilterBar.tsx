@@ -38,8 +38,7 @@ export default function FilterBar({
   onStatusChange,
 }: FilterBarProps) {
   return (
-    <div className="px-4 py-3 flex flex-wrap items-center gap-3"
-      style={{ borderBottom: '1px solid var(--gx-cloud)' }}>
+    <div className="flex flex-wrap items-center gap-3">
       {/* 상태 탭 */}
       <Tabs value={statusFilter} onValueChange={(v) => onStatusChange(v as StatusFilter)}>
         <TabsList className="h-8 bg-gx-cloud">
@@ -49,8 +48,6 @@ export default function FilterBar({
           <TabsTrigger value="not_checked" className="text-xs h-7 px-3">미체크</TabsTrigger>
         </TabsList>
       </Tabs>
-
-      <div className="flex-1" />
 
       {/* 회사 드롭다운 */}
       <Select value={selectedCompany} onValueChange={onCompanyChange}>

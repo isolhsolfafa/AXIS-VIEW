@@ -266,19 +266,7 @@ export default function AttendancePage() {
           marginBottom: '24px',
         }}
       >
-        {/* 필터바 */}
-        <FilterBar
-          selectedCompany={selectedCompany}
-          onCompanyChange={setSelectedCompany}
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          statusFilter={statusFilter}
-          onStatusChange={setStatusFilter}
-        />
-
-        {/* 섹션 타이틀 */}
+        {/* 섹션 타이틀 + 필터 통합 */}
         <div
           style={{
             display: 'flex',
@@ -286,20 +274,36 @@ export default function AttendancePage() {
             justifyContent: 'space-between',
             padding: '14px 20px',
             borderBottom: '1px solid var(--gx-cloud)',
+            flexWrap: 'wrap',
+            gap: '10px',
           }}
         >
-          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
-            작업자 출퇴근 현황
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
+              작업자 출퇴근 현황
+            </div>
+            <span
+              style={{
+                fontSize: '11px',
+                color: 'var(--gx-steel)',
+                fontFamily: "'JetBrains Mono', monospace",
+              }}
+            >
+              전체 {filteredRecords.length}명 · 출근 {filteredRecords.filter(r => r.status !== 'not_checked').length}명
+            </span>
           </div>
-          <span
-            style={{
-              fontSize: '12px',
-              color: 'var(--gx-steel)',
-              fontFamily: "'JetBrains Mono', monospace",
-            }}
-          >
-            전체 {filteredRecords.length}명 · 출근 {filteredRecords.filter(r => r.status !== 'not_checked').length}명
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <FilterBar
+              selectedCompany={selectedCompany}
+              onCompanyChange={setSelectedCompany}
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              statusFilter={statusFilter}
+              onStatusChange={setStatusFilter}
+            />
+          </div>
         </div>
 
         {/* 테이블 */}
