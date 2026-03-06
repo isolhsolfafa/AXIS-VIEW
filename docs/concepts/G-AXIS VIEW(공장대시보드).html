@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>G-AXIS | Manufacturing Intelligence Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   G-AXIS Design System
+   Enterprise Manufacturing Intelligence
+   Light Theme — Refined Minimalism
+   ═══════════════════════════════════════════ */
+
+:root {
+  /* Core Brand — extracted from G-AXIS logo */
+  --gx-charcoal: #2A2D35;
+  --gx-graphite: #3D4150;
+  --gx-slate: #5A5F72;
+  --gx-steel: #8B90A0;
+  --gx-silver: #B8BCC8;
+  --gx-mist: #E8EAF0;
+  --gx-cloud: #F3F4F7;
+  --gx-snow: #FAFBFD;
+  --gx-white: #FFFFFF;
+
+  /* Accent — subtle, not loud */
+  --gx-accent: #6366F1;
+  --gx-accent-soft: rgba(99, 102, 241, 0.08);
+  --gx-accent-medium: rgba(99, 102, 241, 0.15);
+  --gx-accent-glow: rgba(99, 102, 241, 0.25);
+
+  /* Status */
+  --gx-success: #10B981;
+  --gx-success-bg: rgba(16, 185, 129, 0.08);
+  --gx-warning: #F59E0B;
+  --gx-warning-bg: rgba(245, 158, 11, 0.08);
+  --gx-danger: #EF4444;
+  --gx-danger-bg: rgba(239, 68, 68, 0.08);
+  --gx-info: #3B82F6;
+  --gx-info-bg: rgba(59, 130, 246, 0.08);
+
+  /* Layout */
+  --sidebar-width: 260px;
+  --header-height: 64px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  /* Shadows — layered, subtle */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
+  --shadow-card: 0 0 0 1px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.04);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { font-size: 14px; -webkit-font-smoothing: antialiased; }
+
+body {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--gx-cloud);
+  color: var(--gx-charcoal);
+  min-height: 100vh;
+  display: flex;
+}
+
+/* ─── Sidebar ─── */
+.sidebar {
+  width: var(--sidebar-width);
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  background: var(--gx-white);
+  border-right: 1px solid var(--gx-mist);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-brand {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 14px;
+  border-bottom: 1px solid var(--gx-mist);
+}
+
+.brand-logo {
+  width: 54px;
+  height: 40px;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-logo img {
+  width: 150%;
+  height: auto;
+  filter: brightness(1.3) contrast(1.8);
+  mix-blend-mode: multiply;
+}
+
+.brand-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.brand-text {
+  font-size: 17px;
+  font-weight: 300;
+  letter-spacing: 5px;
+  color: var(--gx-charcoal);
+  line-height: 1;
+}
+
+.brand-subtitle {
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  color: var(--gx-steel);
+  line-height: 1.2;
+}
+
+.sidebar-section {
+  padding: 20px 16px 8px;
+}
+
+.sidebar-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--gx-steel);
+  padding: 0 8px;
+  margin-bottom: 8px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  color: var(--gx-slate);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  position: relative;
+}
+
+.nav-item:hover {
+  background: var(--gx-cloud);
+  color: var(--gx-charcoal);
+}
+
+.nav-item.active {
+  background: var(--gx-accent-soft);
+  color: var(--gx-accent);
+}
+
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  border-radius: 0 3px 3px 0;
+  background: var(--gx-accent);
+}
+
+.nav-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.nav-item.active .nav-icon { opacity: 1; }
+
+.nav-badge {
+  margin-left: auto;
+  background: var(--gx-danger);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  line-height: 1.4;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid var(--gx-mist);
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.user-card:hover { background: var(--gx-cloud); }
+
+.user-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gx-accent), #818CF8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.user-info { flex: 1; min-width: 0; }
+.user-name { font-size: 13px; font-weight: 600; color: var(--gx-charcoal); }
+.user-role { font-size: 11px; color: var(--gx-steel); }
+
+/* ─── Main Content ─── */
+.main-wrapper {
+  margin-left: var(--sidebar-width);
+  flex: 1;
+  min-height: 100vh;
+}
+
+/* ─── Header ─── */
+.header {
+  height: var(--header-height);
+  background: var(--gx-white);
+  border-bottom: 1px solid var(--gx-mist);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.page-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gx-charcoal);
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--gx-steel);
+}
+
+.breadcrumb span { color: var(--gx-accent); font-weight: 500; }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gx-mist);
+  background: var(--gx-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  color: var(--gx-slate);
+}
+
+.header-btn:hover {
+  background: var(--gx-cloud);
+  border-color: var(--gx-silver);
+}
+
+.header-btn .dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gx-danger);
+  border: 1.5px solid var(--gx-white);
+}
+
+.week-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gx-mist);
+  background: var(--gx-white);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gx-graphite);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.week-selector:hover {
+  border-color: var(--gx-accent);
+  background: var(--gx-accent-soft);
+}
+
+.week-selector svg { color: var(--gx-steel); }
+
+/* ─── Dashboard Content ─── */
+.dashboard {
+  padding: 28px 32px;
+  max-width: 1440px;
+}
+
+/* Status Bar */
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: var(--gx-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  margin-bottom: 24px;
+}
+
+.status-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gx-success);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+}
+
+.status-text {
+  font-size: 13px;
+  color: var(--gx-slate);
+}
+
+.status-text strong {
+  color: var(--gx-charcoal);
+  font-weight: 600;
+}
+
+.status-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--gx-steel);
+  background: var(--gx-cloud);
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+}
+
+/* ─── KPI Cards ─── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  background: var(--gx-white);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.kpi-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+
+
+.kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.kpi-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gx-steel);
+  letter-spacing: 0.3px;
+}
+
+.kpi-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kpi-card.primary .kpi-icon-wrap { background: var(--gx-accent-soft); color: var(--gx-accent); }
+.kpi-card.success .kpi-icon-wrap { background: var(--gx-success-bg); color: var(--gx-success); }
+.kpi-card.warning .kpi-icon-wrap { background: var(--gx-warning-bg); color: var(--gx-warning); }
+.kpi-card.info .kpi-icon-wrap { background: var(--gx-info-bg); color: var(--gx-info); }
+
+.kpi-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--gx-charcoal);
+  line-height: 1;
+  margin-bottom: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-value .unit {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gx-steel);
+  margin-left: 2px;
+}
+
+.kpi-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kpi-change {
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.kpi-change.up { color: var(--gx-success); }
+.kpi-change.down { color: var(--gx-danger); }
+
+.kpi-period {
+  font-size: 11px;
+  color: var(--gx-silver);
+}
+
+/* ─── Chart Section ─── */
+.chart-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.chart-card {
+  background: var(--gx-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 0;
+}
+
+.chart-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gx-charcoal);
+}
+
+.chart-subtitle {
+  font-size: 11px;
+  color: var(--gx-steel);
+  margin-top: 2px;
+}
+
+.chart-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.chart-tab {
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gx-steel);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chart-tab:hover { color: var(--gx-graphite); background: var(--gx-cloud); }
+.chart-tab.active { color: var(--gx-accent); background: var(--gx-accent-soft); }
+
+.chart-body {
+  padding: 20px 24px 24px;
+}
+
+/* Bar Chart Visualization */
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  height: 220px;
+  padding-top: 20px;
+  position: relative;
+}
+
+.bar-chart::before {
+  content: '';
+  position: absolute;
+  bottom: 28px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--gx-mist);
+}
+
+.bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.bar {
+  width: 100%;
+  max-width: 48px;
+  border-radius: 6px 6px 2px 2px;
+  position: relative;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.bar:hover {
+  filter: brightness(1.05);
+  transform: scaleY(1.02);
+  transform-origin: bottom;
+}
+
+.bar-primary {
+  background: linear-gradient(180deg, var(--gx-accent) 0%, #818CF8 100%);
+}
+
+.bar-secondary {
+  background: linear-gradient(180deg, var(--gx-mist) 0%, #D1D5E0 100%);
+}
+
+.bar-value {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--gx-graphite);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.bar-group:hover .bar-value { opacity: 1; }
+
+.bar-label {
+  font-size: 10px;
+  color: var(--gx-steel);
+  font-weight: 500;
+  white-space: nowrap;
+  letter-spacing: -0.2px;
+}
+
+/* Y-Axis */
+.chart-y-axis {
+  position: absolute;
+  left: -8px;
+  top: 0;
+  bottom: 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.y-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--gx-silver);
+  text-align: right;
+  padding-right: 12px;
+}
+
+/* Donut Chart */
+.donut-chart-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.donut-wrapper {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  margin-bottom: 20px;
+}
+
+.donut-svg { transform: rotate(-90deg); }
+
+.donut-circle {
+  fill: none;
+  stroke-width: 22;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.donut-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.donut-center-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--gx-charcoal);
+  line-height: 1;
+}
+
+.donut-center-label {
+  font-size: 11px;
+  color: var(--gx-steel);
+  margin-top: 4px;
+}
+
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  font-size: 12px;
+  color: var(--gx-slate);
+  flex: 1;
+}
+
+.legend-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gx-charcoal);
+}
+
+/* ─── Table Section ─── */
+.table-card {
+  background: var(--gx-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  background: var(--gx-cloud);
+}
+
+th {
+  padding: 12px 20px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gx-steel);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+td {
+  padding: 14px 20px;
+  font-size: 13px;
+  color: var(--gx-graphite);
+  border-bottom: 1px solid var(--gx-cloud);
+}
+
+tbody tr {
+  transition: background 0.12s;
+}
+
+tbody tr:hover {
+  background: var(--gx-accent-soft);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table-model {
+  font-weight: 600;
+  color: var(--gx-charcoal);
+}
+
+.table-mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+
+/* Progress Bar */
+.progress-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--gx-mist);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 80px;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-fill.high { background: var(--gx-success); }
+.progress-fill.mid { background: var(--gx-warning); }
+.progress-fill.low { background: var(--gx-danger); }
+
+.progress-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 42px;
+  text-align: right;
+}
+
+.progress-text.high { color: var(--gx-success); }
+.progress-text.mid { color: var(--gx-warning); }
+.progress-text.low { color: var(--gx-danger); }
+
+/* Status Badge */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status-badge.completed {
+  background: var(--gx-success-bg);
+  color: var(--gx-success);
+}
+
+.status-badge.in-progress {
+  background: var(--gx-info-bg);
+  color: var(--gx-info);
+}
+
+.status-badge.pending {
+  background: var(--gx-warning-bg);
+  color: var(--gx-warning);
+}
+
+.status-badge-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ─── Bottom Grid ─── */
+.bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* Activity Feed */
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activity-item {
+  display: flex;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--gx-cloud);
+  align-items: flex-start;
+}
+
+.activity-item:last-child { border-bottom: none; }
+
+.activity-dot-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 2px;
+}
+
+.activity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.activity-dot.purple { background: var(--gx-accent); }
+.activity-dot.green { background: var(--gx-success); }
+.activity-dot.orange { background: var(--gx-warning); }
+.activity-dot.blue { background: var(--gx-info); }
+
+.activity-content { flex: 1; }
+
+.activity-text {
+  font-size: 13px;
+  color: var(--gx-graphite);
+  line-height: 1.5;
+}
+
+.activity-text strong {
+  color: var(--gx-charcoal);
+  font-weight: 600;
+}
+
+.activity-time {
+  font-size: 11px;
+  color: var(--gx-silver);
+  margin-top: 3px;
+}
+
+/* Model Mix Mini Chart */
+.mini-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mini-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.mini-bar-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gx-slate);
+  width: 100px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.mini-bar-track {
+  flex: 1;
+  height: 24px;
+  background: var(--gx-cloud);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.mini-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  min-width: fit-content;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mini-bar-fill.c1 { background: linear-gradient(90deg, #6366F1, #818CF8); }
+.mini-bar-fill.c2 { background: linear-gradient(90deg, #3B82F6, #60A5FA); }
+.mini-bar-fill.c3 { background: linear-gradient(90deg, #10B981, #34D399); }
+.mini-bar-fill.c4 { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+.mini-bar-fill.c5 { background: linear-gradient(90deg, #8B5CF6, #A78BFA); }
+.mini-bar-fill.c6 { background: linear-gradient(90deg, #EC4899, #F472B6); }
+
+.mini-bar-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gx-graphite);
+  margin-left: 10px;
+  min-width: 30px;
+}
+
+/* ─── Animations ─── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+}
+
+.delay-1 { animation-delay: 0.05s; }
+.delay-2 { animation-delay: 0.1s; }
+.delay-3 { animation-delay: 0.15s; }
+.delay-4 { animation-delay: 0.2s; }
+.delay-5 { animation-delay: 0.25s; }
+.delay-6 { animation-delay: 0.3s; }
+.delay-7 { animation-delay: 0.35s; }
+
+/* ─── Responsive ─── */
+@media (max-width: 1200px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .chart-grid { grid-template-columns: 1fr; }
+  .bottom-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); }
+  .main-wrapper { margin-left: 0; }
+  .dashboard { padding: 20px 16px; }
+  .kpi-grid { grid-template-columns: 1fr; }
+  .header { padding: 0 16px; }
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--gx-silver); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gx-steel); }
+</style>
+</head>
+<body>
+
+<!-- ═══ Sidebar ═══ -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-logo">
+      <img src="G-AXIS-2.png" alt="G-AXIS">
+    </div>
+    <div class="brand-text-group">
+      <span class="brand-text">AXIS-VIEW</span>
+      <span class="brand-subtitle">Manufacturing Execution Platform</span>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Dashboard</div>
+    <a class="nav-item active" href="#">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 6a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zm10 0a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
+      공장 대시보드
+    </a>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.97 5.97 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.97 5.97 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
+      협력사 대시보드
+    </a>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
+      생산일정
+    </a>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Analysis</div>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/></svg>
+      불량 분석
+      <span class="nav-badge">3</span>
+    </a>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.828a1 1 0 101.415-1.414L11 9.586V6z" clip-rule="evenodd"/></svg>
+      CT 분석
+    </a>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Intelligence</div>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a3 3 0 01-3-3h6a3 3 0 01-3 3z"/></svg>
+      AI 예측
+    </a>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"/></svg>
+      AI 챗봇
+    </a>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="user-avatar">DK</div>
+      <div class="user-info">
+        <div class="user-name">김동규</div>
+        <div class="user-role">AX Division</div>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--gx-silver)"><path d="M4 6l4 4 4-4"/></svg>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══ Main ═══ -->
+<div class="main-wrapper">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <div>
+        <div class="page-title">공장 대시보드</div>
+        <div class="breadcrumb">제조기술1팀 / <span>2026년 7주차</span></div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="week-selector">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 7h12M5 1v4M11 1v4"/></svg>
+        W07 · Feb 10–14
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M4 5.5l3 3 3-3"/></svg>
+      </div>
+      <button class="header-btn">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.25 14.25L11.5 11.5M12.75 8.25a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"/></svg>
+      </button>
+      <button class="header-btn">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.73 11.455A6.75 6.75 0 009 2.25a6.75 6.75 0 00-4.73 9.205L2.25 15.75l4.295-1.98A6.75 6.75 0 0013.73 11.455z"/></svg>
+        <span class="dot"></span>
+      </button>
+      <button class="header-btn">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="9" r="2.25"/><path d="M14.85 11.1a1.2 1.2 0 00.24 1.32l.044.043a1.455 1.455 0 11-2.058 2.058l-.043-.043a1.2 1.2 0 00-1.32-.24 1.2 1.2 0 00-.727 1.098v.122a1.455 1.455 0 11-2.91 0v-.065A1.2 1.2 0 007.35 14.1a1.2 1.2 0 00-1.32.24l-.043.044a1.455 1.455 0 11-2.058-2.058l.043-.043a1.2 1.2 0 00.24-1.32 1.2 1.2 0 00-1.098-.728h-.122a1.455 1.455 0 110-2.91h.065a1.2 1.2 0 001.246-.727 1.2 1.2 0 00-.24-1.32l-.044-.043A1.455 1.455 0 116.077 3.18l.043.043a1.2 1.2 0 001.32.24h.06a1.2 1.2 0 00.727-1.098v-.122a1.455 1.455 0 012.91 0v.065a1.2 1.2 0 00.727 1.246 1.2 1.2 0 001.32-.24l.043-.044a1.455 1.455 0 012.058 2.058l-.043.043a1.2 1.2 0 00-.24 1.32v.06a1.2 1.2 0 001.098.727h.122a1.455 1.455 0 010 2.91h-.065a1.2 1.2 0 00-1.246.727z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Dashboard -->
+  <main class="dashboard">
+
+    <!-- Status Bar -->
+    <div class="status-bar animate-in delay-1">
+      <div class="status-left">
+        <div class="status-dot"></div>
+        <div class="status-text">
+          <strong>시스템 정상 운영</strong> · 데이터 동기화 완료
+        </div>
+      </div>
+      <div class="status-time">2026-02-13 19:17:05 KST</div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card primary animate-in delay-2">
+        <div class="kpi-header">
+          <div class="kpi-label">주간 생산량 (Planned Finish)</div>
+          <div class="kpi-icon-wrap">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13.5l4.5-4.5 3 3 4.5-6"/></svg>
+          </div>
+        </div>
+        <div class="kpi-value">37<span class="unit">대</span></div>
+        <div class="kpi-footer">
+          <span class="kpi-change up">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 2.5l4 5H2l4-5z"/></svg>
+            +12.1%
+          </span>
+          <span class="kpi-period">vs 6주차</span>
+        </div>
+      </div>
+
+      <div class="kpi-card success animate-in delay-3">
+        <div class="kpi-header">
+          <div class="kpi-label">완료율</div>
+          <div class="kpi-icon-wrap">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 4.5l-8.25 8.25L3 9"/></svg>
+          </div>
+        </div>
+        <div class="kpi-value">84.2<span class="unit">%</span></div>
+        <div class="kpi-footer">
+          <span class="kpi-change up">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 2.5l4 5H2l4-5z"/></svg>
+            +5.3%
+          </span>
+          <span class="kpi-period">vs 6주차</span>
+        </div>
+      </div>
+
+      <div class="kpi-card warning animate-in delay-4">
+        <div class="kpi-header">
+          <div class="kpi-label">불량 건수</div>
+          <div class="kpi-icon-wrap">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 6.75v3.375M9 13.5h.008M3.818 15.75h10.364c1.118 0 1.811-1.211 1.247-2.182L10.247 3.818a1.431 1.431 0 00-2.494 0L2.571 13.568c-.564.971.129 2.182 1.247 2.182z"/></svg>
+          </div>
+        </div>
+        <div class="kpi-value">4<span class="unit">건</span></div>
+        <div class="kpi-footer">
+          <span class="kpi-change down">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 9.5l4-5H2l4 5z"/></svg>
+            -2건
+          </span>
+          <span class="kpi-period">vs 6주차</span>
+        </div>
+      </div>
+
+      <div class="kpi-card info animate-in delay-5">
+        <div class="kpi-header">
+          <div class="kpi-label">평균 CT (Cycle Time)</div>
+          <div class="kpi-icon-wrap">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="9" r="6.75"/><path d="M9 5.25V9l2.25 2.25"/></svg>
+          </div>
+        </div>
+        <div class="kpi-value">72.5<span class="unit">h</span></div>
+        <div class="kpi-footer">
+          <span class="kpi-change up">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 2.5l4 5H2l4-5z"/></svg>
+            -8.2%
+          </span>
+          <span class="kpi-period">개선</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="chart-grid animate-in delay-5">
+      <!-- Bar Chart -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">주간 생산 지표 [Planned Finish]</div>
+            <div class="chart-subtitle">모델별 생산 완료 현황</div>
+          </div>
+          <div class="chart-actions">
+            <button class="chart-tab active">주간</button>
+            <button class="chart-tab">월간</button>
+            <button class="chart-tab">분기</button>
+          </div>
+        </div>
+        <div class="chart-body">
+          <div class="bar-chart" style="padding-left: 40px;">
+            <div class="bar-group">
+              <span class="bar-value">30</span>
+              <div class="bar bar-primary" style="height: 180px;"></div>
+              <span class="bar-label">GAIA-I DUAL</span>
+            </div>
+            <div class="bar-group">
+              <span class="bar-value">2</span>
+              <div class="bar bar-primary" style="height: 12px;"></div>
+              <span class="bar-label">GAIA-P DUAL</span>
+            </div>
+            <div class="bar-group">
+              <span class="bar-value">3</span>
+              <div class="bar bar-primary" style="height: 18px;"></div>
+              <span class="bar-label">GAIA-P</span>
+            </div>
+            <div class="bar-group">
+              <span class="bar-value">3</span>
+              <div class="bar bar-primary" style="height: 18px;"></div>
+              <span class="bar-label">GAIA-I</span>
+            </div>
+            <div class="bar-group">
+              <span class="bar-value">1</span>
+              <div class="bar bar-primary" style="height: 6px;"></div>
+              <span class="bar-label">GAIA-II DUAL</span>
+            </div>
+            <div class="bar-group">
+              <span class="bar-value">0</span>
+              <div class="bar bar-secondary" style="height: 3px;"></div>
+              <span class="bar-label">DRAGON DUAL</span>
+            </div>
+            <div class="bar-group">
+              <span class="bar-value">1</span>
+              <div class="bar bar-primary" style="height: 6px;"></div>
+              <span class="bar-label">SWS-I</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Donut Chart -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">모델 비율</div>
+            <div class="chart-subtitle">W07 생산 구성</div>
+          </div>
+        </div>
+        <div class="chart-body">
+          <div class="donut-chart-container">
+            <div class="donut-wrapper">
+              <svg class="donut-svg" width="180" height="180" viewBox="0 0 180 180">
+                <!-- Background circle -->
+                <circle cx="90" cy="90" r="68" fill="none" stroke="var(--gx-mist)" stroke-width="22"/>
+                <!-- GAIA-I DUAL: 81% -->
+                <circle class="donut-circle" cx="90" cy="90" r="68" 
+                  stroke="#6366F1" 
+                  stroke-dasharray="346.2" 
+                  stroke-dashoffset="65.8"/>
+                <!-- GAIA-P DUAL: 5.4% -->
+                <circle class="donut-circle" cx="90" cy="90" r="68" 
+                  stroke="#3B82F6" 
+                  stroke-dasharray="18.7 427.3" 
+                  stroke-dashoffset="-280.4"/>
+                <!-- GAIA-P: 8.1% -->
+                <circle class="donut-circle" cx="90" cy="90" r="68" 
+                  stroke="#10B981" 
+                  stroke-dasharray="28 419" 
+                  stroke-dashoffset="-299.1"/>
+                <!-- Others: 5.4% -->
+                <circle class="donut-circle" cx="90" cy="90" r="68" 
+                  stroke="#F59E0B" 
+                  stroke-dasharray="18.7 427.3" 
+                  stroke-dashoffset="-327.1"/>
+              </svg>
+              <div class="donut-center">
+                <div class="donut-center-value">37</div>
+                <div class="donut-center-label">총 생산</div>
+              </div>
+            </div>
+            <div class="donut-legend">
+              <div class="legend-item">
+                <div class="legend-dot" style="background:#6366F1"></div>
+                <span class="legend-label">GAIA-I DUAL</span>
+                <span class="legend-value">30대</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-dot" style="background:#10B981"></div>
+                <span class="legend-label">GAIA-P / GAIA-I</span>
+                <span class="legend-value">6대</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-dot" style="background:#F59E0B"></div>
+                <span class="legend-label">기타 모델</span>
+                <span class="legend-value">1대</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card animate-in delay-6">
+      <div class="chart-header" style="padding-bottom: 16px;">
+        <div>
+          <div class="chart-title">생산 현황 상세</div>
+          <div class="chart-subtitle">모델별 진행 현황 및 일정 추적</div>
+        </div>
+        <div class="chart-actions">
+          <button class="chart-tab active">전체</button>
+          <button class="chart-tab">진행중</button>
+          <button class="chart-tab">완료</button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>모델명</th>
+              <th>S/N</th>
+              <th>시작일</th>
+              <th>목표일</th>
+              <th>진행률</th>
+              <th>상태</th>
+              <th>담당 협력사</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="table-model">GAIA-I DUAL</td>
+              <td class="table-mono">SN-5892</td>
+              <td class="table-mono">02-10</td>
+              <td class="table-mono">02-14</td>
+              <td>
+                <div class="progress-bar-wrap">
+                  <div class="progress-bar"><div class="progress-fill high" style="width:100%"></div></div>
+                  <span class="progress-text high">100%</span>
+                </div>
+              </td>
+              <td><span class="status-badge completed"><span class="status-badge-dot"></span>완료</span></td>
+              <td>BAT</td>
+            </tr>
+            <tr>
+              <td class="table-model">GAIA-I DUAL</td>
+              <td class="table-mono">SN-5893</td>
+              <td class="table-mono">02-10</td>
+              <td class="table-mono">02-14</td>
+              <td>
+                <div class="progress-bar-wrap">
+                  <div class="progress-bar"><div class="progress-fill high" style="width:92%"></div></div>
+                  <span class="progress-text high">92%</span>
+                </div>
+              </td>
+              <td><span class="status-badge in-progress"><span class="status-badge-dot"></span>진행중</span></td>
+              <td>C&A</td>
+            </tr>
+            <tr>
+              <td class="table-model">GAIA-P</td>
+              <td class="table-mono">SN-5894</td>
+              <td class="table-mono">02-11</td>
+              <td class="table-mono">02-18</td>
+              <td>
+                <div class="progress-bar-wrap">
+                  <div class="progress-bar"><div class="progress-fill mid" style="width:64%"></div></div>
+                  <span class="progress-text mid">64%</span>
+                </div>
+              </td>
+              <td><span class="status-badge in-progress"><span class="status-badge-dot"></span>진행중</span></td>
+              <td>FNI</td>
+            </tr>
+            <tr>
+              <td class="table-model">GAIA-P DUAL</td>
+              <td class="table-mono">SN-5895</td>
+              <td class="table-mono">02-12</td>
+              <td class="table-mono">02-19</td>
+              <td>
+                <div class="progress-bar-wrap">
+                  <div class="progress-bar"><div class="progress-fill mid" style="width:45%"></div></div>
+                  <span class="progress-text mid">45%</span>
+                </div>
+              </td>
+              <td><span class="status-badge in-progress"><span class="status-badge-dot"></span>진행중</span></td>
+              <td>P&S</td>
+            </tr>
+            <tr>
+              <td class="table-model">SWS-I</td>
+              <td class="table-mono">SN-5896</td>
+              <td class="table-mono">02-13</td>
+              <td class="table-mono">02-21</td>
+              <td>
+                <div class="progress-bar-wrap">
+                  <div class="progress-bar"><div class="progress-fill low" style="width:18%"></div></div>
+                  <span class="progress-text low">18%</span>
+                </div>
+              </td>
+              <td><span class="status-badge pending"><span class="status-badge-dot"></span>초기</span></td>
+              <td>TMS(E)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Bottom Grid -->
+    <div class="bottom-grid animate-in delay-7">
+      <!-- Recent Activity -->
+      <div class="chart-card">
+        <div class="chart-header" style="padding-bottom:0;">
+          <div>
+            <div class="chart-title">최근 활동</div>
+            <div class="chart-subtitle">실시간 생산 이벤트</div>
+          </div>
+        </div>
+        <div class="chart-body">
+          <div class="activity-list">
+            <div class="activity-item">
+              <div class="activity-dot-wrap">
+                <div class="activity-dot green"></div>
+              </div>
+              <div class="activity-content">
+                <div class="activity-text"><strong>SN-5892</strong> GAIA-I DUAL 생산 완료</div>
+                <div class="activity-time">19분 전</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot-wrap">
+                <div class="activity-dot orange"></div>
+              </div>
+              <div class="activity-content">
+                <div class="activity-text"><strong>SN-5890</strong> 검사 공정 불량 감지 — 외관 스크래치</div>
+                <div class="activity-time">43분 전</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot-wrap">
+                <div class="activity-dot purple"></div>
+              </div>
+              <div class="activity-content">
+                <div class="activity-text"><strong>AI 예측</strong> GAIA-P DUAL 불량 확률 12.3% 경고</div>
+                <div class="activity-time">1시간 전</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot-wrap">
+                <div class="activity-dot blue"></div>
+              </div>
+              <div class="activity-content">
+                <div class="activity-text"><strong>데이터 동기화</strong> ERP → G-AXIS 파이프라인 완료 (82건)</div>
+                <div class="activity-time">2시간 전</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot-wrap">
+                <div class="activity-dot green"></div>
+              </div>
+              <div class="activity-content">
+                <div class="activity-text"><strong>SN-5888</strong> ~ <strong>SN-5891</strong> 출하 처리 완료 (4대)</div>
+                <div class="activity-time">3시간 전</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly Model Mix -->
+      <div class="chart-card">
+        <div class="chart-header" style="padding-bottom:0;">
+          <div>
+            <div class="chart-title">월간 생산 지표 [Planned Mech]</div>
+            <div class="chart-subtitle">2월 모델별 누적 현황</div>
+          </div>
+        </div>
+        <div class="chart-body">
+          <div class="mini-bars">
+            <div class="mini-bar-row">
+              <span class="mini-bar-label">GAIA-I DUAL</span>
+              <div class="mini-bar-track">
+                <div class="mini-bar-fill c1" style="width:82%;">81</div>
+              </div>
+              <span class="mini-bar-count">81대</span>
+            </div>
+            <div class="mini-bar-row">
+              <span class="mini-bar-label">GAIA-P DUAL</span>
+              <div class="mini-bar-track">
+                <div class="mini-bar-fill c2" style="width:12%;">12</div>
+              </div>
+              <span class="mini-bar-count">12대</span>
+            </div>
+            <div class="mini-bar-row">
+              <span class="mini-bar-label">GAIA-P</span>
+              <div class="mini-bar-track">
+                <div class="mini-bar-fill c3" style="width:10%;">10</div>
+              </div>
+              <span class="mini-bar-count">10대</span>
+            </div>
+            <div class="mini-bar-row">
+              <span class="mini-bar-label">GAIA-I</span>
+              <div class="mini-bar-track">
+                <div class="mini-bar-fill c4" style="width:8%;">8</div>
+              </div>
+              <span class="mini-bar-count">8대</span>
+            </div>
+            <div class="mini-bar-row">
+              <span class="mini-bar-label">DRAGON DUAL</span>
+              <div class="mini-bar-track">
+                <div class="mini-bar-fill c5" style="width:5%;">5</div>
+              </div>
+              <span class="mini-bar-count">5대</span>
+            </div>
+            <div class="mini-bar-row">
+              <span class="mini-bar-label">SWS-I</span>
+              <div class="mini-bar-track">
+                <div class="mini-bar-fill c6" style="width:3%;">3</div>
+              </div>
+              <span class="mini-bar-count">3대</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>
