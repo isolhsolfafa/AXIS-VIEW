@@ -166,6 +166,7 @@ export default function ChartSection({ companies, hqTotal, siteTotal, notChecked
                 axisLine={false}
                 tickLine={false}
                 width={28}
+                allowDecimals={false}
               />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--gx-accent-soft)' }} />
               <Bar dataKey="hq" name="본사" stackId="a" fill="#6366F1" radius={[0, 0, 0, 0]}>
