@@ -171,7 +171,10 @@ export default function AttendancePage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0 4px',
+            padding: '14px 20px',
+            background: 'var(--gx-white)',
+            borderRadius: 'var(--radius-gx-lg)',
+            boxShadow: 'var(--shadow-card)',
           }}
         >
           <div>
@@ -264,7 +267,10 @@ export default function AttendancePage() {
               alignItems: 'center',
               justifyContent: 'space-between',
               marginBottom: '12px',
-              padding: '0 4px',
+              padding: '14px 20px',
+              background: 'var(--gx-white)',
+              borderRadius: 'var(--radius-gx-lg)',
+              boxShadow: 'var(--shadow-card)',
             }}
           >
             <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
