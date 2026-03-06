@@ -185,11 +185,7 @@ export default function AttendanceTable({ records }: AttendanceTableProps) {
   return (
     <div
       style={{
-        background: 'var(--gx-white)',
-        borderRadius: 'var(--radius-gx-lg)',
-        boxShadow: 'var(--shadow-card)',
         overflow: 'hidden',
-        marginBottom: '24px',
       }}
     >
       <div style={{ overflowX: 'auto' }}>

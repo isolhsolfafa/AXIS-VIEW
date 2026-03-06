@@ -229,7 +229,17 @@ export default function AttendancePage() {
 
       {/* 테이블뷰일 때: 회사별 요약 테이블 */}
       {viewMode === 'table' && enrichedCompanies.length > 0 && (
-        <div className="animate-in" style={{ animationDelay: '0.3s' }}>
+        <div
+          className="animate-in"
+          style={{
+            animationDelay: '0.3s',
+            background: 'var(--gx-white)',
+            borderRadius: 'var(--radius-gx-lg)',
+            boxShadow: 'var(--shadow-card)',
+            overflow: 'hidden',
+            marginBottom: '24px',
+          }}
+        >
           <AttendanceTable records={filteredRecords} />
         </div>
       )}
@@ -244,8 +254,19 @@ export default function AttendancePage() {
         </div>
       )}
 
-      {/* Filter Bar */}
-      <div className="animate-in" style={{ animationDelay: '0.35s' }}>
+      {/* E-6. 작업자 출퇴근 현황 — 필터 + 타이틀 + 테이블 통합 카드 */}
+      <div
+        className="animate-in"
+        style={{
+          animationDelay: '0.35s',
+          background: 'var(--gx-white)',
+          borderRadius: 'var(--radius-gx-lg)',
+          boxShadow: 'var(--shadow-card)',
+          overflow: 'hidden',
+          marginBottom: '24px',
+        }}
+      >
+        {/* 필터바 */}
         <FilterBar
           selectedCompany={selectedCompany}
           onCompanyChange={setSelectedCompany}
@@ -256,39 +277,34 @@ export default function AttendancePage() {
           statusFilter={statusFilter}
           onStatusChange={setStatusFilter}
         />
-      </div>
 
-      {/* E-6. Attendance Table (작업자 출퇴근 현황 — 최하단, 카드뷰일 때만) */}
-      {viewMode === 'card' && (
-        <div className="animate-in" style={{ animationDelay: '0.38s' }}>
-          <div
+        {/* 섹션 타이틀 */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '14px 20px',
+            borderBottom: '1px solid var(--gx-cloud)',
+          }}
+        >
+          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
+            작업자 출퇴근 현황
+          </div>
+          <span
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '12px',
-              padding: '14px 20px',
-              background: 'var(--gx-white)',
-              borderRadius: 'var(--radius-gx-lg)',
-              boxShadow: 'var(--shadow-card)',
+              fontSize: '12px',
+              color: 'var(--gx-steel)',
+              fontFamily: "'JetBrains Mono', monospace",
             }}
           >
-            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
-              작업자 출퇴근 현황
-            </div>
-            <span
-              style={{
-                fontSize: '12px',
-                color: 'var(--gx-steel)',
-                fontFamily: "'JetBrains Mono', monospace",
-              }}
-            >
-              전체 {filteredRecords.length}명 · 출근 {filteredRecords.filter(r => r.status !== 'not_checked').length}명
-            </span>
-          </div>
-          <AttendanceTable records={filteredRecords} />
+            전체 {filteredRecords.length}명 · 출근 {filteredRecords.filter(r => r.status !== 'not_checked').length}명
+          </span>
         </div>
-      )}
+
+        {/* 테이블 */}
+        <AttendanceTable records={filteredRecords} />
+      </div>
     </Layout>
   );
 }

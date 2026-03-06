@@ -38,8 +38,8 @@ export default function FilterBar({
   onStatusChange,
 }: FilterBarProps) {
   return (
-    <div className="bg-white rounded-lg px-4 py-3 flex flex-wrap items-center gap-3"
-      style={{ boxShadow: '0 0 0 1px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.04)' }}>
+    <div className="px-4 py-3 flex flex-wrap items-center gap-3"
+      style={{ borderBottom: '1px solid var(--gx-cloud)' }}>
       {/* 상태 탭 */}
       <Tabs value={statusFilter} onValueChange={(v) => onStatusChange(v as StatusFilter)}>
         <TabsList className="h-8 bg-gx-cloud">
