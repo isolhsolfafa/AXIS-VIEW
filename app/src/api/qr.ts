@@ -14,6 +14,9 @@ export async function getQrList(params: QrListParams = {}): Promise<QrListRespon
   if (params.per_page) searchParams.set('per_page', String(params.per_page));
   if (params.sort_by) searchParams.set('sort_by', params.sort_by);
   if (params.sort_order) searchParams.set('sort_order', params.sort_order);
+  if (params.date_field) searchParams.set('date_field', params.date_field);
+  if (params.date_from) searchParams.set('date_from', params.date_from);
+  if (params.date_to) searchParams.set('date_to', params.date_to);
 
   const query = searchParams.toString();
   const url = `/api/admin/qr/list${query ? `?${query}` : ''}`;

@@ -1,9 +1,10 @@
 // src/components/layout/Header.tsx
 // 상단 헤더 (64px) — G-AXIS 디자인 시스템 완전 적용
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import SettingsModal from './SettingsModal';
+import AnnouncementPanel, { getUnreadAnnouncementCount } from './AnnouncementPanel';
 import { useSettings } from '@/hooks/useSettings';
 
 interface HeaderProps {
@@ -21,7 +22,13 @@ export default function Header({
 }: HeaderProps) {
   const [now, setNow] = useState(new Date());
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [announcementOpen, setAnnouncementOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(getUnreadAnnouncementCount);
   const { settings, updateSetting } = useSettings();
+
+  const refreshUnread = useCallback(() => {
+    setUnreadCount(getUnreadAnnouncementCount());
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30_000);
@@ -209,10 +216,89 @@ export default function Header({
           />
         </button>
 
+        {/* 공지사항 버튼 */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => {
+              setAnnouncementOpen((prev) => !prev);
+              setSettingsOpen(false);
+            }}
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: 'var(--radius-gx-md)',
+              border: `1px solid ${announcementOpen ? 'var(--gx-accent)' : 'var(--gx-mist)'}`,
+              background: announcementOpen ? 'var(--gx-accent-soft)' : 'var(--gx-white)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              color: announcementOpen ? 'var(--gx-accent)' : 'var(--gx-slate)',
+              position: 'relative',
+            }}
+            onMouseEnter={(e) => {
+              if (!announcementOpen) {
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.background = 'var(--gx-cloud)';
+                el.style.borderColor = 'var(--gx-silver)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!announcementOpen) {
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.background = 'var(--gx-white)';
+                el.style.borderColor = 'var(--gx-mist)';
+              }
+            }}
+          >
+            {/* 메가폰 아이콘 */}
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14.25 3v9a.75.75 0 01-1.125.65L9 10.5H5.25A1.5 1.5 0 013.75 9V6a1.5 1.5 0 011.5-1.5H9l4.125-2.15A.75.75 0 0114.25 3z"/>
+              <path d="M6 10.5v3a1.5 1.5 0 001.5 1.5h0A1.5 1.5 0 009 13.5V10.5"/>
+            </svg>
+            {/* 읽지 않은 공지 뱃지 */}
+            {unreadCount > 0 && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '5px',
+                  right: '5px',
+                  minWidth: '16px',
+                  height: '16px',
+                  borderRadius: '8px',
+                  background: 'var(--gx-danger, #EF4444)',
+                  border: '1.5px solid var(--gx-white)',
+                  color: '#fff',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 3px',
+                  lineHeight: 1,
+                }}
+              >
+                {unreadCount}
+              </span>
+            )}
+          </button>
+          <AnnouncementPanel
+            open={announcementOpen}
+            onClose={() => {
+              setAnnouncementOpen(false);
+              refreshUnread();
+            }}
+          />
+        </div>
+
         {/* 설정 버튼 */}
         <div style={{ position: 'relative' }}>
           <button
-            onClick={() => setSettingsOpen((prev) => !prev)}
+            onClick={() => {
+              setSettingsOpen((prev) => !prev);
+              setAnnouncementOpen(false);
+            }}
             style={{
               width: '38px',
               height: '38px',

@@ -42,4 +42,7 @@ export interface QrListParams {
   per_page?: number;
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
+  date_field?: 'mech_start' | 'module_start';
+  date_from?: string;
+  date_to?: string;
 }
