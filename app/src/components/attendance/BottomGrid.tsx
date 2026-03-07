@@ -53,6 +53,7 @@ export default function BottomGrid({ notCheckedRecords, locationSummaries }: Bot
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
         gap: '16px',
+        marginBottom: '24px',
       }}
     >
       {/* 퇴근 미체크 현황 */}

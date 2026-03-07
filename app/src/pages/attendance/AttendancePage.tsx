@@ -106,17 +106,31 @@ export default function AttendancePage() {
     return map;
   }, [checkedInRecords]);
 
+  // 회사별 퇴근 미체크 수 (출근했지만 퇴근 안 찍은 사람만)
+  const companyNoCheckout = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of allRecords) {
+      if (r.status === 'working' && r.check_in_time && !r.check_out_time) {
+        map.set(r.company, (map.get(r.company) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [allRecords]);
+
   // CompanySummaryCards에 전달할 enriched 데이터
   const enrichedCompanies = useMemo(() => {
     return companies.map((c) => {
       const breakdown = companyBreakdown.get(c.company);
+      const noCheckout = companyNoCheckout.get(c.company) ?? 0;
       return {
         ...c,
         hq_count: breakdown?.hq ?? 0,
         site_count: breakdown?.site ?? (c.checked_in - (breakdown?.hq ?? 0)),
+        not_checked: noCheckout,  // 퇴근 미체크만 카운트 (미출근 제외)
+        alert_type: (noCheckout > 5 ? 'danger' : noCheckout > 0 ? 'warning' : 'ok') as 'danger' | 'warning' | 'ok',
       };
     });
-  }, [companies, companyBreakdown]);
+  }, [companies, companyBreakdown, companyNoCheckout]);
 
   // 근무지 요약 (출근한 사람만)
   const locationSummaries = useMemo(() => {
@@ -165,7 +179,7 @@ export default function AttendancePage() {
       )}
 
       {/* E-4. Section Title + Company Cards */}
-      <div className="animate-in" style={{ animationDelay: '0.25s', marginBottom: '12px' }}>
+      <div className="animate-in" style={{ animationDelay: '0.25s', marginBottom: '24px' }}>
         <div
           style={{
             display: 'flex',
