@@ -1,7 +1,7 @@
 // src/api/qr.ts
 // QR 관리 API 호출
 
-import { apiClient } from './client';
+import apiClient from './client';
 import type { QrListResponse, QrListParams } from '@/types/qr';
 
 export async function getQrList(params: QrListParams = {}): Promise<QrListResponse> {
