@@ -84,9 +84,9 @@ const navGroups: NavGroup[] = [
   {
     title: 'Dashboard',
     items: [
-      { label: '공장 대시보드', icon: <FactoryIcon />, disabled: true },
+      { label: '공장 대시보드', icon: <FactoryIcon />, to: '/factory' },
       { label: '협력사 대시보드', icon: <UsersIcon />, to: '/attendance' },
-      { label: '생산일정', icon: <CalendarIcon />, disabled: true },
+      { label: '생산일정', icon: <CalendarIcon />, to: '/plan' },
     ],
   },
   {
@@ -98,8 +98,8 @@ const navGroups: NavGroup[] = [
   {
     title: 'Analysis',
     items: [
-      { label: '불량 분석', icon: <AlertIcon />, disabled: true, badge: '3' },
-      { label: 'CT 분석', icon: <ClockIcon />, disabled: true },
+      { label: '불량 분석', icon: <AlertIcon />, to: '/defect' },
+      { label: 'CT 분석', icon: <ClockIcon />, to: '/ct' },
     ],
   },
   {

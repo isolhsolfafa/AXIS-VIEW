@@ -5,6 +5,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '@/pages/LoginPage';
 import AttendancePage from '@/pages/attendance/AttendancePage';
 import QrManagementPage from '@/pages/qr/QrManagementPage';
+import FactoryDashboardPage from '@/pages/factory/FactoryDashboardPage';
+import ProductionPlanPage from '@/pages/plan/ProductionPlanPage';
+import DefectAnalysisPage from '@/pages/defect/DefectAnalysisPage';
+import CtAnalysisPage from '@/pages/ct/CtAnalysisPage';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 function NotFoundPage() {
@@ -44,6 +48,46 @@ export default function App() {
           element={
             <ProtectedRoute>
               <QrManagementPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 공장 대시보드 (Phase 3 — 샘플) */}
+        <Route
+          path="/factory"
+          element={
+            <ProtectedRoute>
+              <FactoryDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 생산일정 (Phase 3 — 샘플) */}
+        <Route
+          path="/plan"
+          element={
+            <ProtectedRoute>
+              <ProductionPlanPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 불량 분석 (Phase 3 — 샘플) */}
+        <Route
+          path="/defect"
+          element={
+            <ProtectedRoute>
+              <DefectAnalysisPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* CT 분석 (Phase 3 — 샘플) */}
+        <Route
+          path="/ct"
+          element={
+            <ProtectedRoute>
+              <CtAnalysisPage />
             </ProtectedRoute>
           }
         />

@@ -10,6 +10,10 @@ import { useSettings } from '@/hooks/useSettings';
 const BREADCRUMB_MAP: Record<string, string> = {
   '협력사 대시보드': '출입 현황',
   'QR 관리': 'QR Registry',
+  '공장 대시보드': '제조 현황',
+  '생산일정': 'SCR 생산 현황',
+  '불량 분석': 'GST 통합 검사',
+  'CT 분석': 'IQR 군집도 분석',
 };
 
 interface HeaderProps {
