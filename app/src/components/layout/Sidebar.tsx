@@ -11,6 +11,7 @@ interface NavItem {
   to?: string;
   disabled?: boolean;
   badge?: string;
+  preparing?: boolean;
 }
 
 interface NavGroup {
@@ -84,9 +85,9 @@ const navGroups: NavGroup[] = [
   {
     title: 'Dashboard',
     items: [
-      { label: '공장 대시보드', icon: <FactoryIcon />, to: '/factory' },
+      { label: '공장 대시보드', icon: <FactoryIcon />, to: '/factory', preparing: true },
       { label: '협력사 대시보드', icon: <UsersIcon />, to: '/attendance' },
-      { label: '생산일정', icon: <CalendarIcon />, to: '/plan' },
+      { label: '생산일정', icon: <CalendarIcon />, to: '/plan', preparing: true },
     ],
   },
   {
@@ -98,8 +99,8 @@ const navGroups: NavGroup[] = [
   {
     title: 'Analysis',
     items: [
-      { label: '불량 분석', icon: <AlertIcon />, to: '/defect' },
-      { label: 'CT 분석', icon: <ClockIcon />, to: '/ct' },
+      { label: '불량 분석', icon: <AlertIcon />, to: '/defect', preparing: true },
+      { label: 'CT 분석', icon: <ClockIcon />, to: '/ct', preparing: true },
     ],
   },
   {
@@ -213,6 +214,7 @@ export default function Sidebar() {
               {group.title}
             </div>
             {group.items.map((item) => {
+              // 완전 비활성 (자물쇠)
               if (item.disabled) {
                 return (
                   <div
@@ -232,30 +234,54 @@ export default function Sidebar() {
                   >
                     <span style={{ opacity: 0.6, flexShrink: 0, display: 'flex' }}>{item.icon}</span>
                     <span style={{ flex: 1 }}>{item.label}</span>
-                    {item.badge && (
-                      <span
-                        style={{
-                          background: 'var(--gx-danger)',
-                          color: 'white',
-                          fontSize: '10px',
-                          fontWeight: 600,
-                          padding: '2px 7px',
-                          borderRadius: '10px',
-                          marginLeft: 'auto',
-                        }}
-                      >
-                        {item.badge}
-                      </span>
-                    )}
-                    {!item.badge && (
-                      <span style={{ color: 'var(--gx-steel)', flexShrink: 0 }}>
-                        <LockIcon />
-                      </span>
-                    )}
+                    <span style={{ color: 'var(--gx-steel)', flexShrink: 0 }}>
+                      <LockIcon />
+                    </span>
                   </div>
                 );
               }
 
+              // 준비중 (클릭 가능하지만 비활성 톤 + "준비중" 뱃지)
+              if (item.preparing) {
+                return (
+                  <NavLink
+                    key={item.label}
+                    to={item.to || '/'}
+                    style={({ isActive }) => ({
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 12px',
+                      borderRadius: 'var(--radius-gx-md)',
+                      color: isActive ? 'var(--gx-slate)' : 'var(--gx-slate)',
+                      background: isActive ? 'var(--gx-cloud)' : 'transparent',
+                      fontSize: '13.5px',
+                      fontWeight: 500,
+                      opacity: 0.5,
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease',
+                    })}
+                  >
+                    <span style={{ opacity: 0.6, flexShrink: 0, display: 'flex' }}>{item.icon}</span>
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    <span
+                      style={{
+                        fontSize: '9px',
+                        fontWeight: 600,
+                        padding: '2px 7px',
+                        borderRadius: '10px',
+                        background: 'var(--gx-warning-bg)',
+                        color: 'var(--gx-warning)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      준비중
+                    </span>
+                  </NavLink>
+                );
+              }
+
+              // 활성 메뉴
               return (
                 <NavLink
                   key={item.label}
