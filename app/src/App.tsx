@@ -4,6 +4,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '@/pages/LoginPage';
 import AttendancePage from '@/pages/attendance/AttendancePage';
+import QrManagementPage from '@/pages/qr/QrManagementPage';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 function NotFoundPage() {
@@ -33,6 +34,16 @@ export default function App() {
           element={
             <ProtectedRoute>
               <AttendancePage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* QR 관리 (관리자/매니저 전용) */}
+        <Route
+          path="/qr"
+          element={
+            <ProtectedRoute>
+              <QrManagementPage />
             </ProtectedRoute>
           }
         />

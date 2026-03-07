@@ -92,7 +92,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'Management',
     items: [
-      { label: 'QR 관리', icon: <QrIcon />, disabled: true },
+      { label: 'QR 관리', icon: <QrIcon />, to: '/qr' },
     ],
   },
   {
