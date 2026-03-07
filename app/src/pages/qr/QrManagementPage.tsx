@@ -2,6 +2,7 @@
 // QR 관리 페이지 — G-AXIS 디자인 시스템
 
 import { useState, useMemo, useCallback } from 'react';
+import { format } from 'date-fns';
 import Layout from '@/components/layout/Layout';
 import { useQrList } from '@/hooks/useQr';
 import { getQrList } from '@/api/qr';
@@ -157,7 +158,7 @@ export default function QrManagementPage() {
     date_to: dateTo || undefined,
   }), [search, modelFilter, statusFilter, page, sortBy, sortOrder, dateField, dateFrom, dateTo]);
 
-  const { data, isLoading, isError } = useQrList(params);
+  const { data, isLoading, isError, dataUpdatedAt } = useQrList(params);
 
   const handleSort = (col: string) => {
     if (sortBy === col) {
@@ -256,14 +257,60 @@ export default function QrManagementPage() {
   return (
     <Layout title="QR 관리">
       <div style={{ padding: '28px 32px', maxWidth: '1400px' }}>
-        {/* 헤더 */}
-        <div style={{ marginBottom: '28px' }}>
-          <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--gx-charcoal)', margin: 0, letterSpacing: '-0.3px' }}>
-            QR 관리
-          </h1>
-          <p style={{ fontSize: '13px', color: 'var(--gx-steel)', marginTop: '6px' }}>
-            QR Registry 및 제품 메타데이터 조회
-          </p>
+        {/* 동기화 상태 바 */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '14px 20px',
+            background: 'var(--gx-white)',
+            borderRadius: 'var(--radius-gx-lg)',
+            boxShadow: 'var(--shadow-card)',
+            marginBottom: '24px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '8px', height: '8px', borderRadius: '50%',
+                background: isError ? 'var(--gx-danger)' : 'var(--gx-success)',
+                animation: isLoading ? 'pulse 1s infinite' : 'pulse 2s infinite',
+                flexShrink: 0,
+              }}
+            />
+            <div style={{ fontSize: '13px', color: 'var(--gx-slate)' }}>
+              <strong style={{ color: 'var(--gx-charcoal)', fontWeight: 600 }}>
+                {isLoading ? 'QR 데이터 동기화 중...' : isError ? 'QR 데이터 동기화 실패' : 'QR 데이터 동기화 완료'}
+              </strong>
+              {' · '}
+              {total.toLocaleString()}건 등록
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '4px 12px', borderRadius: 'var(--radius-gx-sm)',
+                fontSize: '12px', fontWeight: 500,
+                color: 'var(--gx-accent)', background: 'var(--gx-accent-soft)',
+              }}
+            >
+              <QrIcon />
+              QR Registry
+            </div>
+            {dataUpdatedAt > 0 && (
+              <div
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: '12px',
+                  color: 'var(--gx-steel)', background: 'var(--gx-cloud)',
+                  padding: '4px 12px', borderRadius: 'var(--radius-gx-sm)',
+                }}
+              >
+                {format(new Date(dataUpdatedAt), 'yyyy-MM-dd HH:mm')} KST
+              </div>
+            )}
+          </div>
         </div>
 
         {/* KPI 카드 */}
