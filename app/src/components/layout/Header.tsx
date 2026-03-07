@@ -7,6 +7,11 @@ import SettingsModal from './SettingsModal';
 import AnnouncementPanel, { getUnreadAnnouncementCount } from './AnnouncementPanel';
 import { useSettings } from '@/hooks/useSettings';
 
+const BREADCRUMB_MAP: Record<string, string> = {
+  '협력사 대시보드': '출입 현황',
+  'QR 관리': 'QR Registry',
+};
+
 interface HeaderProps {
   title?: string;
   lastUpdated?: Date | null;
@@ -74,7 +79,7 @@ export default function Header({
               color: 'var(--gx-steel)',
             }}
           >
-            <span>출입 현황</span>
+            <span>{BREADCRUMB_MAP[title] ?? title}</span>
             <span>/</span>
             <span style={{ color: 'var(--gx-accent)', fontWeight: 500 }}>
               {displayDateKO}

@@ -254,7 +254,7 @@ export default function QrManagementPage() {
   };
 
   return (
-    <Layout>
+    <Layout title="QR 관리">
       <div style={{ padding: '28px 32px', maxWidth: '1400px' }}>
         {/* 헤더 */}
         <div style={{ marginBottom: '28px' }}>
