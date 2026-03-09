@@ -18,7 +18,7 @@
 
 ## QR 관리 (`/api/admin/qr`)
 
-### 1. QR 목록 날짜 필터 파라미터 지원 — PENDING
+### 1. QR 목록 날짜 필터 파라미터 지원 — DONE (2026-03-08)
 
 **엔드포인트**: `GET /api/admin/qr/list`
 
@@ -35,7 +35,7 @@
 GET /api/admin/qr/list?date_field=mech_start&date_from=2026-03-01&date_to=2026-03-15
 ```
 
-**목적**: QR 관리 페이지에서 기구시작/모듈시작 일정 기준으로 조회 + CSV 추출
+**목적**: QR 관리 페이지에서 기구시작/모듈시작 일정 기준으로 조회
 
 **FE 현황**: 파라미터 전송 구현 완료 (`src/api/qr.ts`, `src/pages/qr/QrManagementPage.tsx`)
 

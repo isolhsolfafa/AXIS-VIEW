@@ -1,36 +1,42 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-07
+> 마지막 업데이트: 2026-03-09
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
 
 ---
 
-## Phase 2: QR 관리 페이지 — ✅ 완료 (2026-03-07)
+## Phase 2: QR 관리 페이지 — ✅ 완료 (2026-03-08)
 
 QR 관리 페이지 FE 구현 및 Netlify 배포 완료.
 BE 500 에러 수정 후 정상 조회 확인 (200 OK).
-일정 기준 날짜 필터 + CSV 추출 기능 추가.
+일정 기준 날짜 필터 + CSV 추출 + 동기화 상태바 추가.
+기본 필터: 오늘~+2주 (기구시작 기준), 전체 보기 옵션 제공.
 
 ### 변경 파일
 
 | 파일 | 변경 내용 |
 |------|----------|
-| `src/types/qr.ts` | **신규** — QrRecord, QrListResponse, QrListParams 타입 정의 |
+| `src/types/qr.ts` | **신규** — QrRecord, QrListResponse, QrListParams 타입 정의 (날짜 필터 파라미터 포함) |
 | `src/api/qr.ts` | **신규** — QR 목록 조회 API + 날짜 필터 파라미터 (date_field, date_from, date_to) |
 | `src/hooks/useQr.ts` | **신규** — TanStack Query 훅 (30초 캐시) |
-| `src/pages/qr/QrManagementPage.tsx` | **신규** — KPI 카드 + 필터 + 테이블 + 페이지네이션 + 날짜 필터 + CSV 다운로드 |
+| `src/pages/qr/QrManagementPage.tsx` | **신규** — 동기화 상태바 + KPI 카드 + 필터 + 테이블 + 페이지네이션 + CSV 다운로드 |
 | `src/App.tsx` | `/qr` 라우트 추가 (ProtectedRoute) |
 | `src/components/layout/Sidebar.tsx` | QR 관리 메뉴 활성화 (잠금 해제) |
+| `src/components/layout/Header.tsx` | 페이지별 타이틀/breadcrumb 동적 변경 (BREADCRUMB_MAP) |
 
 ### Phase 2 세부 기능
 
 | 기능 | 설명 |
 |------|------|
+| 동기화 상태바 | 초록 dot + 동기화 상태 + 등록 건수 + 마지막 동기화 시간(KST) |
+| 기본 날짜 필터 | 페이지 진입 시 기구시작 기준 오늘~+2주 자동 적용 |
 | 날짜 필터 | 기준(기구시작/모듈시작) 선택 + 날짜 범위 picker |
+| 전체 보기 | 날짜 필터 해제하여 전체 리스트 조회 |
 | CSV 다운로드 | 현재 필터 기준 전체 데이터에서 QR_DOC_ID, SN만 추출 |
 | 컬럼명 변경 | "반제품시작" → "모듈시작" |
 | 검색 | S/N, QR Doc ID 텍스트 검색 유지 |
+| 헤더 동기화 | 페이지 전환 시 헤더 타이틀 + breadcrumb 자동 변경 |
 
 ### 해결된 이슈
 
@@ -38,6 +44,8 @@ BE 500 에러 수정 후 정상 조회 확인 (200 OK).
 |------|------|
 | QR API 500 에러 | BE 수정 완료 → 200 정상 반환 |
 | apiClient import 오류 | default export로 수정 → Netlify 빌드 통과 |
+| 헤더 타이틀 미변경 | Layout에 title prop 전달 + BREADCRUMB_MAP 추가 |
+| 중복 헤더 | QR 페이지 내 h1 제거, 동기화 상태바로 대체 |
 
 ---
 
@@ -143,4 +151,4 @@ BE 응답 필드명 불일치 수정(`user` → `worker`), 타입 필드 추가,
 | 2 | API 연동 준비 + 설정 메뉴 (worker 타입, 자동새로고침, 뷰토글) | ✅ 완료 |
 | 3 | 실 데이터 연결 (device_id, logout, work_site 매핑, Mock 제거) | ✅ 완료 |
 | 3-hotfix | 대시보드 접근 권한 확장 (is_manager 허용 + 모달 팝업) | ✅ 완료 |
-| Phase 2 | QR 관리 페이지 (날짜 필터 + CSV 추출 + 모듈시작 컬럼명) | ✅ 완료 |
+| Phase 2 | QR 관리 페이지 (상태바 + 기본2주필터 + CSV 추출 + 헤더 동기화) | ✅ 완료 |

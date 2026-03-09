@@ -2,7 +2,7 @@
 // QR 관리 페이지 — G-AXIS 디자인 시스템
 
 import { useState, useMemo, useCallback } from 'react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import Layout from '@/components/layout/Layout';
 import { useQrList } from '@/hooks/useQr';
 import { getQrList } from '@/api/qr';
@@ -126,24 +126,38 @@ function downloadCsv(items: { qr_doc_id: string; serial_number: string }[], file
   URL.revokeObjectURL(url);
 }
 
+/* ── 기본 날짜 범위: 오늘 ~ +2주 ── */
+function getDefaultDateRange() {
+  const today = new Date();
+  return {
+    from: format(today, 'yyyy-MM-dd'),
+    to: format(addDays(today, 14), 'yyyy-MM-dd'),
+  };
+}
+
 /* ===== 메인 컴포넌트 ===== */
 export default function QrManagementPage() {
+  const defaultRange = useMemo(() => getDefaultDateRange(), []);
+
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [modelFilter, setModelFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
-  const [sortBy, setSortBy] = useState('qr.created_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortBy, setSortBy] = useState('mech_start');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const perPage = 30;
 
-  // 날짜 필터
+  // 날짜 필터 — 기본값: 오늘 ~ +2주
   const [dateField, setDateField] = useState<'mech_start' | 'module_start'>('mech_start');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState(defaultRange.from);
+  const [dateTo, setDateTo] = useState(defaultRange.to);
 
   // CSV 다운로드 로딩
   const [exporting, setExporting] = useState(false);
+
+  // 전체 보기 모드
+  const [showAll, setShowAll] = useState(false);
 
   const params: QrListParams = useMemo(() => ({
     search: search || undefined,
@@ -153,10 +167,10 @@ export default function QrManagementPage() {
     per_page: perPage,
     sort_by: sortBy,
     sort_order: sortOrder,
-    date_field: (dateFrom || dateTo) ? dateField : undefined,
-    date_from: dateFrom || undefined,
-    date_to: dateTo || undefined,
-  }), [search, modelFilter, statusFilter, page, sortBy, sortOrder, dateField, dateFrom, dateTo]);
+    date_field: (!showAll && (dateFrom || dateTo)) ? dateField : undefined,
+    date_from: (!showAll && dateFrom) ? dateFrom : undefined,
+    date_to: (!showAll && dateTo) ? dateTo : undefined,
+  }), [search, modelFilter, statusFilter, page, sortBy, sortOrder, dateField, dateFrom, dateTo, showAll]);
 
   const { data, isLoading, isError, dataUpdatedAt } = useQrList(params);
 
@@ -180,8 +194,15 @@ export default function QrManagementPage() {
     setSearchInput('');
     setModelFilter('');
     setStatusFilter('');
-    setDateFrom('');
-    setDateTo('');
+    setDateField('mech_start');
+    setDateFrom(defaultRange.from);
+    setDateTo(defaultRange.to);
+    setShowAll(false);
+    setPage(1);
+  };
+
+  const handleShowAll = () => {
+    setShowAll(true);
     setPage(1);
   };
 
@@ -217,8 +238,9 @@ export default function QrManagementPage() {
     }
   }, [search, modelFilter, statusFilter, sortBy, sortOrder, dateField, dateFrom, dateTo]);
 
-  const hasDateFilter = dateFrom || dateTo;
+  const hasDateFilter = !showAll && (dateFrom || dateTo);
   const hasAnyFilter = search || modelFilter || statusFilter || hasDateFilter;
+  const isDefaultState = !showAll && dateFrom === defaultRange.from && dateTo === defaultRange.to && dateField === 'mech_start' && !search && !modelFilter && !statusFilter;
 
   /* ── 테이블 컬럼 정의 ── */
   const columns: { key: string; label: string; sortable: boolean; width?: string }[] = [
@@ -416,8 +438,22 @@ export default function QrManagementPage() {
 
             <div style={{ flex: 1 }} />
 
-            {/* 초기화 */}
-            {hasAnyFilter && (
+            {/* 전체 보기 */}
+            {!showAll && (
+              <button
+                onClick={handleShowAll}
+                style={{
+                  padding: '8px 14px', borderRadius: 'var(--radius-gx-md)',
+                  background: 'var(--gx-white)', color: 'var(--gx-slate)', border: '1px solid var(--gx-mist)',
+                  fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap',
+                }}
+              >
+                전체 보기
+              </button>
+            )}
+
+            {/* 초기화 (기본 2주 범위로 복귀) */}
+            {!isDefaultState && (
               <button
                 onClick={handleReset}
                 style={{
@@ -453,9 +489,11 @@ export default function QrManagementPage() {
         <div style={{ fontSize: '12px', color: 'var(--gx-steel)', marginBottom: '12px', paddingLeft: '4px' }}>
           총 <strong style={{ color: 'var(--gx-charcoal)' }}>{total.toLocaleString()}</strong>건
           {search && <span> · "{search}" 검색결과</span>}
-          {hasDateFilter && (
+          {showAll ? (
+            <span> · 전체 보기</span>
+          ) : hasDateFilter ? (
             <span> · {dateField === 'mech_start' ? '기구시작' : '모듈시작'} {dateFrom || '…'} ~ {dateTo || '…'}</span>
-          )}
+          ) : null}
         </div>
 
         {/* 테이블 */}
