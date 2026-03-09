@@ -413,7 +413,7 @@ export default function QrManagementPage() {
             </div>
             <select
               value={dateField}
-              onChange={e => { setDateField(e.target.value as 'mech_start' | 'module_start'); setPage(1); }}
+              onChange={e => { setDateField(e.target.value as 'mech_start' | 'module_start'); setShowAll(false); setPage(1); }}
               style={{ ...selectStyle, minWidth: '120px' }}
             >
               <option value="mech_start">기구시작</option>
@@ -424,14 +424,14 @@ export default function QrManagementPage() {
             <input
               type="date"
               value={dateFrom}
-              onChange={e => { setDateFrom(e.target.value); setPage(1); }}
+              onChange={e => { setDateFrom(e.target.value); setShowAll(false); setPage(1); }}
               style={dateInputStyle}
             />
             <span style={{ fontSize: '13px', color: 'var(--gx-steel)' }}>~</span>
             <input
               type="date"
               value={dateTo}
-              onChange={e => { setDateTo(e.target.value); setPage(1); }}
+              onChange={e => { setDateTo(e.target.value); setShowAll(false); setPage(1); }}
               style={dateInputStyle}
             />
 
