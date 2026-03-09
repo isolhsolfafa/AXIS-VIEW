@@ -239,7 +239,6 @@ export default function QrManagementPage() {
   }, [search, modelFilter, statusFilter, sortBy, sortOrder, dateField, dateFrom, dateTo]);
 
   const hasDateFilter = !showAll && (dateFrom || dateTo);
-  const hasAnyFilter = search || modelFilter || statusFilter || hasDateFilter;
   const isDefaultState = !showAll && dateFrom === defaultRange.from && dateTo === defaultRange.to && dateField === 'mech_start' && !search && !modelFilter && !statusFilter;
 
   /* ── 테이블 컬럼 정의 ── */
