@@ -7,14 +7,17 @@ export interface Announcement {
   id: number;
   title: string;
   content: string;
-  priority: AnnouncementPriority;
-  is_active: boolean;
-  created_by: string;       // 작성자 이름
+  version: string;
+  is_pinned: boolean;
+  created_by: number;
+  author_name: string;
   created_at: string;       // ISO8601
   updated_at: string;       // ISO8601
 }
 
-export interface AnnouncementListResponse {
-  announcements: Announcement[];
+export interface NoticeListResponse {
+  notices: Announcement[];
   total: number;
+  page: number;
+  limit: number;
 }

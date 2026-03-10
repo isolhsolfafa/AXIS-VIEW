@@ -1,11 +1,12 @@
 // src/components/layout/Header.tsx
 // 상단 헤더 (64px) — G-AXIS 디자인 시스템 완전 적용
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import SettingsModal from './SettingsModal';
-import AnnouncementPanel, { getUnreadAnnouncementCount } from './AnnouncementPanel';
+import AnnouncementPanel from './AnnouncementPanel';
 import { useSettings } from '@/hooks/useSettings';
+import { useNotices } from '@/hooks/useNotices';
 
 const BREADCRUMB_MAP: Record<string, string> = {
   '협력사 대시보드': '출입 현황',
@@ -32,12 +33,24 @@ export default function Header({
   const [now, setNow] = useState(new Date());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(getUnreadAnnouncementCount);
+  const [readVersion, setReadVersion] = useState(0);
   const { settings, updateSetting } = useSettings();
 
-  const refreshUnread = useCallback(() => {
-    setUnreadCount(getUnreadAnnouncementCount());
-  }, []);
+  // 공지사항 API로 unread 카운트 계산
+  const { data: noticeData } = useNotices({ limit: 20 });
+  const unreadCount = useMemo(() => {
+    // readVersion을 의존성에 포함하여 읽음 처리 시 재계산
+    void readVersion;
+    const notices = noticeData?.notices ?? [];
+    if (notices.length === 0) return 0;
+    try {
+      const raw = localStorage.getItem('axis_view_read_announcements');
+      const readIds = raw ? new Set(JSON.parse(raw) as number[]) : new Set<number>();
+      return notices.filter((n) => !readIds.has(n.id)).length;
+    } catch {
+      return notices.length;
+    }
+  }, [noticeData, readVersion]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30_000);
@@ -296,7 +309,7 @@ export default function Header({
             open={announcementOpen}
             onClose={() => {
               setAnnouncementOpen(false);
-              refreshUnread();
+              setReadVersion((v) => v + 1);
             }}
           />
         </div>

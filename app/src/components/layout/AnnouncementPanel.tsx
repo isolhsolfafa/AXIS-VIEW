@@ -1,52 +1,9 @@
 // src/components/layout/AnnouncementPanel.tsx
-// 공지사항 드롭다운 패널 — OPS 연동 전까지 Mock 데이터 사용
+// 공지사항 드롭다운 패널 — GET /api/notices API 연동
 
 import { useState, useEffect, useRef } from 'react';
-import type { Announcement, AnnouncementPriority } from '@/types/announcement';
-
-/* ── Mock 공지사항 데이터 ───────────────────────────── */
-const MOCK_ANNOUNCEMENTS: Announcement[] = [
-  {
-    id: 1,
-    title: '3월 안전교육 일정 안내',
-    content: '3월 10일(화) 오전 10시, GST공장 대회의실에서 정기 안전교육을 실시합니다. 모든 협력사 작업자 필참입니다.',
-    priority: 'important',
-    is_active: true,
-    created_by: '관리자',
-    created_at: '2026-03-07T09:00:00+09:00',
-    updated_at: '2026-03-07T09:00:00+09:00',
-  },
-  {
-    id: 2,
-    title: '출입게이트 시스템 점검 공지',
-    content: '3월 8일(일) 02:00~06:00 출입게이트 시스템 정기점검이 예정되어 있습니다. 해당 시간 자동 체크인/아웃이 일시 중단됩니다.',
-    priority: 'urgent',
-    is_active: true,
-    created_by: '시스템관리자',
-    created_at: '2026-03-06T14:30:00+09:00',
-    updated_at: '2026-03-06T14:30:00+09:00',
-  },
-  {
-    id: 3,
-    title: '신규 협력사 등록 완료 (DEF산업)',
-    content: 'DEF산업이 신규 협력사로 등록되었습니다. MECH 직군 작업자 6명이 배정 예정입니다.',
-    priority: 'normal',
-    is_active: true,
-    created_by: '관리자',
-    created_at: '2026-03-05T11:00:00+09:00',
-    updated_at: '2026-03-05T11:00:00+09:00',
-  },
-  {
-    id: 4,
-    title: '퇴근 미체크 관련 안내',
-    content: '퇴근 시 반드시 출입게이트를 통과하여 체크아웃을 완료해 주세요. 미체크가 반복되면 협력사에 통보됩니다.',
-    priority: 'normal',
-    is_active: true,
-    created_by: '관리자',
-    created_at: '2026-03-03T16:00:00+09:00',
-    updated_at: '2026-03-03T16:00:00+09:00',
-  },
-];
+import { useNotices } from '@/hooks/useNotices';
+import type { Announcement } from '@/types/announcement';
 
 /* ── 읽음 상태 관리 (localStorage) ──────────────────── */
 const STORAGE_KEY = 'axis_view_read_announcements';
@@ -65,11 +22,10 @@ function saveReadIds(ids: Set<number>) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
 }
 
-/* ── 우선순위 뱃지 ─────────────────────────────────── */
-const PRIORITY_CONFIG: Record<AnnouncementPriority, { label: string; bg: string; color: string }> = {
-  urgent:    { label: '긴급', bg: '#FEE2E2', color: '#DC2626' },
-  important: { label: '중요', bg: '#FEF3C7', color: '#D97706' },
-  normal:    { label: '일반', bg: '#F1F5F9', color: '#64748B' },
+/* ── 우선순위 뱃지 (is_pinned 기반 매핑) ──────────────── */
+const PRIORITY_CONFIG = {
+  pinned: { label: '중요', bg: '#FEF3C7', color: '#D97706' },
+  normal: { label: '일반', bg: '#F1F5F9', color: '#64748B' },
 };
 
 /* ── 날짜 포맷 ─────────────────────────────────────── */
@@ -98,6 +54,10 @@ export default function AnnouncementPanel({ open, onClose }: AnnouncementPanelPr
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // API 호출
+  const { data, isLoading } = useNotices({ limit: 20 });
+  const announcements: Announcement[] = data?.notices ?? [];
+
   // 외부 클릭 시 닫기
   useEffect(() => {
     if (!open) return;
@@ -106,7 +66,6 @@ export default function AnnouncementPanel({ open, onClose }: AnnouncementPanelPr
         onClose();
       }
     }
-    // 약간 지연시켜 toggle 충돌 방지
     const t = setTimeout(() => document.addEventListener('mousedown', handleClick), 50);
     return () => {
       clearTimeout(t);
@@ -116,12 +75,10 @@ export default function AnnouncementPanel({ open, onClose }: AnnouncementPanelPr
 
   if (!open) return null;
 
-  const announcements = MOCK_ANNOUNCEMENTS.filter((a) => a.is_active);
   const unreadCount = announcements.filter((a) => !readIds.has(a.id)).length;
 
   function handleExpand(id: number) {
     setExpandedId((prev) => (prev === id ? null : id));
-    // 읽음 처리
     if (!readIds.has(id)) {
       const next = new Set(readIds);
       next.add(id);
@@ -205,7 +162,18 @@ export default function AnnouncementPanel({ open, onClose }: AnnouncementPanelPr
 
       {/* 공지 목록 */}
       <div style={{ overflowY: 'auto', flex: 1 }}>
-        {announcements.length === 0 ? (
+        {isLoading ? (
+          <div
+            style={{
+              padding: '40px 20px',
+              textAlign: 'center',
+              color: 'var(--gx-steel)',
+              fontSize: '13px',
+            }}
+          >
+            불러오는 중...
+          </div>
+        ) : announcements.length === 0 ? (
           <div
             style={{
               padding: '40px 20px',
@@ -220,7 +188,7 @@ export default function AnnouncementPanel({ open, onClose }: AnnouncementPanelPr
           announcements.map((a) => {
             const isRead = readIds.has(a.id);
             const isExpanded = expandedId === a.id;
-            const priorityCfg = PRIORITY_CONFIG[a.priority];
+            const priorityCfg = a.is_pinned ? PRIORITY_CONFIG.pinned : PRIORITY_CONFIG.normal;
 
             return (
               <div
@@ -255,19 +223,21 @@ export default function AnnouncementPanel({ open, onClose }: AnnouncementPanelPr
                       }}
                     />
                   )}
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      padding: '1px 6px',
-                      borderRadius: '4px',
-                      background: priorityCfg.bg,
-                      color: priorityCfg.color,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {priorityCfg.label}
-                  </span>
+                  {a.is_pinned && (
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        background: priorityCfg.bg,
+                        color: priorityCfg.color,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {priorityCfg.label}
+                    </span>
+                  )}
                   <span
                     style={{
                       fontSize: '13px',
@@ -289,9 +259,19 @@ export default function AnnouncementPanel({ open, onClose }: AnnouncementPanelPr
                     fontSize: '11px',
                     color: 'var(--gx-steel)',
                     marginLeft: isRead ? 0 : '14px',
+                    display: 'flex',
+                    gap: '4px',
                   }}
                 >
-                  {a.created_by} · {formatRelativeDate(a.created_at)}
+                  <span>{a.author_name}</span>
+                  <span>·</span>
+                  <span>{formatRelativeDate(a.created_at)}</span>
+                  {a.version && (
+                    <>
+                      <span>·</span>
+                      <span>{a.version}</span>
+                    </>
+                  )}
                 </div>
 
                 {/* 내용 (확장 시) */}
@@ -306,6 +286,7 @@ export default function AnnouncementPanel({ open, onClose }: AnnouncementPanelPr
                       lineHeight: '1.6',
                       color: 'var(--gx-graphite)',
                       marginLeft: isRead ? 0 : '14px',
+                      whiteSpace: 'pre-wrap',
                     }}
                   >
                     {a.content}
@@ -316,30 +297,15 @@ export default function AnnouncementPanel({ open, onClose }: AnnouncementPanelPr
           })
         )}
       </div>
-
-      {/* 푸터 */}
-      <div
-        style={{
-          padding: '10px 20px',
-          borderTop: '1px solid var(--gx-mist)',
-          textAlign: 'center',
-        }}
-      >
-        <span
-          style={{
-            fontSize: '12px',
-            color: 'var(--gx-steel)',
-          }}
-        >
-          OPS 연동 후 실시간 공지 표시 예정
-        </span>
-      </div>
     </div>
   );
 }
 
 /* ── 읽지 않은 공지 수 (Header에서 badge용) ──────────── */
+// API 연동 후에는 useNotices 훅의 결과를 사용하지만,
+// Header 초기 렌더링에서 빠르게 표시하기 위한 localStorage 기반 카운트
 export function getUnreadAnnouncementCount(): number {
-  const readIds = getReadIds();
-  return MOCK_ANNOUNCEMENTS.filter((a) => a.is_active && !readIds.has(a.id)).length;
+  // API 데이터가 없는 초기 상태에서는 0 반환
+  // 실제 unread 카운트는 AnnouncementPanel 내부에서 계산
+  return 0;
 }
