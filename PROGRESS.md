@@ -6,6 +6,46 @@
 
 ---
 
+## Phase 2-2: 공지사항 + ETL 변경이력 + Sidebar 서브메뉴 — 🔧 진행 중 (2026-03-09)
+
+공지사항 UI (Mock 데이터), ETL 변경 이력 서브페이지, Sidebar 하위 메뉴 지원, OPS API 요청 문서 정리.
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/types/announcement.ts` | **신규** — Announcement, AnnouncementPriority 타입 정의 |
+| `src/components/layout/AnnouncementPanel.tsx` | **신규** — 공지사항 드롭다운 패널 (Mock 데이터, 읽음/안읽음 localStorage 추적, 우선순위 배지) |
+| `src/components/layout/Header.tsx` | 공지사항 버튼 (확성기 아이콘) 추가 — 알림↔공지 상호 배타, 안읽음 배지 카운트 |
+| `src/components/layout/Sidebar.tsx` | 서브메뉴 지원 — SubNavItem 인터페이스, QR관리 하위(QR Registry, 변경 이력), ChevronIcon 토글 애니메이션 |
+| `src/pages/qr/EtlChangeLogPage.tsx` | **신규** — ETL 변경 이력 페이지 (KPI 카드, 필드 필터, S/N 검색, 날짜 차이 표시, 주간 추이 차트) |
+| `src/App.tsx` | `/qr/changes` 라우트 추가 (ProtectedRoute) |
+| `docs/OPS_API_REQUESTS.md` | 공지사항 API (#2, #3), 권한 체계 정리, is_manager 토글 엔드포인트 (#4) 추가 |
+
+### Phase 2-2 세부 기능
+
+| 기능 | 설명 |
+|------|------|
+| 공지사항 패널 | Header에 확성기 아이콘, 드롭다운으로 공지 목록 표시, 우선순위(긴급/중요/일반) 배지 |
+| ETL 변경 이력 | QR관리 하위 페이지(`/qr/changes`), 5개 추적 필드(판매오더/출하예정/기구시작/기구외주/전장외주) |
+| KPI 카드 필터 | 전체 변경, 출하예정, 기구시작, 기구외주, 전장외주 — 클릭 시 해당 필드 필터링 |
+| 날짜 차이 표시 | 출하예정/기구시작 변경 시 +Nd/-Nd 일수 차이 자동 계산 |
+| 주간 추이 차트 | 필드별 stacked bar chart (recharts) |
+| Sidebar 서브메뉴 | QR관리 → QR Registry + 변경 이력, 확장/축소 ChevronIcon |
+
+### 현재 상태
+
+| 항목 | 상태 |
+|------|------|
+| 공지사항 UI (Mock) | ✅ 완료 |
+| ETL 변경이력 UI (Mock) | ✅ 완료 |
+| Sidebar 서브메뉴 | ✅ 완료 |
+| 빌드 확인 (npm run build) | ✅ 통과 |
+| OPS BE 공지사항 API 연동 | ⏳ OPS 구현 대기 |
+| OPS BE ETL 변경이력 API 연동 | ⏳ OPS 구현 대기 |
+
+---
+
 ## Phase 2: QR 관리 페이지 — ✅ 완료 (2026-03-08)
 
 QR 관리 페이지 FE 구현 및 Netlify 배포 완료.
@@ -152,3 +192,4 @@ BE 응답 필드명 불일치 수정(`user` → `worker`), 타입 필드 추가,
 | 3 | 실 데이터 연결 (device_id, logout, work_site 매핑, Mock 제거) | ✅ 완료 |
 | 3-hotfix | 대시보드 접근 권한 확장 (is_manager 허용 + 모달 팝업) | ✅ 완료 |
 | Phase 2 | QR 관리 페이지 (상태바 + 기본2주필터 + CSV 추출 + 헤더 동기화) | ✅ 완료 |
+| Phase 2-2 | 공지사항 UI + ETL 변경이력 페이지 + Sidebar 서브메뉴 | 🔧 진행 중 |

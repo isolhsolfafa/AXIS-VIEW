@@ -1,9 +1,16 @@
 // src/components/layout/Sidebar.tsx
 // 좌측 사이드바 (260px) — G-AXIS 디자인 시스템 완전 적용
 
-import { NavLink } from 'react-router-dom';
+import { useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/store/authStore';
 import logoImage from '@/assets/images/g-axis-2.png';
+
+interface SubNavItem {
+  label: string;
+  to: string;
+  preparing?: boolean;
+}
 
 interface NavItem {
   label: string;
@@ -12,6 +19,7 @@ interface NavItem {
   disabled?: boolean;
   badge?: string;
   preparing?: boolean;
+  children?: SubNavItem[];
 }
 
 interface NavGroup {
@@ -93,7 +101,15 @@ const navGroups: NavGroup[] = [
   {
     title: 'Management',
     items: [
-      { label: 'QR 관리', icon: <QrIcon />, to: '/qr' },
+      {
+        label: 'QR 관리',
+        icon: <QrIcon />,
+        to: '/qr',
+        children: [
+          { label: 'QR Registry', to: '/qr' },
+          { label: '변경 이력', to: '/qr/changes' },
+        ],
+      },
     ],
   },
   {
@@ -112,8 +128,38 @@ const navGroups: NavGroup[] = [
   },
 ];
 
+const ChevronIcon = ({ open }: { open: boolean }) => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    style={{ transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}
+  >
+    <path d="M5 3l4 4-4 4" />
+  </svg>
+);
+
 export default function Sidebar() {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(() => {
+    // QR 하위 경로에 있으면 자동 펼침
+    const initial = new Set<string>();
+    if (location.pathname.startsWith('/qr')) initial.add('QR 관리');
+    return initial;
+  });
+
+  const toggleMenu = (label: string) => {
+    setExpandedMenus((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
 
   const initials = user?.name
     ? user.name.length >= 2
@@ -281,7 +327,108 @@ export default function Sidebar() {
                 );
               }
 
-              // 활성 메뉴
+              // 하위 메뉴가 있는 항목 (펼침/접힘)
+              if (item.children && item.children.length > 0) {
+                const isExpanded = expandedMenus.has(item.label);
+                const isChildActive = item.children.some((c) => location.pathname === c.to);
+
+                return (
+                  <div key={item.label}>
+                    {/* 부모 메뉴 (클릭 시 토글) */}
+                    <button
+                      onClick={() => toggleMenu(item.label)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '10px 12px',
+                        borderRadius: 'var(--radius-gx-md)',
+                        color: isChildActive ? 'var(--gx-accent)' : 'var(--gx-slate)',
+                        background: 'transparent',
+                        fontSize: '13.5px',
+                        fontWeight: 500,
+                        textDecoration: 'none',
+                        transition: 'all 0.15s ease',
+                        width: '100%',
+                        border: 'none',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span
+                        style={{
+                          opacity: isChildActive ? 1 : 0.6,
+                          flexShrink: 0,
+                          display: 'flex',
+                        }}
+                      >
+                        {item.icon}
+                      </span>
+                      <span style={{ flex: 1 }}>{item.label}</span>
+                      <span style={{ color: 'var(--gx-steel)', flexShrink: 0, display: 'flex' }}>
+                        <ChevronIcon open={isExpanded} />
+                      </span>
+                    </button>
+
+                    {/* 하위 메뉴 목록 */}
+                    {isExpanded && (
+                      <div style={{ paddingLeft: '20px', marginTop: '2px' }}>
+                        {item.children.map((child) => (
+                          <NavLink
+                            key={child.to}
+                            to={child.to}
+                            end={child.to === '/qr'}
+                            style={({ isActive }) => ({
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '7px 12px',
+                              borderRadius: 'var(--radius-gx-md)',
+                              color: isActive ? 'var(--gx-accent)' : 'var(--gx-steel)',
+                              background: isActive ? 'var(--gx-accent-soft)' : 'transparent',
+                              fontSize: '12.5px',
+                              fontWeight: isActive ? 500 : 400,
+                              textDecoration: 'none',
+                              transition: 'all 0.15s ease',
+                              opacity: child.preparing ? 0.5 : 1,
+                            })}
+                          >
+                            <span
+                              style={{
+                                width: '4px',
+                                height: '4px',
+                                borderRadius: '50%',
+                                background: 'currentColor',
+                                flexShrink: 0,
+                                opacity: 0.5,
+                              }}
+                            />
+                            <span>{child.label}</span>
+                            {child.preparing && (
+                              <span
+                                style={{
+                                  fontSize: '9px',
+                                  fontWeight: 600,
+                                  padding: '1px 6px',
+                                  borderRadius: '10px',
+                                  background: 'var(--gx-warning-bg)',
+                                  color: 'var(--gx-warning)',
+                                  flexShrink: 0,
+                                  marginLeft: 'auto',
+                                }}
+                              >
+                                준비중
+                              </span>
+                            )}
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // 일반 활성 메뉴 (children 없음)
               return (
                 <NavLink
                   key={item.label}

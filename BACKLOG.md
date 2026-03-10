@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-06 (Sprint 3-hotfix 완료 — 대시보드 접근 권한 확장)
+> 마지막 업데이트: 2026-03-09 (Phase 2-2 — 공지사항 + ETL 변경이력 + Sidebar 서브메뉴)
 > 이 파일은 보류/재검토/계획/아이디어를 한 곳에서 관리합니다.
 > 완료된 항목은 PROGRESS.md로 이동합니다.
 
@@ -12,6 +12,9 @@
 |----|------|------|------|
 | TASK-1 | Netlify 배포 (실 데이터 모드) | 대기 | Sprint 3 실 DB 테스트 통과. `VITE_USE_MOCK=false` + `VITE_API_BASE_URL` 설정 후 배포 필요 |
 | TASK-2 | 협력사 관리자 데이터 범위 제한 | 🔍 설계 필요 | `is_manager` 로그인 허용됨. 자기 회사 데이터만 보이게 FE 필터링 또는 BE API 권한별 응답 분기 필요 |
+| TASK-3 | 공지사항 OPS API 연동 | ⏳ OPS 대기 | UI Mock 완료. OPS BE `GET /api/announcements` 구현 후 연동 필요 (OPS_API_REQUESTS.md #2, #3 참고) |
+| TASK-4 | ETL 변경이력 OPS API 연동 | ⏳ OPS + ETL 대기 | UI Mock 완료. ETL `etl.change_log` 테이블 + OPS `GET /api/admin/etl/changes` 구현 후 연동 (CORE-ETL Sprint 2) |
+| TASK-5 | shipped 상태 VIEW 반영 | ⏳ ETL 대기 | ETL에서 actual_ship_date 적재 + shipped 상태 처리 후, QR관리 페이지 KPI/테이블에 shipped 상태 표시 |
 
 ---
 
@@ -61,11 +64,14 @@
 
 ## 🔵 추후 구현 (Phase 로드맵)
 
-### Phase 2: QR 관리 페이지
-- **내용**: `/qr` 경로 — QR 코드 목록 조회, 다운로드, 인쇄 기능
-- **현재 상태**: 사이드바에 메뉴 존재 (Lock 아이콘, 비활성)
-- **의존성**: AXIS-OPS QR ETL 파이프라인 (BACKLOG.md 참조)
-- **시기**: 미정
+### Phase 2: QR 관리 페이지 — ✅ 완료 (→ PROGRESS.md 참조)
+
+### Phase 2-2: 공지사항 + ETL 변경이력 — 🔧 진행 중
+- **공지사항**: Header 확성기 아이콘 + 드롭다운 패널 UI 완료 (Mock). OPS BE API 구현 대기
+- **ETL 변경이력**: QR관리 하위 페이지(`/qr/changes`) UI 완료 (Mock). ETL change_log + OPS BE API 대기
+- **Sidebar 서브메뉴**: QR관리 → QR Registry + 변경 이력 하위 메뉴 구현 완료
+- **의존성**: CORE-ETL Sprint 2 (change_log 테이블 + step2 수정) + OPS BE 엔드포인트
+- **시기**: Sprint 2 (2026-03-10~)
 
 ### Phase 3: WebSocket 실시간 업데이트
 - **내용**: 출퇴근 시간대에 실시간 push로 대시보드 자동 갱신
@@ -105,8 +111,9 @@
 
 - **다크모드**: G-AXIS 디자인 시스템에 다크 컬러 토큰 추가 가능. 현재는 라이트 모드만
 - **반응형 모바일**: 현재 데스크탑 기준. 태블릿/모바일 레이아웃 추가 시 사이드바 → 하단 네비게이션
-- **알림 센터**: 대시보드에서 실시간 알림 (지각 경고, 미출근 알림 등) 표시
+- **알림 센터**: 대시보드에서 실시간 알림 (지각 경고, 미출근 알림 등) 표시 — Header 알림 아이콘(채팅 버블) 자리에 OPS 알람 연동 예정
 - **CSV/Excel 다운로드**: 출퇴근 데이터를 CSV/Excel로 내보내기 기능
+- **shipped 상태 표시**: QR관리 페이지에 출고 완료(shipped) 건 KPI + 테이블 표시 (ETL actual_ship_date 적재 후)
 - **AXIS-OPS 통합 인증**: OPS와 VIEW가 동일 BE를 사용하므로, SSO 또는 토큰 공유 가능
 
 ---
@@ -119,3 +126,5 @@
 | 2 | API 연동 준비 + 설정 메뉴 (worker 타입, 자동새로고침, 뷰토글) | ✅ 완료 |
 | 3 | 실 데이터 연결 (device_id, logout, work_site 매핑, Mock 제거) | ✅ 완료 |
 | 3-hotfix | 대시보드 접근 권한 확장 (is_manager 허용 + 모달 팝업) | ✅ 완료 |
+| Phase 2 | QR 관리 페이지 (상태바 + 기본2주필터 + CSV 추출 + 헤더 동기화) | ✅ 완료 |
+| Phase 2-2 | 공지사항 UI + ETL 변경이력 페이지 + Sidebar 서브메뉴 | 🔧 진행 중 |

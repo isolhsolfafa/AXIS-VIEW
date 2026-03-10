@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '@/pages/LoginPage';
 import AttendancePage from '@/pages/attendance/AttendancePage';
 import QrManagementPage from '@/pages/qr/QrManagementPage';
+import EtlChangeLogPage from '@/pages/qr/EtlChangeLogPage';
 import FactoryDashboardPage from '@/pages/factory/FactoryDashboardPage';
 import ProductionPlanPage from '@/pages/plan/ProductionPlanPage';
 import DefectAnalysisPage from '@/pages/defect/DefectAnalysisPage';
@@ -48,6 +49,16 @@ export default function App() {
           element={
             <ProtectedRoute>
               <QrManagementPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ETL 변경 이력 (QR 관리 하위) */}
+        <Route
+          path="/qr/changes"
+          element={
+            <ProtectedRoute>
+              <EtlChangeLogPage />
             </ProtectedRoute>
           }
         />
