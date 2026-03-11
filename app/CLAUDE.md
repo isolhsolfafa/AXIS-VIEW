@@ -633,3 +633,48 @@ Mock 생성 규칙:
 **공유 파일 (수정 전 리드 승인 필수)**:
 - `CLAUDE.md` — 리드만 수정 가능
 - `src/index.css` — FE 소유이지만 Tailwind 토큰 변경 시 CONFIG와 협의
+
+---
+
+## 버전 관리 기준 (Semantic Versioning)
+
+> OPS와 동일한 Semantic Versioning 체계 사용
+
+### 버전 형식: `MAJOR.MINOR.PATCH`
+
+| 구분 | 올리는 시점 | 예시 |
+|------|-----------|------|
+| **MAJOR** (X.0.0) | 아키텍처 전환, 라우팅 구조 대규모 변경, 인증 체계 교체 | v1→v2: React→Next.js 전환 |
+| **MINOR** (0.X.0) | 신규 Phase/페이지 추가, 새 기능 완료 (하위 호환 유지) | v1.3→v1.4: Phase 4 권한 관리 |
+| **PATCH** (0.0.X) | 버그 수정, UI 미세 조정, API endpoint 수정 (기능 변경 없음) | v1.4.0→v1.4.1: Toggle API 수정 |
+
+### 버전 업데이트 파일 목록
+
+Phase/Sprint 완료 후 반드시 아래 2개 파일을 **동시에** 업데이트:
+
+1. `src/version.ts` — `APP_VERSION`, `BUILD_DATE` + 버전 이력 주석
+2. `package.json` — `version` 필드 (npm 표준)
+
+> Sidebar 하단에 `APP_VERSION` 자동 표시됨
+
+### 버전 업데이트 절차
+
+```
+1. Phase/Sprint 전체 완료 + 빌드 통과 확인
+2. src/version.ts → APP_VERSION, BUILD_DATE 업데이트 + 이력 주석 추가
+3. package.json → version 필드 업데이트 (v 접두사 제외, 예: "1.4.1")
+4. PROGRESS.md에 완료 내역 추가
+5. BACKLOG.md 업데이트 (완료 항목 체크, Sprint 이력 추가)
+6. git commit → push
+```
+
+### 버전 이력
+
+| 버전 | 날짜 | Sprint | 주요 변경 |
+|------|------|--------|----------|
+| v1.0.0 | 2026-03-06 | Sprint 1~3 | 초기 릴리스 (로그인, 출퇴근 대시보드, 실 API 연동) |
+| v1.1.0 | 2026-03-08 | Phase 2 | QR 관리 페이지 (상태바, 날짜 필터, CSV 추출) |
+| v1.2.0 | 2026-03-11 | Phase 2-2~3 | 공지사항, ETL 변경이력, 컨셉 HTML 매칭 4개 페이지 |
+| v1.3.0 | 2026-03-11 | Phase 3-A | 알림 뱃지 (Header+Sidebar) + Admin prefix 로그인 |
+| v1.4.0 | 2026-03-11 | Phase 4 | Role 기반 접근 제어 + 권한 관리 페이지 |
+| v1.4.1 | 2026-03-11 | Phase 4-fix | Toggle API endpoint 수정 + Manager 자사 필터 |

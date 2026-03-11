@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/store/authStore';
 import { useEtlChanges } from '@/hooks/useEtlChanges';
+import { APP_VERSION } from '@/version';
 import logoImage from '@/assets/images/g-axis-2.png';
 
 interface SubNavItem {
@@ -639,6 +640,18 @@ export default function Sidebar() {
           >
             <LogOutIcon />
           </button>
+        </div>
+        <div
+          style={{
+            textAlign: 'center',
+            marginTop: '8px',
+            fontSize: '10px',
+            color: 'var(--gx-silver)',
+            fontFamily: "'JetBrains Mono', monospace",
+            letterSpacing: '0.5px',
+          }}
+        >
+          {APP_VERSION}
         </div>
       </div>
     </aside>

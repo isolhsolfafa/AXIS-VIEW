@@ -225,7 +225,7 @@ elif worker.is_manager:
 
 **FE 현황**: VIEW BACKLOG TASK-2에 등록. BE 분기 구현 후 FE 변경 불필요 (동일 API, 응답 범위만 달라짐).
 
-### 8. GET /api/admin/workers 권한 완화 — PENDING
+### 8. GET /api/admin/workers 권한 완화 — DONE (OPS Sprint 23)
 
 **엔드포인트**: `GET /api/admin/workers`
 
