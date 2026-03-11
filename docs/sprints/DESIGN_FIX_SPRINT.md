@@ -897,10 +897,10 @@ CORS(app, origins=[
 
 ### BE 작업 (AXIS-OPS)
 
-- [ ] `GET /api/admin/hr/attendance/today` 엔드포인트 추가
-- [ ] `GET /api/admin/hr/attendance?date=` 엔드포인트 추가
-- [ ] `GET /api/admin/hr/attendance/summary` 엔드포인트 추가
-- [ ] IN/OUT 피봇 쿼리 + status 계산 로직 구현
+- [x] `GET /api/admin/hr/attendance/today` 엔드포인트 추가
+- [x] `GET /api/admin/hr/attendance?date=` 엔드포인트 추가
+- [x] `GET /api/admin/hr/attendance/summary` 엔드포인트 추가
+- [x] IN/OUT 피봇 쿼리 + status 계산 로직 구현
 
 > ~~Refresh Token Rotation~~ → 별도 보안 스프린트로 분리 (AXIS-OPS FE 동시 검토 필요)
 > ~~CORS 수정~~ → 현재 `origins: "*"` 상태로 수정 불필요
@@ -919,7 +919,7 @@ CORS(app, origins=[
 ### Sprint 2 검증 기준
 
 - [x] Mock ↔ Real API 전환이 `VITE_USE_MOCK` 환경변수로 정상 동작
-- [ ] 로그인 → BE 인증 → 대시보드 진입 정상 (BE 엔드포인트 미구현으로 미검증)
+- [x] 로그인 → BE 인증 → 대시보드 진입 정상
 - [x] access_token 만료 → 기존 refresh 방식으로 자동 갱신 정상 (Rotation은 별도)
 - [x] 설정 메뉴에서 새로고침 주기 / 기본 뷰 / 본사현장 구분 변경 후 대시보드 반영 확인
 - [x] `npm run build` 에러 없음
@@ -1452,20 +1452,14 @@ OPS 버전: v1.4.0
 | `src/api/attendance.ts` | 수정 | `isActiveProductLine` import, 실 API 응답에서 CHI product_line 레코드 필터링 |
 | `src/utils/workSiteMapping.ts` | **신규** | `WORK_SITE_LABEL`, `ACTIVE_PRODUCT_LINES`, `getWorkSiteLabel()`, `isActiveProductLine()` |
 
-### Task 5: 실 데이터 연결 테스트 — 미실행 (수동 테스트 필요)
+### Task 5: 실 데이터 연결 테스트 — ✅ 완료
 
-`.env.development`를 아래로 변경 후 `npm run dev`로 브라우저 테스트 필요:
-```
-VITE_API_BASE_URL=https://axis-ops-api.up.railway.app
-VITE_USE_MOCK=false
-```
-
-- [ ] 테스트 1: 로그인 (admin 계정)
-- [ ] 테스트 2: 대시보드 데이터 로딩
-- [ ] 테스트 3: 날짜별 조회
-- [ ] 테스트 4: 자동 새로고침
-- [ ] 테스트 5: 토큰 자동 갱신
-- [ ] 테스트 6: 로그아웃 BE 호출 + 로컬 정리
+- [x] 테스트 1: 로그인 (admin 계정)
+- [x] 테스트 2: 대시보드 데이터 로딩
+- [x] 테스트 3: 날짜별 조회
+- [x] 테스트 4: 자동 새로고침
+- [x] 테스트 5: 토큰 자동 갱신
+- [x] 테스트 6: 로그아웃 BE 호출 + 로컬 정리
 
 ## Sprint 3 체크리스트
 
@@ -1475,14 +1469,14 @@ VITE_USE_MOCK=false
 - [x] Task 2: authStore.ts logout에 BE API 호출 추가
 - [x] Task 3: workSiteMapping.ts 생성 + 대시보드 적용
 - [x] Task 4: npm run build 에러 없음 (Mock 모드)
-- [ ] Task 4: npm run dev Mock 모드 정상 동작 (수동 확인 필요)
-- [ ] Task 5: 실 데이터 로그인 성공
-- [ ] Task 5: 대시보드 데이터 로딩 성공
-- [ ] Task 5: 날짜별 조회 성공
-- [ ] Task 5: 자동 새로고침 동작
-- [ ] Task 5: 토큰 자동 갱신 동작
-- [ ] Task 5: 로그아웃 BE 호출 + 로컬 정리
-- [ ] npm run build 최종 빌드 성공
+- [x] Task 4: npm run dev Mock 모드 정상 동작
+- [x] Task 5: 실 데이터 로그인 성공
+- [x] Task 5: 대시보드 데이터 로딩 성공
+- [x] Task 5: 날짜별 조회 성공
+- [x] Task 5: 자동 새로고침 동작
+- [x] Task 5: 토큰 자동 갱신 동작
+- [x] Task 5: 로그아웃 BE 호출 + 로컬 정리
+- [x] npm run build 최종 빌드 성공
 
 ## ⚠️ 금지 사항
 - Refresh Token Rotation 로직 자체 구현 금지 (BE에서 처리, FE는 자동 대응됨)
