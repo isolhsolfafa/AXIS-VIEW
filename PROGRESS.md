@@ -1,48 +1,72 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-09
+> 마지막 업데이트: 2026-03-11
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
 
 ---
 
-## Phase 2-2: 공지사항 + ETL 변경이력 + Sidebar 서브메뉴 — 🔧 진행 중 (2026-03-09)
+## Phase 3: 컨셉 HTML 매칭 + API 연동 — ✅ 완료 (2026-03-11)
 
-공지사항 UI (Mock 데이터), ETL 변경 이력 서브페이지, Sidebar 하위 메뉴 지원, OPS API 요청 문서 정리.
+Phase 2-2 API 연동 완료 + Phase 3 전체 페이지 컨셉 HTML 디자인 매칭.
+
+### API 연동 (Mock → 실 API 전환)
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/api/notices.ts` | **신규** — `GET /api/notices` API 클라이언트 |
+| `src/hooks/useNotices.ts` | **신규** — TanStack Query 훅 (60초 stale) |
+| `src/api/etl.ts` | **신규** — `GET /api/admin/etl/changes` API 클라이언트 |
+| `src/hooks/useEtlChanges.ts` | **신규** — TanStack Query 훅 (60초 stale) |
+| `src/types/announcement.ts` | `is_pinned`(boolean) + `version`(string) 구조로 변경 (BE 스펙 매칭) |
+| `src/components/layout/AnnouncementPanel.tsx` | Mock 제거 → `useNotices` 훅 사용, `is_pinned` 매핑 |
+| `src/components/layout/Header.tsx` | `useNotices` + localStorage 기반 unread 카운트 |
+| `src/pages/qr/EtlChangeLogPage.tsx` | Mock 제거 → `useEtlChanges` 훅, loading/error 상태 처리 |
+
+### 컨셉 HTML 디자인 매칭
+
+| 페이지 | 컨셉 파일 | 주요 변경 |
+|--------|----------|----------|
+| 공장 대시보드 | `G-AXIS VIEW(공장대시보드).html` | 최근 활동 피드, 월간 생산지표 수평 바 차트, progress bar 3단계 색상(≥80%=green, 40~79%=yellow, <40%=red) |
+| 생산일정 | `G-AXIS VIEW(생산일정).html` | 원형 파이프라인(5단계), 범례 스트립, 필터 바(탭+드롭다운+검색), DateCell 7타입 컬러 셀 |
+| 불량 분석 | `G-AXIS VIEW(불량분석).html` | 상태바, 전체너비 탭, KPI 아이콘 wrap, SVG 도넛+범례, 순위 뱃지(1=red/2=yellow/3=blue), SVG 라인 차트, 외주사 카드(그라디언트 아이콘+2x2 grid) |
+| CT 분석 | `G-AXIS VIEW(CT분석).html` | 필터 바(기간 토글+월/모델 드롭다운), 프로세스 카드(top bar+아이콘), 범례 스트립, 이중 바 차트(IQR accent+평균 green), 신뢰도 뱃지, diff 태그 |
+
+### 변경 파일 (디자인)
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/pages/factory/FactoryDashboardPage.tsx` | 최근 활동/월간 생산 섹션 추가, progressLevel() 함수 |
+| `src/pages/plan/ProductionPlanPage.tsx` | 전면 재작성 (~370줄) — 원형 파이프라인, DateCell 컴포넌트 |
+| `src/pages/defect/DefectAnalysisPage.tsx` | 전면 재작성 — SVG 도넛/라인 차트, 순위 리스트, 외주사 카드 |
+| `src/pages/ct/CtAnalysisPage.tsx` | 전면 재작성 — 필터 바, 프로세스 카드, 이중 바 태스크 리스트 |
+
+---
+
+## Phase 2-2: 공지사항 + ETL 변경이력 + Sidebar 서브메뉴 — ✅ 완료 (2026-03-11)
+
+공지사항 UI + ETL 변경 이력 서브페이지 + Sidebar 하위 메뉴 → API 연동 완료.
 
 ### 변경 파일
 
 | 파일 | 변경 내용 |
 |------|----------|
-| `src/types/announcement.ts` | **신규** — Announcement, AnnouncementPriority 타입 정의 |
-| `src/components/layout/AnnouncementPanel.tsx` | **신규** — 공지사항 드롭다운 패널 (Mock 데이터, 읽음/안읽음 localStorage 추적, 우선순위 배지) |
-| `src/components/layout/Header.tsx` | 공지사항 버튼 (확성기 아이콘) 추가 — 알림↔공지 상호 배타, 안읽음 배지 카운트 |
-| `src/components/layout/Sidebar.tsx` | 서브메뉴 지원 — SubNavItem 인터페이스, QR관리 하위(QR Registry, 변경 이력), ChevronIcon 토글 애니메이션 |
-| `src/pages/qr/EtlChangeLogPage.tsx` | **신규** — ETL 변경 이력 페이지 (KPI 카드, 필드 필터, S/N 검색, 날짜 차이 표시, 주간 추이 차트) |
-| `src/App.tsx` | `/qr/changes` 라우트 추가 (ProtectedRoute) |
-| `docs/OPS_API_REQUESTS.md` | 공지사항 API (#2, #3), 권한 체계 정리, is_manager 토글 엔드포인트 (#4) 추가 |
+| `src/types/announcement.ts` | **신규** — Announcement 타입 (is_pinned, version, author_name) |
+| `src/components/layout/AnnouncementPanel.tsx` | **신규** → API 전환 완료 |
+| `src/components/layout/Header.tsx` | 공지사항 버튼 + API 기반 unread 카운트 |
+| `src/components/layout/Sidebar.tsx` | 서브메뉴 지원 — QR관리 하위(QR Registry, 변경 이력) |
+| `src/pages/qr/EtlChangeLogPage.tsx` | **신규** → API 전환 완료 |
+| `src/App.tsx` | `/qr/changes` 라우트 추가 |
+| `docs/OPS_API_REQUESTS.md` | 공지사항 (#2,#3), ETL (#5), 권한 (#4) 문서화 |
 
-### Phase 2-2 세부 기능
-
-| 기능 | 설명 |
-|------|------|
-| 공지사항 패널 | Header에 확성기 아이콘, 드롭다운으로 공지 목록 표시, 우선순위(긴급/중요/일반) 배지 |
-| ETL 변경 이력 | QR관리 하위 페이지(`/qr/changes`), 5개 추적 필드(판매오더/출하예정/기구시작/기구외주/전장외주) |
-| KPI 카드 필터 | 전체 변경, 출하예정, 기구시작, 기구외주, 전장외주 — 클릭 시 해당 필드 필터링 |
-| 날짜 차이 표시 | 출하예정/기구시작 변경 시 +Nd/-Nd 일수 차이 자동 계산 |
-| 주간 추이 차트 | 필드별 stacked bar chart (recharts) |
-| Sidebar 서브메뉴 | QR관리 → QR Registry + 변경 이력, 확장/축소 ChevronIcon |
-
-### 현재 상태
+### 완료 상태
 
 | 항목 | 상태 |
 |------|------|
-| 공지사항 UI (Mock) | ✅ 완료 |
-| ETL 변경이력 UI (Mock) | ✅ 완료 |
+| 공지사항 API 연동 | ✅ 완료 |
+| ETL 변경이력 API 연동 | ✅ 완료 |
 | Sidebar 서브메뉴 | ✅ 완료 |
 | 빌드 확인 (npm run build) | ✅ 통과 |
-| OPS BE 공지사항 API 연동 | ⏳ OPS 구현 대기 |
-| OPS BE ETL 변경이력 API 연동 | ⏳ OPS 구현 대기 |
 
 ---
 
@@ -192,4 +216,5 @@ BE 응답 필드명 불일치 수정(`user` → `worker`), 타입 필드 추가,
 | 3 | 실 데이터 연결 (device_id, logout, work_site 매핑, Mock 제거) | ✅ 완료 |
 | 3-hotfix | 대시보드 접근 권한 확장 (is_manager 허용 + 모달 팝업) | ✅ 완료 |
 | Phase 2 | QR 관리 페이지 (상태바 + 기본2주필터 + CSV 추출 + 헤더 동기화) | ✅ 완료 |
-| Phase 2-2 | 공지사항 UI + ETL 변경이력 페이지 + Sidebar 서브메뉴 | 🔧 진행 중 |
+| Phase 2-2 | 공지사항 + ETL 변경이력 API 연동 완료 | ✅ 완료 |
+| Phase 3 | 공장대시보드 + 생산일정 + 불량분석 + CT분석 컨셉 HTML 매칭 | ✅ 완료 |

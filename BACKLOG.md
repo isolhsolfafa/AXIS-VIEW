@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-09 (Phase 2-2 — 공지사항 + ETL 변경이력 + Sidebar 서브메뉴)
+> 마지막 업데이트: 2026-03-11 (Phase 3 — 컨셉 HTML 매칭 + API 연동 완료)
 > 이 파일은 보류/재검토/계획/아이디어를 한 곳에서 관리합니다.
 > 완료된 항목은 PROGRESS.md로 이동합니다.
 
@@ -12,8 +12,8 @@
 |----|------|------|------|
 | TASK-1 | Netlify 배포 (실 데이터 모드) | 대기 | Sprint 3 실 DB 테스트 통과. `VITE_USE_MOCK=false` + `VITE_API_BASE_URL` 설정 후 배포 필요 |
 | TASK-2 | 협력사 관리자 데이터 범위 제한 | 🔍 설계 필요 | `is_manager` 로그인 허용됨. 자기 회사 데이터만 보이게 FE 필터링 또는 BE API 권한별 응답 분기 필요 |
-| TASK-3 | 공지사항 OPS API 연동 | ⏳ OPS 대기 | UI Mock 완료. OPS BE `GET /api/announcements` 구현 후 연동 필요 (OPS_API_REQUESTS.md #2, #3 참고) |
-| TASK-4 | ETL 변경이력 OPS API 연동 | ⏳ OPS + ETL 대기 | UI Mock 완료. ETL `etl.change_log` 테이블 + OPS `GET /api/admin/etl/changes` 구현 후 연동 (CORE-ETL Sprint 2) |
+| TASK-3 | 공지사항 OPS API 연동 | ✅ 완료 | `GET /api/notices` 연동 완료 (2026-03-11). Mock 제거, `useNotices` 훅, Header badge API 기반 |
+| TASK-4 | ETL 변경이력 OPS API 연동 | ✅ 완료 | `GET /api/admin/etl/changes` 연동 완료 (2026-03-11). Mock 제거, `useEtlChanges` 훅 |
 | TASK-5 | shipped 상태 VIEW 반영 | ⏳ ETL 대기 | ETL에서 actual_ship_date 적재 + shipped 상태 처리 후, QR관리 페이지 KPI/테이블에 shipped 상태 표시 |
 
 ---
@@ -66,14 +66,18 @@
 
 ### Phase 2: QR 관리 페이지 — ✅ 완료 (→ PROGRESS.md 참조)
 
-### Phase 2-2: 공지사항 + ETL 변경이력 — 🔧 진행 중
-- **공지사항**: Header 확성기 아이콘 + 드롭다운 패널 UI 완료 (Mock). OPS BE API 구현 대기
-- **ETL 변경이력**: QR관리 하위 페이지(`/qr/changes`) UI 완료 (Mock). ETL change_log + OPS BE API 대기
+### Phase 2-2: 공지사항 + ETL 변경이력 — ✅ 완료 (2026-03-11)
+- **공지사항**: Mock → API 전환 완료. `api/notices.ts` + `hooks/useNotices.ts`, Header unread badge API 기반
+- **ETL 변경이력**: Mock → API 전환 완료. `api/etl.ts` + `hooks/useEtlChanges.ts`
 - **Sidebar 서브메뉴**: QR관리 → QR Registry + 변경 이력 하위 메뉴 구현 완료
-- **의존성**: CORE-ETL Sprint 2 (change_log 테이블 + step2 수정) + OPS BE 엔드포인트
-- **시기**: Sprint 2 (2026-03-10~)
 
-### Phase 3: WebSocket 실시간 업데이트
+### Phase 3 페이지: 컨셉 HTML 매칭 — ✅ 완료 (2026-03-11)
+- **공장 대시보드**: 최근 활동 피드, 월간 생산지표 차트, progress bar 3단계 색상 추가
+- **생산일정**: 원형 파이프라인, 범례 스트립, 필터 바, 날짜 컬러 테이블 구현
+- **불량 분석**: SVG 도넛 차트, 부품 순위(뱃지+bar), SVG 라인 차트, 외주사 카드 (2x2 grid)
+- **CT 분석**: 필터 바(기간 토글+드롭다운), 프로세스 카드(아이콘+top bar), 범례, 이중 바 차트(IQR/평균)
+
+### Phase 4: WebSocket 실시간 업데이트
 - **내용**: 출퇴근 시간대에 실시간 push로 대시보드 자동 갱신
 - **현재**: 설정 메뉴에서 1분/3분/5분 polling 방식
 - **의존성**: AXIS-OPS WebSocket flask-sock (Sprint 13 완료)
@@ -127,4 +131,5 @@
 | 3 | 실 데이터 연결 (device_id, logout, work_site 매핑, Mock 제거) | ✅ 완료 |
 | 3-hotfix | 대시보드 접근 권한 확장 (is_manager 허용 + 모달 팝업) | ✅ 완료 |
 | Phase 2 | QR 관리 페이지 (상태바 + 기본2주필터 + CSV 추출 + 헤더 동기화) | ✅ 완료 |
-| Phase 2-2 | 공지사항 UI + ETL 변경이력 페이지 + Sidebar 서브메뉴 | 🔧 진행 중 |
+| Phase 2-2 | 공지사항 + ETL 변경이력 API 연동 완료 | ✅ 완료 |
+| Phase 3 | 공장대시보드 + 생산일정 + 불량분석 + CT분석 컨셉 HTML 매칭 | ✅ 완료 |
