@@ -1,8 +1,26 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-11 (Phase 4 완료)
+> 마지막 업데이트: 2026-03-11 (Phase 4 Hotfix 완료)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## Phase 4 Hotfix: Toggle API + Manager 회사 필터 — ✅ 완료 (2026-03-11)
+
+Phase 4 테스트 중 발견된 버그 2건 수정.
+
+| 버그 | 원인 | 수정 |
+|------|------|------|
+| Toggle 수정 안됨 (NG) | API endpoint 오류: `/toggle-manager` → BE 실제 라우트는 `/manager` | `workers.ts` endpoint 수정 |
+| Manager가 전체 회사 보임 | FE에서 회사 필터링 미적용 | `PermissionsPage.tsx`에 `currentUser.company` 기준 필터 추가 |
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/api/workers.ts` | API URL: `/toggle-manager` → `/manager` (OPS BE 라우트 매칭) |
+| `src/pages/admin/PermissionsPage.tsx` | Manager 로그인 시 `w.company === currentUser.company` 자동 필터링 |
 
 ---
 
@@ -327,3 +345,4 @@ BE 응답 필드명 불일치 수정(`user` → `worker`), 타입 필드 추가,
 | Phase 3-A | ETL 알림 뱃지 (Header+Sidebar) + Admin prefix 로그인 | ✅ 완료 |
 | Phase 3-A+ | QR shipped 상태 3분기 + KPI 카드 출하완료 반영 | ✅ 완료 |
 | Phase 4 | 페이지별 Role 접근 제어 + 권한 관리 페이지 + UnauthorizedPage | ✅ 완료 |
+| Phase 4-fix | Toggle API endpoint 수정 + Manager 자사 필터 | ✅ 완료 |

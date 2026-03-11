@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-11 (Phase 3-A — ETL 알림 뱃지 + Admin prefix 로그인 완료)
+> 마지막 업데이트: 2026-03-11 (Phase 4 Hotfix — Toggle API + Manager 회사 필터 수정)
 > 이 파일은 보류/재검토/계획/아이디어를 한 곳에서 관리합니다.
 > 완료된 항목은 PROGRESS.md로 이동합니다.
 
@@ -11,14 +11,14 @@
 | ID | 항목 | 상태 | 비고 |
 |----|------|------|------|
 | TASK-1 | Netlify 배포 (실 데이터 모드) | 대기 | Sprint 3 실 DB 테스트 통과. `VITE_USE_MOCK=false` + `VITE_API_BASE_URL` 설정 후 배포 필요 |
-| TASK-2 | 협력사 관리자 데이터 범위 제한 | 🔍 설계 필요 | `is_manager` 로그인 허용됨. 자기 회사 데이터만 보이게 FE 필터링 또는 BE API 권한별 응답 분기 필요 |
+| TASK-2 | 협력사 관리자 데이터 범위 제한 | 🔄 부분 완료 | 권한관리 페이지 자사 필터 완료. 출퇴근/QR 페이지는 OPS Sprint 24 대기 (TASK-7) |
 | TASK-3 | 공지사항 OPS API 연동 | ✅ 완료 | `GET /api/notices` 연동 완료 (2026-03-11). Mock 제거, `useNotices` 훅, Header badge API 기반 |
 | TASK-4 | ETL 변경이력 OPS API 연동 | ✅ 완료 | `GET /api/admin/etl/changes` 연동 완료 (2026-03-11). Mock 제거, `useEtlChanges` 훅 |
 | TASK-5 | shipped 상태 VIEW 반영 | ✅ FE 완료 | QR 페이지 StatusBadge 3분기(진행중/출하완료/폐기) + KPI 카드 shipped 표시. BE `stats.shipped` + ETL `actual_ship_date` 적재 후 자동 반영 |
 | TASK-6 | QR 목록 API 응답 확장 | ⏳ OPS Sprint 24 대기 | `actual_ship_date`: BE SELECT 추가 예정(Sprint 24). `status`: ✅ 이미 포함. `contract_type`/`sales_note`: 활용성 검토 후 진행 (BACKLOG 아이디어) |
 | TASK-7 | is_manager 데이터 범위 제한 | ⏳ OPS Sprint 24 대기 | 출퇴근+QR목록 → 자사 필터 추가 예정. `etl/changes`는 필터 불필요(전체 접근 허용). OPS_API_REQUESTS #7 참조 |
 | TASK-8 | 페이지별 Role 기반 접근 제어 | ✅ 완료 | ProtectedRoute `allowedRoles` + Sidebar role 필터 + admin-only 페이지 분리 + UnauthorizedPage |
-| TASK-9 | 권한 관리 페이지 (OPS 연동) | ✅ 완료 | `/admin/permissions` — 작업자 목록 + is_manager Toggle. `workers.ts` API + `useWorkers` 훅 |
+| TASK-9 | 권한 관리 페이지 (OPS 연동) | ✅ 완료 | `/admin/permissions` — 작업자 목록 + is_manager Toggle. API endpoint 수정 + Manager 자사 필터 적용 완료 |
 
 ---
 
@@ -153,3 +153,4 @@
 | Phase 3-A | ETL 알림 뱃지 (Header+Sidebar) + Admin prefix 로그인 | ✅ 완료 |
 | Phase 3-A+ | QR shipped 상태 3분기 + KPI 출하완료 반영 | ✅ 완료 |
 | Phase 4 | 페이지별 Role 접근 제어 + OPS 권한 관리 연동 | ✅ 완료 |
+| Phase 4-fix | 권한 Toggle API endpoint 수정 + Manager 자사 필터 | ✅ 완료 |

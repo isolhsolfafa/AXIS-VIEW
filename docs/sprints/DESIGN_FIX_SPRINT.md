@@ -2049,7 +2049,7 @@ const visibleItems = navItems.filter(item => {
 
 **사용 API** (OPS에 이미 구현됨):
 - `GET /api/admin/workers` — 작업자 목록 (is_admin → 전체, is_manager → 자사)
-- `PUT /api/admin/workers/:id/toggle-manager` — Manager 권한 부여/해제
+- `PUT /api/admin/workers/:id/manager` — Manager 권한 부여/해제
 
 **화면 구성**:
 
@@ -2061,7 +2061,7 @@ const visibleItems = navItems.filter(item => {
 
 3. **Toggle 동작**:
    - ON/OFF 스위치로 `is_manager` 부여/해제
-   - API: `PUT /api/admin/workers/{id}/toggle-manager` body: `{ "is_manager": true/false }`
+   - API: `PUT /api/admin/workers/{id}/manager` body: `{ "is_manager": true/false }`
    - 성공 시 목록 자동 갱신
    - Admin 사용자 행은 Toggle 비활성화 (변경 불가 표시)
 
@@ -2130,7 +2130,8 @@ src/hooks/useWorkers.ts                    — 작업자 훅 (신규)
 - [ ] Admin 로그인 — 전체 페이지 접근 확인 — 실 데이터 테스트 필요
 - [ ] Manager 로그인 — admin-only 페이지 차단 확인 — 실 데이터 테스트 필요
 - [ ] Manager 로그인 — Sidebar에서 admin-only 메뉴 숨김 확인 — 실 데이터 테스트 필요
-- [ ] 권한 Toggle 동작 확인 — 실 데이터 테스트 필요
+- [x] 권한 Toggle 동작 확인 — API endpoint 수정 완료 (`/toggle-manager` → `/manager`)
+- [x] Manager 자사 필터링 확인 — `PermissionsPage` company 필터 추가 완료
 - [x] npm run build 에러 없음
 
 ## ⚠️ 금지 사항
