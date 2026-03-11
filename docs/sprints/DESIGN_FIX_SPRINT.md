@@ -1486,3 +1486,381 @@ OPS 버전: v1.4.0
 - 타입 정의 구조 변경 금지 (이미 올바르게 구현됨)
 - .env.production 수정 금지 (이미 올바르게 설정됨)
 ```
+
+---
+---
+
+# Phase 3-A: ETL 변경이력 알림 뱃지 + Admin 간편 로그인
+
+> 작성일: 2026-03-11
+> 대상: AXIS-VIEW (React 관리자 대시보드) — FE만 수정, BE 변경 없음
+> 사전 조건: Phase 3 ✅ 완료, OPS Sprint 22-D ✅ (ETL API + Admin prefix 로그인 BE 구현 완료)
+> OPS 현재 버전: v1.7.0
+
+---
+
+## 목적
+
+1. ETL 변경이력 발생 시 Header 알림 + 사이드바 뱃지로 unread 건수 표시
+2. Admin 로그인 시 전체 이메일 없이 "admin"만 입력해도 prefix 매칭 로그인
+
+---
+
+## 🚀 Phase 3-A 프롬프트 (복사해서 사용)
+
+```
+AXIS-VIEW에 ETL 변경이력 알림 뱃지와 Admin 간편 로그인을 추가합니다.
+BE API는 모두 AXIS-OPS에서 구현 완료 상태이며, VIEW FE만 수정합니다.
+
+⚠️ 반드시 읽어야 할 파일:
+- CLAUDE.md: ~/Desktop/GST/AXIS-VIEW/app/CLAUDE.md (프로젝트 컨텍스트)
+- 스프린트 문서: ~/Desktop/GST/AXIS-VIEW/docs/sprints/DESIGN_FIX_SPRINT.md (Phase 3-A 섹션 전체)
+
+## 팀 구성
+1명의 teammate를 생성해줘. Sonnet 모델 사용:
+1. **FE** (Frontend 담당) - 소유: src/**
+
+---
+
+## Task 1: ETL 변경이력 unread count 관리 — Header 알림 뱃지
+
+### 1-1. 배경
+
+현재 Header.tsx에는 **공지사항(notices) unread 뱃지**가 이미 구현되어 있음:
+- `useNotices()` 훅으로 공지 목록 조회
+- `localStorage('axis_view_read_announcements')` — 읽은 공지 ID Set 저장
+- `unreadCount`: 전체 notices - 읽은 notices = 미읽음 건수
+
+이와 **동일한 패턴**으로 ETL 변경이력 unread 뱃지를 추가한다.
+
+### 1-2. ETL 변경이력 unread 로직
+
+**BE API (이미 구현됨)**: `GET /api/admin/etl/changes?days=1`
+- 응답: `{ changes: [...], summary: { total_changes, by_field: {...} } }`
+- `summary.total_changes`: 최근 1일 변경 건수
+
+**FE unread 추적 방식**:
+- `localStorage` 키: `axis_view_last_seen_change_count`
+- 값: 마지막으로 확인한 시점의 total_changes 숫자
+- unread = API의 `total_changes` - localStorage 저장값
+- 사용자가 변경이력 페이지(`/qr/changes`)에 진입하면 현재 total_changes를 localStorage에 저장 (읽음 처리)
+
+**대안 방식 (더 정확)**: `last_seen_change_id` 방식
+- `localStorage` 키: `axis_view_last_seen_change_id`
+- 값: 마지막으로 확인한 change_log의 최신 ID
+- ETL changes API 응답의 `changes[0].id` (가장 최근 ID)와 비교
+- unread = changes 배열에서 id > last_seen_change_id인 항목 수
+- 이 방식이 더 정확함 → **이 방식으로 구현**
+
+### 1-3. Header.tsx 수정
+
+현재 Header에 **알림 벨 아이콘**(line 197-239)이 있음. 여기에 ETL unread 뱃지를 추가.
+
+기존 알림 벨에는 빨간 dot만 있고 숫자 뱃지가 없음 → **ETL unread count > 0 일 때 숫자 뱃지 표시**
+
+```tsx
+// useEtlChanges 훅은 이미 존재함 (Phase 2-2에서 추가)
+const { data: etlData } = useEtlChanges({ days: 1 });
+
+const etlUnreadCount = useMemo(() => {
+  const changes = etlData?.changes ?? [];
+  if (changes.length === 0) return 0;
+  try {
+    const lastSeenId = Number(localStorage.getItem('axis_view_last_seen_change_id') ?? '0');
+    return changes.filter((c: { id: number }) => c.id > lastSeenId).length;
+  } catch {
+    return changes.length;
+  }
+}, [etlData]);
+```
+
+**알림 벨 뱃지 렌더링** (공지사항 뱃지와 동일한 스타일):
+```tsx
+{etlUnreadCount > 0 && (
+  <span style={{
+    position: 'absolute', top: '-4px', right: '-4px',
+    minWidth: '16px', height: '16px',
+    background: 'var(--gx-danger)', color: 'white',
+    fontSize: '9px', fontWeight: 700,
+    borderRadius: '8px', border: '2px solid var(--gx-white)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: '0 3px',
+  }}>
+    {etlUnreadCount > 99 ? '99+' : etlUnreadCount}
+  </span>
+)}
+```
+
+### 1-4. 알림 벨 클릭 → ETL 변경 드롭다운 (선택적)
+
+**최소 구현**: 알림 벨 클릭 시 `/qr/changes` 페이지로 이동
+```tsx
+onClick={() => navigate('/qr/changes')}
+```
+
+**확장 구현 (권장)**: 알림 벨 클릭 시 드롭다운으로 최근 변경 3~5건 표시 + "전체 보기" 링크
+- 드롭다운 스타일: 공지사항 AnnouncementPanel과 유사한 패턴
+- 각 항목: `[필드명] S/N 변경됨` + 시간
+- "전체 보기" → `/qr/changes` 이동
+
+**구현 수준은 최소 구현으로 진행하되**, 드롭다운이 가능하면 확장 구현으로 진행.
+
+---
+
+## Task 2: 사이드바 "변경 이력" 뱃지 — Sidebar.tsx
+
+### 2-1. 배경
+
+현재 Sidebar.tsx의 QR 관리 서브메뉴:
+```typescript
+// line 104-112
+{
+  label: 'QR 관리',
+  icon: <QrIcon />,
+  to: '/qr',
+  children: [
+    { label: 'QR Registry', to: '/qr' },
+    { label: '변경 이력', to: '/qr/changes' },
+  ],
+},
+```
+
+"변경 이력" 항목 옆에 ETL unread count 빨간 뱃지를 표시한다.
+(참고 이미지: 불량 분석 옆 숫자 3 빨간 뱃지와 동일한 스타일)
+
+### 2-2. SubNavItem 인터페이스 확장
+
+```typescript
+interface SubNavItem {
+  label: string;
+  to: string;
+  preparing?: boolean;
+  badge?: number;        // 추가: 숫자 뱃지 (0이면 미표시)
+}
+```
+
+### 2-3. 뱃지 데이터 전달
+
+Sidebar에서 ETL unread count를 알아야 함. 방법:
+
+**방법 A**: Sidebar 내부에서 `useEtlChanges()` 직접 호출
+**방법 B**: Layout에서 props로 전달
+**방법 C**: Context/Store로 공유
+
+**방법 A가 가장 간단** → Sidebar.tsx 내부에서:
+```tsx
+import { useEtlChanges } from '@/hooks/useEtlChanges';
+
+// Sidebar 컴포넌트 내부
+const { data: etlData } = useEtlChanges({ days: 1 });
+const etlUnreadCount = useMemo(() => {
+  const changes = etlData?.changes ?? [];
+  if (changes.length === 0) return 0;
+  try {
+    const lastSeenId = Number(localStorage.getItem('axis_view_last_seen_change_id') ?? '0');
+    return changes.filter((c: { id: number }) => c.id > lastSeenId).length;
+  } catch {
+    return changes.length;
+  }
+}, [etlData]);
+```
+
+그리고 children에 badge 전달:
+```typescript
+children: [
+  { label: 'QR Registry', to: '/qr' },
+  { label: '변경 이력', to: '/qr/changes', badge: etlUnreadCount },
+],
+```
+
+### 2-4. 뱃지 렌더링 (서브메뉴 아이템)
+
+기존 `preparing` 뱃지 렌더링 코드(line 407-422) 옆에 추가:
+```tsx
+{child.badge != null && child.badge > 0 && (
+  <span style={{
+    fontSize: '10px',
+    fontWeight: 600,
+    padding: '2px 7px',
+    borderRadius: '10px',
+    background: 'var(--gx-danger)',
+    color: 'white',
+    flexShrink: 0,
+    marginLeft: 'auto',
+  }}>
+    {child.badge > 99 ? '99+' : child.badge}
+  </span>
+)}
+```
+
+---
+
+## Task 3: ETL 변경이력 읽음 처리
+
+### 3-1. `/qr/changes` 페이지 진입 시 읽음 처리
+
+변경이력 페이지 컴포넌트(QrChangesPage 또는 해당 페이지)에서:
+
+```tsx
+useEffect(() => {
+  if (etlData?.changes?.length) {
+    const latestId = Math.max(...etlData.changes.map((c: { id: number }) => c.id));
+    localStorage.setItem('axis_view_last_seen_change_id', String(latestId));
+    // Header와 Sidebar의 뱃지가 자동으로 0으로 업데이트되도록
+    // 필요 시 상태 갱신 트리거 (예: readVersion 패턴 사용)
+  }
+}, [etlData]);
+```
+
+### 3-2. 뱃지 갱신 트리거
+
+공지사항에서 사용하는 `readVersion` 패턴과 동일하게:
+- localStorage 변경 후 컴포넌트 리렌더 트리거 필요
+- 방법: `useState` 카운터 증가 or `window.dispatchEvent(new Event('storage'))` 활용
+- 또는 TanStack Query의 `queryClient.invalidateQueries(['etl-changes'])` 사용
+
+---
+
+## Task 4: Admin 간편 로그인 (prefix 매칭)
+
+### 4-1. 배경
+
+OPS Sprint 22-D에서 BE에 `get_admin_by_email_prefix()` 2단계 매칭 구현 완료:
+- 1단계: `WHERE email LIKE '{prefix}@%'` (prefix@ 매칭)
+- 2단계: `WHERE email LIKE '{prefix}%'` (prefix로 시작하는 전체 매칭)
+- 결과 1건 → 해당 worker로 로그인 처리
+- 결과 0건 또는 2건+ → 기존 방식으로 fallback
+
+### 4-2. auth.ts 수정
+
+현재 login 함수 (line 44-62):
+```typescript
+export async function login(email: string, password: string): Promise<LoginResponse> {
+  if (USE_MOCK) return mockLogin(email, password);
+  const response = await apiClient.post<LoginResponse>('/api/auth/login', {
+    email, password, device_id: getDeviceId(),
+  });
+  // ...
+}
+```
+
+**수정**: `email`에 `@`가 포함되지 않으면 prefix 로그인으로 전환
+
+```typescript
+export async function login(emailOrPrefix: string, password: string): Promise<LoginResponse> {
+  if (USE_MOCK) return mockLogin(emailOrPrefix, password);
+
+  // @ 미포함 → prefix 로그인 (OPS Sprint 22-D BE 기능)
+  const isPrefix = !emailOrPrefix.includes('@');
+
+  const response = await apiClient.post<LoginResponse>('/api/auth/login', {
+    email: emailOrPrefix,
+    password,
+    device_id: getDeviceId(),
+    ...(isPrefix && { login_type: 'prefix' }),
+  });
+
+  const data = response.data;
+  if (!data.worker.is_admin && !data.worker.is_manager) {
+    throw new Error('대시보드 접근 권한이 없습니다. 관리자 또는 협력사 관리자 계정으로 로그인해주세요.');
+  }
+  return data;
+}
+```
+
+⚠️ **BE 동작 확인**: OPS BE의 `/api/auth/login`이 `login_type: 'prefix'` 파라미터를 받는지 확인 필요.
+만약 BE가 email 필드에 `@` 없으면 자동으로 prefix 매칭하는 방식이라면 `login_type` 파라미터 불필요 → 그냥 email 필드에 prefix 값을 그대로 전송하면 됨.
+
+### 4-3. LoginPage.tsx 수정
+
+**이메일 입력 필드 안내 변경**:
+- placeholder: `이메일 또는 관리자 ID` (기존: `이메일을 입력하세요`)
+- input type: `email` → `text` (prefix 입력 시 브라우저 email 유효성 검사 우회)
+
+```tsx
+<input
+  type="text"                    // email → text 변경
+  placeholder="이메일 또는 관리자 ID"
+  value={email}
+  onChange={(e) => setEmail(e.target.value)}
+  autoComplete="email"
+  // ... 기존 스타일 유지
+/>
+```
+
+**폼 유효성 검증 수정** (line 31-34):
+```typescript
+// 기존: !email → prefix도 허용
+if (!email.trim() || !password) {
+  setError('이메일(또는 ID)과 비밀번호를 입력해주세요.');
+  return;
+}
+```
+
+---
+
+## Task 5: 빌드 검증 + 실 데이터 테스트
+
+### 5-1. 빌드 검증
+```bash
+npm run build
+```
+- TypeScript 에러 0건 확인
+
+### 5-2. 실 데이터 테스트 항목
+
+`.env.development`에서 `VITE_USE_MOCK=false` 확인 후:
+
+#### 테스트 1: Admin prefix 로그인
+- "admin" + 비밀번호로 로그인 시도
+- 성공 확인 (admin@... 계정으로 매칭)
+- 기존 전체 이메일 로그인도 정상 동작 확인
+
+#### 테스트 2: ETL 알림 뱃지 — Header
+- 로그인 후 Header 알림 벨에 ETL unread 숫자 뱃지 표시 확인
+- ETL 변경이력이 0건이면 뱃지 미표시 확인
+
+#### 테스트 3: ETL 알림 뱃지 — 사이드바
+- 사이드바 QR 관리 > "변경 이력" 옆 빨간 숫자 뱃지 표시 확인
+- Header 뱃지와 같은 숫자인지 확인
+
+#### 테스트 4: 읽음 처리
+- `/qr/changes` 페이지 진입
+- Header + 사이드바 뱃지가 0으로 변경 (사라짐) 확인
+- 페이지 새로고침 후에도 뱃지 0 유지 (localStorage 저장됨)
+
+#### 테스트 5: 기존 기능 확인
+- 공지사항 뱃지 정상 동작 확인
+- 대시보드 데이터 로딩 정상
+- 로그아웃 정상
+
+---
+
+## 파일 목록
+
+```
+src/components/layout/Header.tsx    — ETL unread 뱃지 추가 (수정)
+src/components/layout/Sidebar.tsx   — SubNavItem badge 확장 + 변경이력 뱃지 (수정)
+src/pages/LoginPage.tsx             — input type 변경 + placeholder 변경 (수정)
+src/api/auth.ts                     — prefix 로그인 분기 (수정)
+src/pages/QrChangesPage.tsx         — 읽음 처리 useEffect 추가 (수정, 파일명 확인 필요)
+```
+
+## 체크리스트
+
+- [x] Header.tsx: ETL unread count 계산 + 알림 벨 숫자 뱃지 표시
+- [x] Sidebar.tsx: SubNavItem에 badge 필드 추가 + "변경 이력" 뱃지 렌더링
+- [x] EtlChangeLogPage: 페이지 진입 시 last_seen_change_id 저장 (읽음 처리)
+- [x] 읽음 후 Header + Sidebar 뱃지 동시 갱신
+- [x] LoginPage.tsx: input type=text + placeholder 변경
+- [x] auth.ts: @ 미포함 시 prefix 로그인 전송
+- [ ] Admin prefix 로그인 테스트 ("admin" + 비밀번호) — 실 데이터 테스트 필요
+- [ ] 기존 이메일 로그인 정상 동작 확인 — 실 데이터 테스트 필요
+- [x] npm run build 에러 없음
+
+## ⚠️ 금지 사항
+- BE 코드 수정 금지 (AXIS-OPS 저장소 건드리지 않기)
+- 공지사항 기존 unread 로직 변경 금지
+- 디자인 시스템(G-AXIS) 토큰 변경 금지
+- .env.production 수정 금지
+```

@@ -28,8 +28,8 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
 
-    if (!email || !password) {
-      setError('이메일과 비밀번호를 입력해주세요.');
+    if (!email.trim() || !password.trim()) {
+      setError('이메일(또는 관리자 ID)과 비밀번호를 입력해주세요.');
       return;
     }
 
@@ -146,8 +146,8 @@ export default function LoginPage() {
               이메일
             </label>
             <input
-              type="email"
-              placeholder="관리자 이메일"
+              type="text"
+              placeholder="이메일 또는 관리자 ID"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={handleKeyDown}

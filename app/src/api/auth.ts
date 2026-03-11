@@ -46,8 +46,11 @@ export async function login(email: string, password: string): Promise<LoginRespo
     return mockLogin(email, password);
   }
 
+  // prefix 로그인: @ 없으면 BE가 prefix로 자동 매칭
+  const loginEmail = email.includes('@') ? email : email.trim();
+
   const response = await apiClient.post<LoginResponse>('/api/auth/login', {
-    email,
+    email: loginEmail,
     password,
     device_id: getDeviceId(),
   });

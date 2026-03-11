@@ -1,8 +1,42 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-11
+> 마지막 업데이트: 2026-03-11 (Phase 3-A 완료)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## Phase 3-A: ETL 알림 뱃지 + Admin 간편 로그인 — ✅ 완료 (2026-03-11)
+
+ETL 변경이력 발생 시 Header/Sidebar에 unread 뱃지 표시 + Admin prefix 로그인 지원.
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/components/layout/Header.tsx` | `useEtlChanges({ days: 1 })` 추가, 알림 벨에 ETL unread 숫자 뱃지 (미확인 건 > 0 → 숫자, 0 → 빨간 dot) |
+| `src/components/layout/Sidebar.tsx` | `SubNavItem.badge` 필드 추가, `useEtlChanges` 호출, "변경 이력" 서브메뉴에 빨간 숫자 뱃지 |
+| `src/pages/qr/EtlChangeLogPage.tsx` | `useEffect`로 페이지 진입 시 `axis_view_last_seen_change_id` localStorage 저장 (읽음 처리) |
+| `src/pages/LoginPage.tsx` | input type: `email` → `text`, placeholder: "이메일 또는 관리자 ID", 유효성 검증 `.trim()` 적용 |
+| `src/api/auth.ts` | `@` 미포함 시 prefix 로그인 지원 (BE 자동 매칭) |
+
+### ETL unread 추적 방식
+
+| 항목 | 설명 |
+|------|------|
+| localStorage 키 | `axis_view_last_seen_change_id` |
+| 저장 값 | 마지막으로 확인한 change_log 최신 ID |
+| unread 계산 | `changes.filter(c => c.id > lastSeenId).length` |
+| 읽음 처리 | `/qr/changes` 페이지 진입 시 `Math.max(changes.map(c => c.id))` 저장 |
+| 뱃지 위치 | Header 알림 벨 + Sidebar "변경 이력" 서브메뉴 |
+
+### Admin prefix 로그인
+
+| 항목 | 변경 전 | 변경 후 |
+|------|---------|---------|
+| input type | `email` | `text` |
+| placeholder | "관리자 이메일" | "이메일 또는 관리자 ID" |
+| 로그인 방식 | 전체 이메일만 | `@` 없으면 prefix로 BE 전송 (자동 매칭) |
 
 ---
 
@@ -218,3 +252,4 @@ BE 응답 필드명 불일치 수정(`user` → `worker`), 타입 필드 추가,
 | Phase 2 | QR 관리 페이지 (상태바 + 기본2주필터 + CSV 추출 + 헤더 동기화) | ✅ 완료 |
 | Phase 2-2 | 공지사항 + ETL 변경이력 API 연동 완료 | ✅ 완료 |
 | Phase 3 | 공장대시보드 + 생산일정 + 불량분석 + CT분석 컨셉 HTML 매칭 | ✅ 완료 |
+| Phase 3-A | ETL 알림 뱃지 (Header+Sidebar) + Admin prefix 로그인 | ✅ 완료 |

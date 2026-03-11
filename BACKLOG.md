@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-11 (Phase 3 — 컨셉 HTML 매칭 + API 연동 완료)
+> 마지막 업데이트: 2026-03-11 (Phase 3-A — ETL 알림 뱃지 + Admin prefix 로그인 완료)
 > 이 파일은 보류/재검토/계획/아이디어를 한 곳에서 관리합니다.
 > 완료된 항목은 PROGRESS.md로 이동합니다.
 
@@ -77,6 +77,11 @@
 - **불량 분석**: SVG 도넛 차트, 부품 순위(뱃지+bar), SVG 라인 차트, 외주사 카드 (2x2 grid)
 - **CT 분석**: 필터 바(기간 토글+드롭다운), 프로세스 카드(아이콘+top bar), 범례, 이중 바 차트(IQR/평균)
 
+### Phase 3-A: ETL 알림 뱃지 + Admin 간편 로그인 — ✅ 완료 (2026-03-11)
+- **ETL 알림 뱃지**: Header 알림 벨 + Sidebar "변경 이력" 서브메뉴에 unread 숫자 뱃지, `last_seen_change_id` localStorage 패턴
+- **Admin prefix 로그인**: input type=text, `@` 미포함 시 prefix 전송 (BE 자동 매칭)
+- **읽음 처리**: `/qr/changes` 진입 시 최대 ID 저장 → 뱃지 자동 갱신
+
 ### Phase 4: WebSocket 실시간 업데이트
 - **내용**: 출퇴근 시간대에 실시간 push로 대시보드 자동 갱신
 - **현재**: 설정 메뉴에서 1분/3분/5분 polling 방식
@@ -133,3 +138,4 @@
 | Phase 2 | QR 관리 페이지 (상태바 + 기본2주필터 + CSV 추출 + 헤더 동기화) | ✅ 완료 |
 | Phase 2-2 | 공지사항 + ETL 변경이력 API 연동 완료 | ✅ 완료 |
 | Phase 3 | 공장대시보드 + 생산일정 + 불량분석 + CT분석 컨셉 HTML 매칭 | ✅ 완료 |
+| Phase 3-A | ETL 알림 뱃지 (Header+Sidebar) + Admin prefix 로그인 | ✅ 완료 |

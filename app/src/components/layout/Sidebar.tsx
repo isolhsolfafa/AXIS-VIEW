@@ -1,15 +1,17 @@
 // src/components/layout/Sidebar.tsx
 // 좌측 사이드바 (260px) — G-AXIS 디자인 시스템 완전 적용
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/store/authStore';
+import { useEtlChanges } from '@/hooks/useEtlChanges';
 import logoImage from '@/assets/images/g-axis-2.png';
 
 interface SubNavItem {
   label: string;
   to: string;
   preparing?: boolean;
+  badge?: number;
 }
 
 interface NavItem {
@@ -145,12 +147,46 @@ const ChevronIcon = ({ open }: { open: boolean }) => (
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const location = useLocation();
+
+  // ETL 변경이력 unread 카운트
+  const { data: etlData } = useEtlChanges({ days: 1 });
+  const etlUnreadCount = useMemo(() => {
+    const changes = etlData?.changes ?? [];
+    if (changes.length === 0) return 0;
+    try {
+      const lastSeenId = Number(localStorage.getItem('axis_view_last_seen_change_id') || '0');
+      return changes.filter((c) => c.id > lastSeenId).length;
+    } catch {
+      return changes.length;
+    }
+  }, [etlData]);
+
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(() => {
     // QR 하위 경로에 있으면 자동 펼침
     const initial = new Set<string>();
     if (location.pathname.startsWith('/qr')) initial.add('QR 관리');
     return initial;
   });
+
+  // navGroups에 ETL 뱃지 주입
+  const dynamicNavGroups = useMemo(() => {
+    return navGroups.map((group) => ({
+      ...group,
+      items: group.items.map((item) => {
+        if (item.label === 'QR 관리' && item.children) {
+          return {
+            ...item,
+            children: item.children.map((child) =>
+              child.to === '/qr/changes'
+                ? { ...child, badge: etlUnreadCount }
+                : child
+            ),
+          };
+        }
+        return item;
+      }),
+    }));
+  }, [etlUnreadCount]);
 
   const toggleMenu = (label: string) => {
     setExpandedMenus((prev) => {
@@ -244,7 +280,7 @@ export default function Sidebar() {
 
       {/* 네비게이션 */}
       <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-        {navGroups.map((group) => (
+        {dynamicNavGroups.map((group) => (
           <div key={group.title} style={{ padding: '20px 16px 8px' }}>
             <div
               style={{
@@ -404,6 +440,28 @@ export default function Sidebar() {
                               }}
                             />
                             <span>{child.label}</span>
+                            {child.badge != null && child.badge > 0 && (
+                              <span
+                                style={{
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  minWidth: '18px',
+                                  height: '18px',
+                                  borderRadius: '9px',
+                                  background: 'var(--gx-danger, #EF4444)',
+                                  color: '#fff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  padding: '0 4px',
+                                  flexShrink: 0,
+                                  marginLeft: 'auto',
+                                  lineHeight: 1,
+                                }}
+                              >
+                                {child.badge}
+                              </span>
+                            )}
                             {child.preparing && (
                               <span
                                 style={{

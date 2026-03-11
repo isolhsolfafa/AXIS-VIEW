@@ -2,7 +2,7 @@
 // ETL 변경 이력 페이지 — OPS BE API 연동
 // GET /api/admin/etl/changes
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
 import { useEtlChanges } from '@/hooks/useEtlChanges';
 import type { ChangeLogEntry } from '@/api/etl';
@@ -78,6 +78,16 @@ export default function EtlChangeLogPage() {
 
   const changes = data?.changes ?? [];
   const summary = data?.summary ?? { total_changes: 0, by_field: {} };
+
+  // 읽음 처리: 페이지 진입 시 최대 change ID를 localStorage에 저장
+  useEffect(() => {
+    if (changes.length === 0) return;
+    const maxId = Math.max(...changes.map((c) => c.id));
+    const lastSeenId = Number(localStorage.getItem('axis_view_last_seen_change_id') || '0');
+    if (maxId > lastSeenId) {
+      localStorage.setItem('axis_view_last_seen_change_id', String(maxId));
+    }
+  }, [changes]);
 
   // 테이블 표시용 (API가 이미 필터링해서 반환하지만, FE에서도 동일 필터 적용)
   const filtered = useMemo(() => {

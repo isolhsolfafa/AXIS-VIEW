@@ -7,6 +7,7 @@ import SettingsModal from './SettingsModal';
 import AnnouncementPanel from './AnnouncementPanel';
 import { useSettings } from '@/hooks/useSettings';
 import { useNotices } from '@/hooks/useNotices';
+import { useEtlChanges } from '@/hooks/useEtlChanges';
 
 const BREADCRUMB_MAP: Record<string, string> = {
   '협력사 대시보드': '출입 현황',
@@ -35,6 +36,19 @@ export default function Header({
   const [announcementOpen, setAnnouncementOpen] = useState(false);
   const [readVersion, setReadVersion] = useState(0);
   const { settings, updateSetting } = useSettings();
+
+  // ETL 변경이력 unread 카운트 (최근 1일)
+  const { data: etlData } = useEtlChanges({ days: 1 });
+  const etlUnreadCount = useMemo(() => {
+    const changes = etlData?.changes ?? [];
+    if (changes.length === 0) return 0;
+    try {
+      const lastSeenId = Number(localStorage.getItem('axis_view_last_seen_change_id') || '0');
+      return changes.filter((c) => c.id > lastSeenId).length;
+    } catch {
+      return changes.length;
+    }
+  }, [etlData]);
 
   // 공지사항 API로 unread 카운트 계산
   const { data: noticeData } = useNotices({ limit: 20 });
@@ -224,18 +238,43 @@ export default function Header({
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M13.73 11.455A6.75 6.75 0 009 2.25a6.75 6.75 0 00-4.73 9.205L2.25 15.75l4.295-1.98A6.75 6.75 0 0013.73 11.455z"/>
           </svg>
-          <span
-            style={{
-              position: 'absolute',
-              top: '7px',
-              right: '7px',
-              width: '7px',
-              height: '7px',
-              borderRadius: '50%',
-              background: 'var(--gx-danger)',
-              border: '1.5px solid var(--gx-white)',
-            }}
-          />
+          {etlUnreadCount > 0 ? (
+            <span
+              style={{
+                position: 'absolute',
+                top: '5px',
+                right: '5px',
+                minWidth: '16px',
+                height: '16px',
+                borderRadius: '8px',
+                background: 'var(--gx-danger, #EF4444)',
+                border: '1.5px solid var(--gx-white)',
+                color: '#fff',
+                fontSize: '10px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 3px',
+                lineHeight: 1,
+              }}
+            >
+              {etlUnreadCount}
+            </span>
+          ) : (
+            <span
+              style={{
+                position: 'absolute',
+                top: '7px',
+                right: '7px',
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: 'var(--gx-danger)',
+                border: '1.5px solid var(--gx-white)',
+              }}
+            />
+          )}
         </button>
 
         {/* 공지사항 버튼 */}
