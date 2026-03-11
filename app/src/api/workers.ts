@@ -19,7 +19,7 @@ export async function toggleManager(
   isManager: boolean
 ): Promise<{ success: boolean; worker: Worker }> {
   const { data } = await apiClient.put<{ success: boolean; worker: Worker }>(
-    `/api/admin/workers/${workerId}/toggle-manager`,
+    `/api/admin/workers/${workerId}/manager`,
     { is_manager: isManager }
   );
   return data;

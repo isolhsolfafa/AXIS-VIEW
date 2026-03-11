@@ -57,7 +57,14 @@ export default function PermissionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCompany, setFilterCompany] = useState('');
 
-  const workers = data?.workers ?? [];
+  const allWorkers = data?.workers ?? [];
+
+  // Manager는 자기 회사만 표시
+  const workers = useMemo(() => {
+    if (currentUser?.is_admin) return allWorkers;
+    if (currentUser?.is_manager) return allWorkers.filter((w) => w.company === currentUser.company);
+    return allWorkers;
+  }, [allWorkers, currentUser]);
 
   // 필터링
   const filtered = useMemo(() => {
