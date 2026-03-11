@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-11
+> 마지막 업데이트: 2026-03-11 (Phase 4 Hotfix — #8 추가)
 
 ---
 
@@ -224,6 +224,42 @@ elif worker.is_manager:
 ```
 
 **FE 현황**: VIEW BACKLOG TASK-2에 등록. BE 분기 구현 후 FE 변경 불필요 (동일 API, 응답 범위만 달라짐).
+
+### 8. GET /api/admin/workers 권한 완화 — PENDING
+
+**엔드포인트**: `GET /api/admin/workers`
+
+**현재 상태**: `@admin_required` → Manager 계정 403 Forbidden
+
+**요청 내용**: `@admin_required` → `@manager_or_admin_required`로 데코레이터 변경
+
+**변경 위치**: `backend/app/routes/admin.py` L184-186
+```python
+# 현재
+@admin_bp.route("/workers", methods=["GET"])
+@jwt_required
+@admin_required        # ← 이것을
+def get_workers():
+
+# 변경 요청
+@admin_bp.route("/workers", methods=["GET"])
+@jwt_required
+@manager_or_admin_required  # ← 이것으로
+def get_workers():
+```
+
+**사유**:
+- 권한 관리 페이지(`/admin/permissions`)에서 Manager 계정이 자사 작업자 목록을 조회해야 함
+- `PUT /api/admin/workers/:id/manager` (Toggle)은 이미 `@manager_or_admin_required`로 되어 있음 (Sprint 22-C)
+- 목록 조회(GET)만 admin 전용이라 Manager가 페이지 진입 시 403 발생
+
+**FE 현황**: Manager 로그인 시 `w.company === currentUser.company` FE 필터링 이미 구현 완료. BE에서 전체 목록을 내려줘도 FE에서 자사만 표시함.
+
+**보안 참고**: Manager에게 전체 작업자 목록이 노출되는 것이 우려되면, BE에서도 `is_manager → 자사 소속만 응답`하는 필터를 추가하면 됨 (선택적).
+
+**테스트 결과 (2026-03-11)**:
+- Admin 로그인 → 권한 Toggle 동작 ✅ Pass
+- Manager 로그인 → `GET /api/admin/workers` 403 Forbidden ❌
 
 ---
 
