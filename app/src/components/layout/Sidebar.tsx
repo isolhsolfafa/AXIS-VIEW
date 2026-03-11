@@ -182,6 +182,7 @@ export default function Sidebar() {
   const dynamicNavGroups = useMemo(() => {
     const isAdmin = user?.is_admin ?? false;
     const isManager = user?.is_manager ?? false;
+    const isGst = user?.company === 'GST';
 
     return navGroups
       .map((group) => ({
@@ -189,6 +190,8 @@ export default function Sidebar() {
         items: group.items
           .filter((item) => {
             if (!item.roles) return true;
+            // GST 소속은 모든 메뉴 접근 허용
+            if (isGst) return true;
             return (item.roles.includes('admin') && isAdmin) ||
                    (item.roles.includes('manager') && isManager);
           })

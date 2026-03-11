@@ -57,7 +57,7 @@ export async function login(email: string, password: string): Promise<LoginRespo
 
   const data = response.data;
 
-  if (!data.worker.is_admin && !data.worker.is_manager) {
+  if (!data.worker.is_admin && !data.worker.is_manager && data.worker.company !== 'GST') {
     throw new Error('대시보드 접근 권한이 없습니다. 관리자 또는 협력사 관리자 계정으로 로그인해주세요.');
   }
 

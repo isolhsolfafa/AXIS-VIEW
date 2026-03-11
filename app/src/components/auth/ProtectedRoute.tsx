@@ -30,17 +30,19 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     return <Navigate to="/login" replace />;
   }
 
-  // role 기반 접근 제어
+  // role 기반 접근 제어 (GST 소속은 전체 접근 허용)
+  const isGst = user?.company === 'GST';
   if (allowedRoles) {
     const hasAccess =
+      isGst ||
       (allowedRoles.includes('admin') && user?.is_admin) ||
       (allowedRoles.includes('manager') && user?.is_manager);
     if (!hasAccess) {
       return <Navigate to="/unauthorized" replace />;
     }
   } else {
-    // allowedRoles 미지정 → 기존 동작 (is_admin || is_manager)
-    if (!user?.is_admin && !user?.is_manager) {
+    // allowedRoles 미지정 → is_admin || is_manager || GST
+    if (!user?.is_admin && !user?.is_manager && !isGst) {
       return <Navigate to="/login" replace />;
     }
   }
