@@ -10,7 +10,9 @@ export interface WorkersResponse {
 }
 
 export async function getWorkers(): Promise<WorkersResponse> {
-  const { data } = await apiClient.get<WorkersResponse>('/api/admin/workers');
+  const { data } = await apiClient.get<WorkersResponse>('/api/admin/workers', {
+    params: { limit: 500 },
+  });
   return data;
 }
 
