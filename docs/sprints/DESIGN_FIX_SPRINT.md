@@ -1864,3 +1864,277 @@ src/pages/QrChangesPage.tsx         — 읽음 처리 useEffect 추가 (수정, 
 - 디자인 시스템(G-AXIS) 토큰 변경 금지
 - .env.production 수정 금지
 ```
+
+---
+
+# Phase 4: 페이지별 Role 기반 접근 제어 + OPS 권한 부여 연동
+
+> **시작일**: 2026-03-11
+> **목표**: 페이지마다 접근 가능한 role을 설정하고, OPS의 관리자 권한 부여 기능을 VIEW에서도 사용 가능하게 연동
+
+---
+
+## 배경
+
+현재 `ProtectedRoute`는 `is_admin || is_manager`만 체크하여 모든 페이지에 동일 접근 허용.
+페이지별로 접근 가능한 role을 구분해야 함. 또한 OPS에 구현된 Manager 권한 위임 기능을 VIEW에서도 관리할 수 있어야 함.
+
+---
+
+## 페이지별 Role 매핑
+
+| 페이지 | 경로 | 접근 가능 role | 비고 |
+|--------|------|---------------|------|
+| 협력사 대시보드 | `/attendance` | `admin`, `manager` | manager → 자사 데이터만 (BE 필터) |
+| QR Registry | `/qr` | `admin`, `manager` | manager → 자사 담당 S/N만 (BE 필터) |
+| 변경 이력 | `/qr/changes` | `admin`, `manager` | 전체 접근 허용 (필터 불필요) |
+| 생산 일정 | `/plan` | `admin`, `manager` | manager 접근 허용 |
+| 공장 대시보드 | `/factory` | `admin` only | GST 내부 전용 |
+| 불량 분석 | `/defect` | `admin` only | GST 내부 전용 |
+| CT 분석 | `/ct` | `admin` only | GST 내부 전용 |
+| 권한 관리 | `/admin/permissions` | `admin`, `manager` | **신규 페이지** — OPS 권한 위임 연동 |
+
+> 추후 추가될 AI 예측, AI 챗봇 페이지도 `admin` only 예정
+
+---
+
+## Task 1: ProtectedRoute에 role 기반 접근 제어 추가
+
+**수정 파일**: `src/components/auth/ProtectedRoute.tsx`
+
+**현재 코드** (참고):
+```tsx
+// 현재: is_admin || is_manager만 체크
+if (!user.is_admin && !user.is_manager) {
+  return <Navigate to="/login" />;
+}
+```
+
+**변경 내용**:
+```tsx
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  allowedRoles?: ('admin' | 'manager')[];  // ← 추가
+}
+
+function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
+  // 기본: admin + manager 모두 허용 (기존 동작 유지)
+  if (!allowedRoles) {
+    if (!user.is_admin && !user.is_manager) return <Navigate to="/login" />;
+  } else {
+    const hasAccess =
+      (allowedRoles.includes('admin') && user.is_admin) ||
+      (allowedRoles.includes('manager') && user.is_manager);
+    if (!hasAccess) return <Navigate to="/unauthorized" />;  // 또는 /login
+  }
+  return <>{children}</>;
+}
+```
+
+**핵심**: `allowedRoles` 미지정 시 기존 동작 유지 (하위 호환성)
+
+---
+
+## Task 2: App.tsx 라우트에 role 적용
+
+**수정 파일**: `src/App.tsx`
+
+**변경 내용**: 각 라우트에 `allowedRoles` 지정
+
+```tsx
+{/* admin + manager 접근 */}
+<Route path="/attendance" element={
+  <ProtectedRoute allowedRoles={['admin', 'manager']}>
+    <AttendancePage />
+  </ProtectedRoute>
+} />
+<Route path="/qr" element={
+  <ProtectedRoute allowedRoles={['admin', 'manager']}>
+    <QrManagementPage />
+  </ProtectedRoute>
+} />
+<Route path="/qr/changes" element={
+  <ProtectedRoute allowedRoles={['admin', 'manager']}>
+    <EtlChangeLogPage />
+  </ProtectedRoute>
+} />
+<Route path="/plan" element={
+  <ProtectedRoute allowedRoles={['admin', 'manager']}>
+    <ProductionPlanPage />
+  </ProtectedRoute>
+} />
+
+{/* admin only */}
+<Route path="/factory" element={
+  <ProtectedRoute allowedRoles={['admin']}>
+    <FactoryDashboardPage />
+  </ProtectedRoute>
+} />
+<Route path="/defect" element={
+  <ProtectedRoute allowedRoles={['admin']}>
+    <DefectAnalysisPage />
+  </ProtectedRoute>
+} />
+<Route path="/ct" element={
+  <ProtectedRoute allowedRoles={['admin']}>
+    <CtAnalysisPage />
+  </ProtectedRoute>
+} />
+
+{/* 권한 관리 — admin + manager */}
+<Route path="/admin/permissions" element={
+  <ProtectedRoute allowedRoles={['admin', 'manager']}>
+    <PermissionsPage />
+  </ProtectedRoute>
+} />
+```
+
+---
+
+## Task 3: Sidebar 메뉴 role 기반 표시/숨김
+
+**수정 파일**: `src/components/layout/Sidebar.tsx`
+
+**현재**: 모든 메뉴가 동일하게 표시됨 (Lock 아이콘 메뉴 포함)
+
+**변경 내용**:
+1. NavItem 인터페이스에 `roles` 필드 추가:
+```tsx
+interface NavItem {
+  label: string;
+  path: string;
+  icon: React.ComponentType;
+  roles?: ('admin' | 'manager')[];  // ← 추가
+  disabled?: boolean;
+  children?: SubNavItem[];
+}
+```
+
+2. 메뉴 정의에 role 지정:
+```tsx
+const navItems: NavItem[] = [
+  { label: '협력사 대시보드', path: '/attendance', icon: UsersIcon, roles: ['admin', 'manager'] },
+  { label: 'QR 관리', path: '/qr', icon: QrCodeIcon, roles: ['admin', 'manager'],
+    children: [
+      { label: 'QR Registry', path: '/qr' },
+      { label: '변경 이력', path: '/qr/changes', badge: unreadCount },
+    ]
+  },
+  { label: '생산 일정', path: '/plan', icon: CalendarIcon, roles: ['admin', 'manager'] },
+  { label: '공장 대시보드', path: '/factory', icon: BuildingIcon, roles: ['admin'] },
+  { label: '불량 분석', path: '/defect', icon: AlertTriangleIcon, roles: ['admin'] },
+  { label: 'CT 분석', path: '/ct', icon: ClockIcon, roles: ['admin'] },
+  { label: '권한 관리', path: '/admin/permissions', icon: ShieldIcon, roles: ['admin', 'manager'] },
+];
+```
+
+3. 렌더링 시 현재 user role에 따라 필터링:
+```tsx
+const visibleItems = navItems.filter(item => {
+  if (!item.roles) return true;
+  return (item.roles.includes('admin') && user.is_admin) ||
+         (item.roles.includes('manager') && user.is_manager);
+});
+```
+
+**결과**:
+- **Admin 로그인**: 모든 메뉴 표시
+- **Manager 로그인**: 협력사 대시보드, QR 관리, 생산 일정, 권한 관리만 표시
+
+---
+
+## Task 4: 권한 관리 페이지 (OPS 연동)
+
+**신규 파일**: `src/pages/admin/PermissionsPage.tsx`
+
+**사용 API** (OPS에 이미 구현됨):
+- `GET /api/admin/workers` — 작업자 목록 (is_admin → 전체, is_manager → 자사)
+- `PUT /api/admin/workers/:id/toggle-manager` — Manager 권한 부여/해제
+
+**화면 구성**:
+
+1. **헤더**: "권한 관리" 타이틀 + 현재 로그인 회사명 표시 (manager인 경우)
+2. **작업자 테이블**:
+   | 이름 | 이메일 | 역할 | 회사 | Manager 권한 |
+   |------|--------|------|------|-------------|
+   | 홍길동 | hong@bat.com | MM | BAT | 🔘 Toggle |
+
+3. **Toggle 동작**:
+   - ON/OFF 스위치로 `is_manager` 부여/해제
+   - API: `PUT /api/admin/workers/{id}/toggle-manager` body: `{ "is_manager": true/false }`
+   - 성공 시 목록 자동 갱신
+   - Admin 사용자 행은 Toggle 비활성화 (변경 불가 표시)
+
+4. **Manager 제한**:
+   - Manager 로그인 시: 자기 회사 소속만 표시 (BE에서 필터)
+   - Admin 로그인 시: 전체 작업자 표시
+
+**필요 API 훅**:
+```tsx
+// src/api/workers.ts — 신규
+export async function getWorkers(): Promise<Worker[]> { ... }
+export async function toggleManager(workerId: number, isManager: boolean): Promise<void> { ... }
+
+// src/hooks/useWorkers.ts — 신규
+export function useWorkers() { ... }  // TanStack Query
+```
+
+---
+
+## Task 5: Unauthorized 페이지
+
+**신규 파일**: `src/pages/UnauthorizedPage.tsx`
+
+**내용**: role 부족으로 접근 거부된 경우 표시하는 페이지
+- "접근 권한이 없습니다" 메시지
+- "대시보드로 돌아가기" 버튼 (→ 기본 허용 페이지로 이동)
+
+---
+
+## Task 6: 빌드 검증 + 테스트
+
+1. `npm run build` — 에러 없음 확인
+2. Admin 로그인 → 모든 페이지 접근 가능
+3. Manager 로그인:
+   - 협력사 대시보드 ✅ 접근 가능
+   - QR 관리 / 변경 이력 ✅ 접근 가능
+   - 생산 일정 ✅ 접근 가능
+   - 공장 대시보드 ❌ → Unauthorized 페이지
+   - 불량 분석 ❌ → Unauthorized 페이지
+   - CT 분석 ❌ → Unauthorized 페이지
+   - 권한 관리 ✅ → 자사 작업자만 표시
+4. Sidebar: Manager 로그인 시 admin-only 메뉴 숨김 확인
+5. 권한 관리: Toggle 동작 확인
+
+---
+
+## 파일 목록
+
+```
+src/components/auth/ProtectedRoute.tsx     — allowedRoles prop 추가 (수정)
+src/App.tsx                                — 라우트별 role 지정 (수정)
+src/components/layout/Sidebar.tsx          — 메뉴 role 필터링 (수정)
+src/pages/admin/PermissionsPage.tsx        — 권한 관리 페이지 (신규)
+src/pages/UnauthorizedPage.tsx             — 접근 거부 페이지 (신규)
+src/api/workers.ts                         — 작업자 API (신규)
+src/hooks/useWorkers.ts                    — 작업자 훅 (신규)
+```
+
+## 체크리스트
+
+- [x] ProtectedRoute에 allowedRoles prop 추가 (Task 1)
+- [x] App.tsx 라우트별 role 지정 (Task 2)
+- [x] Sidebar 메뉴 role 기반 필터링 (Task 3)
+- [x] 권한 관리 페이지 — 작업자 목록 + Toggle (Task 4)
+- [x] Unauthorized 페이지 (Task 5)
+- [ ] Admin 로그인 — 전체 페이지 접근 확인 — 실 데이터 테스트 필요
+- [ ] Manager 로그인 — admin-only 페이지 차단 확인 — 실 데이터 테스트 필요
+- [ ] Manager 로그인 — Sidebar에서 admin-only 메뉴 숨김 확인 — 실 데이터 테스트 필요
+- [ ] 권한 Toggle 동작 확인 — 실 데이터 테스트 필요
+- [x] npm run build 에러 없음
+
+## ⚠️ 금지 사항
+- BE 코드 수정 금지 (AXIS-OPS 저장소 건드리지 않기)
+- 기존 페이지 기능/디자인 변경 금지
+- 디자인 시스템(G-AXIS) 토큰 변경 금지
+- .env.production 수정 금지
