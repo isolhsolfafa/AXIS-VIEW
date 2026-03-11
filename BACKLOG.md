@@ -78,6 +78,7 @@
 - **CT 분석**: 필터 바(기간 토글+드롭다운), 프로세스 카드(아이콘+top bar), 범례, 이중 바 차트(IQR/평균)
 
 ### Phase 3-A: ETL 알림 뱃지 + Admin 간편 로그인 — ✅ 완료 (2026-03-11)
+- **알림 드롭다운 패널**: `NotificationPanel.tsx` 신규 — 알림 벨 클릭 시 소스별 건수 + 바로가기 드롭다운 (확장 가능 구조)
 - **ETL 알림 뱃지**: Header 알림 벨 + Sidebar "변경 이력" 서브메뉴에 unread 숫자 뱃지, `last_seen_change_id` localStorage 패턴
 - **Admin prefix 로그인**: input type=text, `@` 미포함 시 prefix 전송 (BE 자동 매칭)
 - **읽음 처리**: `/qr/changes` 진입 시 최대 ID 저장 → 뱃지 자동 갱신

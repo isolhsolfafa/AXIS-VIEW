@@ -14,7 +14,8 @@ ETL 변경이력 발생 시 Header/Sidebar에 unread 뱃지 표시 + Admin prefi
 
 | 파일 | 변경 내용 |
 |------|----------|
-| `src/components/layout/Header.tsx` | `useEtlChanges({ days: 1 })` 추가, 알림 벨에 ETL unread 숫자 뱃지 (미확인 건 > 0 → 숫자, 0 → 빨간 dot) |
+| `src/components/layout/NotificationPanel.tsx` | **신규** — 알림 드롭다운 패널 (소스별 건수 + 바로가기, 확장 가능 구조) |
+| `src/components/layout/Header.tsx` | `useEtlChanges({ days: 1 })` 추가, 알림 벨 클릭 → NotificationPanel 토글, 소스별 건수 합산 뱃지 |
 | `src/components/layout/Sidebar.tsx` | `SubNavItem.badge` 필드 추가, `useEtlChanges` 호출, "변경 이력" 서브메뉴에 빨간 숫자 뱃지 |
 | `src/pages/qr/EtlChangeLogPage.tsx` | `useEffect`로 페이지 진입 시 `axis_view_last_seen_change_id` localStorage 저장 (읽음 처리) |
 | `src/pages/LoginPage.tsx` | input type: `email` → `text`, placeholder: "이메일 또는 관리자 ID", 유효성 검증 `.trim()` 적용 |
@@ -29,6 +30,17 @@ ETL 변경이력 발생 시 Header/Sidebar에 unread 뱃지 표시 + Admin prefi
 | unread 계산 | `changes.filter(c => c.id > lastSeenId).length` |
 | 읽음 처리 | `/qr/changes` 페이지 진입 시 `Math.max(changes.map(c => c.id))` 저장 |
 | 뱃지 위치 | Header 알림 벨 + Sidebar "변경 이력" 서브메뉴 |
+
+### 알림 드롭다운 패널 (NotificationPanel)
+
+| 항목 | 설명 |
+|------|------|
+| 컴포넌트 | `NotificationPanel.tsx` — 확장 가능한 알림 소스 리스트 |
+| 동작 | 알림 벨 클릭 → 드롭다운 열림 (공지사항 패널과 동일 패턴) |
+| 항목 구성 | 아이콘 + 라벨 + 건수 뱃지 + 화살표 (클릭 → 해당 페이지 이동) |
+| 현재 소스 | ETL 변경이력 (`/qr/changes`) |
+| 확장성 | `notificationItems` 배열에 항목 추가로 실시간 이벤트 등 소스 추가 가능 |
+| 상호 배타 | 알림/공지사항/설정 패널 중 하나만 열림 |
 
 ### Admin prefix 로그인
 
