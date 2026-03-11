@@ -14,7 +14,7 @@
 | TASK-2 | 협력사 관리자 데이터 범위 제한 | 🔍 설계 필요 | `is_manager` 로그인 허용됨. 자기 회사 데이터만 보이게 FE 필터링 또는 BE API 권한별 응답 분기 필요 |
 | TASK-3 | 공지사항 OPS API 연동 | ✅ 완료 | `GET /api/notices` 연동 완료 (2026-03-11). Mock 제거, `useNotices` 훅, Header badge API 기반 |
 | TASK-4 | ETL 변경이력 OPS API 연동 | ✅ 완료 | `GET /api/admin/etl/changes` 연동 완료 (2026-03-11). Mock 제거, `useEtlChanges` 훅 |
-| TASK-5 | shipped 상태 VIEW 반영 | ⏳ ETL 대기 | ETL에서 actual_ship_date 적재 + shipped 상태 처리 후, QR관리 페이지 KPI/테이블에 shipped 상태 표시 |
+| TASK-5 | shipped 상태 VIEW 반영 | ✅ FE 완료 | QR 페이지 StatusBadge 3분기(진행중/출하완료/폐기) + KPI 카드 shipped 표시. BE `stats.shipped` + ETL `actual_ship_date` 적재 후 자동 반영 |
 | TASK-6 | QR 목록 API 응답 확장 확인 | 🔍 OPS BE 확인 필요 | `GET /api/admin/qr/list` 응답에 `actual_ship_date`, `status`(active/shipped), `contract_type`, `sales_note` 포함 여부 확인 (OPS_API_REQUESTS #6) |
 | TASK-7 | is_manager 데이터 범위 제한 확인 | 🔍 OPS BE 확인 필요 | 출퇴근(`/hr/attendance/daily`), QR목록(`/qr/list`), ETL변경이력(`/etl/changes`) — is_manager 로그인 시 자사 데이터만 응답하는지 확인 (OPS_API_REQUESTS #7) |
 
@@ -125,7 +125,7 @@
 - **반응형 모바일**: 현재 데스크탑 기준. 태블릿/모바일 레이아웃 추가 시 사이드바 → 하단 네비게이션
 - **알림 센터**: 대시보드에서 실시간 알림 (지각 경고, 미출근 알림 등) 표시 — Header 알림 아이콘(채팅 버블) 자리에 OPS 알람 연동 예정
 - **CSV/Excel 다운로드**: 출퇴근 데이터를 CSV/Excel로 내보내기 기능
-- **shipped 상태 표시**: QR관리 페이지에 출고 완료(shipped) 건 KPI + 테이블 표시 (ETL actual_ship_date 적재 후)
+- **shipped 상태 표시**: ✅ FE 완료 — QR관리 페이지 StatusBadge 3분기 + KPI 출하완료 카드 (BE/ETL 적재 후 자동 반영)
 - **AXIS-OPS 통합 인증**: OPS와 VIEW가 동일 BE를 사용하므로, SSO 또는 토큰 공유 가능
 
 ---
@@ -142,3 +142,4 @@
 | Phase 2-2 | 공지사항 + ETL 변경이력 API 연동 완료 | ✅ 완료 |
 | Phase 3 | 공장대시보드 + 생산일정 + 불량분석 + CT분석 컨셉 HTML 매칭 | ✅ 완료 |
 | Phase 3-A | ETL 알림 뱃지 (Header+Sidebar) + Admin prefix 로그인 | ✅ 완료 |
+| Phase 3-A+ | QR shipped 상태 3분기 + KPI 출하완료 반영 | ✅ 완료 |

@@ -1,8 +1,30 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-11 (Phase 3-A 완료)
+> 마지막 업데이트: 2026-03-11 (Phase 3-A + QR shipped 상태 반영)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## QR 관리 — shipped 상태 반영 (2026-03-11)
+
+QR 관리 페이지에 shipped(출하완료) 상태 지원 추가.
+
+| 항목 | 변경 전 | 변경 후 |
+|------|---------|---------|
+| StatusBadge | Active / Revoked 2분기 | 진행 중 / 출하완료 / 폐기 3분기 |
+| KPI 카드 | 전체 / Active / Revoked | 전체 / 진행 중 / 출하완료 |
+| 필터 드롭다운 | Active / Revoked | 진행 중 / 출하완료 |
+| QrStats 타입 | `total`, `active`, `revoked` | `shipped: number` 추가 |
+
+> BE에서 `stats.shipped` 값을 내려주면 바로 반영. ETL이 `actual_ship_date` 기반으로 status를 shipped로 변경하면 자동 집계.
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/pages/qr/QrManagementPage.tsx` | StatusBadge 3분기, KPI shipped 카드, 필터 한글화 |
+| `src/types/qr.ts` | `QrStats.shipped` 필드 추가 |
 
 ---
 
@@ -265,3 +287,4 @@ BE 응답 필드명 불일치 수정(`user` → `worker`), 타입 필드 추가,
 | Phase 2-2 | 공지사항 + ETL 변경이력 API 연동 완료 | ✅ 완료 |
 | Phase 3 | 공장대시보드 + 생산일정 + 불량분석 + CT분석 컨셉 HTML 매칭 | ✅ 완료 |
 | Phase 3-A | ETL 알림 뱃지 (Header+Sidebar) + Admin prefix 로그인 | ✅ 완료 |
+| Phase 3-A+ | QR shipped 상태 3분기 + KPI 카드 출하완료 반영 | ✅ 완료 |
