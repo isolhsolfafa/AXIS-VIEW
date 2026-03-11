@@ -1,8 +1,9 @@
 // src/App.tsx
-// 라우터 설정 — 로그인, 출퇴근 대시보드, 404
+// 라우터 설정 — 페이지별 Role 기반 접근 제어
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '@/pages/LoginPage';
+import UnauthorizedPage from '@/pages/UnauthorizedPage';
 import AttendancePage from '@/pages/attendance/AttendancePage';
 import QrManagementPage from '@/pages/qr/QrManagementPage';
 import EtlChangeLogPage from '@/pages/qr/EtlChangeLogPage';
@@ -10,6 +11,7 @@ import FactoryDashboardPage from '@/pages/factory/FactoryDashboardPage';
 import ProductionPlanPage from '@/pages/plan/ProductionPlanPage';
 import DefectAnalysisPage from '@/pages/defect/DefectAnalysisPage';
 import CtAnalysisPage from '@/pages/ct/CtAnalysisPage';
+import PermissionsPage from '@/pages/admin/PermissionsPage';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 function NotFoundPage() {
@@ -33,72 +35,75 @@ export default function App() {
         {/* 로그인 (비인증 전용 처리는 LoginPage 내부 useEffect에서) */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* 출퇴근 대시보드 (관리자 전용) */}
+        {/* 접근 거부 페이지 */}
+        <Route path="/unauthorized" element={<UnauthorizedPage />} />
+
+        {/* ── admin + manager 공통 ── */}
         <Route
           path="/attendance"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
               <AttendancePage />
             </ProtectedRoute>
           }
         />
-
-        {/* QR 관리 (관리자/매니저 전용) */}
         <Route
           path="/qr"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
               <QrManagementPage />
             </ProtectedRoute>
           }
         />
-
-        {/* ETL 변경 이력 (QR 관리 하위) */}
         <Route
           path="/qr/changes"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
               <EtlChangeLogPage />
             </ProtectedRoute>
           }
         />
-
-        {/* 공장 대시보드 (Phase 3 — 샘플) */}
-        <Route
-          path="/factory"
-          element={
-            <ProtectedRoute>
-              <FactoryDashboardPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* 생산일정 (Phase 3 — 샘플) */}
         <Route
           path="/plan"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
               <ProductionPlanPage />
             </ProtectedRoute>
           }
         />
 
-        {/* 불량 분석 (Phase 3 — 샘플) */}
+        {/* ── admin only ── */}
+        <Route
+          path="/factory"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <FactoryDashboardPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/defect"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['admin']}>
               <DefectAnalysisPage />
             </ProtectedRoute>
           }
         />
-
-        {/* CT 분석 (Phase 3 — 샘플) */}
         <Route
           path="/ct"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['admin']}>
               <CtAnalysisPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ── 권한 관리 (admin + manager) ── */}
+        <Route
+          path="/admin/permissions"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+              <PermissionsPage />
             </ProtectedRoute>
           }
         />

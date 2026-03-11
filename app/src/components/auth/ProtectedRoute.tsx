@@ -1,15 +1,16 @@
 // src/components/auth/ProtectedRoute.tsx
 // 인증 가드 — 비인증 또는 권한 없는 사용자 접근 차단
-// 접근 허용: is_admin(GST 관리자) 또는 is_manager(협력사 관리자)
+// allowedRoles 미지정 시 기존 동작 유지 (is_admin || is_manager)
 
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/store/authStore';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  allowedRoles?: ('admin' | 'manager')[];
 }
 
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
 
   // 인증 확인 중 로딩 스피너
@@ -29,9 +30,19 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/login" replace />;
   }
 
-  // 관리자 또는 협력사 관리자가 아닌 경우 → 로그인으로
-  if (!user?.is_admin && !user?.is_manager) {
-    return <Navigate to="/login" replace />;
+  // role 기반 접근 제어
+  if (allowedRoles) {
+    const hasAccess =
+      (allowedRoles.includes('admin') && user?.is_admin) ||
+      (allowedRoles.includes('manager') && user?.is_manager);
+    if (!hasAccess) {
+      return <Navigate to="/unauthorized" replace />;
+    }
+  } else {
+    // allowedRoles 미지정 → 기존 동작 (is_admin || is_manager)
+    if (!user?.is_admin && !user?.is_manager) {
+      return <Navigate to="/login" replace />;
+    }
   }
 
   return <>{children}</>;

@@ -22,6 +22,7 @@ interface NavItem {
   badge?: string;
   preparing?: boolean;
   children?: SubNavItem[];
+  roles?: ('admin' | 'manager')[];
 }
 
 interface NavGroup {
@@ -78,6 +79,12 @@ const ChatIcon = () => (
   </svg>
 );
 
+const ShieldIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+    <path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd"/>
+  </svg>
+);
+
 const LockIcon = () => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
     <rect x="3" y="6" width="8" height="6" rx="1.5"/>
@@ -95,9 +102,9 @@ const navGroups: NavGroup[] = [
   {
     title: 'Dashboard',
     items: [
-      { label: '공장 대시보드', icon: <FactoryIcon />, to: '/factory', preparing: true },
-      { label: '협력사 대시보드', icon: <UsersIcon />, to: '/attendance' },
-      { label: '생산일정', icon: <CalendarIcon />, to: '/plan', preparing: true },
+      { label: '공장 대시보드', icon: <FactoryIcon />, to: '/factory', preparing: true, roles: ['admin'] },
+      { label: '협력사 대시보드', icon: <UsersIcon />, to: '/attendance', roles: ['admin', 'manager'] },
+      { label: '생산일정', icon: <CalendarIcon />, to: '/plan', preparing: true, roles: ['admin', 'manager'] },
     ],
   },
   {
@@ -107,25 +114,27 @@ const navGroups: NavGroup[] = [
         label: 'QR 관리',
         icon: <QrIcon />,
         to: '/qr',
+        roles: ['admin', 'manager'],
         children: [
           { label: 'QR Registry', to: '/qr' },
           { label: '변경 이력', to: '/qr/changes' },
         ],
       },
+      { label: '권한 관리', icon: <ShieldIcon />, to: '/admin/permissions', roles: ['admin', 'manager'] },
     ],
   },
   {
     title: 'Analysis',
     items: [
-      { label: '불량 분석', icon: <AlertIcon />, to: '/defect', preparing: true },
-      { label: 'CT 분석', icon: <ClockIcon />, to: '/ct', preparing: true },
+      { label: '불량 분석', icon: <AlertIcon />, to: '/defect', preparing: true, roles: ['admin'] },
+      { label: 'CT 분석', icon: <ClockIcon />, to: '/ct', preparing: true, roles: ['admin'] },
     ],
   },
   {
     title: 'Intelligence',
     items: [
-      { label: 'AI 예측', icon: <BellIcon />, disabled: true },
-      { label: 'AI 챗봇', icon: <ChatIcon />, disabled: true },
+      { label: 'AI 예측', icon: <BellIcon />, disabled: true, roles: ['admin'] },
+      { label: 'AI 챗봇', icon: <ChatIcon />, disabled: true, roles: ['admin'] },
     ],
   },
 ];
@@ -168,25 +177,36 @@ export default function Sidebar() {
     return initial;
   });
 
-  // navGroups에 ETL 뱃지 주입
+  // role 필터링 + ETL 뱃지 주입
   const dynamicNavGroups = useMemo(() => {
-    return navGroups.map((group) => ({
-      ...group,
-      items: group.items.map((item) => {
-        if (item.label === 'QR 관리' && item.children) {
-          return {
-            ...item,
-            children: item.children.map((child) =>
-              child.to === '/qr/changes'
-                ? { ...child, badge: etlUnreadCount }
-                : child
-            ),
-          };
-        }
-        return item;
-      }),
-    }));
-  }, [etlUnreadCount]);
+    const isAdmin = user?.is_admin ?? false;
+    const isManager = user?.is_manager ?? false;
+
+    return navGroups
+      .map((group) => ({
+        ...group,
+        items: group.items
+          .filter((item) => {
+            if (!item.roles) return true;
+            return (item.roles.includes('admin') && isAdmin) ||
+                   (item.roles.includes('manager') && isManager);
+          })
+          .map((item) => {
+            if (item.label === 'QR 관리' && item.children) {
+              return {
+                ...item,
+                children: item.children.map((child) =>
+                  child.to === '/qr/changes'
+                    ? { ...child, badge: etlUnreadCount }
+                    : child
+                ),
+              };
+            }
+            return item;
+          }),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [etlUnreadCount, user]);
 
   const toggleMenu = (label: string) => {
     setExpandedMenus((prev) => {
