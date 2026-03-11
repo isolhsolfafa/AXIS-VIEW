@@ -22,6 +22,28 @@
 
 ---
 
+## 🔴 BUG — Logout Storm (401 무한 루프)
+
+### BUG-1: refresh 401 시 logout API 다중 호출 (10회+)
+- **발견일**: 2026-03-11
+- **증상**: Railway HTTP 로그에서 `/api/auth/logout` 401이 10회 이상 반복 후 `/api/auth/login` 200으로 복구
+- **재현**: access_token + refresh_token 모두 만료 상태에서 VIEW 접속
+- **근본 원인**: refresh 실패 시 여러 컴포넌트가 동시에 logout 트리거
+  1. Header(`useNotices`, `useEtlChanges`), Sidebar(`useEtlChanges`) 등 다수 훅이 동시 API 호출
+  2. 첫 401 → interceptor refresh 시도 → refresh도 401 (만료)
+  3. interceptor catch에서 `refreshSubscribers = []` 비움 → 대기 중이던 요청들 reject
+  4. 각 컴포넌트 에러 핸들러에서 `authStore.logout()` 각자 호출
+  5. `logout()`이 `apiClient.post('/api/auth/logout')` 호출 → 토큰 이미 삭제 → 401 → interceptor 재진입 가능
+- **영향**: 서버 정상(`/health` 200), 기능 복구됨 (재로그인). UX 이슈 + 불필요한 API 호출 낭비
+- **수정 대상 파일**:
+  - `src/api/client.ts` — interceptor catch에서 logout API 호출 방지 (localStorage 정리만)
+  - `src/store/authStore.ts` — `_isLoggingOut` 플래그로 중복 호출 차단
+  - (선택) logout 요청을 interceptor 401 처리에서 제외 (URL 패턴 체크)
+- **우선순위**: 중 (기능 영향 없으나 배포 전 수정 권장)
+- **등록일**: 2026-03-11
+
+---
+
 ## 🟡 재검토 (Review Needed)
 
 보류해둔 항목. 다음 Sprint 기획 시 우선 검토.

@@ -41,7 +41,11 @@ apiClient.interceptors.request.use(
 
 // 응답 인터셉터: 401 시 토큰 갱신 후 원래 요청 재시도
 let isRefreshing = false;
+let isForceLogout = false; // BUG-1 fix: refresh 실패 후 중복 로그아웃 방지
 let refreshSubscribers: Array<(token: string) => void> = [];
+
+// auth 관련 URL은 401 retry 제외 (logout, refresh, login)
+const AUTH_SKIP_URLS = ['/api/auth/logout', '/api/auth/refresh', '/api/auth/login'];
 
 function subscribeTokenRefresh(cb: (token: string) => void) {
   refreshSubscribers.push(cb);
@@ -52,16 +56,40 @@ function onRefreshed(token: string) {
   refreshSubscribers = [];
 }
 
+function forceLogout() {
+  if (isForceLogout) return; // 중복 실행 차단
+  isForceLogout = true;
+  localStorage.removeItem(LOCAL_KEYS.ACCESS);
+  localStorage.removeItem(LOCAL_KEYS.REFRESH);
+  localStorage.removeItem(LOCAL_KEYS.USER);
+  window.location.href = '/login';
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const requestUrl = originalRequest?.url || '';
+
+    // auth 관련 요청은 401 retry 하지 않음 (logout storm 방지)
+    if (AUTH_SKIP_URLS.some(url => requestUrl.includes(url))) {
+      return Promise.reject(error);
+    }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // 이미 강제 로그아웃 중이면 바로 reject
+      if (isForceLogout) {
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         // 갱신 중이면 대기 후 재시도
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
           subscribeTokenRefresh((token: string) => {
+            if (!token) {
+              reject(error);
+              return;
+            }
             originalRequest.headers.Authorization = `Bearer ${token}`;
             resolve(apiClient(originalRequest));
           });
@@ -93,12 +121,11 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshError) {
         isRefreshing = false;
+        // 대기 중이던 요청들에게 실패 알림 (빈 토큰)
+        refreshSubscribers.forEach((cb) => cb(''));
         refreshSubscribers = [];
-        // 토큰 갱신 실패 → 로그아웃 처리
-        localStorage.removeItem(LOCAL_KEYS.ACCESS);
-        localStorage.removeItem(LOCAL_KEYS.REFRESH);
-        localStorage.removeItem(LOCAL_KEYS.USER);
-        window.location.href = '/login';
+        // localStorage 정리 + 리다이렉트 (BE logout API 호출 안 함)
+        forceLogout();
         return Promise.reject(refreshError);
       }
     }

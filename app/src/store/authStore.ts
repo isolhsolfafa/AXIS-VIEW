@@ -66,19 +66,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const logoutRef = React.useRef(false); // BUG-1 fix: 중복 logout 방지
+
   const logout = useCallback(async () => {
+    if (logoutRef.current) return; // 이미 로그아웃 진행 중
+    logoutRef.current = true;
     try {
       const token = localStorage.getItem(LOCAL_KEYS.ACCESS);
       if (token) {
-        await apiClient.post('/api/auth/logout');
+        // timeout으로 BE 응답 지연/실패 시 빠르게 포기
+        await Promise.race([
+          apiClient.post('/api/auth/logout'),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+        ]);
       }
     } catch (e) {
-      console.warn('Logout API failed:', e);
+      console.warn('Logout API failed (ignored):', e);
     }
     localStorage.removeItem(LOCAL_KEYS.ACCESS);
     localStorage.removeItem(LOCAL_KEYS.REFRESH);
     localStorage.removeItem(LOCAL_KEYS.USER);
     setState({ user: null, isAuthenticated: false, isLoading: false });
+    logoutRef.current = false;
   }, []);
 
   const value: AuthContextType = {
