@@ -2,6 +2,7 @@
 // 상단 헤더 (64px) — G-AXIS 디자인 시스템 완전 적용
 
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import SettingsModal from './SettingsModal';
 import AnnouncementPanel from './AnnouncementPanel';
@@ -31,6 +32,7 @@ export default function Header({
   selectedDate,
   onDateChange,
 }: HeaderProps) {
+  const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
@@ -208,8 +210,9 @@ export default function Header({
           </svg>
         </button>
 
-        {/* 알림 버튼 */}
+        {/* 알림 버튼 — 클릭 시 ETL 변경이력 페이지로 이동 */}
         <button
+          onClick={() => navigate('/qr/changes')}
           style={{
             width: '38px',
             height: '38px',
