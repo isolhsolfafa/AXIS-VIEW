@@ -2,10 +2,11 @@
 // 상단 헤더 (64px) — G-AXIS 디자인 시스템 완전 적용
 
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import SettingsModal from './SettingsModal';
 import AnnouncementPanel from './AnnouncementPanel';
+import NotificationPanel from './NotificationPanel';
+import type { NotificationItem } from './NotificationPanel';
 import { useSettings } from '@/hooks/useSettings';
 import { useNotices } from '@/hooks/useNotices';
 import { useEtlChanges } from '@/hooks/useEtlChanges';
@@ -32,10 +33,10 @@ export default function Header({
   selectedDate,
   onDateChange,
 }: HeaderProps) {
-  const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   const [readVersion, setReadVersion] = useState(0);
   const { settings, updateSetting } = useSettings();
 
@@ -51,6 +52,30 @@ export default function Header({
       return changes.length;
     }
   }, [etlData]);
+
+  // 알림 항목 구성 (향후 소스 추가 가능)
+  const notificationItems: NotificationItem[] = useMemo(() => {
+    const items: NotificationItem[] = [];
+    // ETL 변경이력
+    items.push({
+      key: 'etl-changes',
+      label: 'ETL 변경이력',
+      count: etlUnreadCount,
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M6 3v12M12 3v12M3 6h12M3 12h12" />
+        </svg>
+      ),
+      color: '#3B82F6',
+      bg: '#EFF6FF',
+      to: '/qr/changes',
+    });
+    // 향후 추가 예시:
+    // items.push({ key: 'realtime', label: '실시간 이벤트', count: 0, ... });
+    return items;
+  }, [etlUnreadCount]);
+
+  const totalNotificationCount = notificationItems.reduce((sum, i) => sum + i.count, 0);
 
   // 공지사항 API로 unread 카운트 계산
   const { data: noticeData } = useNotices({ limit: 20 });
@@ -210,75 +235,77 @@ export default function Header({
           </svg>
         </button>
 
-        {/* 알림 버튼 — 클릭 시 ETL 변경이력 페이지로 이동 */}
-        <button
-          onClick={() => navigate('/qr/changes')}
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: 'var(--radius-gx-md)',
-            border: '1px solid var(--gx-mist)',
-            background: 'var(--gx-white)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'all 0.15s',
-            color: 'var(--gx-slate)',
-            position: 'relative',
-          }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget as HTMLButtonElement;
-            el.style.background = 'var(--gx-cloud)';
-            el.style.borderColor = 'var(--gx-silver)';
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget as HTMLButtonElement;
-            el.style.background = 'var(--gx-white)';
-            el.style.borderColor = 'var(--gx-mist)';
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M13.73 11.455A6.75 6.75 0 009 2.25a6.75 6.75 0 00-4.73 9.205L2.25 15.75l4.295-1.98A6.75 6.75 0 0013.73 11.455z"/>
-          </svg>
-          {etlUnreadCount > 0 ? (
-            <span
-              style={{
-                position: 'absolute',
-                top: '5px',
-                right: '5px',
-                minWidth: '16px',
-                height: '16px',
-                borderRadius: '8px',
-                background: 'var(--gx-danger, #EF4444)',
-                border: '1.5px solid var(--gx-white)',
-                color: '#fff',
-                fontSize: '10px',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0 3px',
-                lineHeight: 1,
-              }}
-            >
-              {etlUnreadCount}
-            </span>
-          ) : (
-            <span
-              style={{
-                position: 'absolute',
-                top: '7px',
-                right: '7px',
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                background: 'var(--gx-danger)',
-                border: '1.5px solid var(--gx-white)',
-              }}
-            />
-          )}
-        </button>
+        {/* 알림 버튼 — 클릭 시 알림 패널 토글 */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => {
+              setNotificationOpen((prev) => !prev);
+              setAnnouncementOpen(false);
+              setSettingsOpen(false);
+            }}
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: 'var(--radius-gx-md)',
+              border: `1px solid ${notificationOpen ? 'var(--gx-accent)' : 'var(--gx-mist)'}`,
+              background: notificationOpen ? 'var(--gx-accent-soft)' : 'var(--gx-white)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              color: notificationOpen ? 'var(--gx-accent)' : 'var(--gx-slate)',
+              position: 'relative',
+            }}
+            onMouseEnter={(e) => {
+              if (!notificationOpen) {
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.background = 'var(--gx-cloud)';
+                el.style.borderColor = 'var(--gx-silver)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!notificationOpen) {
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.background = 'var(--gx-white)';
+                el.style.borderColor = 'var(--gx-mist)';
+              }
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M13.73 11.455A6.75 6.75 0 009 2.25a6.75 6.75 0 00-4.73 9.205L2.25 15.75l4.295-1.98A6.75 6.75 0 0013.73 11.455z"/>
+            </svg>
+            {totalNotificationCount > 0 && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '5px',
+                  right: '5px',
+                  minWidth: '16px',
+                  height: '16px',
+                  borderRadius: '8px',
+                  background: 'var(--gx-danger, #EF4444)',
+                  border: '1.5px solid var(--gx-white)',
+                  color: '#fff',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 3px',
+                  lineHeight: 1,
+                }}
+              >
+                {totalNotificationCount}
+              </span>
+            )}
+          </button>
+          <NotificationPanel
+            open={notificationOpen}
+            onClose={() => setNotificationOpen(false)}
+            items={notificationItems}
+          />
+        </div>
 
         {/* 공지사항 버튼 */}
         <div style={{ position: 'relative' }}>
@@ -286,6 +313,7 @@ export default function Header({
             onClick={() => {
               setAnnouncementOpen((prev) => !prev);
               setSettingsOpen(false);
+              setNotificationOpen(false);
             }}
             style={{
               width: '38px',
@@ -362,6 +390,7 @@ export default function Header({
             onClick={() => {
               setSettingsOpen((prev) => !prev);
               setAnnouncementOpen(false);
+              setNotificationOpen(false);
             }}
             style={{
               width: '38px',
