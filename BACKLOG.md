@@ -15,8 +15,10 @@
 | TASK-3 | 공지사항 OPS API 연동 | ✅ 완료 | `GET /api/notices` 연동 완료 (2026-03-11). Mock 제거, `useNotices` 훅, Header badge API 기반 |
 | TASK-4 | ETL 변경이력 OPS API 연동 | ✅ 완료 | `GET /api/admin/etl/changes` 연동 완료 (2026-03-11). Mock 제거, `useEtlChanges` 훅 |
 | TASK-5 | shipped 상태 VIEW 반영 | ✅ FE 완료 | QR 페이지 StatusBadge 3분기(진행중/출하완료/폐기) + KPI 카드 shipped 표시. BE `stats.shipped` + ETL `actual_ship_date` 적재 후 자동 반영 |
-| TASK-6 | QR 목록 API 응답 확장 확인 | 🔍 OPS BE 확인 필요 | `GET /api/admin/qr/list` 응답에 `actual_ship_date`, `status`(active/shipped), `contract_type`, `sales_note` 포함 여부 확인 (OPS_API_REQUESTS #6) |
-| TASK-7 | is_manager 데이터 범위 제한 확인 | 🔍 OPS BE 확인 필요 | 출퇴근(`/hr/attendance/daily`), QR목록(`/qr/list`), ETL변경이력(`/etl/changes`) — is_manager 로그인 시 자사 데이터만 응답하는지 확인 (OPS_API_REQUESTS #7) |
+| TASK-6 | QR 목록 API 응답 확장 | ⏳ OPS Sprint 24 대기 | `actual_ship_date`: BE SELECT 추가 예정(Sprint 24). `status`: ✅ 이미 포함. `contract_type`/`sales_note`: 활용성 검토 후 진행 (BACKLOG 아이디어) |
+| TASK-7 | is_manager 데이터 범위 제한 | ⏳ OPS Sprint 24 대기 | 출퇴근+QR목록 → 자사 필터 추가 예정. `etl/changes`는 필터 불필요(전체 접근 허용). OPS_API_REQUESTS #7 참조 |
+| TASK-8 | 페이지별 Role 기반 접근 제어 | ✅ 완료 | ProtectedRoute `allowedRoles` + Sidebar role 필터 + admin-only 페이지 분리 + UnauthorizedPage |
+| TASK-9 | 권한 관리 페이지 (OPS 연동) | ✅ 완료 | `/admin/permissions` — 작업자 목록 + is_manager Toggle. `workers.ts` API + `useWorkers` 훅 |
 
 ---
 
@@ -85,7 +87,14 @@
 - **Admin prefix 로그인**: input type=text, `@` 미포함 시 prefix 전송 (BE 자동 매칭)
 - **읽음 처리**: `/qr/changes` 진입 시 최대 ID 저장 → 뱃지 자동 갱신
 
-### Phase 4: WebSocket 실시간 업데이트
+### Phase 4: 페이지별 Role 기반 접근 제어 + OPS 권한 부여 연동 — ✅ 완료 (2026-03-11)
+- **ProtectedRoute**: `allowedRoles` prop 추가, 미지정 시 기존 동작 유지 (하위 호환)
+- **App.tsx**: admin-only 라우트(공장/불량/CT), 공통 라우트(출퇴근/QR/생산일정/권한관리)
+- **Sidebar**: `NavItem.roles` 기반 메뉴 필터링, Manager 로그인 시 admin-only 메뉴 숨김
+- **권한 관리 페이지**: `/admin/permissions` — 작업자 목록 + is_manager Toggle (OPS API 연동)
+- **UnauthorizedPage**: role 부족 시 접근 거부 안내 + 대시보드 복귀 버튼
+
+### Phase 5: WebSocket 실시간 업데이트
 - **내용**: 출퇴근 시간대에 실시간 push로 대시보드 자동 갱신
 - **현재**: 설정 메뉴에서 1분/3분/5분 polling 방식
 - **의존성**: AXIS-OPS WebSocket flask-sock (Sprint 13 완료)
@@ -143,3 +152,4 @@
 | Phase 3 | 공장대시보드 + 생산일정 + 불량분석 + CT분석 컨셉 HTML 매칭 | ✅ 완료 |
 | Phase 3-A | ETL 알림 뱃지 (Header+Sidebar) + Admin prefix 로그인 | ✅ 완료 |
 | Phase 3-A+ | QR shipped 상태 3분기 + KPI 출하완료 반영 | ✅ 완료 |
+| Phase 4 | 페이지별 Role 접근 제어 + OPS 권한 관리 연동 | ✅ 완료 |

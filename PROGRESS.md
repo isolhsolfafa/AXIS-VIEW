@@ -1,8 +1,46 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-11 (Phase 3-A + QR shipped 상태 반영)
+> 마지막 업데이트: 2026-03-11 (Phase 4 완료)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## Phase 4: 페이지별 Role 기반 접근 제어 — ✅ 완료 (2026-03-11)
+
+페이지별 접근 가능 role 구분 + OPS 권한 관리 기능 연동.
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/components/auth/ProtectedRoute.tsx` | `allowedRoles` prop 추가, 미지정 시 기존 동작 유지 |
+| `src/App.tsx` | 라우트별 role 지정 — admin-only(factory/defect/ct), 공통(attendance/qr/plan/permissions) |
+| `src/components/layout/Sidebar.tsx` | `NavItem.roles` 필드 + role 기반 메뉴 필터링 + ShieldIcon + 권한관리 메뉴 |
+| `src/pages/admin/PermissionsPage.tsx` | **신규** — 작업자 목록 + is_manager Toggle (회사뱃지/역할/검색/필터) |
+| `src/pages/UnauthorizedPage.tsx` | **신규** — 접근 거부 안내 + 대시보드 복귀 버튼 |
+| `src/api/workers.ts` | **신규** — `getWorkers()`, `toggleManager()` API |
+| `src/hooks/useWorkers.ts` | **신규** — TanStack Query 훅 + mutation |
+
+### 페이지별 Role 매핑
+
+| 페이지 | 경로 | 접근 가능 |
+|--------|------|----------|
+| 협력사 대시보드 | `/attendance` | admin, manager |
+| QR Registry | `/qr` | admin, manager |
+| 변경 이력 | `/qr/changes` | admin, manager |
+| 생산 일정 | `/plan` | admin, manager |
+| 권한 관리 | `/admin/permissions` | admin, manager |
+| 공장 대시보드 | `/factory` | admin only |
+| 불량 분석 | `/defect` | admin only |
+| CT 분석 | `/ct` | admin only |
+
+### Sidebar 동작
+
+| 로그인 유형 | 표시 메뉴 |
+|------------|----------|
+| Admin | 모든 메뉴 표시 |
+| Manager | 협력사 대시보드, QR 관리, 생산일정, 권한 관리만 표시 |
 
 ---
 
@@ -288,3 +326,4 @@ BE 응답 필드명 불일치 수정(`user` → `worker`), 타입 필드 추가,
 | Phase 3 | 공장대시보드 + 생산일정 + 불량분석 + CT분석 컨셉 HTML 매칭 | ✅ 완료 |
 | Phase 3-A | ETL 알림 뱃지 (Header+Sidebar) + Admin prefix 로그인 | ✅ 완료 |
 | Phase 3-A+ | QR shipped 상태 3분기 + KPI 카드 출하완료 반영 | ✅ 완료 |
+| Phase 4 | 페이지별 Role 접근 제어 + 권한 관리 페이지 + UnauthorizedPage | ✅ 완료 |
