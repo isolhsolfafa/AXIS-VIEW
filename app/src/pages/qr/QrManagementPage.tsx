@@ -58,8 +58,14 @@ function formatDate(iso: string | null): string {
 }
 
 /* ── 상태 뱃지 ── */
+const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
+  active:  { label: '진행 중',  bg: 'rgba(34,197,94,0.12)',  color: '#16a34a' },
+  shipped: { label: '출하완료', bg: 'rgba(59,130,246,0.12)', color: '#2563eb' },
+  revoked: { label: '폐기',    bg: 'rgba(239,68,68,0.1)',   color: '#dc2626' },
+};
+
 function StatusBadge({ status }: { status: string }) {
-  const isActive = status === 'active';
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.active;
   return (
     <span style={{
       display: 'inline-block',
@@ -67,10 +73,10 @@ function StatusBadge({ status }: { status: string }) {
       borderRadius: '12px',
       fontSize: '11px',
       fontWeight: 600,
-      background: isActive ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.1)',
-      color: isActive ? '#16a34a' : '#dc2626',
+      background: cfg.bg,
+      color: cfg.color,
     }}>
-      {isActive ? 'Active' : 'Revoked'}
+      {cfg.label}
     </span>
   );
 }
@@ -255,7 +261,7 @@ export default function QrManagementPage() {
   ];
 
   const items = data?.items ?? [];
-  const stats = data?.stats ?? { total: 0, active: 0, revoked: 0 };
+  const stats = data?.stats ?? { total: 0, active: 0, shipped: 0, revoked: 0 };
   const models = data?.models ?? [];
   const totalPages = data?.total_pages ?? 1;
   const total = data?.total ?? 0;
@@ -337,8 +343,8 @@ export default function QrManagementPage() {
         {/* KPI 카드 */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
           <KpiCard label="전체 QR" value={stats.total} color="var(--gx-accent)" sub="등록된 전체 QR 코드" />
-          <KpiCard label="Active" value={stats.active} color="#22c55e" sub="사용 가능" />
-          <KpiCard label="Revoked" value={stats.revoked} color="#ef4444" sub="비활성화" />
+          <KpiCard label="진행 중" value={stats.active} color="#22c55e" sub="Active" />
+          <KpiCard label="출하완료" value={stats.shipped ?? 0} color="#2563eb" sub="Shipped" />
         </div>
 
         {/* 필터 바 */}
@@ -366,8 +372,8 @@ export default function QrManagementPage() {
               style={selectStyle}
             >
               <option value="">전체 상태</option>
-              <option value="active">Active</option>
-              <option value="revoked">Revoked</option>
+              <option value="active">진행 중</option>
+              <option value="shipped">출하완료</option>
             </select>
 
             {/* 검색 */}

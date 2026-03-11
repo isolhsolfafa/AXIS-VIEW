@@ -15,6 +15,8 @@
 | TASK-3 | 공지사항 OPS API 연동 | ✅ 완료 | `GET /api/notices` 연동 완료 (2026-03-11). Mock 제거, `useNotices` 훅, Header badge API 기반 |
 | TASK-4 | ETL 변경이력 OPS API 연동 | ✅ 완료 | `GET /api/admin/etl/changes` 연동 완료 (2026-03-11). Mock 제거, `useEtlChanges` 훅 |
 | TASK-5 | shipped 상태 VIEW 반영 | ⏳ ETL 대기 | ETL에서 actual_ship_date 적재 + shipped 상태 처리 후, QR관리 페이지 KPI/테이블에 shipped 상태 표시 |
+| TASK-6 | QR 목록 API 응답 확장 확인 | 🔍 OPS BE 확인 필요 | `GET /api/admin/qr/list` 응답에 `actual_ship_date`, `status`(active/shipped), `contract_type`, `sales_note` 포함 여부 확인 (OPS_API_REQUESTS #6) |
+| TASK-7 | is_manager 데이터 범위 제한 확인 | 🔍 OPS BE 확인 필요 | 출퇴근(`/hr/attendance/daily`), QR목록(`/qr/list`), ETL변경이력(`/etl/changes`) — is_manager 로그인 시 자사 데이터만 응답하는지 확인 (OPS_API_REQUESTS #7) |
 
 ---
 

@@ -21,6 +21,7 @@ export interface QrRecord {
 export interface QrStats {
   total: number;
   active: number;
+  shipped: number;
   revoked: number;
 }
 
