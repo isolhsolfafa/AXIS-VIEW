@@ -20,7 +20,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      navigate('/attendance', { replace: true });
+      navigate('/partner', { replace: true });
     }
   }, [isAuthenticated, isLoading, navigate]);
 
@@ -37,7 +37,7 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success('로그인 성공');
-      navigate('/attendance', { replace: true });
+      navigate('/partner', { replace: true });
     } catch (err: unknown) {
       const msg =
         err instanceof Error

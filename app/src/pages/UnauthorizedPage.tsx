@@ -8,8 +8,8 @@ export default function UnauthorizedPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // manager → 협력사 대시보드, admin → 협력사 대시보드
-  const defaultPath = '/attendance';
+  // manager → 협력사 관리, admin → 협력사 관리
+  const defaultPath = '/partner';
 
   return (
     <div

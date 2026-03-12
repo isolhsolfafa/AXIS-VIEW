@@ -1,5 +1,5 @@
 // src/pages/partner/PartnerEvaluationPage.tsx
-// 협력사 관리 — 평가지수 (기구/전장 상세 테이블 + 주차별 NaN)
+// 협력사 관리 — 평가지수 (기구/전장 상세 테이블 + 주차별 작업기록 누락률)
 
 import Layout from '@/components/layout/Layout';
 
@@ -83,14 +83,14 @@ function EvalTable({ title, subtitle, data }: { title: string; subtitle: string;
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
           <span style={{ display: 'inline-flex', padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 600, background: 'rgba(99,102,241,0.08)', color: 'var(--gx-accent)' }}>불량 70%</span>
-          <span style={{ display: 'inline-flex', padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 600, background: 'rgba(245,158,11,0.08)', color: '#D97706' }}>NaN 30%</span>
+          <span style={{ display: 'inline-flex', padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 600, background: 'rgba(245,158,11,0.08)', color: '#D97706' }}>누락 30%</span>
         </div>
       </div>
       <div style={{ padding: '16px 24px 24px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr>
-              {['순위', '협력사', '생산', '불량', '불량률', '불량등급', 'NaN', 'NaN등급', '최종점수', '최종등급'].map(h => (
+              {['순위', '협력사', '생산', '불량', '불량률', '불량등급', '누락률', '누락등급', '최종점수', '최종등급'].map(h => (
                 <th key={h} style={{ ...thStyle, width: h === '순위' ? '44px' : undefined, textAlign: h === '순위' ? 'center' : 'left' }}>{h}</th>
               ))}
             </tr>
@@ -172,7 +172,7 @@ function PrepareBanner() {
     }}>
       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--gx-accent)', flexShrink: 0 }} />
       <div style={{ fontSize: '13px', color: 'var(--gx-graphite)' }}>
-        <strong>평가 산출</strong> · 불량률(70%) + NaN 비율(30%) = 최종 가중평균 → 등급 · 3월 평가 → 5월 물량배분
+        <strong>평가 산출</strong> · 불량률(70%) + 작업기록 누락률(30%) = 최종 가중평균 → 등급 · 3월 평가 → 5월 물량할당
       </div>
       <div style={{
         marginLeft: 'auto', padding: '4px 12px', borderRadius: 'var(--radius-gx-sm)',
@@ -194,10 +194,10 @@ export default function PartnerEvaluationPage() {
         {/* 전장 협력사 평가 */}
         <EvalTable title="전장 협력사 평가" subtitle="2026년 3월 · 전장은 기구보다 엄격한 기준" data={ELEC_DATA} />
 
-        {/* 주차별 NaN 상세 */}
+        {/* 주차별 누락률 상세 */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '8px' }}>
-          <WeeklyNanTable title="기구 — 주차별 NaN (%)" data={MECH_NAN} />
-          <WeeklyNanTable title="전장 — 주차별 NaN (%)" data={ELEC_NAN} />
+          <WeeklyNanTable title="기구 — 주차별 누락률 (%)" data={MECH_NAN} />
+          <WeeklyNanTable title="전장 — 주차별 누락률 (%)" data={ELEC_NAN} />
         </div>
       </div>
     </Layout>

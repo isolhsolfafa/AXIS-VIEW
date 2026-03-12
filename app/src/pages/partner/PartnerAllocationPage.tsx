@@ -1,5 +1,5 @@
 // src/pages/partner/PartnerAllocationPage.tsx
-// 협력사 관리 — 물량배분 (시뮬레이션 + 이력)
+// 협력사 관리 — 물량할당 (시뮬레이션 + 이력)
 
 import Layout from '@/components/layout/Layout';
 
@@ -103,7 +103,7 @@ export default function PartnerAllocationPage() {
         }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--gx-warning)', flexShrink: 0 }} />
           <div style={{ fontSize: '13px', color: 'var(--gx-graphite)' }}>
-            <strong>3월 평가 → 5월 물량배분</strong> · 등급 기반 자동 산출 → 관리자 미세 조정 → 확정
+            <strong>3월 평가 → 5월 물량할당</strong> · 등급 기반 자동 산출 → 관리자 미세 조정 → 확정
           </div>
           <div style={{
             marginLeft: 'auto', padding: '4px 12px', borderRadius: 'var(--radius-gx-sm)',
@@ -113,21 +113,21 @@ export default function PartnerAllocationPage() {
 
         {/* 시뮬레이션 */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-          <SimCard title="기구 물량배분 시뮬레이션" subtitle="5월 예상 총 물량: 120대" data={MECH_SIM} />
-          <SimCard title="전장 물량배분 시뮬레이션" subtitle="5월 예상 총 물량: 80대" data={ELEC_SIM} />
+          <SimCard title="기구 물량할당 시뮬레이션" subtitle="5월 예상 총 물량: 120대" data={MECH_SIM} />
+          <SimCard title="전장 물량할당 시뮬레이션" subtitle="5월 예상 총 물량: 80대" data={ELEC_SIM} />
         </div>
 
-        {/* 배분 이력 */}
+        {/* 할당 이력 */}
         <div style={{ background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
           <div style={{ padding: '20px 24px 0' }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>물량배분 이력</div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>물량할당 이력</div>
             <div style={{ fontSize: '11px', color: 'var(--gx-steel)', marginTop: '2px' }}>기구 협력사 기준</div>
           </div>
           <div style={{ padding: '0 24px 24px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', marginTop: '16px' }}>
               <thead>
                 <tr>
-                  {['평가월', '배분월', 'BAT', 'FNI', 'TMS(M)', '상태'].map(h => (
+                  {['평가월', '할당월', 'BAT', 'FNI', 'TMS(M)', '상태'].map(h => (
                     <th key={h} style={thStyle}>{h}</th>
                   ))}
                 </tr>

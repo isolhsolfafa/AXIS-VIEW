@@ -1,5 +1,5 @@
 // src/pages/partner/PartnerDashboardPage.tsx
-// 협력사 관리 — 대시보드 (KPI 요약 + NaN 히트맵 + 출퇴근 + 주간 NaN 추이)
+// 협력사 관리 — 대시보드 (KPI 요약 + 작업기록 누락 히트맵 + 출퇴근 + 주간 누락률 추이)
 
 import Layout from '@/components/layout/Layout';
 
@@ -7,7 +7,7 @@ import Layout from '@/components/layout/Layout';
 const SAMPLE_KPI = [
   { label: '등록 협력사', value: '6', unit: '개사', color: 'var(--gx-charcoal)', sub: '기구 3사 + 전장 3사' },
   { label: '오늘 출근율', value: '87.5%', unit: '', color: 'var(--gx-success)', sub: '42 / 48명', alert: 'P&S 50%' },
-  { label: '평균 NaN 비율', value: '2.8', unit: '%', color: 'var(--gx-charcoal)', sub: 'W10~W12 기준', alert: 'P&S 13.6%' },
+  { label: '평균 누락률', value: '2.8', unit: '%', color: 'var(--gx-charcoal)', sub: 'W10~W12 기준', alert: 'P&S 13.6%' },
   { label: '이번 달 불량', value: 'QMS 연동 대기', unit: '', color: 'var(--gx-steel)', sub: 'API 준비 중', phase: 'Phase 3' },
 ];
 
@@ -121,15 +121,15 @@ export default function PartnerDashboardPage() {
           ))}
         </div>
 
-        {/* Row 2: NaN 히트맵 + 출퇴근 */}
+        {/* Row 2: 작업기록 누락 히트맵 + 출퇴근 */}
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '24px' }}>
-          {/* NaN 히트맵 */}
+          {/* 작업기록 누락 히트맵 */}
           <div style={{ background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px 0' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>NaN 히트맵</div>
-                  <div style={{ fontSize: '11px', color: 'var(--gx-steel)', marginTop: '2px' }}>일별 협력사 NaN 비율 (%) · finishing_plan_end 기준</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>작업기록 누락 히트맵</div>
+                  <div style={{ fontSize: '11px', color: 'var(--gx-steel)', marginTop: '2px' }}>일별 협력사 누락률 (%) · finishing_plan_end 기준</div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', fontSize: '10px', color: 'var(--gx-steel)' }}>
                   {[{ bg: '#F0FDF4', border: '#BBF7D0', label: '0%' }, { bg: '#FEF9C3', border: '#FDE68A', label: '1~3%' }, { bg: '#FECACA', border: '#FCA5A5', label: '6%+' }].map(l => (
@@ -225,15 +225,15 @@ export default function PartnerDashboardPage() {
           </div>
         </div>
 
-        {/* Row 3: 주간 NaN 추이 + 불량 요약 (blurred) */}
+        {/* Row 3: 주간 누락률 추이 + 불량 요약 (blurred) */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          {/* 주간 NaN 추이 */}
+          {/* 주간 누락률 추이 */}
           <div style={{ background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px 0' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>주간 NaN 추이</div>
-                  <div style={{ fontSize: '11px', color: 'var(--gx-steel)', marginTop: '2px' }}>W10 ~ W12 협력사별 비율</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>주간 누락률 추이</div>
+                  <div style={{ fontSize: '11px', color: 'var(--gx-steel)', marginTop: '2px' }}>W10 ~ W12 협력사별 작업기록 누락률</div>
                 </div>
                 <span style={{
                   display: 'inline-flex', padding: '3px 10px', borderRadius: '20px',
