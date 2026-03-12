@@ -183,7 +183,11 @@ export default function Sidebar() {
   }, [etlData]);
 
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(() => {
-    return new Set<string>();
+    // 현재 경로에 해당하는 하위 메뉴 자동 펼침
+    const initial = new Set<string>();
+    if (location.pathname.startsWith('/qr')) initial.add('QR 관리');
+    if (location.pathname.startsWith('/partner')) initial.add('협력사 관리');
+    return initial;
   });
 
   // role 필터링 + ETL 뱃지 주입
