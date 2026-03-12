@@ -116,7 +116,17 @@ const navGroups: NavGroup[] = [
           { label: '근태 관리', to: '/partner/attendance' },
         ],
       },
-      { label: '생산일정', icon: <CalendarIcon />, to: '/plan', preparing: true, roles: ['admin', 'manager'] },
+      {
+        label: '생산관리',
+        icon: <CalendarIcon />,
+        to: '/production/plan',
+        roles: ['admin', 'manager'],
+        children: [
+          { label: '생산일정', to: '/production/plan', preparing: true },
+          { label: '생산실적', to: '/production/performance', preparing: true },
+          { label: '출하이력', to: '/production/shipment', preparing: true },
+        ],
+      },
     ],
   },
   {
@@ -187,6 +197,7 @@ export default function Sidebar() {
     const initial = new Set<string>();
     if (location.pathname.startsWith('/qr')) initial.add('QR 관리');
     if (location.pathname.startsWith('/partner')) initial.add('협력사 관리');
+    if (location.pathname.startsWith('/production')) initial.add('생산관리');
     return initial;
   });
 
@@ -449,7 +460,7 @@ export default function Sidebar() {
                           <NavLink
                             key={child.to}
                             to={child.to}
-                            end={child.to === '/qr' || child.to === '/partner'}
+                            end={child.to === '/qr' || child.to === '/partner' || child.to === '/production/plan'}
                             style={({ isActive }) => ({
                               display: 'flex',
                               alignItems: 'center',

@@ -12,6 +12,8 @@ import QrManagementPage from '@/pages/qr/QrManagementPage';
 import EtlChangeLogPage from '@/pages/qr/EtlChangeLogPage';
 import FactoryDashboardPage from '@/pages/factory/FactoryDashboardPage';
 import ProductionPlanPage from '@/pages/plan/ProductionPlanPage';
+import ProductionPerformancePage from '@/pages/production/ProductionPerformancePage';
+import ShipmentHistoryPage from '@/pages/production/ShipmentHistoryPage';
 import DefectAnalysisPage from '@/pages/defect/DefectAnalysisPage';
 import CtAnalysisPage from '@/pages/ct/CtAnalysisPage';
 import PermissionsPage from '@/pages/admin/PermissionsPage';
@@ -95,14 +97,34 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        {/* ── 생산관리 (admin + manager) ── */}
         <Route
-          path="/plan"
+          path="/production/plan"
           element={
             <ProtectedRoute allowedRoles={['admin', 'manager']}>
               <ProductionPlanPage />
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/production/performance"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+              <ProductionPerformancePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/production/shipment"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+              <ShipmentHistoryPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 기존 /plan → /production/plan 리다이렉트 */}
+        <Route path="/plan" element={<Navigate to="/production/plan" replace />} />
 
         {/* ── admin only ── */}
         <Route
