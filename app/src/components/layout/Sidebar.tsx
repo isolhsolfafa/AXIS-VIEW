@@ -110,9 +110,9 @@ const navGroups: NavGroup[] = [
         to: '/partner',
         roles: ['admin', 'manager'],
         children: [
-          { label: '대시보드', to: '/partner' },
-          { label: '평가지수', to: '/partner/evaluation' },
-          { label: '물량할당', to: '/partner/allocation' },
+          { label: '대시보드', to: '/partner', preparing: true },
+          { label: '평가지수', to: '/partner/evaluation', preparing: true },
+          { label: '물량할당', to: '/partner/allocation', preparing: true },
           { label: '근태 관리', to: '/partner/attendance' },
         ],
       },
