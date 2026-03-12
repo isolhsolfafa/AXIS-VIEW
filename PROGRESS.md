@@ -1,8 +1,53 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-11 (Phase 4 Hotfix 완료)
+> 마지막 업데이트: 2026-03-12 (Phase 5-A 완료)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## Phase 5-A: 협력사 관리 메뉴 개편 + 신규 페이지 — ✅ 완료 (2026-03-12)
+
+Sidebar 메뉴 구조 개편 + 협력사 관리 하위 페이지 3종 추가 (샘플 데이터, API 미연동).
+
+### 주요 변경
+
+| 항목 | 내용 |
+|------|------|
+| 메뉴 구조 | "협력사 대시보드" → "협력사 관리" (하위 4개: 대시보드/평가지수/물량할당/근태 관리) |
+| 신규 페이지 | PartnerDashboardPage, PartnerEvaluationPage, PartnerAllocationPage |
+| 근태 자사 필터 | 협력사 유저(FNI, BAT 등)는 자사 데이터만 표시, 회사 드롭다운 숨김 |
+| 리다이렉트 | `/attendance` → `/partner/attendance`, 로그인 후 기본 → `/partner` |
+| 용어 정리 | NaN → 작업기록 누락률, 물량배분 → 물량할당, 출퇴근 기록 → 근태 관리 |
+| 준비중 태그 | 대시보드/평가지수/물량할당 — 준비중 뱃지 표시, 근태 관리만 운영 중 |
+| API 문서 | OPS_API_REQUESTS #9 주간 KPI, #10 월간 생산 현황 추가 |
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/App.tsx` | `/partner`, `/partner/evaluation`, `/partner/allocation`, `/partner/attendance` 라우트 추가 + `/attendance` 리다이렉트 |
+| `src/components/layout/Sidebar.tsx` | 협력사 관리 하위 메뉴 4개 + preparing 태그 + 자동 펼침 복원 |
+| `src/pages/partner/PartnerDashboardPage.tsx` | **신규** — KPI 카드 + 누락 히트맵 + 출퇴근 현황 + 주간 누락률 추이 |
+| `src/pages/partner/PartnerEvaluationPage.tsx` | **신규** — 기구/전장 평가 테이블 (불량70%+누락30%) + 주차별 누락률 |
+| `src/pages/partner/PartnerAllocationPage.tsx` | **신규** — 물량할당 시뮬레이션 + 배분 이력 테이블 |
+| `src/pages/attendance/AttendancePage.tsx` | 협력사 유저 자사 필터 추가 (isAdminOrGst 분기) |
+| `src/components/attendance/FilterBar.tsx` | `hideCompanyFilter` prop 추가 |
+| `src/pages/LoginPage.tsx` | 로그인 후 리다이렉트 → `/partner` |
+| `src/pages/UnauthorizedPage.tsx` | 기본 경로 → `/partner` |
+| `docs/OPS_API_REQUESTS.md` | #9 weekly-kpi, #10 monthly-detail API 스펙 추가 |
+| `BACKLOG.md` | Logout Storm 버그 → OPS BACKLOG로 이동 |
+
+---
+
+## v1.4.2: Logout Storm 버그 수정 — ✅ 완료 (2026-03-12)
+
+refresh token 만료 시 logout API 다중 호출(10회+) 방지.
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/api/client.ts` | interceptor catch에서 logout 시 API 호출 대신 localStorage 정리만 |
+| `src/store/authStore.ts` | `_isLoggingOut` 플래그로 중복 logout 차단 |
 
 ---
 
@@ -346,3 +391,5 @@ BE 응답 필드명 불일치 수정(`user` → `worker`), 타입 필드 추가,
 | Phase 3-A+ | QR shipped 상태 3분기 + KPI 카드 출하완료 반영 | ✅ 완료 |
 | Phase 4 | 페이지별 Role 접근 제어 + 권한 관리 페이지 + UnauthorizedPage | ✅ 완료 |
 | Phase 4-fix | Toggle API endpoint 수정 + Manager 자사 필터 | ✅ 완료 |
+| v1.4.2 | Logout Storm 버그 수정 (401 무한 루프 방지) | ✅ 완료 |
+| Phase 5-A | 협력사 관리 메뉴 개편 + 대시보드/평가지수/물량할당 + 근태 자사 필터 | ✅ 완료 |

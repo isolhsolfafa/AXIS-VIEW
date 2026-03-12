@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-12 (Logout Storm BUG → OPS BACKLOG로 이동)
+> 마지막 업데이트: 2026-03-12 (Phase 5-A 완료 — 협력사 관리 메뉴 개편)
 > 이 파일은 보류/재검토/계획/아이디어를 한 곳에서 관리합니다.
 > 완료된 항목은 PROGRESS.md로 이동합니다.
 
@@ -94,7 +94,14 @@
 - **권한 관리 페이지**: `/admin/permissions` — 작업자 목록 + is_manager Toggle (OPS API 연동)
 - **UnauthorizedPage**: role 부족 시 접근 거부 안내 + 대시보드 복귀 버튼
 
-### Phase 5: WebSocket 실시간 업데이트
+### Phase 5-A: 협력사 관리 메뉴 개편 — ✅ 완료 (2026-03-12)
+- **메뉴 구조**: "협력사 대시보드" → "협력사 관리" (하위: 대시보드/평가지수/물량할당/근태 관리)
+- **신규 페이지**: 대시보드(KPI+히트맵), 평가지수(가중평가 테이블), 물량할당(시뮬레이션+이력) — 샘플 데이터, 준비중
+- **근태 자사 필터**: 협력사 유저는 자사만 표시, admin/GST는 전체
+- **용어 정리**: NaN → 작업기록 누락률, 물량배분 → 물량할당, 출퇴근 기록 → 근태 관리
+- **API 문서**: OPS_API_REQUESTS #9 주간 KPI, #10 월간 생산 현황
+
+### Phase 5-B: WebSocket 실시간 업데이트
 - **내용**: 출퇴근 시간대에 실시간 push로 대시보드 자동 갱신
 - **현재**: 설정 메뉴에서 1분/3분/5분 polling 방식
 - **의존성**: AXIS-OPS WebSocket flask-sock (Sprint 13 완료)
@@ -154,3 +161,5 @@
 | Phase 3-A+ | QR shipped 상태 3분기 + KPI 출하완료 반영 | ✅ 완료 |
 | Phase 4 | 페이지별 Role 접근 제어 + OPS 권한 관리 연동 | ✅ 완료 |
 | Phase 4-fix | 권한 Toggle API endpoint 수정 + Manager 자사 필터 | ✅ 완료 |
+| v1.4.2 | Logout Storm 버그 수정 (401 무한 루프 방지) | ✅ 완료 |
+| Phase 5-A | 협력사 관리 메뉴 개편 + 대시보드/평가지수/물량할당 + 근태 자사 필터 | ✅ 완료 |
