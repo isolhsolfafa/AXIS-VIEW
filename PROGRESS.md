@@ -1,8 +1,32 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-12 (Phase 5-A 완료)
+> 마지막 업데이트: 2026-03-12 (Phase 5-A+ 완료)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## Phase 5-A+: 생산관리 메뉴 개편 — ✅ 완료 (2026-03-12)
+
+Sidebar "생산일정" 단일 메뉴 → "생산관리" 하위 메뉴 3개로 구조 개편.
+
+### 주요 변경
+
+| 항목 | 내용 |
+|------|------|
+| 메뉴 구조 | "생산일정" (preparing) → "생산관리" (하위: 생산일정/생산실적/출하이력, 모두 preparing) |
+| 신규 페이지 | ProductionPerformancePage (O/N 주간 실적 확인 + 월마감), ShipmentHistoryPage (출하이력 스켈레톤) |
+| 리다이렉트 | `/plan` → `/production/plan` 하위호환 |
+| 자동 펼침 | `/production/*` 경로 시 생산관리 메뉴 자동 펼침 |
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/App.tsx` | `/production/plan`, `/production/performance`, `/production/shipment` 라우트 + `/plan` 리다이렉트 |
+| `src/components/layout/Sidebar.tsx` | 생산관리 하위 메뉴 3개 + 자동 펼침 + NavLink end |
+| `src/pages/production/ProductionPerformancePage.tsx` | **신규** — O/N 주간 실적 확인(기구/전장/TM 공정별) + 월마감 집계 |
+| `src/pages/production/ShipmentHistoryPage.tsx` | **신규** — 출하이력 스켈레톤 (KPI + 테이블) |
 
 ---
 
@@ -393,3 +417,4 @@ BE 응답 필드명 불일치 수정(`user` → `worker`), 타입 필드 추가,
 | Phase 4-fix | Toggle API endpoint 수정 + Manager 자사 필터 | ✅ 완료 |
 | v1.4.2 | Logout Storm 버그 수정 (401 무한 루프 방지) | ✅ 완료 |
 | Phase 5-A | 협력사 관리 메뉴 개편 + 대시보드/평가지수/물량할당 + 근태 자사 필터 | ✅ 완료 |
+| Phase 5-A+ | 생산관리 메뉴 개편 (생산일정/생산실적/출하이력) | ✅ 완료 |
