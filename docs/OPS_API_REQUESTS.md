@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-11 (Phase 4 Hotfix — #8 추가)
+> 마지막 업데이트: 2026-03-12 (공장 대시보드 API — #9, #10 추가)
 
 ---
 
@@ -260,6 +260,232 @@ def get_workers():
 **테스트 결과 (2026-03-11)**:
 - Admin 로그인 → 권한 Toggle 동작 ✅ Pass
 - Manager 로그인 → `GET /api/admin/workers` 403 Forbidden ❌
+
+---
+
+## 공장 대시보드 (`/api/admin/factory`)
+
+### 9. 주간 공장 KPI — PENDING
+
+**엔드포인트**: `GET /api/admin/factory/weekly-kpi`
+
+**권한**: `@manager_or_admin_required`
+
+**쿼리 파라미터**:
+
+| 파라미터 | 타입 | 설명 | 기본값 |
+|----------|------|------|--------|
+| `week` | int | ISO week 번호 (1~53) | 현재 주 |
+| `year` | int | 연도 | 현재 연도 |
+
+**응답 예시**:
+```json
+{
+  "week": 11,
+  "year": 2026,
+  "week_range": {
+    "start": "2026-03-09",
+    "end": "2026-03-15"
+  },
+  "production_count": 37,
+  "completion_rate": 62.5,
+  "by_model": [
+    { "model": "GAIA-I DUAL", "count": 30 },
+    { "model": "GAIA-P", "count": 3 },
+    { "model": "GAIA-I", "count": 3 },
+    { "model": "SWS-I", "count": 1 }
+  ],
+  "by_stage": {
+    "mech": 85.2,
+    "elec": 60.0,
+    "tm": 45.0,
+    "pi": 30.0,
+    "qi": 12.0,
+    "si": 5.0
+  },
+  "pipeline": {
+    "pi": 11,
+    "qi": 9,
+    "si": 7,
+    "shipped": 17
+  }
+}
+```
+
+**응답 필드 설명**:
+
+| 필드 | 설명 |
+|------|------|
+| `production_count` | `finishing_plan_end`가 해당 ISO week(월~일)에 속하는 S/N 수 |
+| `completion_rate` | Option B — 해당 S/N들의 평균 공정 완료율 (%) |
+| `by_model` | 모델별 S/N 수 (bar chart + donut chart 용) |
+| `by_stage` | 공정별 완료율 — 해당 주 S/N 중 각 단계 완료된 비율 (%) |
+| `pipeline` | GST 공정 파이프라인 건수 — 가압(PI)/공정(QI)/마무리(SI)/출하 단계별 현재 대수 |
+| `pipeline.shipped` | `finishing_plan_end`가 해당 주이고 `finishing_plan_end <= TODAY`인 S/N 수 (계획일 기준 출하 카운트) |
+
+**쿼리 로직**:
+```sql
+-- 1) 대상 S/N 추출
+SELECT serial_number, model
+FROM plan.product_info
+WHERE finishing_plan_end >= ISO_WEEK_START AND finishing_plan_end <= ISO_WEEK_END
+
+-- 2) completion_status LEFT JOIN → 6단계 완료 여부
+-- 3) TM 해당 여부: model prefix 'GAIA' → is_tms=true → 6단계, 나머지 → 5단계 (TM 제외)
+-- 4) completion_rate = AVG(완료단계수 / 해당단계수) * 100
+-- 5) by_stage.mech = (mech_completed=true인 S/N 수 / 전체 S/N 수) * 100
+--    by_stage.tm = TM 해당 S/N 중 tm_completed=true 비율 (비해당 S/N 제외)
+```
+
+**공정 단계 (자주검사 제거, PI 유지)**:
+- MECH → ELEC → (TM) → PI → QI → SI
+- `model LIKE 'GAIA%'` → `is_tms=true` → TM 포함 6단계 (분모=6)
+- 그 외 모델 → TM 제외 5단계 (분모=5)
+- `by_stage.tm`은 TM 해당 모델의 S/N만 분모로 사용
+- 자주검사 단계 삭제 — 테이블 미존재, 분류 없음
+
+**목적**: 공장 대시보드 1행 KPI 카드 (주간 생산량, 완료율) + 2행 차트 (모델별 bar chart, 도넛)
+
+**FE 사용처**: `FactoryDashboardPage.tsx` — KPI 카드 + 주간 생산 지표 차트
+
+---
+
+### 10. 월간 생산 현황 — PENDING
+
+**엔드포인트**: `GET /api/admin/factory/monthly-detail`
+
+**권한**: `@manager_or_admin_required`
+
+**쿼리 파라미터**:
+
+| 파라미터 | 타입 | 설명 | 기본값 |
+|----------|------|------|--------|
+| `month` | string | `YYYY-MM` 형식 | 현재 월 |
+| `date_field` | string | 필터 기준 컬럼 (`pi_start` \| `mech_start`) | `pi_start` |
+| `page` | int | 페이지 번호 | 1 |
+| `per_page` | int | 페이지당 건수 (max: 200) | 50 |
+
+**필터 기준 용도**:
+- `pi_start` (기본값): GST 인원용 — 가압시작 기준으로 이번 달에 GST 공정 진입하는 S/N
+- `mech_start`: 협력사용 — 기구시작 기준으로 이번 달에 협력사 작업 시작하는 S/N
+
+**응답 예시**:
+```json
+{
+  "month": "2026-03",
+  "items": [
+    {
+      "sales_order": "6408",
+      "product_code": "41000558",
+      "serial_number": "GBWS-6408",
+      "model": "GAIA-I DUAL",
+      "customer": "SEC",
+      "line": "15L",
+      "mech_partner": "BAT",
+      "elec_partner": "C&A",
+      "mech_start": "2026-03-03",
+      "mech_end": "2026-03-10",
+      "elec_start": "2026-03-08",
+      "elec_end": "2026-03-15",
+      "pi_start": "2026-03-14",
+      "qi_start": "2026-03-16",
+      "si_start": "2026-03-18",
+      "finishing_plan_end": "2026-03-20",
+      "completion": {
+        "mech": true,
+        "elec": false,
+        "tm": null,
+        "pi": false,
+        "qi": false,
+        "si": false
+      },
+      "progress_pct": 16.7
+    }
+  ],
+  "by_model": [
+    { "model": "GAIA-I DUAL", "count": 81 },
+    { "model": "GAIA-P DUAL", "count": 12 },
+    { "model": "GAIA-P", "count": 10 }
+  ],
+  "total": 119,
+  "page": 1,
+  "per_page": 50,
+  "total_pages": 3
+}
+```
+
+**응답 필드 설명**:
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `sales_order` | string | 오더번호 (O/N) |
+| `product_code` | string | 제품번호 |
+| `serial_number` | string | S/N |
+| `model` | string | 모델명 |
+| `customer` | string | 고객사 |
+| `line` | string | 라인 |
+| `mech_partner` | string | 기구업체 |
+| `elec_partner` | string | 전장업체 |
+| `mech_start` | date \| null | 기구시작 |
+| `mech_end` | date \| null | 기구종료 |
+| `elec_start` | date \| null | 전장시작 |
+| `elec_end` | date \| null | 전장종료 |
+| `pi_start` | date \| null | 가압시작 (PI) |
+| `qi_start` | date \| null | 공정시작 (QI) |
+| `si_start` | date \| null | 마무리 (SI) |
+| `finishing_plan_end` | date \| null | 출하예정 |
+| `completion.mech` | bool | 기구 공정 완료 여부 |
+| `completion.elec` | bool | 전장 공정 완료 여부 |
+| `completion.tm` | bool \| null | TM 완료 (`null` = 비해당 모델) |
+| `completion.pi` | bool | 가압검사 완료 여부 |
+| `completion.qi` | bool | 공정검사 완료 여부 |
+| `completion.si` | bool | 마무리 완료 여부 |
+| `progress_pct` | float | 완료단계 / 해당단계 * 100 |
+| `by_model[]` | array | 월간 모델별 S/N 수 (호리즌 bar chart 용) |
+
+**쿼리 로직**:
+```sql
+SELECT p.sales_order, p.product_code, p.serial_number, p.model,
+       p.customer, p.line, p.mech_partner, p.elec_partner,
+       p.mech_start, p.mech_end, p.elec_start, p.elec_end,
+       p.pi_start, p.qi_start, p.si_start, p.finishing_plan_end,
+       cs.mech_completed, cs.elec_completed, cs.tm_completed,
+       cs.pi_completed, cs.qi_completed, cs.si_completed
+FROM plan.product_info p
+LEFT JOIN completion_status cs ON p.serial_number = cs.serial_number
+WHERE p.{date_field} >= '2026-03-01' AND p.{date_field} < '2026-04-01'
+ORDER BY p.{date_field} DESC
+
+-- date_field: 'pi_start' (GST 기본) or 'mech_start' (협력사)
+-- TM 판별: model LIKE 'GAIA%' → tm 값 반환, 나머지 → null
+-- progress_pct: 완료된 true 수 / 해당단계 수 * 100 (GAIA=6단계, 나머지=5단계)
+```
+
+**공정 단계 (자주검사 제거, PI 유지)**:
+- 공정단계: MECH → ELEC → (TM) → PI → QI → SI
+- 진행률 분모: GAIA 계열 = 6단계 (MECH/ELEC/TM/PI/QI/SI), 나머지 = 5단계 (MECH/ELEC/PI/QI/SI)
+- 자주검사: 테이블 미존재, 분류 없음 → 제외
+
+**목적**: 공장 대시보드 3행 생산 현황 상세 + 4행 월간 호리즌 bar + **생산일정 페이지 테이블** (신규 엔드포인트 없이 공유)
+
+**FE 사용처**:
+- `FactoryDashboardPage.tsx` — 생산 현황 상세 테이블 + 월간 생산 지표
+- `ProductionPlanPage.tsx` — 생산일정 16컬럼 테이블 (동일 API 사용, 자주검사 제거)
+
+---
+
+## 추후 검토 — 서드파티 연동
+
+### 제조 생산 일정 스케줄러 (Google Apps Script)
+- **URL**: Google Apps Script 기반 사내 서드파티 앱
+- **기능**: 가압검사/제조품질검사/공정검사/마무리/출하 5탭 칸반 보드 (일별 S/N 카드)
+- **데이터 소스**: Teams Excel 동일 소스 추정
+- **연동 검토 사항**:
+  - Google Apps Script → 사내서버 Push: 보안상 불가
+  - OPS에서 Pull 방식 검토 필요 (Google Sheets API or Apps Script Web API)
+  - DB 구조 분석 후 OPS 연동 방법 결정
+  - 출하 완료 실적 데이터를 이 앱에서 가져올 수 있으면 `actual_ship_date` 정확도 향상 가능
+- **현재 방침**: 출하 카운트는 `finishing_plan_end` 계획일 기준으로 우선 진행, 추후 연동 시 실적 기반으로 전환
 
 ---
 

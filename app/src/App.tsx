@@ -5,6 +5,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '@/pages/LoginPage';
 import UnauthorizedPage from '@/pages/UnauthorizedPage';
 import AttendancePage from '@/pages/attendance/AttendancePage';
+import PartnerDashboardPage from '@/pages/partner/PartnerDashboardPage';
+import PartnerEvaluationPage from '@/pages/partner/PartnerEvaluationPage';
+import PartnerAllocationPage from '@/pages/partner/PartnerAllocationPage';
 import QrManagementPage from '@/pages/qr/QrManagementPage';
 import EtlChangeLogPage from '@/pages/qr/EtlChangeLogPage';
 import FactoryDashboardPage from '@/pages/factory/FactoryDashboardPage';
@@ -39,14 +42,43 @@ export default function App() {
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
         {/* ── admin + manager 공통 ── */}
+        {/* ── 협력사 관리 (admin + manager) ── */}
         <Route
-          path="/attendance"
+          path="/partner"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+              <PartnerDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/partner/evaluation"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+              <PartnerEvaluationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/partner/allocation"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+              <PartnerAllocationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/partner/attendance"
           element={
             <ProtectedRoute allowedRoles={['admin', 'manager']}>
               <AttendancePage />
             </ProtectedRoute>
           }
         />
+
+        {/* 기존 /attendance → /partner/attendance 리다이렉트 */}
+        <Route path="/attendance" element={<Navigate to="/partner/attendance" replace />} />
+
         <Route
           path="/qr"
           element={
