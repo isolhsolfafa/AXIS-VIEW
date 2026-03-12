@@ -25,6 +25,7 @@ interface FilterBarProps {
   onSearchChange: (q: string) => void;
   statusFilter: StatusFilter;
   onStatusChange: (status: StatusFilter) => void;
+  hideCompanyFilter?: boolean;
 }
 
 export default function FilterBar({
@@ -36,6 +37,7 @@ export default function FilterBar({
   onSearchChange,
   statusFilter,
   onStatusChange,
+  hideCompanyFilter,
 }: FilterBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -49,19 +51,21 @@ export default function FilterBar({
         </TabsList>
       </Tabs>
 
-      {/* 회사 드롭다운 */}
-      <Select value={selectedCompany} onValueChange={onCompanyChange}>
-        <SelectTrigger className="h-8 w-32 text-xs border-gx-mist">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {COMPANIES.map((c) => (
-            <SelectItem key={c} value={c} className="text-xs">
-              {c}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {/* 회사 드롭다운 (협력사 유저는 자사 고정이므로 숨김) */}
+      {!hideCompanyFilter && (
+        <Select value={selectedCompany} onValueChange={onCompanyChange}>
+          <SelectTrigger className="h-8 w-32 text-xs border-gx-mist">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {COMPANIES.map((c) => (
+              <SelectItem key={c} value={c} className="text-xs">
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       {/* 날짜 선택 */}
       <input

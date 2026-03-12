@@ -13,14 +13,21 @@ import BottomGrid from '@/components/attendance/BottomGrid';
 import FilterBar from '@/components/attendance/FilterBar';
 import { useAttendanceToday, useAttendanceSummary } from '@/hooks/useAttendance';
 import { useSettings } from '@/hooks/useSettings';
+import { useAuth } from '@/store/authStore';
 import type { AttendanceRecord } from '@/types/attendance';
 
 type StatusFilter = 'all' | 'working' | 'left' | 'not_checked';
 type ViewMode = 'card' | 'table';
 
 export default function AttendancePage() {
+  const { user } = useAuth();
+  const isAdminOrGst = user?.is_admin || user?.company === 'GST';
+
   const today = format(new Date(), 'yyyy-MM-dd');
-  const [selectedCompany, setSelectedCompany] = useState('전체');
+  // 협력사 유저는 자사 고정, admin/GST는 전체 선택 가능
+  const [selectedCompany, setSelectedCompany] = useState(
+    isAdminOrGst ? '전체' : (user?.company ?? '전체')
+  );
   const [selectedDate, setSelectedDate] = useState(today);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -37,14 +44,19 @@ export default function AttendancePage() {
 
   const filteredRecords = useMemo<AttendanceRecord[]>(() => {
     let records = attendanceData?.records ?? [];
-    if (selectedCompany !== '전체') records = records.filter((r) => r.company === selectedCompany);
+    // 협력사 유저: 자사 데이터만 (드롭다운 우회 방지)
+    if (!isAdminOrGst && user?.company) {
+      records = records.filter((r) => r.company === user.company);
+    } else if (selectedCompany !== '전체') {
+      records = records.filter((r) => r.company === selectedCompany);
+    }
     if (statusFilter !== 'all') records = records.filter((r) => r.status === statusFilter);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       records = records.filter((r) => r.worker_name.toLowerCase().includes(q));
     }
     return records;
-  }, [attendanceData, selectedCompany, statusFilter, searchQuery]);
+  }, [attendanceData, selectedCompany, statusFilter, searchQuery, isAdminOrGst, user?.company]);
 
   const summary = attendanceData?.summary;
   const allRecords = attendanceData?.records ?? [];
@@ -316,6 +328,7 @@ export default function AttendancePage() {
               onSearchChange={setSearchQuery}
               statusFilter={statusFilter}
               onStatusChange={setStatusFilter}
+              hideCompanyFilter={!isAdminOrGst}
             />
           </div>
         </div>

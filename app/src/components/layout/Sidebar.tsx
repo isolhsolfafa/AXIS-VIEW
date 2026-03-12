@@ -112,8 +112,8 @@ const navGroups: NavGroup[] = [
         children: [
           { label: '대시보드', to: '/partner' },
           { label: '평가지수', to: '/partner/evaluation' },
-          { label: '물량배분', to: '/partner/allocation' },
-          { label: '출퇴근 기록', to: '/partner/attendance' },
+          { label: '물량할당', to: '/partner/allocation' },
+          { label: '근태 관리', to: '/partner/attendance' },
         ],
       },
       { label: '생산일정', icon: <CalendarIcon />, to: '/plan', preparing: true, roles: ['admin', 'manager'] },
@@ -183,11 +183,7 @@ export default function Sidebar() {
   }, [etlData]);
 
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(() => {
-    // 하위 경로에 있으면 자동 펼침
-    const initial = new Set<string>();
-    if (location.pathname.startsWith('/qr')) initial.add('QR 관리');
-    if (location.pathname.startsWith('/partner')) initial.add('협력사 관리');
-    return initial;
+    return new Set<string>();
   });
 
   // role 필터링 + ETL 뱃지 주입
