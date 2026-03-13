@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>G-AXIS | 협력사 관리</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gx-charcoal: #2A2D35;
+  --gx-graphite: #3D4150;
+  --gx-slate: #5A5F72;
+  --gx-steel: #8B90A0;
+  --gx-silver: #B8BCC8;
+  --gx-mist: #E8EAF0;
+  --gx-cloud: #F3F4F7;
+  --gx-snow: #FAFBFD;
+  --gx-white: #FFFFFF;
+  --gx-accent: #6366F1;
+  --gx-accent-soft: rgba(99,102,241,0.08);
+  --gx-success: #10B981;
+  --gx-success-bg: rgba(16,185,129,0.08);
+  --gx-warning: #F59E0B;
+  --gx-warning-bg: rgba(245,158,11,0.08);
+  --gx-danger: #EF4444;
+  --gx-danger-bg: rgba(239,68,68,0.08);
+  --gx-info: #3B82F6;
+  --gx-info-bg: rgba(59,130,246,0.08);
+  --sidebar-width: 260px;
+  --header-height: 64px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-card: 0 0 0 1px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.04);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 14px; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--gx-cloud);
+  color: var(--gx-charcoal);
+  min-height: 100vh;
+  display: flex;
+}
+
+/* ─── Sidebar (동일 구조) ─── */
+.sidebar {
+  width: var(--sidebar-width); height: 100vh; position: fixed;
+  left: 0; top: 0; background: var(--gx-white);
+  border-right: 1px solid var(--gx-mist);
+  display: flex; flex-direction: column; z-index: 100;
+}
+.sidebar-brand {
+  height: var(--header-height); display: flex; align-items: center;
+  padding: 0 20px; gap: 14px; border-bottom: 1px solid var(--gx-mist);
+}
+.brand-text { font-size: 17px; font-weight: 300; letter-spacing: 5px; }
+.brand-sub { font-size: 8px; color: var(--gx-steel); letter-spacing: 0.5px; }
+.sidebar-section { padding: 20px 16px 8px; }
+.sidebar-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--gx-steel); padding: 0 8px; margin-bottom: 8px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  border-radius: var(--radius-md); color: var(--gx-slate); font-size: 13.5px;
+  font-weight: 500; cursor: pointer; transition: all 0.15s; text-decoration: none; position: relative;
+}
+.nav-item:hover { background: var(--gx-cloud); color: var(--gx-charcoal); }
+.nav-item.active { background: var(--gx-accent-soft); color: var(--gx-accent); }
+.nav-item.active::before {
+  content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 20px; border-radius: 0 3px 3px 0; background: var(--gx-accent);
+}
+.nav-icon { width: 20px; height: 20px; opacity: 0.6; flex-shrink: 0; }
+.nav-item.active .nav-icon { opacity: 1; }
+.nav-sub { padding-left: 48px !important; font-size: 12.5px !important; }
+.nav-sub.sub-active { color: var(--gx-accent); font-weight: 600; }
+
+/* ─── Main ─── */
+.main-wrapper { margin-left: var(--sidebar-width); flex: 1; min-height: 100vh; }
+.header {
+  height: var(--header-height); background: var(--gx-white);
+  border-bottom: 1px solid var(--gx-mist); display: flex;
+  align-items: center; justify-content: space-between;
+  padding: 0 32px; position: sticky; top: 0; z-index: 50;
+}
+.page-title { font-size: 16px; font-weight: 600; }
+.breadcrumb { display: flex; gap: 6px; font-size: 12px; color: var(--gx-steel); }
+.breadcrumb span { color: var(--gx-accent); font-weight: 500; }
+
+.content { padding: 28px 32px; max-width: 1440px; }
+
+/* ─── Tab (공장대시보드와 동일 패턴) ─── */
+.page-tabs {
+  display: inline-flex; gap: 0; margin-bottom: 24px;
+  border-bottom: 2px solid var(--gx-mist);
+}
+.page-tab {
+  padding: 10px 24px; font-size: 13px; font-weight: 500;
+  color: var(--gx-steel); cursor: pointer; border: none; background: none;
+  border-bottom: 2px solid transparent; margin-bottom: -2px;
+  transition: all 0.15s;
+}
+.page-tab:hover { color: var(--gx-charcoal); }
+.page-tab.active { color: var(--gx-accent); border-bottom-color: var(--gx-accent); font-weight: 600; }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ─── Card (FactoryDashboardPage와 동일) ─── */
+.card {
+  background: var(--gx-white); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card); overflow: hidden;
+}
+.card-head {
+  padding: 20px 24px 0;
+}
+.card-t { font-size: 14px; font-weight: 600; color: var(--gx-charcoal); }
+.card-s { font-size: 11px; color: var(--gx-steel); margin-top: 2px; }
+.card-body { padding: 20px 24px 24px; }
+
+/* ─── KPI Row (공장대시보드 KPI 카드 스타일) ─── */
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.kpi-box {
+  background: var(--gx-white); border-radius: var(--radius-lg);
+  padding: 20px 24px; box-shadow: var(--shadow-card);
+}
+.kpi-label { font-size: 12px; font-weight: 500; color: var(--gx-steel); margin-bottom: 12px; }
+.kpi-val { font-size: 28px; font-weight: 700; color: var(--gx-charcoal); line-height: 1.1; }
+.kpi-sub { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.kpi-sub span { font-size: 11px; color: var(--gx-steel); }
+.kpi-change { font-size: 11px; font-weight: 600; }
+
+/* ─── Mono ─── */
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* ─── 2col / 3col ─── */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.g2-wide { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+.g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+/* ─── Table (동일 패턴) ─── */
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th {
+  padding: 12px 20px; text-align: left; font-size: 11px; font-weight: 600;
+  color: var(--gx-steel); letter-spacing: 0.5px; text-transform: uppercase;
+  background: var(--gx-cloud); border-bottom: 1px solid var(--gx-mist);
+}
+.tbl td {
+  padding: 14px 20px; border-bottom: 1px solid var(--gx-cloud);
+  color: var(--gx-graphite);
+}
+.tbl tbody tr:hover { background: var(--gx-snow); }
+.tbl .num { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+
+/* ─── Badge (상태 뱃지) ─── */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+}
+.badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.badge-a { background: rgba(16,185,129,0.08); color: #059669; }
+.badge-b { background: rgba(59,130,246,0.08); color: #2563EB; }
+.badge-c { background: rgba(245,158,11,0.08); color: #D97706; }
+.badge-d { background: rgba(239,68,68,0.08); color: #DC2626; }
+.badge-e { background: rgba(124,58,237,0.08); color: #7C3AED; }
+
+/* ─── Progress bar (동일) ─── */
+.prog-wrap { display: flex; align-items: center; gap: 10px; }
+.prog-bar {
+  flex: 1; height: 6px; border-radius: 3px; background: var(--gx-mist);
+  overflow: hidden; min-width: 60px;
+}
+.prog-fill { height: 100%; border-radius: 3px; }
+.prog-txt { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; min-width: 42px; text-align: right; }
+
+/* ─── Heatmap v2 ─── */
+.hm { width: 100%; border-collapse: separate; border-spacing: 3px; }
+.hm th { font-size: 10px; font-weight: 500; color: var(--gx-steel); text-align: center; padding: 4px 2px; }
+.hm td {
+  text-align: center; padding: 6px 2px; border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500;
+  transition: transform 0.1s;
+}
+.hm td:hover { transform: scale(1.15); z-index: 1; }
+.hm .lbl { text-align: right; padding-right: 8px; font-family: 'DM Sans'; font-weight: 600; font-size: 12px; color: var(--gx-charcoal); }
+.hm .l0 { background: #F0FDF4; color: #166534; }
+.hm .l1 { background: #DCFCE7; color: #166534; }
+.hm .l2 { background: #FEF9C3; color: #854D0E; }
+.hm .l3 { background: #FDE68A; color: #854D0E; }
+.hm .l4 { background: #FECACA; color: #991B1B; }
+.hm .l5 { background: #FCA5A5; color: #991B1B; }
+.hm .na { background: var(--gx-cloud); color: var(--gx-silver); }
+
+/* ─── Horizontal bar (월간 모델별 동일 패턴) ─── */
+.hbar-row { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.hbar-label { font-size: 12px; font-weight: 500; color: var(--gx-slate); width: 60px; text-align: right; flex-shrink: 0; }
+.hbar-track { flex: 1; height: 24px; background: var(--gx-cloud); border-radius: 6px; overflow: hidden; }
+.hbar-fill {
+  height: 100%; border-radius: 6px; display: flex; align-items: center;
+  justify-content: flex-end; padding-right: 10px;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; color: #fff;
+}
+.hbar-val { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: var(--gx-graphite); min-width: 50px; }
+
+/* ─── Blur (QMS 미연동) ─── */
+.blur-wrap { position: relative; }
+.blur-wrap > .blur-content { filter: blur(3px); pointer-events: none; }
+.blur-label {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 500; color: var(--gx-steel); z-index: 2;
+  background: rgba(255,255,255,0.6); border-radius: var(--radius-lg);
+}
+
+/* ─── Info banner (Phase 3 배너 동일) ─── */
+.info-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px; margin-bottom: 24px;
+  background: var(--gx-accent-soft); border-radius: var(--radius-lg);
+  border: 1px solid rgba(99,102,241,0.12);
+}
+.info-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gx-accent); flex-shrink: 0; }
+.info-text { font-size: 13px; color: var(--gx-graphite); }
+.info-tag {
+  margin-left: auto; padding: 4px 12px; border-radius: var(--radius-sm);
+  font-size: 11px; font-weight: 600; color: var(--gx-accent); background: rgba(99,102,241,0.12);
+}
+
+/* ─── Weight pill ─── */
+.wpill {
+  display: inline-flex; padding: 3px 10px; border-radius: 20px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
+}
+.wpill-p { background: var(--gx-accent-soft); color: var(--gx-accent); }
+.wpill-s { background: var(--gx-warning-bg); color: #D97706; }
+
+/* ─── Rank column ─── */
+.rank { font-size: 16px; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div>
+      <div class="brand-text">G-AXIS</div>
+      <div class="brand-sub">Manufacturing Intelligence</div>
+    </div>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Dashboard</div>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      공장 대시보드
+    </a>
+    <a class="nav-item active" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      협력사 관리
+    </a>
+    <a class="nav-item nav-sub sub-active" href="#" onclick="switchTab('dashboard')">대시보드</a>
+    <a class="nav-item nav-sub" href="#" onclick="switchTab('evaluation')">평가지수</a>
+    <a class="nav-item nav-sub" href="#" onclick="switchTab('allocation')" style="color:var(--gx-silver)">물량배분</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Management</div>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      생산일정
+    </a>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      QR 관리
+    </a>
+  </div>
+</aside>
+
+<!-- Main -->
+<div class="main-wrapper">
+  <header class="header">
+    <div>
+      <div class="page-title">협력사 관리</div>
+      <div class="breadcrumb">Dashboard / <span>Partner</span></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select style="padding:7px 12px;border-radius:var(--radius-sm);border:1px solid var(--gx-mist);font-size:12px;font-family:'DM Sans';color:var(--gx-graphite);background:var(--gx-white);">
+        <option>2026년 3월</option><option>2026년 2월</option><option>2026년 1월</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- Tabs -->
+    <div class="page-tabs">
+      <button class="page-tab active" onclick="switchTab('dashboard')">대시보드</button>
+      <button class="page-tab" onclick="switchTab('evaluation')">평가지수</button>
+      <button class="page-tab" onclick="switchTab('allocation')">물량배분</button>
+    </div>
+
+    <!-- ═══ TAB 1: 대시보드 ═══ -->
+    <div id="tab-dashboard" class="tab-content active">
+
+      <!-- KPI 4 Cards -->
+      <div class="kpi-row">
+        <div class="kpi-box">
+          <div class="kpi-label">등록 협력사</div>
+          <div class="kpi-val">6<span style="font-size:14px;font-weight:400;color:var(--gx-steel);margin-left:4px;">개사</span></div>
+          <div class="kpi-sub"><span>기구 3사 + 전장 3사</span></div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-label">오늘 출근율</div>
+          <div class="kpi-val" style="color:var(--gx-success)">87.5%</div>
+          <div class="kpi-sub"><span>42 / 48명</span><span class="kpi-change" style="color:var(--gx-danger)">P&S 50%</span></div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-label">평균 NaN 비율</div>
+          <div class="kpi-val"><span class="mono">2.8</span><span style="font-size:14px;font-weight:400;color:var(--gx-steel)">%</span></div>
+          <div class="kpi-sub"><span>W10~W12 기준</span><span class="kpi-change" style="color:var(--gx-danger)">P&S 13.6%</span></div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-label">이번 달 불량</div>
+          <div class="kpi-val" style="color:var(--gx-steel);font-size:20px;font-weight:400;">QMS 연동 대기</div>
+          <div class="kpi-sub"><span>API 준비 중</span><span class="info-tag" style="margin-left:0;padding:2px 8px;font-size:10px;">Phase 3</span></div>
+        </div>
+      </div>
+
+      <!-- Row 2: NaN 히트맵 (넓게) + 출퇴근 -->
+      <div class="g2-wide">
+        <!-- NaN Heatmap -->
+        <div class="card">
+          <div class="card-head">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div class="card-t">NaN 히트맵</div>
+                <div class="card-s">일별 협력사 NaN 비율 (%) · finishing_plan_end 기준</div>
+              </div>
+              <div style="display:flex;gap:8px;font-size:10px;color:var(--gx-steel);">
+                <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#F0FDF4;border:1px solid #BBF7D0;"></span>0%</span>
+                <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#FEF9C3;border:1px solid #FDE68A;"></span>1~3%</span>
+                <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#FECACA;border:1px solid #FCA5A5;"></span>6%+</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-body" style="padding-top:12px;">
+            <table class="hm">
+              <thead>
+                <tr>
+                  <th style="width:60px;"></th>
+                  <th>3/3</th><th>3/4</th><th>3/5</th><th>3/6</th><th>3/7</th>
+                  <th style="border-left:2px solid var(--gx-mist);">3/9</th><th>3/10</th><th>3/11</th><th>3/12</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="lbl">BAT</td>
+                  <td class="l2">2.1</td><td class="l1">0.8</td><td class="l0">0</td><td class="l2">3.4</td><td class="l0">0</td>
+                  <td class="l2" style="border-left:2px solid var(--gx-mist);">1.6</td><td class="l0">0</td><td class="l0">0</td><td class="na">—</td>
+                </tr>
+                <tr>
+                  <td class="lbl">FNI</td>
+                  <td class="l0">0</td><td class="l0">0</td><td class="l0">0</td><td class="l0">0</td><td class="l0">0</td>
+                  <td class="l0" style="border-left:2px solid var(--gx-mist);">0</td><td class="l0">0</td><td class="l0">0</td><td class="na">—</td>
+                </tr>
+                <tr>
+                  <td class="lbl">TMS(M)</td>
+                  <td class="l0">0</td><td class="l0">0</td><td class="l0">0</td><td class="l0">0</td><td class="l0">0</td>
+                  <td class="l0" style="border-left:2px solid var(--gx-mist);">0</td><td class="l0">0</td><td class="l0">0</td><td class="na">—</td>
+                </tr>
+                <tr><td colspan="10" style="height:4px;background:none;"></td></tr>
+                <tr>
+                  <td class="lbl">C&A</td>
+                  <td class="l1">0.5</td><td class="l0">0</td><td class="l0">0</td><td class="l0">0</td><td class="l0">0</td>
+                  <td class="l1" style="border-left:2px solid var(--gx-mist);">0.2</td><td class="l0">0</td><td class="l0">0</td><td class="na">—</td>
+                </tr>
+                <tr>
+                  <td class="lbl">P&S</td>
+                  <td class="l4">9.4</td><td class="l5">15.2</td><td class="l5">11.3</td><td class="l5">14.8</td><td class="l4">10.2</td>
+                  <td class="l4" style="border-left:2px solid var(--gx-mist);">9.8</td><td class="l5">16.1</td><td class="l5">11.5</td><td class="na">—</td>
+                </tr>
+                <tr>
+                  <td class="lbl">TMS(E)</td>
+                  <td class="l0">0</td><td class="l0">0</td><td class="l0">0</td><td class="l0">0</td><td class="l0">0</td>
+                  <td class="l0" style="border-left:2px solid var(--gx-mist);">0</td><td class="l0">0</td><td class="l0">0</td><td class="na">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 출퇴근 -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-t">출퇴근 현황</div>
+            <div class="card-s">2026-03-12 (수) · 08:30 기준</div>
+          </div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
+              <div style="padding:14px;border-radius:var(--radius-sm);background:var(--gx-success-bg);text-align:center;">
+                <div style="font-size:11px;color:#059669;font-weight:500;">출근</div>
+                <div class="mono" style="font-size:22px;font-weight:700;color:#059669;margin-top:4px;">42</div>
+              </div>
+              <div style="padding:14px;border-radius:var(--radius-sm);background:var(--gx-warning-bg);text-align:center;">
+                <div style="font-size:11px;color:#D97706;font-weight:500;">지각</div>
+                <div class="mono" style="font-size:22px;font-weight:700;color:#D97706;margin-top:4px;">3</div>
+              </div>
+              <div style="padding:14px;border-radius:var(--radius-sm);background:var(--gx-danger-bg);text-align:center;">
+                <div style="font-size:11px;color:#DC2626;font-weight:500;">미출근</div>
+                <div class="mono" style="font-size:22px;font-weight:700;color:#DC2626;margin-top:4px;">3</div>
+              </div>
+            </div>
+
+            <!-- Partner bars -->
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:12px;font-weight:500;width:48px;text-align:right;">BAT</span>
+                <div class="prog-wrap" style="flex:1;">
+                  <div class="prog-bar"><div class="prog-fill" style="width:93%;background:var(--gx-success);"></div></div>
+                  <span class="prog-txt" style="color:var(--gx-success);">93%</span>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:12px;font-weight:500;width:48px;text-align:right;">FNI</span>
+                <div class="prog-wrap" style="flex:1;">
+                  <div class="prog-bar"><div class="prog-fill" style="width:100%;background:var(--gx-success);"></div></div>
+                  <span class="prog-txt" style="color:var(--gx-success);">100%</span>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:12px;font-weight:500;width:48px;text-align:right;">TMS</span>
+                <div class="prog-wrap" style="flex:1;">
+                  <div class="prog-bar"><div class="prog-fill" style="width:100%;background:var(--gx-success);"></div></div>
+                  <span class="prog-txt" style="color:var(--gx-success);">100%</span>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:12px;font-weight:500;width:48px;text-align:right;">C&A</span>
+                <div class="prog-wrap" style="flex:1;">
+                  <div class="prog-bar"><div class="prog-fill" style="width:100%;background:var(--gx-success);"></div></div>
+                  <span class="prog-txt" style="color:var(--gx-success);">100%</span>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:12px;font-weight:500;width:48px;text-align:right;">P&S</span>
+                <div class="prog-wrap" style="flex:1;">
+                  <div class="prog-bar"><div class="prog-fill" style="width:50%;background:var(--gx-danger);"></div></div>
+                  <span class="prog-txt" style="color:var(--gx-danger);">50%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: 주간 NaN 추이 + 불량 요약 -->
+      <div class="g2">
+        <div class="card">
+          <div class="card-head">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div class="card-t">주간 NaN 추이</div>
+                <div class="card-s">W10 ~ W12 협력사별 비율</div>
+              </div>
+              <span class="wpill wpill-s">가중치 30%</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <!-- 간소화 bar 표현 (Recharts 라인으로 대체 예정) -->
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <div class="hbar-row">
+                <span class="hbar-label">BAT</span>
+                <div class="hbar-track"><div class="hbar-fill" style="width:28%;background:linear-gradient(90deg,#F59E0B,#FBBF24);">2.8</div></div>
+                <span class="hbar-val" style="color:#D97706;">B</span>
+              </div>
+              <div class="hbar-row">
+                <span class="hbar-label">FNI</span>
+                <div class="hbar-track"><div class="hbar-fill" style="width:2%;background:linear-gradient(90deg,#10B981,#34D399);min-width:36px;">0.0</div></div>
+                <span class="hbar-val" style="color:#059669;">A</span>
+              </div>
+              <div class="hbar-row">
+                <span class="hbar-label">TMS(M)</span>
+                <div class="hbar-track"><div class="hbar-fill" style="width:2%;background:linear-gradient(90deg,#10B981,#34D399);min-width:36px;">0.0</div></div>
+                <span class="hbar-val" style="color:#059669;">A</span>
+              </div>
+              <div style="height:1px;background:var(--gx-mist);margin:4px 0;"></div>
+              <div class="hbar-row">
+                <span class="hbar-label">C&A</span>
+                <div class="hbar-track"><div class="hbar-fill" style="width:3%;background:linear-gradient(90deg,#10B981,#34D399);min-width:36px;">0.2</div></div>
+                <span class="hbar-val" style="color:#059669;">A</span>
+              </div>
+              <div class="hbar-row">
+                <span class="hbar-label">P&S</span>
+                <div class="hbar-track"><div class="hbar-fill" style="width:90%;background:linear-gradient(90deg,#EF4444,#F87171);">13.6</div></div>
+                <span class="hbar-val" style="color:#DC2626;">D</span>
+              </div>
+              <div class="hbar-row">
+                <span class="hbar-label">TMS(E)</span>
+                <div class="hbar-track"><div class="hbar-fill" style="width:2%;background:linear-gradient(90deg,#10B981,#34D399);min-width:36px;">0.0</div></div>
+                <span class="hbar-val" style="color:#059669;">A</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 불량 요약 - blurred -->
+        <div class="card blur-wrap">
+          <div class="blur-label">QMS 연동 준비 중</div>
+          <div class="blur-content">
+            <div class="card-head">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div class="card-t">이번 달 불량 현황</div>
+                  <div class="card-s">기구 + 전장 협력사</div>
+                </div>
+                <span class="wpill wpill-p">가중치 70%</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <div style="display:flex;flex-direction:column;gap:14px;">
+                <div class="hbar-row">
+                  <span class="hbar-label">BAT</span>
+                  <div class="hbar-track"><div class="hbar-fill" style="width:40%;background:linear-gradient(90deg,#6366F1,#818CF8);">8.1%</div></div>
+                  <span class="hbar-val">B</span>
+                </div>
+                <div class="hbar-row">
+                  <span class="hbar-label">FNI</span>
+                  <div class="hbar-track"><div class="hbar-fill" style="width:34%;background:linear-gradient(90deg,#3B82F6,#60A5FA);">6.8%</div></div>
+                  <span class="hbar-val">B</span>
+                </div>
+                <div class="hbar-row">
+                  <span class="hbar-label">TMS(M)</span>
+                  <div class="hbar-track"><div class="hbar-fill" style="width:70%;background:linear-gradient(90deg,#F59E0B,#FBBF24);">18.2%</div></div>
+                  <span class="hbar-val">C</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TAB 2: 평가지수 ═══ -->
+    <div id="tab-evaluation" class="tab-content">
+
+      <div class="info-bar">
+        <div class="info-dot"></div>
+        <div class="info-text">
+          <strong>평가 산출</strong> · 불량률(70%) + NaN 비율(30%) = 최종 가중평균 → 등급 · 3월 평가 → 5월 물량배분
+        </div>
+        <div class="info-tag">W10 ~ W13</div>
+      </div>
+
+      <!-- 기구 -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="padding:20px 24px 0;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="card-t">기구 협력사 평가</div>
+            <div class="card-s">2026년 3월 · 생산대수 = Chamber 기준</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <span class="wpill wpill-p">불량 70%</span>
+            <span class="wpill wpill-s">NaN 30%</span>
+          </div>
+        </div>
+        <div style="padding:16px 24px 24px;">
+          <table class="tbl">
+            <thead>
+              <tr><th style="width:44px;">순위</th><th>협력사</th><th>생산</th><th>불량</th><th>불량률</th><th>불량등급</th><th>NaN</th><th>NaN등급</th><th>최종점수</th><th>최종등급</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="rank">1</td>
+                <td style="font-weight:600;">FNI</td>
+                <td class="num">88대</td><td class="num">6건</td><td class="num">6.8%</td>
+                <td><span class="badge badge-b">B</span></td>
+                <td class="num">0.0%</td>
+                <td><span class="badge badge-a">A</span></td>
+                <td class="num" style="font-weight:700;font-size:14px;">8.25</td>
+                <td><span class="badge badge-a" style="font-size:12px;padding:5px 12px;">A</span></td>
+              </tr>
+              <tr>
+                <td class="rank">2</td>
+                <td style="font-weight:600;">BAT</td>
+                <td class="num">135대</td><td class="num">11건</td><td class="num">8.1%</td>
+                <td><span class="badge badge-b">B</span></td>
+                <td class="num">2.8%</td>
+                <td><span class="badge badge-b">B</span></td>
+                <td class="num" style="font-weight:700;font-size:14px;">7.50</td>
+                <td><span class="badge badge-b" style="font-size:12px;padding:5px 12px;">B</span></td>
+              </tr>
+              <tr>
+                <td class="rank">3</td>
+                <td style="font-weight:600;">TMS(M)</td>
+                <td class="num">11대</td><td class="num">2건</td><td class="num">18.2%</td>
+                <td><span class="badge badge-c">C</span></td>
+                <td class="num">0.0%</td>
+                <td><span class="badge badge-a">A</span></td>
+                <td class="num" style="font-weight:700;font-size:14px;">6.50</td>
+                <td><span class="badge badge-b" style="font-size:12px;padding:5px 12px;">B</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 전장 -->
+      <div class="card" style="margin-bottom:24px;">
+        <div style="padding:20px 24px 0;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="card-t">전장 협력사 평가</div>
+            <div class="card-s">2026년 3월 · 전장은 기구보다 엄격한 기준</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <span class="wpill wpill-p">불량 70%</span>
+            <span class="wpill wpill-s">NaN 30%</span>
+          </div>
+        </div>
+        <div style="padding:16px 24px 24px;">
+          <table class="tbl">
+            <thead>
+              <tr><th style="width:44px;">순위</th><th>협력사</th><th>생산</th><th>불량</th><th>불량률</th><th>불량등급</th><th>NaN</th><th>NaN등급</th><th>최종점수</th><th>최종등급</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="rank">1</td>
+                <td style="font-weight:600;">TMS(E)</td>
+                <td class="num">24대</td><td class="num">0건</td><td class="num">0.0%</td>
+                <td><span class="badge badge-a">A</span></td>
+                <td class="num">0.0%</td>
+                <td><span class="badge badge-a">A</span></td>
+                <td class="num" style="font-weight:700;font-size:14px;">10.00</td>
+                <td><span class="badge badge-a" style="font-size:12px;padding:5px 12px;">A</span></td>
+              </tr>
+              <tr>
+                <td class="rank">2</td>
+                <td style="font-weight:600;">C&A</td>
+                <td class="num">95대</td><td class="num">1건</td><td class="num">1.1%</td>
+                <td><span class="badge badge-b">B</span></td>
+                <td class="num">0.2%</td>
+                <td><span class="badge badge-a">A</span></td>
+                <td class="num" style="font-weight:700;font-size:14px;">8.25</td>
+                <td><span class="badge badge-a" style="font-size:12px;padding:5px 12px;">A</span></td>
+              </tr>
+              <tr>
+                <td class="rank">3</td>
+                <td style="font-weight:600;">P&S</td>
+                <td class="num">78대</td><td class="num">4건</td><td class="num">5.1%</td>
+                <td><span class="badge badge-c">C</span></td>
+                <td class="num" style="color:var(--gx-danger);font-weight:600;">13.6%</td>
+                <td><span class="badge badge-d">D</span></td>
+                <td class="num" style="font-weight:700;font-size:14px;">4.25</td>
+                <td><span class="badge badge-c" style="font-size:12px;padding:5px 12px;">C</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 주차별 NaN 상세 -->
+      <div class="g2">
+        <div class="card">
+          <div class="card-head"><div class="card-t">기구 — 주차별 NaN (%)</div></div>
+          <div class="card-body" style="padding-top:12px;">
+            <table class="tbl">
+              <thead><tr><th>협력사</th><th>W10</th><th>W11</th><th>W12</th><th>W13</th><th>월평균</th></tr></thead>
+              <tbody>
+                <tr><td style="font-weight:600;">BAT</td><td class="num">3.2</td><td class="num">2.8</td><td class="num">2.1</td><td class="num" style="color:var(--gx-silver);">—</td><td class="num" style="font-weight:700;">2.79</td></tr>
+                <tr><td style="font-weight:600;">FNI</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num" style="color:var(--gx-silver);">—</td><td class="num" style="font-weight:700;color:#059669;">0.00</td></tr>
+                <tr><td style="font-weight:600;">TMS(M)</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num" style="color:var(--gx-silver);">—</td><td class="num" style="font-weight:700;color:#059669;">0.00</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-t">전장 — 주차별 NaN (%)</div></div>
+          <div class="card-body" style="padding-top:12px;">
+            <table class="tbl">
+              <thead><tr><th>협력사</th><th>W10</th><th>W11</th><th>W12</th><th>W13</th><th>월평균</th></tr></thead>
+              <tbody>
+                <tr><td style="font-weight:600;">C&A</td><td class="num">0.5</td><td class="num">0.2</td><td class="num">0.0</td><td class="num" style="color:var(--gx-silver);">—</td><td class="num" style="font-weight:700;">0.23</td></tr>
+                <tr><td style="font-weight:600;">P&S</td><td class="num" style="color:var(--gx-danger);">15.2</td><td class="num" style="color:var(--gx-danger);">12.8</td><td class="num" style="color:var(--gx-danger);">12.6</td><td class="num" style="color:var(--gx-silver);">—</td><td class="num" style="font-weight:700;color:var(--gx-danger);">13.61</td></tr>
+                <tr><td style="font-weight:600;">TMS(E)</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num" style="color:var(--gx-silver);">—</td><td class="num" style="font-weight:700;color:#059669;">0.00</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TAB 3: 물량배분 ═══ -->
+    <div id="tab-allocation" class="tab-content">
+
+      <div class="info-bar" style="background:var(--gx-warning-bg);border-color:rgba(245,158,11,0.15);">
+        <div class="info-dot" style="background:var(--gx-warning);"></div>
+        <div class="info-text"><strong>3월 평가 → 5월 물량배분</strong> · 등급 기반 자동 산출 → 관리자 미세 조정 → 확정</div>
+        <div class="info-tag" style="background:rgba(245,158,11,0.15);color:#D97706;">Draft</div>
+      </div>
+
+      <div class="g2">
+        <!-- 시뮬레이션 -->
+        <div class="card">
+          <div class="card-head">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div class="card-t">기구 물량배분 시뮬레이션</div>
+                <div class="card-s">5월 예상 총 물량: 120대</div>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="hbar-row">
+              <span class="hbar-label"><span class="badge badge-a" style="font-size:10px;padding:2px 6px;">A</span></span>
+              <span style="font-size:12px;font-weight:600;width:48px;">FNI</span>
+              <div class="hbar-track"><div class="hbar-fill" style="width:40%;background:linear-gradient(90deg,#10B981,#34D399);">40%</div></div>
+              <span class="hbar-val">48대</span>
+            </div>
+            <div class="hbar-row">
+              <span class="hbar-label"><span class="badge badge-b" style="font-size:10px;padding:2px 6px;">B</span></span>
+              <span style="font-size:12px;font-weight:600;width:48px;">BAT</span>
+              <div class="hbar-track"><div class="hbar-fill" style="width:40%;background:linear-gradient(90deg,#6366F1,#818CF8);">40%</div></div>
+              <span class="hbar-val">48대</span>
+            </div>
+            <div class="hbar-row">
+              <span class="hbar-label"><span class="badge badge-b" style="font-size:10px;padding:2px 6px;">B</span></span>
+              <span style="font-size:12px;font-weight:600;width:48px;">TMS(M)</span>
+              <div class="hbar-track"><div class="hbar-fill" style="width:20%;background:linear-gradient(90deg,#F59E0B,#FBBF24);">20%</div></div>
+              <span class="hbar-val">24대</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 배분 이력 -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-t">물량배분 이력</div>
+            <div class="card-s">기구 협력사 기준</div>
+          </div>
+          <div style="padding:0 24px 24px;">
+            <table class="tbl">
+              <thead><tr><th>평가월</th><th>배분월</th><th>BAT</th><th>FNI</th><th>TMS(M)</th><th>상태</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>2026-03</td><td>2026-05</td>
+                  <td class="num">40%</td><td class="num">40%</td><td class="num">20%</td>
+                  <td><span class="badge badge-c" style="background:var(--gx-warning-bg);color:#D97706;">조정 중</span></td>
+                </tr>
+                <tr>
+                  <td>2026-02</td><td>2026-04</td>
+                  <td class="num">45%</td><td class="num">35%</td><td class="num">20%</td>
+                  <td><span class="badge badge-a">확정</span></td>
+                </tr>
+                <tr>
+                  <td>2026-01</td><td>2026-03</td>
+                  <td class="num">42%</td><td class="num">38%</td><td class="num">20%</td>
+                  <td><span class="badge badge-a">확정</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.page-tab').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-sub').forEach(el => el.classList.remove('sub-active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  const map = { dashboard: 0, evaluation: 1, allocation: 2 };
+  document.querySelectorAll('.page-tab')[map[name]].classList.add('active');
+  document.querySelectorAll('.nav-sub')[map[name]].classList.add('sub-active');
+}
+</script>
+</body>
+</html>

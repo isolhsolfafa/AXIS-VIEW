@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-12 (공장 대시보드 API — #9, #10 추가)
+> 마지막 업데이트: 2026-03-13 (AXIS-VIEW 권한 체계 재정비 — #11 추가)
 
 ---
 
@@ -269,7 +269,7 @@ def get_workers():
 
 **엔드포인트**: `GET /api/admin/factory/weekly-kpi`
 
-**권한**: `@manager_or_admin_required`
+**권한**: `@gst_or_admin_required` (공장 대시보드 전용 — #11 참조)
 
 **쿼리 파라미터**:
 
@@ -354,7 +354,7 @@ WHERE finishing_plan_end >= ISO_WEEK_START AND finishing_plan_end <= ISO_WEEK_EN
 
 **엔드포인트**: `GET /api/admin/factory/monthly-detail`
 
-**권한**: `@manager_or_admin_required`
+**권한**: `@view_access_required` (생산일정 페이지 공유 — #11 참조)
 
 **쿼리 파라미터**:
 
@@ -486,6 +486,127 @@ ORDER BY p.{date_field} DESC
   - DB 구조 분석 후 OPS 연동 방법 결정
   - 출하 완료 실적 데이터를 이 앱에서 가져올 수 있으면 `actual_ship_date` 정확도 향상 가능
 - **현재 방침**: 출하 카운트는 `finishing_plan_end` 계획일 기준으로 우선 진행, 추후 연동 시 실적 기반으로 전환
+
+---
+
+## AXIS-VIEW 권한 체계 재정비 — PENDING
+
+### 11. 권한 데코레이터 신설 + 기존 API 권한 변경
+
+**배경**: AXIS-VIEW 사이드바 권한 테스트 결과, FE/BE 간 권한 불일치 발생. GST 일반 직원(PI, QI 등)이 FE에서는 페이지 진입되지만 BE API에서 403 반환되는 케이스 확인.
+
+**AXIS-VIEW 접근 게이트**: AXIS-VIEW 로그인 가능 사용자는 아래 3가지뿐:
+- `is_admin=true` (GST 관리자)
+- `company='GST'` (GST 전직원)
+- `is_manager=true` (협력사 관리자)
+
+**확정 권한 매트릭스**:
+
+| 메뉴 | admin | GST+manager (PM) | GST+일반 (PI,QI) | 협력사+manager |
+|------|-------|-------------------|-------------------|----------------|
+| 공장 대시보드 | ✅ | ✅ | ✅ | ❌ |
+| 협력사 관리 | ✅ | ✅ | ❌ | ✅(자사) |
+| 생산관리 | ✅ | ✅ | ✅ | ✅ |
+| QR 관리 | ✅ | ✅ | ✅ | ✅ |
+| 권한 관리 | ✅ | ✅(GST만) | ❌ | ✅(자사) |
+| 불량 분석 | ✅ | ✅ | ✅ | ❌ |
+| CT 분석 | ✅ | ✅ | ✅ | ❌ |
+| AI 예측/챗봇 | ✅ | ✅ | ✅ | ❌ |
+
+---
+
+#### 11-A. 신규 데코레이터 2개 추가 요청
+
+**파일**: `backend/app/middleware/jwt_auth.py`
+
+**1) `@gst_or_admin_required`** — GST 전직원 + Admin
+
+```python
+def gst_or_admin_required(f):
+    """GST 소속 전직원 또는 Admin만 허용.
+    용도: 공장 대시보드, 불량 분석, CT 분석 등 GST 전용 페이지 API"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not hasattr(g, 'worker_id'):
+            return jsonify({'error': 'UNAUTHORIZED', 'message': '인증이 필요합니다.'}), 401
+        worker = get_worker_by_id(g.worker_id)
+        if not worker or (worker.company != 'GST' and not worker.is_admin):
+            return jsonify({'error': 'FORBIDDEN', 'message': 'GST 소속 또는 관리자 권한이 필요합니다.'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+```
+
+**대상 API**: 공장 대시보드 전용 (#9 weekly-kpi)
+
+**2) `@view_access_required`** — AXIS-VIEW 접근 가능 전원
+
+```python
+def view_access_required(f):
+    """AXIS-VIEW 접근 가능 사용자만 허용: GST 소속 OR is_admin OR is_manager.
+    용도: QR 관리, 생산관리 등 VIEW 사용자 전체 공개 API"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not hasattr(g, 'worker_id'):
+            return jsonify({'error': 'UNAUTHORIZED', 'message': '인증이 필요합니다.'}), 401
+        worker = get_worker_by_id(g.worker_id)
+        if not worker or (worker.company != 'GST' and not worker.is_admin and not worker.is_manager):
+            return jsonify({'error': 'FORBIDDEN', 'message': 'AXIS-VIEW 접근 권한이 필요합니다.'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+```
+
+**대상 API**: QR 목록, ETL 변경이력, 생산 관련 등
+
+---
+
+#### 11-B. 기존 API 데코레이터 변경
+
+| # | 엔드포인트 | 현재 데코레이터 | 변경 데코레이터 | 사유 |
+|---|-----------|----------------|----------------|------|
+| 1 | `GET /api/admin/qr/list` | `@manager_or_admin_required` | `@view_access_required` | QR 관리 전체 공개 — GST 일반(PI,QI) 403 해소 |
+| 2 | `GET /api/admin/etl/changes` | `@manager_or_admin_required` | `@view_access_required` | 변경이력 전체 공개 — 동일 사유 |
+| 3 | `GET /api/admin/factory/weekly-kpi` (#9) | `@manager_or_admin_required` | `@gst_or_admin_required` | 공장 대시보드 전용 — 협력사 manager 접근 차단 |
+| 4 | `GET /api/admin/factory/monthly-detail` (#10) | `@manager_or_admin_required` | `@view_access_required` | 생산일정 페이지 공유 — 협력사 manager도 사용 |
+| 5 | `GET /api/admin/workers` | `@manager_or_admin_required` | 변경 없음 | 권한 관리 — admin+manager만 필요 (현재 OK) |
+| 6 | `PUT /api/admin/workers/:id/manager` | `@manager_or_admin_required` | 변경 없음 | 권한 Toggle — 현재 OK |
+
+**변경 위치 상세**:
+
+```python
+# 1) qr.py L20-22
+@qr_bp.route("/list", methods=["GET"])
+@jwt_required
+@view_access_required      # 기존: @manager_or_admin_required
+
+# 2) admin.py L1919-1921
+@admin_bp.route("/etl/changes", methods=["GET"])
+@jwt_required
+@view_access_required      # 기존: @manager_or_admin_required
+```
+
+---
+
+#### 11-C. FE 수정 사항 (VIEW 자체 처리 — BE 참고용)
+
+FE에서 Sidebar 필터와 ProtectedRoute의 `if (isGst) return true` 일괄 우회 제거 후, 매트릭스 기준으로 세분화 적용 예정.
+
+| 사용자 유형 | 판별 조건 | 접근 가능 메뉴 |
+|---|---|---|
+| admin | `is_admin === true` | 전체 |
+| GST+manager | `company === 'GST' && is_manager` | 전체 |
+| GST+일반 | `company === 'GST' && !is_admin && !is_manager` | 공장, 생산, QR, 불량, CT, AI |
+| 협력사+manager | `company !== 'GST' && is_manager` | 협력사(자사), 생산, QR, 권한(자사) |
+
+---
+
+#### 11-D. 데코레이터 체계 요약 (변경 후)
+
+| 데코레이터 | 조건 | 용도 |
+|---|---|---|
+| `@admin_required` (기존) | `is_admin` | 시스템 설정, 가입 승인 등 |
+| `@manager_or_admin_required` (기존) | `is_admin OR is_manager` | 권한 관리, 출퇴근 등 |
+| `@gst_or_admin_required` (신규) | `company='GST' OR is_admin` | 공장 대시보드 전용 API |
+| `@view_access_required` (신규) | `company='GST' OR is_admin OR is_manager` | VIEW 전체 공개 API (QR, 생산 등) |
 
 ---
 
