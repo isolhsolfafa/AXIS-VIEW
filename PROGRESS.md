@@ -1,8 +1,14 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-13 (Phase 5-A+ 완료 + OPS Sprint 27 권한 재정비 문서화)
+> 마지막 업데이트: 2026-03-13 (prefix 로그인 버그 수정)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## OPS Bugfix: Admin prefix 로그인 수정 — ✅ 완료 (2026-03-13)
+
+`get_admin_by_email_prefix()` 함수의 `fetchall()` 위치 버그 수정. 1차 매칭 성공 시 이미 소진된 커서를 재fetch하여 빈 리스트 반환하는 문제. `admin1234@gst-in.com` 추가 후 발견. OPS 커밋 `23c60c0`.
 
 ---
 

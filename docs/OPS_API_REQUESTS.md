@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-13 (AXIS-VIEW 권한 체계 재정비 — #11 추가)
+> 마지막 업데이트: 2026-03-13 (prefix 로그인 버그 수정 — #12 추가)
 
 ---
 
@@ -611,6 +611,35 @@ FE에서 Sidebar 필터와 ProtectedRoute의 `if (isGst) return true` 일괄 우
 ---
 
 ## 해결 완료
+
+### 12. Admin prefix 로그인 버그 — DONE (2026-03-13)
+
+**파일**: `backend/app/models/worker.py` L279-321 (`get_admin_by_email_prefix`)
+
+**증상**: `admin1234` 또는 `admin` prefix로 로그인 시 "등록되지 않은 계정입니다" 에러. 전체 이메일(`admin1234@gst-in.com`)은 정상.
+
+**원인**: `rows = cur.fetchall()` (L311)이 `if len(rows) == 0:` 블록 바깥에 위치하여, 1차 매칭(`prefix@%`)이 성공해도 이미 소진된 커서를 다시 fetch → 빈 리스트 반환 → `None`.
+
+```python
+# 버그 코드 (L304-313)
+if len(rows) == 0:
+    cur.execute("SELECT ... WHERE email LIKE %s ...", (prefix + '%',))
+
+rows = cur.fetchall()   # ← 항상 실행됨! 1차 성공 시 빈 리스트 반환
+```
+
+**수정**: `rows = cur.fetchall()`을 `if` 블록 안으로 이동하여 2차 쿼리 실행 시에만 재할당.
+
+```python
+# 수정 코드
+if len(rows) == 0:
+    cur.execute("SELECT ... WHERE email LIKE %s ...", (prefix + '%',))
+    rows = cur.fetchall()   # ← 2차 쿼리 시에만 실행
+```
+
+**커밋**: `23c60c0` (AXIS-OPS main)
+
+---
 
 ### QR 목록 조회 500 에러 — DONE (2026-03-07)
 
