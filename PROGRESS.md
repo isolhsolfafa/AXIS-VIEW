@@ -1,8 +1,29 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-12 (Phase 5-A+ 완료)
+> 마지막 업데이트: 2026-03-13 (Phase 5-A+ 완료 + OPS Sprint 27 권한 재정비 문서화)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## OPS Sprint 27: 권한 데코레이터 재정비 — ⏳ OPS 작업 대기 (2026-03-13)
+
+AXIS-VIEW FE/BE 권한 불일치 해소를 위해 OPS BE에 데코레이터 신설 요청.
+
+### 요청 내용 (OPS_API_REQUESTS #11)
+
+| 항목 | 내용 |
+|------|------|
+| 신규 데코레이터 | `@gst_or_admin_required` (GST 전용), `@view_access_required` (VIEW 전체) |
+| API 교체 | QR 목록 + ETL 변경이력 → `@view_access_required` (GST 일반직원 403 해소) |
+| API 교체 | 공장 대시보드 weekly-kpi → `@gst_or_admin_required` (협력사 차단) |
+| 문서 | 확정 권한 매트릭스 + 데코레이터 체계 요약 |
+
+### OPS 완료 후 VIEW 작업 필요
+
+- ProtectedRoute + Sidebar 권한을 매트릭스 기준으로 세분화
+- GST 일반직원: 공장/생산/QR/불량/CT/AI 접근 가능, 협력사/권한 접근 불가
+- 협력사 manager: 협력사(자사)/생산/QR/권한(자사) 접근 가능
 
 ---
 

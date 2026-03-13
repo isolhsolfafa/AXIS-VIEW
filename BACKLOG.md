@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-12 (Phase 5-A+ 완료 — 생산관리 메뉴 개편)
+> 마지막 업데이트: 2026-03-13 (OPS Sprint 27 권한 재정비 문서화)
 > 이 파일은 보류/재검토/계획/아이디어를 한 곳에서 관리합니다.
 > 완료된 항목은 PROGRESS.md로 이동합니다.
 
@@ -19,6 +19,7 @@
 | TASK-7 | is_manager 데이터 범위 제한 | ⏳ OPS Sprint 24 대기 | 출퇴근+QR목록 → 자사 필터 추가 예정. `etl/changes`는 필터 불필요(전체 접근 허용). OPS_API_REQUESTS #7 참조 |
 | TASK-8 | 페이지별 Role 기반 접근 제어 | ✅ 완료 | ProtectedRoute `allowedRoles` + Sidebar role 필터 + admin-only 페이지 분리 + UnauthorizedPage |
 | TASK-9 | 권한 관리 페이지 (OPS 연동) | ✅ 완료 | `/admin/permissions` — 작업자 목록 + is_manager Toggle. API endpoint 수정 + Manager 자사 필터 적용 완료 |
+| TASK-10 | VIEW 권한 매트릭스 세분화 | ⏳ OPS Sprint 27 대기 | OPS BE 데코레이터 완료 후 → ProtectedRoute + Sidebar 매트릭스 기준 세분화. OPS_API_REQUESTS #11 참조 |
 
 ---
 
