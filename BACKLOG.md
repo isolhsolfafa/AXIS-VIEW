@@ -16,7 +16,7 @@
 | TASK-4 | ETL 변경이력 OPS API 연동 | ✅ 완료 | `GET /api/admin/etl/changes` 연동 완료 (2026-03-11). Mock 제거, `useEtlChanges` 훅 |
 | TASK-5 | shipped 상태 VIEW 반영 | ✅ FE 완료 | QR 페이지 StatusBadge 3분기(진행중/출하완료/폐기) + KPI 카드 shipped 표시. BE `stats.shipped` + ETL `actual_ship_date` 적재 후 자동 반영 |
 | TASK-6 | QR 목록 API 응답 확장 | ⏳ OPS Sprint 24 대기 | `actual_ship_date`: BE SELECT 추가 예정(Sprint 24). `status`: ✅ 이미 포함. `contract_type`/`sales_note`: 활용성 검토 후 진행 (BACKLOG 아이디어) |
-| TASK-7 | is_manager 데이터 범위 제한 | ⏳ OPS Sprint 24 대기 | 출퇴근+QR목록 → 자사 필터 추가 예정. `etl/changes`는 필터 불필요(전체 접근 허용). OPS_API_REQUESTS #7 참조 |
+| TASK-7 | is_manager 데이터 범위 제한 | 🔄 부분 완료 | 출퇴근: 자사 필터 완료(FE). QR: 자사 필터 불필요로 결정→제거(#13). `etl/changes`: 전체 접근. 잔여: OPS Sprint 24 대기 |
 | TASK-8 | 페이지별 Role 기반 접근 제어 | ✅ 완료 | ProtectedRoute `allowedRoles` + Sidebar role 필터 + admin-only 페이지 분리 + UnauthorizedPage |
 | TASK-9 | 권한 관리 페이지 (OPS 연동) | ✅ 완료 | `/admin/permissions` — 작업자 목록 + is_manager Toggle. API endpoint 수정 + Manager 자사 필터 적용 완료 |
 | TASK-10 | VIEW 권한 매트릭스 세분화 | ✅ 완료 | v1.6.0 — ProtectedRoute `'gst'` role 추가 + Sidebar/App.tsx 매트릭스 맞춤. OPS Sprint 27 데코레이터 연동 완료 |

@@ -163,25 +163,27 @@ Phase 4 테스트 중 발견된 버그 2건 수정.
 | `src/api/workers.ts` | **신규** — `getWorkers()`, `toggleManager()` API |
 | `src/hooks/useWorkers.ts` | **신규** — TanStack Query 훅 + mutation |
 
-### 페이지별 Role 매핑
+### 페이지별 Role 매핑 (v1.6.0 매트릭스 기준)
 
-| 페이지 | 경로 | 접근 가능 |
-|--------|------|----------|
-| 협력사 대시보드 | `/attendance` | admin, manager |
-| QR Registry | `/qr` | admin, manager |
-| 변경 이력 | `/qr/changes` | admin, manager |
-| 생산 일정 | `/plan` | admin, manager |
+| 페이지 | 경로 | 접근 가능 roles |
+|--------|------|----------------|
+| 협력사 관리 | `/partner/*` | admin, manager |
+| QR Registry | `/qr` | admin, manager, gst |
+| 변경 이력 | `/qr/changes` | admin, manager, gst |
+| 생산관리 | `/production/*` | admin, manager, gst |
 | 권한 관리 | `/admin/permissions` | admin, manager |
-| 공장 대시보드 | `/factory` | admin only |
-| 불량 분석 | `/defect` | admin only |
-| CT 분석 | `/ct` | admin only |
+| 공장 대시보드 | `/factory` | admin, gst |
+| 불량 분석 | `/defect` | admin, gst |
+| CT 분석 | `/ct` | admin, gst |
 
 ### Sidebar 동작
 
-| 로그인 유형 | 표시 메뉴 |
+| 사용자 유형 | 표시 메뉴 |
 |------------|----------|
-| Admin | 모든 메뉴 표시 |
-| Manager | 협력사 대시보드, QR 관리, 생산일정, 권한 관리만 표시 |
+| admin | 전체 |
+| GST+manager (PM) | 전체 |
+| GST+일반 (PI, QI) | 공장, 생산, QR, 불량, CT, AI (협력사/권한 제외) |
+| 협력사+manager | 협력사(자사), 생산, QR, 권한(자사) (공장/불량/CT/AI 제외) |
 
 ---
 

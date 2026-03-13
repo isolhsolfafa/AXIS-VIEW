@@ -612,6 +612,18 @@ FE에서 Sidebar 필터와 ProtectedRoute의 `if (isGst) return true` 일괄 우
 
 ## 해결 완료
 
+### 13. QR 목록 자사 필터 제거 — DONE (2026-03-13)
+
+**파일**: `backend/app/routes/qr.py`
+
+**변경**: `is_manager` 로그인 시 `WHERE mech_partner = company OR elec_partner = company` 자사 필터 제거.
+
+**사유**: QR 데이터는 협력사 manager에게도 전체 공개. 기존 필터가 `workers.company` (`TMS(M)`, `TMS(E)`)와 `product_info.mech_partner` (`TMS`) 이름 불일치로 0건 반환 문제 발생.
+
+**커밋**: `359af87` (AXIS-OPS main)
+
+---
+
 ### 12. Admin prefix 로그인 버그 — DONE (2026-03-13)
 
 **파일**: `backend/app/models/worker.py` L279-321 (`get_admin_by_email_prefix`)
