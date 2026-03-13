@@ -1,7 +1,19 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.5.1 (2026-03-12)
+> 최신 버전: v1.6.0 (2026-03-13)
+
+---
+
+## v1.6.0 — 2026-03-13
+
+**권한 매트릭스 세분화 (OPS Sprint 27 연동)**
+
+- 기존 `admin/manager` 2분류 → `admin/manager/gst` 3분류로 권한 체계 세분화
+- GST 일반직원(PI, QI 등): 공장/생산/QR/불량/CT/AI 접근 가능, 협력사 관리/권한 관리 차단
+- 협력사 manager: 협력사 관리(자사)/생산/QR/권한 관리(자사) 접근 가능, 공장/불량/CT/AI 차단
+- GST 일반직원 로그인 시 기본 랜딩 페이지를 공장 대시보드(`/factory`)로 변경
+- OPS BE `@view_access_required`, `@gst_or_admin_required` 데코레이터와 FE 매트릭스 일치
 
 ---
 

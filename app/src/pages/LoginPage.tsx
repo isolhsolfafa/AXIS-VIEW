@@ -8,7 +8,7 @@ import { useAuth } from '@/store/authStore';
 import logoImage from '@/assets/images/g-axis-2.png';
 
 export default function LoginPage() {
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, isAuthenticated, isLoading, user } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,10 +19,13 @@ export default function LoginPage() {
   const [showAccessDenied, setShowAccessDenied] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      navigate('/partner', { replace: true });
+    if (!isLoading && isAuthenticated && user) {
+      // GST 일반직원 (is_admin=false, is_manager=false) → 공장 대시보드
+      // admin/manager → 협력사 관리
+      const isGstRegular = user.company === 'GST' && !user.is_admin && !user.is_manager;
+      navigate(isGstRegular ? '/factory' : '/partner', { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading, navigate, user]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -37,7 +40,7 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success('로그인 성공');
-      navigate('/partner', { replace: true });
+      // navigate는 useEffect에서 user 상태 변경 시 자동 처리
     } catch (err: unknown) {
       const msg =
         err instanceof Error

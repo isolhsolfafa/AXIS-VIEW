@@ -1,13 +1,13 @@
 // src/components/auth/ProtectedRoute.tsx
 // 인증 가드 — 비인증 또는 권한 없는 사용자 접근 차단
-// allowedRoles 미지정 시 기존 동작 유지 (is_admin || is_manager)
+// allowedRoles: 'admin' (is_admin), 'manager' (is_manager), 'gst' (company=GST 전직원)
 
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/store/authStore';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: ('admin' | 'manager')[];
+  allowedRoles?: ('admin' | 'manager' | 'gst')[];
 }
 
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
@@ -30,19 +30,18 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     return <Navigate to="/login" replace />;
   }
 
-  // role 기반 접근 제어 (GST 소속은 전체 접근 허용)
-  const isGst = user?.company === 'GST';
+  // role 기반 접근 제어 (매트릭스 기준 세분화)
   if (allowedRoles) {
     const hasAccess =
-      isGst ||
       (allowedRoles.includes('admin') && user?.is_admin) ||
-      (allowedRoles.includes('manager') && user?.is_manager);
+      (allowedRoles.includes('manager') && user?.is_manager) ||
+      (allowedRoles.includes('gst') && user?.company === 'GST');
     if (!hasAccess) {
       return <Navigate to="/unauthorized" replace />;
     }
   } else {
-    // allowedRoles 미지정 → is_admin || is_manager || GST
-    if (!user?.is_admin && !user?.is_manager && !isGst) {
+    // allowedRoles 미지정 → VIEW 로그인 게이트와 동일 (is_admin || is_manager || GST)
+    if (!user?.is_admin && !user?.is_manager && user?.company !== 'GST') {
       return <Navigate to="/login" replace />;
     }
   }

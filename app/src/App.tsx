@@ -43,8 +43,7 @@ export default function App() {
         {/* 접근 거부 페이지 */}
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-        {/* ── admin + manager 공통 ── */}
-        {/* ── 협력사 관리 (admin + manager) ── */}
+        {/* ── 협력사 관리 (admin + manager — GST 일반 제외) ── */}
         <Route
           path="/partner"
           element={
@@ -81,10 +80,11 @@ export default function App() {
         {/* 기존 /attendance → /partner/attendance 리다이렉트 */}
         <Route path="/attendance" element={<Navigate to="/partner/attendance" replace />} />
 
+        {/* ── QR 관리 (VIEW 전체 — GST 전직원 + 협력사 manager) ── */}
         <Route
           path="/qr"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'gst']}>
               <QrManagementPage />
             </ProtectedRoute>
           }
@@ -92,16 +92,16 @@ export default function App() {
         <Route
           path="/qr/changes"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'gst']}>
               <EtlChangeLogPage />
             </ProtectedRoute>
           }
         />
-        {/* ── 생산관리 (admin + manager) ── */}
+        {/* ── 생산관리 (VIEW 전체) ── */}
         <Route
           path="/production/plan"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'gst']}>
               <ProductionPlanPage />
             </ProtectedRoute>
           }
@@ -109,7 +109,7 @@ export default function App() {
         <Route
           path="/production/performance"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'gst']}>
               <ProductionPerformancePage />
             </ProtectedRoute>
           }
@@ -117,7 +117,7 @@ export default function App() {
         <Route
           path="/production/shipment"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'gst']}>
               <ShipmentHistoryPage />
             </ProtectedRoute>
           }
@@ -126,11 +126,11 @@ export default function App() {
         {/* 기존 /plan → /production/plan 리다이렉트 */}
         <Route path="/plan" element={<Navigate to="/production/plan" replace />} />
 
-        {/* ── admin only ── */}
+        {/* ── 공장 대시보드 / 분석 (GST 전용 — 협력사 차단) ── */}
         <Route
           path="/factory"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin', 'gst']}>
               <FactoryDashboardPage />
             </ProtectedRoute>
           }
@@ -138,7 +138,7 @@ export default function App() {
         <Route
           path="/defect"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin', 'gst']}>
               <DefectAnalysisPage />
             </ProtectedRoute>
           }
@@ -146,13 +146,13 @@ export default function App() {
         <Route
           path="/ct"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin', 'gst']}>
               <CtAnalysisPage />
             </ProtectedRoute>
           }
         />
 
-        {/* ── 권한 관리 (admin + manager) ── */}
+        {/* ── 권한 관리 (admin + manager — GST 일반 제외) ── */}
         <Route
           path="/admin/permissions"
           element={

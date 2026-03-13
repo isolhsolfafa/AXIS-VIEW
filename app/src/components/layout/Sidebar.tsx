@@ -23,7 +23,7 @@ interface NavItem {
   badge?: string;
   preparing?: boolean;
   children?: SubNavItem[];
-  roles?: ('admin' | 'manager')[];
+  roles?: ('admin' | 'manager' | 'gst')[];
 }
 
 interface NavGroup {
@@ -103,7 +103,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'Dashboard',
     items: [
-      { label: '공장 대시보드', icon: <FactoryIcon />, to: '/factory', preparing: true, roles: ['admin'] },
+      { label: '공장 대시보드', icon: <FactoryIcon />, to: '/factory', preparing: true, roles: ['admin', 'gst'] },
       {
         label: '협력사 관리',
         icon: <UsersIcon />,
@@ -120,7 +120,7 @@ const navGroups: NavGroup[] = [
         label: '생산관리',
         icon: <CalendarIcon />,
         to: '/production/plan',
-        roles: ['admin', 'manager'],
+        roles: ['admin', 'manager', 'gst'],
         children: [
           { label: '생산일정', to: '/production/plan', preparing: true },
           { label: '생산실적', to: '/production/performance', preparing: true },
@@ -136,7 +136,7 @@ const navGroups: NavGroup[] = [
         label: 'QR 관리',
         icon: <QrIcon />,
         to: '/qr',
-        roles: ['admin', 'manager'],
+        roles: ['admin', 'manager', 'gst'],
         children: [
           { label: 'QR Registry', to: '/qr' },
           { label: '변경 이력', to: '/qr/changes' },
@@ -148,15 +148,15 @@ const navGroups: NavGroup[] = [
   {
     title: 'Analysis',
     items: [
-      { label: '불량 분석', icon: <AlertIcon />, to: '/defect', preparing: true, roles: ['admin'] },
-      { label: 'CT 분석', icon: <ClockIcon />, to: '/ct', preparing: true, roles: ['admin'] },
+      { label: '불량 분석', icon: <AlertIcon />, to: '/defect', preparing: true, roles: ['admin', 'gst'] },
+      { label: 'CT 분석', icon: <ClockIcon />, to: '/ct', preparing: true, roles: ['admin', 'gst'] },
     ],
   },
   {
     title: 'Intelligence',
     items: [
-      { label: 'AI 예측', icon: <BellIcon />, disabled: true, roles: ['admin'] },
-      { label: 'AI 챗봇', icon: <ChatIcon />, disabled: true, roles: ['admin'] },
+      { label: 'AI 예측', icon: <BellIcon />, disabled: true, roles: ['admin', 'gst'] },
+      { label: 'AI 챗봇', icon: <ChatIcon />, disabled: true, roles: ['admin', 'gst'] },
     ],
   },
 ];
@@ -213,10 +213,9 @@ export default function Sidebar() {
         items: group.items
           .filter((item) => {
             if (!item.roles) return true;
-            // GST 소속은 모든 메뉴 접근 허용
-            if (isGst) return true;
             return (item.roles.includes('admin') && isAdmin) ||
-                   (item.roles.includes('manager') && isManager);
+                   (item.roles.includes('manager') && isManager) ||
+                   (item.roles.includes('gst') && isGst);
           })
           .map((item) => {
             if (item.label === 'QR 관리' && item.children) {

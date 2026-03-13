@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-13 (prefix 로그인 버그 수정)
+> 마지막 업데이트: 2026-03-13 (v1.6.0 — 권한 매트릭스 세분화 완료)
 > 이 파일은 보류/재검토/계획/아이디어를 한 곳에서 관리합니다.
 > 완료된 항목은 PROGRESS.md로 이동합니다.
 
@@ -19,7 +19,7 @@
 | TASK-7 | is_manager 데이터 범위 제한 | ⏳ OPS Sprint 24 대기 | 출퇴근+QR목록 → 자사 필터 추가 예정. `etl/changes`는 필터 불필요(전체 접근 허용). OPS_API_REQUESTS #7 참조 |
 | TASK-8 | 페이지별 Role 기반 접근 제어 | ✅ 완료 | ProtectedRoute `allowedRoles` + Sidebar role 필터 + admin-only 페이지 분리 + UnauthorizedPage |
 | TASK-9 | 권한 관리 페이지 (OPS 연동) | ✅ 완료 | `/admin/permissions` — 작업자 목록 + is_manager Toggle. API endpoint 수정 + Manager 자사 필터 적용 완료 |
-| TASK-10 | VIEW 권한 매트릭스 세분화 | ⏳ OPS Sprint 27 대기 | OPS BE 데코레이터 완료 후 → ProtectedRoute + Sidebar 매트릭스 기준 세분화. OPS_API_REQUESTS #11 참조 |
+| TASK-10 | VIEW 권한 매트릭스 세분화 | ✅ 완료 | v1.6.0 — ProtectedRoute `'gst'` role 추가 + Sidebar/App.tsx 매트릭스 맞춤. OPS Sprint 27 데코레이터 연동 완료 |
 
 ---
 
@@ -157,3 +157,4 @@
 | v1.4.2 | Logout Storm 버그 수정 (401 무한 루프 방지) | ✅ 완료 |
 | Phase 5-A | 협력사 관리 메뉴 개편 + 대시보드/평가지수/물량할당 + 근태 자사 필터 | ✅ 완료 |
 | Phase 5-A+ | 생산관리 메뉴 개편 (생산일정/생산실적/출하이력) | ✅ 완료 |
+| v1.6.0 | 권한 매트릭스 세분화 — OPS Sprint 27 연동 (GST 일반/협력사 분리) | ✅ 완료 |

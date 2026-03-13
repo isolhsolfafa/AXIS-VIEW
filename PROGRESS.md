@@ -1,8 +1,35 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-13 (prefix 로그인 버그 수정)
+> 마지막 업데이트: 2026-03-13 (v1.6.0 — 권한 매트릭스 세분화)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.6.0: 권한 매트릭스 세분화 (Sprint 27 연동) — ✅ 완료 (2026-03-13)
+
+OPS Sprint 27 데코레이터 신설에 맞춰 VIEW FE 권한 체계를 매트릭스 기준으로 세분화.
+
+### 변경 내용
+
+| 파일 | 변경 |
+|------|------|
+| `ProtectedRoute.tsx` | `'gst'` role 추가, `isGst` blanket bypass 제거 |
+| `App.tsx` | 라우트별 `allowedRoles` 매트릭스 맞춤 (`['admin','manager','gst']` 등) |
+| `Sidebar.tsx` | NavItem roles 매트릭스 맞춤, 필터 로직에서 `'gst'` role 처리 |
+| `LoginPage.tsx` | GST 일반 → `/factory`, admin/manager → `/partner` 분기 리다이렉트 |
+| `UnauthorizedPage.tsx` | 동일 리다이렉트 분기 적용 |
+
+### 매트릭스 대응
+
+| 메뉴 | roles |
+|------|-------|
+| 공장 대시보드 | `['admin', 'gst']` |
+| 협력사 관리 | `['admin', 'manager']` |
+| 생산관리 | `['admin', 'manager', 'gst']` |
+| QR 관리 | `['admin', 'manager', 'gst']` |
+| 권한 관리 | `['admin', 'manager']` |
+| 불량/CT/AI | `['admin', 'gst']` |
 
 ---
 

@@ -8,8 +8,9 @@ export default function UnauthorizedPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // manager → 협력사 관리, admin → 협력사 관리
-  const defaultPath = '/partner';
+  // GST 일반 → 공장 대시보드, admin/manager → 협력사 관리
+  const isGstRegular = user?.company === 'GST' && !user?.is_admin && !user?.is_manager;
+  const defaultPath = isGstRegular ? '/factory' : '/partner';
 
   return (
     <div

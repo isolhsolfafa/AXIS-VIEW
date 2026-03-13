@@ -489,9 +489,9 @@ ORDER BY p.{date_field} DESC
 
 ---
 
-## AXIS-VIEW 권한 체계 재정비 — PENDING
+## AXIS-VIEW 권한 체계 재정비 — DONE (2026-03-13)
 
-### 11. 권한 데코레이터 신설 + 기존 API 권한 변경
+### 11. 권한 데코레이터 신설 + 기존 API 권한 변경 — DONE
 
 **배경**: AXIS-VIEW 사이드바 권한 테스트 결과, FE/BE 간 권한 불일치 발생. GST 일반 직원(PI, QI 등)이 FE에서는 페이지 진입되지만 BE API에서 403 반환되는 케이스 확인.
 
