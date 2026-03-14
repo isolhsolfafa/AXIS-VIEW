@@ -2139,3 +2139,74 @@ src/hooks/useWorkers.ts                    — 작업자 훅 (신규)
 - 기존 페이지 기능/디자인 변경 금지
 - 디자인 시스템(G-AXIS) 토큰 변경 금지
 - .env.production 수정 금지
+
+---
+
+# pi_start(가압시작) 변경이력 추적 추가 — VIEW FE 작업
+
+> OPS_API_REQUESTS #14 참조
+> 의존성: AXIS-CORE ETL + AXIS-OPS BE 수정 완료 후 진행
+
+## 변경 파일
+
+**`app/src/pages/qr/EtlChangeLogPage.tsx`**
+
+### 1. FIELD_CONFIG에 pi_start 추가
+
+```typescript
+// 기존 5개 → 6개
+const FIELD_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  ship_plan_date: { label: '출하예정', color: '#3B82F6', bg: '#EFF6FF' },
+  mech_start:     { label: '기구시작', color: '#F59E0B', bg: '#FFFBEB' },
+  pi_start:       { label: '가압시작', color: '#EC4899', bg: '#FDF2F8' },  // 신규
+  mech_partner:   { label: '기구외주', color: '#10B981', bg: '#ECFDF5' },
+  elec_partner:   { label: '전장외주', color: '#8B5CF6', bg: '#F5F3FF' },
+  sales_order:    { label: '판매오더', color: '#EF4444', bg: '#FEF2F2' },
+};
+```
+
+### 2. DATE_FIELDS에 pi_start 추가
+
+```typescript
+const DATE_FIELDS = new Set(['ship_plan_date', 'mech_start', 'pi_start']);
+```
+
+### 3. KPI 카드 그리드 6열로 변경
+
+```typescript
+// gridTemplateColumns: 'repeat(5, 1fr)' → 'repeat(6, 1fr)'
+```
+
+### 4. kpiCards 배열에 pi_start 추가
+
+```typescript
+const kpiCards = [
+  { key: 'all', ... },
+  ...['ship_plan_date', 'mech_start', 'pi_start', 'mech_partner', 'elec_partner'].map(...)
+  //                                   ^^^^^^^^ 추가
+];
+```
+
+### 5. 주간 추이 차트에 가압시작 카테고리 추가
+
+```typescript
+// buildWeeklyChart 함수에 '가압시작' 카운트 추가
+if (!weeks[key]) weeks[key] = { 출하예정: 0, 기구시작: 0, 가압시작: 0, 협력사: 0, 판매오더: 0 };
+if (c.field_name === 'pi_start') weeks[key]['가압시작']++;
+
+// Bar 차트에 추가
+<Bar dataKey="가압시작" stackId="a" fill="#EC4899" />
+```
+
+## 체크리스트
+
+- [ ] AXIS-CORE ETL: `TRACKED_FIELDS`에 `pressure_test: pi_start` 추가
+- [ ] AXIS-CORE ETL: `_build_existing_cache()` SELECT에 `pi_start` 추가
+- [ ] AXIS-OPS BE: `_FIELD_LABELS`에 `pi_start: 가압시작` 추가
+- [ ] AXIS-VIEW FE: `FIELD_CONFIG`에 `pi_start` 추가
+- [ ] AXIS-VIEW FE: `DATE_FIELDS`에 `pi_start` 추가
+- [ ] AXIS-VIEW FE: KPI 그리드 5열 → 6열
+- [ ] AXIS-VIEW FE: kpiCards 배열에 `pi_start` 추가
+- [ ] AXIS-VIEW FE: 주간 차트에 가압시작 카테고리 + Bar 추가
+- [ ] npm run build 에러 없음
+- [ ] ETL 실행 후 변경이력 페이지에서 가압시작 데이터 확인

@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-13 (prefix 로그인 버그 수정 — #12 추가)
+> 마지막 업데이트: 2026-03-14 (#14 pi_start 변경추적 + #15 summary limit 분리)
 
 ---
 
@@ -607,6 +607,105 @@ FE에서 Sidebar 필터와 ProtectedRoute의 `if (isGst) return true` 일괄 우
 | `@manager_or_admin_required` (기존) | `is_admin OR is_manager` | 권한 관리, 출퇴근 등 |
 | `@gst_or_admin_required` (신규) | `company='GST' OR is_admin` | 공장 대시보드 전용 API |
 | `@view_access_required` (신규) | `company='GST' OR is_admin OR is_manager` | VIEW 전체 공개 API (QR, 생산 등) |
+
+---
+
+## ETL 변경 이력 추적 필드 확장
+
+### 14. pi_start (가압시작) 변경 추적 추가 — PENDING
+
+**배경**: 현재 ETL 변경 추적 대상은 5개 필드. 가압시작(`pi_start`) 일정 변경도 VIEW 변경이력 페이지에서 확인 필요.
+
+**변경 대상 3곳**:
+
+| # | 프로젝트 | 파일 | 변경 내용 |
+|---|----------|------|----------|
+| 1 | **AXIS-CORE** | `CORE-ETL/step2_load.py` L35-41 | `TRACKED_FIELDS`에 `'pressure_test': 'pi_start'` 추가 |
+| 2 | **AXIS-OPS** | `backend/app/routes/admin.py` L1910-1916 | `_FIELD_LABELS`에 `'pi_start': '가압시작'` 추가 |
+| 3 | **AXIS-VIEW** | `app/src/pages/qr/EtlChangeLogPage.tsx` L14-22 | `FIELD_CONFIG`에 `pi_start` 추가 + `DATE_FIELDS`에 추가 |
+
+**상세**:
+
+#### 14-1. AXIS-CORE ETL (step2_load.py)
+
+```python
+# 현재 (5개)
+TRACKED_FIELDS = {
+    'order_no':       'sales_order',
+    'planned_finish': 'ship_plan_date',
+    'mech_start':     'mech_start',
+    'mech_partner':   'mech_partner',
+    'elec_partner':   'elec_partner',
+}
+
+# 변경 후 (6개)
+TRACKED_FIELDS = {
+    'order_no':       'sales_order',
+    'planned_finish': 'ship_plan_date',
+    'mech_start':     'mech_start',
+    'pressure_test':  'pi_start',       # 신규
+    'mech_partner':   'mech_partner',
+    'elec_partner':   'elec_partner',
+}
+```
+
+- ETL 키 `pressure_test`는 step1에서 Excel "가압검사" 컬럼을 파싱한 값
+- DB 컬럼 `pi_start`는 이미 `plan.product_info`에 존재 (UPSERT에도 포함)
+- `_build_existing_cache()`의 SELECT에 `pi_start` 추가 필요
+
+#### 14-2. AXIS-OPS BE (admin.py)
+
+```python
+# 현재
+_FIELD_LABELS = {
+    'sales_order': '판매오더',
+    'ship_plan_date': '출하예정',
+    'mech_start': '기구시작',
+    'mech_partner': '기구외주',
+    'elec_partner': '전장외주',
+}
+
+# 변경 후
+_FIELD_LABELS = {
+    'sales_order': '판매오더',
+    'ship_plan_date': '출하예정',
+    'mech_start': '기구시작',
+    'pi_start': '가압시작',          # 신규
+    'mech_partner': '기구외주',
+    'elec_partner': '전장외주',
+}
+```
+
+#### 14-3. AXIS-VIEW FE (EtlChangeLogPage.tsx)
+
+```typescript
+// FIELD_CONFIG에 추가
+pi_start: { label: '가압시작', color: '#EC4899', bg: '#FDF2F8' },
+
+// DATE_FIELDS에 추가
+const DATE_FIELDS = new Set(['ship_plan_date', 'mech_start', 'pi_start']);
+```
+
+- KPI 카드 그리드: 5열 → 6열 (`gridTemplateColumns: 'repeat(6, 1fr)'`)
+- kpiCards 배열에 `pi_start` 추가
+
+**DB 스키마 변경**: 없음 (`etl.change_log.field_name`은 VARCHAR — 새 값 자동 수용)
+
+**참고**: 다음 ETL 실행부터 pi_start 변경이 기록되며, 기존 이력은 소급 불가.
+
+---
+
+### 15. ETL summary 카운트 limit 독립 — DONE (2026-03-14)
+
+**파일**: `backend/app/routes/admin.py` L1971-1985
+
+**증상**: 변경이력 summary 카드의 `total_changes`가 200건으로 고정 (실제 339건)
+
+**원인**: summary를 `LIMIT` 적용된 rows에서 `len(changes)`로 계산하여 limit에 영향받음
+
+**수정**: summary용 `GROUP BY` 쿼리를 별도 실행하여 limit과 무관한 전체 건수 반환
+
+**커밋**: `e82e75f` (AXIS-OPS main)
 
 ---
 
