@@ -22,7 +22,7 @@
 | TASK-10 | VIEW 권한 매트릭스 세분화 | ✅ 완료 | v1.6.0 — ProtectedRoute `'gst'` role 추가 + Sidebar/App.tsx 매트릭스 맞춤. OPS Sprint 27 데코레이터 연동 완료 |
 | TASK-11 | ETL 변경이력 O/N 컬럼 추가 | ✅ 완료 | 테이블 6열→7열, `sales_order` 타입+셀 추가. OPS BE `6551d54` 연동 |
 | TASK-12 | ETL summary 카운트 limit 독립 | ✅ 완료 | summary `total_changes`가 200 고정 → BE 별도 GROUP BY 쿼리 분리. OPS BE `e82e75f` |
-| TASK-13 | pi_start 변경 추적 추가 | ⏳ 대기 | CORE-ETL + OPS BE + VIEW FE 3곳 수정 필요. 스펙 문서화 완료 (OPS_API_REQUESTS #14, DESIGN_FIX_SPRINT) |
+| TASK-13 | pi_start 변경 추적 추가 | ✅ 완료 | CORE-ETL + OPS BE + VIEW FE 3곳 모두 수정 완료. ETL 실행 후 데이터 확인 필요 |
 
 ---
 

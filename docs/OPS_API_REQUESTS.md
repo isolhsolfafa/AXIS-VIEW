@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-14 (#14 pi_start 변경추적 + #15 summary limit 분리)
+> 마지막 업데이트: 2026-03-14 (#14 pi_start 3곳 완료 + #15 summary limit 분리)
 
 ---
 
@@ -612,7 +612,7 @@ FE에서 Sidebar 필터와 ProtectedRoute의 `if (isGst) return true` 일괄 우
 
 ## ETL 변경 이력 추적 필드 확장
 
-### 14. pi_start (가압시작) 변경 추적 추가 — PENDING
+### 14. pi_start (가압시작) 변경 추적 추가 — DONE (2026-03-14)
 
 **배경**: 현재 ETL 변경 추적 대상은 5개 필드. 가압시작(`pi_start`) 일정 변경도 VIEW 변경이력 페이지에서 확인 필요.
 

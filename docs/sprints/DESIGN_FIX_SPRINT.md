@@ -2142,7 +2142,7 @@ src/hooks/useWorkers.ts                    — 작업자 훅 (신규)
 
 ---
 
-# pi_start(가압시작) 변경이력 추적 추가 — VIEW FE 작업
+# pi_start(가압시작) 변경이력 추적 추가 — ✅ VIEW FE 완료 (2026-03-14)
 
 > OPS_API_REQUESTS #14 참조
 > 의존성: AXIS-CORE ETL + AXIS-OPS BE 수정 완료 후 진행
@@ -2203,12 +2203,12 @@ if (c.field_name === 'pi_start') weeks[key]['가압시작']++;
 - [x] AXIS-CORE ETL: `TRACKED_FIELDS`에 `pressure_test: pi_start` 추가
 - [x] AXIS-CORE ETL: `_prefetch_tracked_values()` SELECT에 `pi_start` 추가
 - [x] AXIS-OPS BE: `_FIELD_LABELS`에 `pi_start: 가압시작` 추가
-- [ ] AXIS-VIEW FE: `FIELD_CONFIG`에 `pi_start` 추가
-- [ ] AXIS-VIEW FE: `DATE_FIELDS`에 `pi_start` 추가
-- [ ] AXIS-VIEW FE: KPI 그리드 5열 → 6열
-- [ ] AXIS-VIEW FE: kpiCards 배열에 `pi_start` 추가
-- [ ] AXIS-VIEW FE: 주간 차트에 가압시작 카테고리 + Bar 추가
-- [ ] npm run build 에러 없음
+- [x] AXIS-VIEW FE: `FIELD_CONFIG`에 `pi_start` 추가
+- [x] AXIS-VIEW FE: `DATE_FIELDS`에 `pi_start` 추가
+- [x] AXIS-VIEW FE: KPI 그리드 5열 → 6열
+- [x] AXIS-VIEW FE: kpiCards 배열에 `pi_start` 추가
+- [x] AXIS-VIEW FE: 주간 차트에 가압시작 카테고리 + Bar 추가
+- [x] npm run build 에러 없음
 - [ ] ETL 실행 후 변경이력 페이지에서 가압시작 데이터 확인
 
 ---
