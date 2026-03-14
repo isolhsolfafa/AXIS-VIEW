@@ -13,6 +13,7 @@ export interface EtlChangesParams {
 export interface ChangeLogEntry {
   id: number;
   serial_number: string;
+  sales_order: string | null;
   model: string;
   field_name: string;
   field_label: string;

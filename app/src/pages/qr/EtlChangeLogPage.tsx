@@ -290,12 +290,12 @@ export default function EtlChangeLogPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr style={{ background: 'var(--gx-cloud)', borderBottom: '1px solid var(--gx-mist)' }}>
-                {['S/N', 'Model', '변경 항목', '이전 값', '변경 값', '변경일'].map((h, i) => (
+                {['O/N', 'S/N', 'Model', '변경 항목', '이전 값', '변경 값', '변경일'].map((h, i) => (
                   <th
                     key={h}
                     style={{
                       padding: '12px 16px',
-                      textAlign: i === 5 ? 'right' : 'left',
+                      textAlign: i === 6 ? 'right' : 'left',
                       fontWeight: 600,
                       color: 'var(--gx-steel)',
                       fontSize: '12px',
@@ -310,7 +310,7 @@ export default function EtlChangeLogPage() {
               {isLoading && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     style={{
                       padding: '40px 16px',
                       textAlign: 'center',
@@ -337,6 +337,17 @@ export default function EtlChangeLogPage() {
                     key={c.id}
                     style={{ borderBottom: '1px solid var(--gx-cloud, #F8FAFC)' }}
                   >
+                    <td
+                      style={{
+                        padding: '10px 16px',
+                        fontWeight: 500,
+                        color: 'var(--gx-charcoal)',
+                        fontFamily: 'monospace',
+                        fontSize: '12px',
+                      }}
+                    >
+                      {c.sales_order || '—'}
+                    </td>
                     <td
                       style={{
                         padding: '10px 16px',
@@ -418,7 +429,7 @@ export default function EtlChangeLogPage() {
               {!isLoading && filtered.length === 0 && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     style={{
                       padding: '40px 16px',
                       textAlign: 'center',

@@ -2200,9 +2200,9 @@ if (c.field_name === 'pi_start') weeks[key]['가압시작']++;
 
 ## 체크리스트
 
-- [ ] AXIS-CORE ETL: `TRACKED_FIELDS`에 `pressure_test: pi_start` 추가
-- [ ] AXIS-CORE ETL: `_build_existing_cache()` SELECT에 `pi_start` 추가
-- [ ] AXIS-OPS BE: `_FIELD_LABELS`에 `pi_start: 가압시작` 추가
+- [x] AXIS-CORE ETL: `TRACKED_FIELDS`에 `pressure_test: pi_start` 추가
+- [x] AXIS-CORE ETL: `_prefetch_tracked_values()` SELECT에 `pi_start` 추가
+- [x] AXIS-OPS BE: `_FIELD_LABELS`에 `pi_start: 가압시작` 추가
 - [ ] AXIS-VIEW FE: `FIELD_CONFIG`에 `pi_start` 추가
 - [ ] AXIS-VIEW FE: `DATE_FIELDS`에 `pi_start` 추가
 - [ ] AXIS-VIEW FE: KPI 그리드 5열 → 6열
@@ -2210,3 +2210,73 @@ if (c.field_name === 'pi_start') weeks[key]['가압시작']++;
 - [ ] AXIS-VIEW FE: 주간 차트에 가압시작 카테고리 + Bar 추가
 - [ ] npm run build 에러 없음
 - [ ] ETL 실행 후 변경이력 페이지에서 가압시작 데이터 확인
+
+---
+
+# ETL 변경이력 O/N(오더넘버) 컬럼 추가 — ✅ 완료 (2026-03-14)
+
+## 배경
+
+변경 이력 테이블에 어떤 오더(sales_order)의 S/N인지 한눈에 확인할 수 있도록 O/N 컬럼 추가.
+
+## 변경 내역
+
+### 1. AXIS-OPS BE — `sales_order` 응답 추가 (커밋: `6551d54`)
+
+```python
+# backend/app/routes/admin.py — etl/changes 엔드포인트
+# SELECT에 p.sales_order 추가
+# 응답 dict에 'sales_order': row[col_idx] 추가
+```
+
+### 2. AXIS-VIEW FE — API 타입 + 테이블 컬럼
+
+#### 2-1. `app/src/api/etl.ts`
+
+```typescript
+// ChangeLogEntry 인터페이스에 추가
+export interface ChangeLogEntry {
+  id: number;
+  serial_number: string;
+  sales_order: string | null;  // 신규
+  model: string;
+  // ...
+}
+```
+
+#### 2-2. `app/src/pages/qr/EtlChangeLogPage.tsx`
+
+```typescript
+// 테이블 헤더 변경 (6열 → 7열)
+['O/N', 'S/N', 'Model', '변경 항목', '이전 값', '변경 값', '변경일']
+
+// 헤더 right-align 인덱스: 5 → 6 (변경일 컬럼)
+
+// Loading/Empty state colSpan: 6 → 7
+
+// 테이블 body에 O/N 셀 추가 (S/N 앞)
+<td style={{ ... fontFamily: 'var(--font-mono)' }}>
+  {c.sales_order || '—'}
+</td>
+```
+
+## 컬럼 순서
+
+| # | 컬럼 | 필드 | 비고 |
+|---|------|------|------|
+| 1 | O/N | `sales_order` | 신규 — mono 폰트 |
+| 2 | S/N | `serial_number` | 기존 |
+| 3 | Model | `model` | 기존 |
+| 4 | 변경 항목 | `field_label` | 기존 — 뱃지 |
+| 5 | 이전 값 | `old_value` | 기존 |
+| 6 | 변경 값 | `new_value` | 기존 |
+| 7 | 변경일 | `changed_at` | 기존 — right-align |
+
+## 체크리스트
+
+- [x] AXIS-OPS BE: SELECT + 응답에 `sales_order` 추가 (`6551d54`)
+- [x] AXIS-VIEW FE: `ChangeLogEntry` 타입에 `sales_order` 추가
+- [x] AXIS-VIEW FE: 테이블 헤더 7열 (`O/N` 추가)
+- [x] AXIS-VIEW FE: 테이블 body에 O/N `<td>` 추가
+- [x] AXIS-VIEW FE: Loading/Empty colSpan 6→7
+- [x] npm run build 에러 없음
