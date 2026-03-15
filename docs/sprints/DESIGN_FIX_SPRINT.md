@@ -2280,3 +2280,381 @@ export interface ChangeLogEntry {
 - [x] AXIS-VIEW FE: 테이블 body에 O/N `<td>` 추가
 - [x] AXIS-VIEW FE: Loading/Empty colSpan 6→7
 - [x] npm run build 에러 없음
+
+---
+
+# 공장 API 연동 — 생산일정 + 주간 KPI (VIEW FE) — ✅ 완료 (2026-03-15)
+
+> OPS Sprint 29 (BE only) 완료 후 진행
+> 참조: OPS_API_REQUESTS.md #9, #10
+> 의존성: `GET /api/admin/factory/monthly-detail`, `GET /api/admin/factory/weekly-kpi`
+
+## 배경
+
+현재 `FactoryDashboardPage.tsx`와 `ProductionPlanPage.tsx`는 샘플(하드코딩) 데이터로 렌더링 중.
+OPS Sprint 29에서 `factory.py` 블루프린트 + 2개 엔드포인트가 구현되면, VIEW FE에서 Mock→API 전환 필요.
+
+## 현재 FE 상태
+
+| 페이지 | 파일 | 상태 | 비고 |
+|--------|------|------|------|
+| 공장 대시보드 | `pages/factory/FactoryDashboardPage.tsx` | 샘플 데이터 | KPI 4카드 + 테이블 + 모델별 bar + 최근활동 + 월간 모델 |
+| 생산일정 | `pages/plan/ProductionPlanPage.tsx` | 샘플 데이터 | 파이프라인 원형 + 범례 + 필터탭 + 16컬럼 날짜 테이블 |
+| API 모듈 | `api/factory.ts` | ❌ 미생성 | |
+| Query 훅 | `hooks/useFactory.ts` | ❌ 미생성 | |
+
+## 변경 파일
+
+### 신규 생성
+
+- `app/src/api/factory.ts` — API 호출 함수
+- `app/src/hooks/useFactory.ts` — TanStack Query 훅
+
+### 수정
+
+- `app/src/pages/factory/FactoryDashboardPage.tsx` — 샘플 제거 → API 데이터
+- `app/src/pages/plan/ProductionPlanPage.tsx` — 샘플 제거 → API 데이터
+
+---
+
+## Task 1: `api/factory.ts` 생성
+
+```typescript
+// src/api/factory.ts
+// 공장 API — OPS Sprint 29 연동
+
+import apiClient from './client';
+
+/* ── #10 월간 생산 현황 ── */
+
+export interface MonthlyDetailParams {
+  month?: string;         // YYYY-MM (기본: 현재 월)
+  date_field?: 'pi_start' | 'mech_start';  // 기본: pi_start
+  page?: number;          // 기본: 1
+  per_page?: number;      // 기본: 50, max: 200
+}
+
+export interface CompletionStatus {
+  mech: boolean;
+  elec: boolean;
+  tm: boolean | null;     // GAIA: bool, 비GAIA: null
+  pi: boolean;
+  qi: boolean;
+  si: boolean;
+}
+
+export interface ProductionItem {
+  sales_order: string;
+  product_code: string;
+  serial_number: string;
+  model: string;
+  customer: string;
+  line: string;
+  mech_partner: string;
+  elec_partner: string;
+  mech_start: string | null;
+  mech_end: string | null;
+  elec_start: string | null;
+  elec_end: string | null;
+  pi_start: string | null;
+  qi_start: string | null;
+  si_start: string | null;
+  finishing_plan_end: string | null;
+  completion: CompletionStatus;
+  progress_pct: number;
+}
+
+export interface ModelCount {
+  model: string;
+  count: number;
+}
+
+export interface MonthlyDetailResponse {
+  month: string;
+  items: ProductionItem[];
+  by_model: ModelCount[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
+
+/* ── #9 주간 KPI ── */
+
+export interface WeeklyKpiParams {
+  week?: number;    // ISO week 1~53 (기본: 현재 주)
+  year?: number;    // (기본: 현재 연도)
+}
+
+export interface WeeklyKpiResponse {
+  week: number;
+  year: number;
+  week_range: { start: string; end: string };
+  production_count: number;
+  completion_rate: number;
+  by_model: ModelCount[];
+  by_stage: {
+    mech: number;
+    elec: number;
+    tm: number;
+    pi: number;
+    qi: number;
+    si: number;
+  };
+  pipeline: {
+    pi: number;
+    qi: number;
+    si: number;
+    shipped: number;
+  };
+}
+
+/* ── API 호출 ── */
+
+export async function getMonthlyDetail(params: MonthlyDetailParams = {}): Promise<MonthlyDetailResponse> {
+  const searchParams = new URLSearchParams();
+  if (params.month) searchParams.set('month', params.month);
+  if (params.date_field) searchParams.set('date_field', params.date_field);
+  if (params.page) searchParams.set('page', String(params.page));
+  if (params.per_page) searchParams.set('per_page', String(params.per_page));
+
+  const query = searchParams.toString();
+  const url = `/api/admin/factory/monthly-detail${query ? `?${query}` : ''}`;
+  const { data } = await apiClient.get<MonthlyDetailResponse>(url);
+  return data;
+}
+
+export async function getWeeklyKpi(params: WeeklyKpiParams = {}): Promise<WeeklyKpiResponse> {
+  const searchParams = new URLSearchParams();
+  if (params.week) searchParams.set('week', String(params.week));
+  if (params.year) searchParams.set('year', String(params.year));
+
+  const query = searchParams.toString();
+  const url = `/api/admin/factory/weekly-kpi${query ? `?${query}` : ''}`;
+  const { data } = await apiClient.get<WeeklyKpiResponse>(url);
+  return data;
+}
+```
+
+---
+
+## Task 2: `hooks/useFactory.ts` 생성
+
+```typescript
+// src/hooks/useFactory.ts
+// 공장 API TanStack Query 훅
+
+import { useQuery } from '@tanstack/react-query';
+import {
+  getMonthlyDetail, getWeeklyKpi,
+  type MonthlyDetailParams, type WeeklyKpiParams,
+} from '@/api/factory';
+
+export function useMonthlyDetail(params: MonthlyDetailParams = {}) {
+  return useQuery({
+    queryKey: ['factory', 'monthly-detail', params],
+    queryFn: () => getMonthlyDetail(params),
+    staleTime: 5 * 60 * 1000,   // 5분
+  });
+}
+
+export function useWeeklyKpi(params: WeeklyKpiParams = {}) {
+  return useQuery({
+    queryKey: ['factory', 'weekly-kpi', params],
+    queryFn: () => getWeeklyKpi(params),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+```
+
+---
+
+## Task 3: `FactoryDashboardPage.tsx` API 전환
+
+### 삭제 대상
+
+- `SAMPLE_KPI`, `SAMPLE_TABLE`, `SAMPLE_CHART`, `SAMPLE_ACTIVITIES`, `MONTHLY_MODELS` 상수 전체 제거
+- `PrepareBanner` 컴포넌트 제거
+
+### API 연동
+
+```typescript
+import { useWeeklyKpi, useMonthlyDetail } from '@/hooks/useFactory';
+
+// 주간 KPI (기본: 현재 주)
+const { data: kpi, isLoading: kpiLoading } = useWeeklyKpi();
+
+// 월간 모델별 (공장 대시보드 하단 호리즌 bar)
+const { data: monthly } = useMonthlyDetail({ per_page: 1 }); // by_model만 필요
+```
+
+### KPI 카드 매핑
+
+| 카드 | 현재 샘플 | API 필드 |
+|------|----------|----------|
+| 주간 생산량 | `37대` | `kpi.production_count` + `대` |
+| 완료율 | `84.2%` | `kpi.completion_rate` + `%` |
+| 파이프라인(PI) | — | `kpi.pipeline.pi` + `대` |
+| 출하 완료 | — | `kpi.pipeline.shipped` + `대` |
+
+### 모델별 차트 매핑
+
+- `SAMPLE_CHART` → `kpi.by_model` (주간)
+- `MONTHLY_MODELS` → `monthly.by_model` (월간)
+
+### 생산 현황 테이블
+
+- `SAMPLE_TABLE` → 별도 `useMonthlyDetail({ per_page: 5 })` 호출
+- `progress` → `item.progress_pct`
+- `status` → `progress_pct >= 100 ? 'completed' : progress_pct > 0 ? 'in-progress' : 'pending'`
+
+### 최근 활동 피드
+
+- `SAMPLE_ACTIVITIES` → ETL 변경이력 최근 5건 재활용 (`useEtlChanges({ days: 1, limit: 5 })`)
+- 또는 추후 BE 알림 API 구현 시 전환 (현재는 샘플 유지 가능)
+
+### 공정 파이프라인
+
+- 현재 KPI 카드에 통합 또는 별도 카드로:
+  - PI: `kpi.pipeline.pi`
+  - QI: `kpi.pipeline.qi`
+  - SI: `kpi.pipeline.si`
+  - 출하: `kpi.pipeline.shipped`
+
+---
+
+## Task 4: `ProductionPlanPage.tsx` API 전환
+
+### 삭제 대상
+
+- `KPI_ITEMS`, `PIPELINE_STEPS`, `SAMPLE_DATA`, `TODAY` 상수 제거
+- `PrepareBanner` 컴포넌트 제거
+
+### API 연동
+
+```typescript
+import { useMonthlyDetail } from '@/hooks/useFactory';
+
+const [month, setMonth] = useState(() => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+});
+const [dateField, setDateField] = useState<'pi_start' | 'mech_start'>('pi_start');
+const [page, setPage] = useState(1);
+
+const { data, isLoading } = useMonthlyDetail({
+  month,
+  date_field: dateField,
+  page,
+  per_page: 50,
+});
+```
+
+### KPI 카드 매핑
+
+| 카드 | 현재 샘플 | API 필드 |
+|------|----------|----------|
+| N월 기구시작/가압시작 | `193` | `data.total` |
+| 필터된 결과 | `43` | `data.items.length` (현재 페이지) |
+| 고객사 수 | `16` | `new Set(data.items.map(i => i.customer)).size` |
+| 모델 수 | `17` | `data.by_model.length` |
+| 총 데이터수 | `590` | `data.total` |
+
+### 파이프라인 원형 카운트
+
+- weekly-kpi `pipeline` 연동 가능 (별도 `useWeeklyKpi()` 호출)
+- 또는 items에서 completion 집계:
+  - PI: `items.filter(i => i.completion.pi && !i.completion.qi).length`
+  - QI: `items.filter(i => i.completion.qi && !i.completion.si).length`
+  - SI: `items.filter(i => i.completion.si).length`
+
+### 테이블 컬럼 매핑 (16컬럼 → API 필드)
+
+| 현재 컬럼 | API 필드 | 비고 |
+|----------|----------|------|
+| O/N | `sales_order` | |
+| 제품번호 | `product_code` | |
+| S/N | `serial_number` | |
+| 모델 | `model` | |
+| 고객사 | `customer` | |
+| 라인 | `line` | |
+| 기구업체 | `mech_partner` | |
+| 전장업체 | `elec_partner` | |
+| 기구시작 | `mech_start` | 날짜 색상 적용 |
+| 기구종료 | `mech_end` | 날짜 색상 적용 |
+| 전장시작 | `elec_start` | 날짜 색상 적용 |
+| 전장종료 | `elec_end` | 날짜 색상 적용 |
+| 가압시작 | `pi_start` | 날짜 색상 적용 |
+| 자주검사 | — | 컬럼 삭제 (테이블 미존재) |
+| 공정시작 | `qi_start` | 날짜 색상 적용 |
+| 마무리시작 | `si_start` | 날짜 색상 적용 |
+| 출하 | `finishing_plan_end` | 날짜 색상 적용 |
+
+> **자주검사 컬럼 제거**: DB에 해당 테이블/데이터 없음. OPS_API_REQUESTS #9, #10에서도 제외됨.
+> 17컬럼 → 16컬럼
+
+### 날짜 셀 색상 로직
+
+```typescript
+function getDateType(dateStr: string | null): DateType {
+  if (!dateStr) return 'empty';
+  const d = new Date(dateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (d.toDateString() === today.toDateString()) return 'today-highlight';
+  if (d < today) return 'past';
+  return 'future';
+}
+```
+
+### 필터 탭 → 월 선택기 + date_field 토글
+
+- 기존 `FILTER_TABS` (`'오늘 공정', '이번주' ...`) → 월 선택 드롭다운 (`YYYY-MM`)
+- date_field 토글: `가압시작(GST) / 기구시작(협력사)` 탭 2개
+
+### 페이지네이션
+
+- API가 `page`, `per_page`, `total`, `total_pages` 반환
+- 하단에 페이지 네비게이션 추가 (이전/다음 + 페이지 번호)
+
+---
+
+## Task 5: 빌드 + 버전 업데이트
+
+1. `npm run build` 에러 없음 확인
+2. `version.ts` → 버전 bump (v1.7.0 — 신규 API 2개 연동)
+3. `package.json` → version 동기화
+4. `CHANGELOG.md` → v1.7.0 항목 추가
+5. `PROGRESS.md` → v1.7.0 섹션 추가
+6. `BACKLOG.md` → Sprint 이력 추가
+7. `OPS_API_REQUESTS.md` → #9, #10 상태 DONE 업데이트
+
+---
+
+## 체크리스트
+
+- [x] OPS Sprint 29 BE 완료 확인 (`/api/admin/factory/monthly-detail`, `/api/admin/factory/weekly-kpi`)
+- [x] `api/factory.ts` 생성 (타입 + API 호출 함수)
+- [x] `hooks/useFactory.ts` 생성 (TanStack Query 훅)
+- [x] `FactoryDashboardPage.tsx` 샘플 → API 전환
+  - [x] KPI 카드 4개 연동 (주간 생산량, 완료율, PI 대기, 출하)
+  - [x] 모델별 bar 차트 연동
+  - [x] 공정별 완료율 bar 추가
+  - [x] 생산 현황 테이블 연동 (상위 5건)
+  - [x] 파이프라인 원형 (PI/QI/SI/출하)
+  - [x] 월간 모델별 호리즌 bar 연동
+  - [x] PrepareBanner + 샘플 상수 전체 제거
+- [x] `ProductionPlanPage.tsx` 샘플 → API 전환
+  - [x] 월 선택기 + date_field 토글 (가압시작/기구시작) 추가
+  - [x] 16컬럼 테이블 API 매핑 (자주검사 컬럼 제거)
+  - [x] 날짜 셀 색상 로직 적용 (past=red, today=warning badge, future=green)
+  - [x] 파이프라인 원형 API 연동 (weekly-kpi)
+  - [x] 페이지네이션 추가 (이전/다음 + 페이지 번호)
+  - [x] 검색 필터 (O/N, 모델, S/N)
+  - [x] PrepareBanner + 샘플 상수 전체 제거
+- [x] npm run build 에러 없음 (번들 1,076KB → 1,072KB 감소)
+- [x] 화면 확인 후 버전 v1.7.0 + CHANGELOG + PROGRESS + BACKLOG 업데이트
+- [x] OPS_API_REQUESTS.md #9, #10 → DONE
+- [x] 공장 대시보드 피드백 반영: 자동 슬라이드, 활동 피드, 불량 KPI placeholder, 전장업체
+- [x] 생산일정 피드백 반영: 통합 필터바, sorting, 공정 중복, 공정 카운트 chip
+- [x] OPS_API_REQUESTS.md #16 — 불량 API(QMS) 요청 등록

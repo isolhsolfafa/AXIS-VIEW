@@ -1,183 +1,127 @@
 // src/pages/plan/ProductionPlanPage.tsx
-// 생산일정 — G-AXIS 컨셉 HTML 기반 목업
-// 공정 파이프라인 + 범례 + 필터 + 날짜 색상 테이블
+// 생산일정 — 통합 필터 + 공정 중복 + sorting
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Layout from '@/components/layout/Layout';
+import { useMonthlyDetail } from '@/hooks/useFactory';
+import type { ProductionItem, CompletionStatus } from '@/api/factory';
 
-/* ── KPI ─── */
-const KPI_ITEMS = [
-  { label: '2월 기구시작', value: '193' },
-  { label: '필터된 결과', value: '43' },
-  { label: '고객사 수', value: '16' },
-  { label: '모델 수', value: '17' },
-  { label: '총 데이터수', value: '590' },
+/* ── 날짜 컬럼 키 ─── */
+type DateType = 'mech_start' | 'mech_end' | 'elec_start' | 'elec_end' | 'pi_start' | 'qi_start' | 'si_start' | 'finishing_plan_end';
+const DATE_KEYS: DateType[] = ['mech_start', 'mech_end', 'elec_start', 'elec_end', 'pi_start', 'qi_start', 'si_start', 'finishing_plan_end'];
+
+const TABLE_COLS: { label: string; key?: DateType }[] = [
+  { label: 'O/N' }, { label: '제품번호' }, { label: 'S/N' }, { label: '모델' },
+  { label: '고객사' }, { label: '라인' }, { label: '기구업체' }, { label: '전장업체' },
+  { label: '기구시작', key: 'mech_start' }, { label: '기구종료', key: 'mech_end' },
+  { label: '전장시작', key: 'elec_start' }, { label: '전장종료', key: 'elec_end' },
+  { label: '가압시작', key: 'pi_start' }, { label: '공정시작', key: 'qi_start' },
+  { label: '마무리', key: 'si_start' }, { label: '출하예정', key: 'finishing_plan_end' },
 ];
 
-/* ── 공정 파이프라인 ─── */
-const PIPELINE_STEPS = [
-  { label: '기압', count: 11, type: 'danger' as const },
-  { label: '자주검사', count: 6, type: 'active' as const },
-  { label: '공정', count: 9, type: 'active' as const },
-  { label: '포장', count: 7, type: 'neutral' as const },
-  { label: '출하', count: 17, type: 'success' as const },
-];
-
-const CIRCLE_STYLES = {
-  danger: { background: 'var(--gx-danger)', color: '#fff', boxShadow: '0 4px 14px rgba(239,68,68,0.3)' },
-  active: { background: 'var(--gx-accent)', color: '#fff', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' },
-  success: { background: 'var(--gx-success)', color: '#fff', boxShadow: '0 4px 14px rgba(16,185,129,0.3)' },
-  neutral: { background: 'var(--gx-cloud)', color: 'var(--gx-graphite)', boxShadow: 'none', border: '2px solid var(--gx-mist)' },
+/* ── 완료 체크마크 매핑 (BE complete 값 준비 후 활성화) ─── */
+// TODO: BE에서 completion 실데이터 내려오면 ENABLE_CHECKMARKS = true 전환
+const ENABLE_CHECKMARKS = false;
+const COMPLETION_MAP: Partial<Record<DateType, keyof CompletionStatus>> = {
+  mech_end: 'mech',
+  elec_end: 'elec',
+  pi_start: 'pi',
+  qi_start: 'qi',
+  si_start: 'si',
 };
 
-/* ── 필터 탭 ─── */
-const FILTER_TABS = ['오늘 공정', '이번주', '다음주', '2주후', '전체'];
-
-/* ── 테이블 ─── */
-const TABLE_COLS = ['O/N', '제품번호', 'S/N', '모델', '고객사', '라인', '기구업체', '전장업체', '기구시작', '기구종료', '전장시작', '전장종료', '가압시작', '자주검사', '공정시작', '마무리시작', '출하'];
-
-// 오늘 날짜 (샘플 기준)
-const TODAY = '2026-02-13';
-
-type DateType = 'past' | 'today' | 'future' | 'done' | 'today-highlight' | 'danger-highlight' | 'empty';
-
-interface TableRow {
-  on: string;
-  pn: string;
-  sn: string;
-  model: string;
-  customer: string;
-  line: string;
-  mechVendor: string;
-  elecVendor: string;
-  dates: { value: string; type: DateType }[];
-}
-
-const SAMPLE_DATA: TableRow[] = [
-  {
-    on: '6203', pn: '41000558', sn: '0363', model: 'O3 Destructor', customer: 'SEC', line: '15L', mechVendor: 'SH', elecVendor: 'TMS',
-    dates: [
-      { value: '2026-01-14', type: 'past' }, { value: '2026-01-19', type: 'past' },
-      { value: '2026-01-05', type: 'past' }, { value: '2026-01-20', type: 'past' },
-      { value: '2026-01-21', type: 'past' }, { value: '', type: 'empty' },
-      { value: '2026-01-22', type: 'past' }, { value: '2026-02-12', type: 'past' },
-      { value: TODAY, type: 'today-highlight' },
-    ],
-  },
-  {
-    on: '6203', pn: '41000558', sn: '0364', model: 'O3 Destructor', customer: 'SEC', line: '15L', mechVendor: 'SH', elecVendor: 'TMS',
-    dates: [
-      { value: '2026-01-14', type: 'past' }, { value: '2026-01-19', type: 'past' },
-      { value: '2026-01-05', type: 'past' }, { value: '2026-01-20', type: 'past' },
-      { value: '2026-01-21', type: 'past' }, { value: '', type: 'empty' },
-      { value: '2026-01-22', type: 'past' }, { value: '2026-02-12', type: 'past' },
-      { value: TODAY, type: 'today-highlight' },
-    ],
-  },
-  {
-    on: '6238', pn: '41100538', sn: '6627', model: 'GAIA-I DUAL', customer: 'MICRON', line: 'JP(F15)', mechVendor: 'BAT', elecVendor: 'P&S',
-    dates: [
-      { value: '2026-01-26', type: 'past' }, { value: '2026-02-04', type: 'done' },
-      { value: '2026-01-12', type: 'past' }, { value: '2026-02-05', type: 'past' },
-      { value: '2026-02-11', type: 'past' }, { value: '2026-02-12', type: 'past' },
-      { value: TODAY, type: 'danger-highlight' }, { value: TODAY, type: 'danger-highlight' },
-      { value: '2026-03-13', type: 'future' },
-    ],
-  },
-  {
-    on: '6312', pn: '41100286', sn: '6620', model: 'GAIA-I DUAL', customer: 'MICRON', line: 'JP(F15)', mechVendor: 'BAT', elecVendor: 'TMS',
-    dates: [
-      { value: '2026-01-23', type: 'past' }, { value: '2026-02-02', type: 'done' },
-      { value: '2026-01-12', type: 'past' }, { value: '2026-02-03', type: 'done' },
-      { value: '2026-02-04', type: 'past' }, { value: '2026-02-05', type: 'past' },
-      { value: '2026-02-06', type: 'past' }, { value: '2026-02-06', type: 'past' },
-      { value: TODAY, type: 'today-highlight' },
-    ],
-  },
-  {
-    on: '6315', pn: '41100538', sn: '6631', model: 'GAIA-I DUAL', customer: 'MICRON', line: 'JP(F15)', mechVendor: 'BAT', elecVendor: 'C&A',
-    dates: [
-      { value: '2026-01-27', type: 'past' }, { value: '2026-02-05', type: 'done' },
-      { value: '2026-01-15', type: 'past' }, { value: '2026-02-07', type: 'past' },
-      { value: '2026-02-10', type: 'past' }, { value: '2026-02-11', type: 'past' },
-      { value: '2026-02-12', type: 'past' }, { value: TODAY, type: 'today-highlight' },
-      { value: '2026-02-17', type: 'future' },
-    ],
-  },
-  {
-    on: '6401', pn: '41100286', sn: '6635', model: 'GAIA-I DUAL', customer: 'SEC', line: '15L', mechVendor: 'C&A', elecVendor: 'TMS',
-    dates: [
-      { value: '2026-02-03', type: 'past' }, { value: '2026-02-10', type: 'past' },
-      { value: '2026-01-22', type: 'past' }, { value: '2026-02-10', type: 'past' },
-      { value: '2026-02-11', type: 'past' }, { value: '2026-02-12', type: 'past' },
-      { value: TODAY, type: 'today-highlight' }, { value: '2026-02-14', type: 'future' },
-      { value: '2026-02-18', type: 'future' },
-    ],
-  },
-  {
-    on: '6405', pn: '41100538', sn: '6640', model: 'GAIA-P DUAL', customer: 'SAMSUNG', line: 'JP(F15)', mechVendor: 'FNI', elecVendor: 'P&S',
-    dates: [
-      { value: '2026-02-05', type: 'past' }, { value: '2026-02-11', type: 'past' },
-      { value: '2026-01-28', type: 'past' }, { value: '2026-02-12', type: 'past' },
-      { value: TODAY, type: 'today-highlight' }, { value: '2026-02-14', type: 'future' },
-      { value: '2026-02-17', type: 'future' }, { value: '2026-02-18', type: 'future' },
-      { value: '2026-02-21', type: 'future' },
-    ],
-  },
+/* ── 공정 필터 정의 ─── */
+const STAGE_FILTERS = [
+  { key: 'pi', label: '가압', dateKey: 'pi_start' as DateType, color: '#EC4899', bg: 'rgba(236,72,153,0.08)' },
+  { key: 'qi', label: '공정', dateKey: 'qi_start' as DateType, color: '#6366F1', bg: 'rgba(99,102,241,0.08)' },
+  { key: 'si', label: '마무리', dateKey: 'si_start' as DateType, color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
+  { key: 'shipped', label: '출하', dateKey: 'finishing_plan_end' as DateType, color: '#10B981', bg: 'rgba(16,185,129,0.08)' },
 ];
 
-/* ── 날짜 셀 렌더링 ─── */
-function DateCell({ value, type }: { value: string; type: DateType }) {
-  if (type === 'empty') return <td style={{ padding: '11px 14px' }} />;
+/* ── 공정 중복 색상 ─── */
+const DUP_BG: Record<number, string> = {
+  2: 'rgba(59,130,246,0.10)',
+  3: 'rgba(236,72,153,0.10)',
+  4: 'rgba(245,158,11,0.13)',
+};
+
+/* ── 날짜 유틸 ─── */
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getWeekRange(): [string, string] {
+  const now = new Date();
+  const day = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return [fmt(mon), fmt(sun)];
+}
+
+function isInPeriod(dateStr: string | null, filter: 'today' | 'week' | 'all'): boolean {
+  if (!dateStr) return false;
+  if (filter === 'all') return true;
+  const d = dateStr.slice(0, 10);
+  if (filter === 'today') return d === todayStr();
+  const [start, end] = getWeekRange();
+  return d >= start && d <= end;
+}
+
+/* ── 행별 중복 날짜 카운트 ─── */
+function getRowDupMap(row: ProductionItem): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const key of DATE_KEYS) {
+    const val = row[key] as string | null;
+    if (val) {
+      const dateOnly = val.slice(0, 10);
+      counts[dateOnly] = (counts[dateOnly] || 0) + 1;
+    }
+  }
+  return counts;
+}
+
+/* ── 날짜 셀 ─── */
+function DateCell({ value, completed, dupCount }: { value: string | null; completed?: boolean; dupCount?: number }) {
+  if (!value) return <td style={{ padding: '11px 14px', color: 'var(--gx-silver)' }}>—</td>;
 
   const display = value.slice(5); // MM-DD
+  const d = new Date(value);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  const isToday = d.getTime() === today.getTime();
+  const isPast = d < today;
 
-  if (type === 'today-highlight') {
+  const dupBg = dupCount && dupCount >= 2 ? (DUP_BG[Math.min(dupCount, 4)] || DUP_BG[4]) : undefined;
+
+  if (isToday) {
     return (
-      <td style={{ padding: '11px 14px' }}>
+      <td style={{ padding: '11px 14px', background: dupBg }}>
         <span style={{
           background: 'var(--gx-warning)', color: '#fff', fontWeight: 700,
           padding: '3px 8px', borderRadius: '4px', display: 'inline-block',
           fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px',
         }}>{display}</span>
+        {completed && <span style={{ marginLeft: '3px', color: 'var(--gx-success)', fontSize: '11px' }}>✓</span>}
       </td>
     );
   }
-
-  if (type === 'danger-highlight') {
-    return (
-      <td style={{ padding: '11px 14px' }}>
-        <span style={{
-          background: 'var(--gx-danger)', color: '#fff', fontWeight: 700,
-          padding: '3px 8px', borderRadius: '4px', display: 'inline-block',
-          fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px',
-        }}>{display}</span>
-      </td>
-    );
-  }
-
-  if (type === 'done') {
-    return (
-      <td style={{ padding: '11px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px' }}>
-        <span style={{ color: 'var(--gx-success)' }}>{display}</span>
-        <span style={{ color: 'var(--gx-success)', fontWeight: 700, marginLeft: '3px' }}>&#10003;</span>
-      </td>
-    );
-  }
-
-  const colorMap: Record<string, string> = {
-    past: 'var(--gx-danger)',
-    future: 'var(--gx-success)',
-  };
 
   return (
     <td style={{
       padding: '11px 14px',
       fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px',
-      color: colorMap[type] || 'var(--gx-graphite)',
       whiteSpace: 'nowrap',
+      background: dupBg,
     }}>
-      {display}
+      <span style={{ color: isPast ? 'var(--gx-danger)' : 'var(--gx-success)' }}>
+        {display}
+      </span>
+      {completed && <span style={{ marginLeft: '3px', color: 'var(--gx-success)', fontSize: '11px' }}>✓</span>}
     </td>
   );
 }
@@ -193,211 +137,293 @@ function LegendChip({ label, bg, color, border }: { label: string; bg: string; c
   );
 }
 
-function PrepareBanner() {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: '12px',
-      padding: '14px 20px', marginBottom: '24px',
-      background: 'var(--gx-warning-bg)', borderRadius: 'var(--radius-gx-lg)',
-      border: '1px solid rgba(245, 158, 11, 0.2)',
-    }}>
-      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--gx-warning)', flexShrink: 0 }} />
-      <div style={{ fontSize: '13px', color: 'var(--gx-graphite)' }}>
-        <strong>API 연동 준비 중</strong> · 아래 데이터는 샘플입니다. 실제 데이터는 API 연동 후 표시됩니다.
-      </div>
-      <div style={{
-        marginLeft: 'auto', padding: '4px 12px', borderRadius: 'var(--radius-gx-sm)',
-        fontSize: '11px', fontWeight: 600, color: 'var(--gx-warning)', background: 'rgba(245, 158, 11, 0.12)',
-      }}>
-        Phase 3
-      </div>
-    </div>
-  );
+/* ── 월 옵션 ─── */
+function getMonthOptions(): { value: string; label: string }[] {
+  const opts: { value: string; label: string }[] = [];
+  const now = new Date();
+  for (let i = -2; i <= 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    opts.push({ value: val, label: `${d.getFullYear()}년 ${d.getMonth() + 1}월` });
+  }
+  return opts;
 }
 
 /* ── 메인 컴포넌트 ─── */
 export default function ProductionPlanPage() {
-  const [activeTab, setActiveTab] = useState('오늘 공정');
+  const [month, setMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [dateField, setDateField] = useState<'pi_start' | 'mech_start'>('mech_start');
+  const [search, setSearch] = useState('');
+  const [quickFilter, setQuickFilter] = useState<'today' | 'week' | 'all'>('all');
+  const [stageFilter, setStageFilter] = useState<string | null>(null);
+  const [sortCol, setSortCol] = useState<DateType | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [page, setPage] = useState(1);
+
+  const { data, isLoading, dataUpdatedAt, isFetching, refetch } = useMonthlyDetail({ month, date_field: dateField, per_page: 500 });
+  const monthOptions = useMemo(() => getMonthOptions(), []);
+
+  /* ── 필터 + 정렬 + 공정 카운트 ── */
+  const { items, stageCounts, totalFiltered } = useMemo(() => {
+    if (!data?.items) return { items: [], stageCounts: {} as Record<string, number>, totalFiltered: 0 };
+
+    // 1. 검색 필터
+    let filtered = data.items;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter((i: ProductionItem) =>
+        i.serial_number.toLowerCase().includes(q) ||
+        i.sales_order.toLowerCase().includes(q) ||
+        i.model.toLowerCase().includes(q)
+      );
+    }
+
+    // 2. 공정별 카운트 (quick filter 기간 내)
+    const counts: Record<string, number> = {};
+    for (const sf of STAGE_FILTERS) {
+      counts[sf.key] = filtered.filter((i: ProductionItem) => isInPeriod(i[sf.dateKey] as string | null, quickFilter)).length;
+    }
+
+    // 3. 공정 필터 적용
+    if (stageFilter) {
+      const sf = STAGE_FILTERS.find(s => s.key === stageFilter);
+      if (sf) {
+        filtered = filtered.filter((i: ProductionItem) => isInPeriod(i[sf.dateKey] as string | null, quickFilter));
+      }
+    }
+
+    // 4. 정렬
+    if (sortCol) {
+      filtered = [...filtered].sort((a, b) => {
+        const va = (a[sortCol] as string | null) || '';
+        const vb = (b[sortCol] as string | null) || '';
+        if (!va && !vb) return 0;
+        if (!va) return 1;
+        if (!vb) return -1;
+        return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      });
+    }
+
+    return { items: filtered, stageCounts: counts, totalFiltered: filtered.length };
+  }, [data, search, quickFilter, stageFilter, sortCol, sortDir]);
+
+  /* ── 페이지네이션 ── */
+  const PAGE_SIZE = 50;
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const pageItems = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  /* ── 핸들러 ── */
+  const handleSort = (key: DateType) => {
+    if (sortCol === key) {
+      if (sortDir === 'desc') { setSortCol(null); setSortDir('asc'); }
+      else setSortDir('desc');
+    } else {
+      setSortCol(key);
+      setSortDir('asc');
+    }
+  };
+
+  const handleQuickFilter = (f: 'today' | 'week' | 'all') => {
+    setQuickFilter(f);
+    setStageFilter(null);
+    setPage(1);
+  };
+
+  const handleStageFilter = (key: string) => {
+    setStageFilter(prev => prev === key ? null : key);
+    setPage(1);
+  };
 
   return (
     <Layout title="생산일정">
       <div style={{ padding: '28px 32px', maxWidth: '1600px' }}>
-        <PrepareBanner />
-
-        {/* Status Bar */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '14px 20px', background: 'var(--gx-white)',
-          borderRadius: 'var(--radius-gx-lg)', boxShadow: 'var(--shadow-card)',
-          marginBottom: '24px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '8px', height: '8px', borderRadius: '50%', background: 'var(--gx-success)',
-              animation: 'pulse 2s infinite',
-            }} />
-            <div style={{ fontSize: '13px', color: 'var(--gx-slate)' }}>
-              <strong style={{ color: 'var(--gx-charcoal)', fontWeight: 600 }}>SCR 일정관리_W7(REV).xlsx</strong> · 데이터 로드 완료
-            </div>
-          </div>
-          <div style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: '12px',
-            color: 'var(--gx-steel)', background: 'var(--gx-cloud)',
-            padding: '4px 12px', borderRadius: '6px',
-          }}>2026-02-13 15:43:13 KST</div>
-        </div>
-
-        {/* KPI Summary */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '24px' }}>
-          {KPI_ITEMS.map(k => (
-            <div key={k.label} style={{
-              background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
-              padding: '18px 20px', boxShadow: 'var(--shadow-card)', textAlign: 'center',
-              transition: 'all 0.2s', cursor: 'default',
-            }}>
-              <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--gx-steel)', letterSpacing: '0.3px', marginBottom: '8px' }}>{k.label}</div>
-              <div style={{ fontSize: '26px', fontWeight: 700, color: 'var(--gx-charcoal)', fontVariantNumeric: 'tabular-nums' }}>{k.value}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Process Pipeline */}
-        <div style={{
-          background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
-          boxShadow: 'var(--shadow-card)', overflow: 'hidden', marginBottom: '24px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px 0' }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>오늘 공정 현황</div>
-            <div style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: '12px',
-              color: 'var(--gx-accent)', background: 'rgba(99,102,241,0.08)',
-              padding: '4px 10px', borderRadius: '6px',
-            }}>{TODAY}</div>
-          </div>
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
-            padding: '20px 24px 24px', position: 'relative',
-          }}>
-            {/* 연결선 */}
-            <div style={{
-              position: 'absolute', top: '50%', left: '60px', right: '60px',
-              height: '2px', background: 'var(--gx-mist)', transform: 'translateY(-4px)',
-            }} />
-            {PIPELINE_STEPS.map(step => {
-              const style = CIRCLE_STYLES[step.type];
-              return (
-                <div key={step.label} style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  gap: '10px', position: 'relative', zIndex: 1,
-                }}>
-                  <div style={{
-                    width: '52px', height: '52px', borderRadius: '50%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '20px', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-                    ...style,
-                  }}>{step.count}</div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gx-slate)', textAlign: 'center' }}>{step.label}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
 
         {/* Legend Strip */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap',
           padding: '14px 20px', background: 'var(--gx-white)',
           borderRadius: 'var(--radius-gx-lg)', boxShadow: 'var(--shadow-card)',
-          marginBottom: '24px',
+          marginBottom: '16px',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--gx-slate)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
             <span style={{ fontWeight: 600, color: 'var(--gx-graphite)', marginRight: '4px' }}>날짜 색상:</span>
             <LegendChip label="● 지난 날짜" bg="rgba(239,68,68,0.08)" color="var(--gx-danger)" />
             <LegendChip label="★ 오늘" bg="rgba(245,158,11,0.08)" color="var(--gx-warning)" border="1px solid var(--gx-warning)" />
             <LegendChip label="● 예정 날짜" bg="rgba(16,185,129,0.08)" color="var(--gx-success)" />
           </div>
           <div style={{ width: '1px', height: '20px', background: 'var(--gx-mist)' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--gx-slate)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
             <span style={{ fontWeight: 600, color: 'var(--gx-graphite)', marginRight: '4px' }}>공정 중복:</span>
-            <LegendChip label="2개" bg="rgba(59,130,246,0.1)" color="#3B82F6" />
-            <LegendChip label="3개" bg="rgba(245,158,11,0.1)" color="#F59E0B" />
-            <LegendChip label="4개" bg="rgba(239,68,68,0.1)" color="#EF4444" />
-          </div>
-          <div style={{ width: '1px', height: '20px', background: 'var(--gx-mist)' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--gx-slate)' }}>
-            <span style={{ fontWeight: 600, color: 'var(--gx-graphite)', marginRight: '4px' }}>공정→마무리:</span>
-            <LegendChip label="동일" bg="rgba(99,102,241,0.08)" color="var(--gx-accent)" />
+            <LegendChip label="2개" bg="rgba(59,130,246,0.10)" color="#3B82F6" />
+            <LegendChip label="3개" bg="rgba(236,72,153,0.10)" color="#EC4899" />
+            <LegendChip label="4개" bg="rgba(245,158,11,0.13)" color="#F59E0B" />
           </div>
         </div>
 
-        {/* Filter Bar */}
+        {/* 통합 필터바 */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
-          padding: '14px 20px', background: 'var(--gx-white)',
-          borderRadius: 'var(--radius-gx-lg)', boxShadow: 'var(--shadow-card)',
-          marginBottom: '16px',
+          background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
+          boxShadow: 'var(--shadow-card)', marginBottom: '16px', overflow: 'hidden',
         }}>
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {FILTER_TABS.map(tab => (
+          {/* 상단: Quick filters + 기준 + 월 + 검색 */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
+            padding: '14px 20px',
+          }}>
+            {/* Quick filters */}
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {([
+                { value: 'today' as const, label: '오늘' },
+                { value: 'week' as const, label: '이번주' },
+                { value: 'all' as const, label: '전체' },
+              ]).map(f => (
+                <button
+                  key={f.value}
+                  onClick={() => handleQuickFilter(f.value)}
+                  style={{
+                    padding: '7px 16px', borderRadius: '10px',
+                    fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                    transition: 'all 0.15s', border: '1px solid',
+                    ...(quickFilter === f.value
+                      ? { background: 'var(--gx-accent)', color: '#fff', borderColor: 'var(--gx-accent)' }
+                      : { background: 'transparent', color: 'var(--gx-slate)', borderColor: 'var(--gx-mist)' }),
+                  }}
+                >{f.label}</button>
+              ))}
+            </div>
+
+            <div style={{ width: '1px', height: '28px', background: 'var(--gx-mist)' }} />
+
+            {/* 기준 */}
+            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-steel)' }}>기준:</span>
+            <select
+              value={dateField}
+              onChange={(e) => { setDateField(e.target.value as 'pi_start' | 'mech_start'); setPage(1); setStageFilter(null); }}
+              style={{
+                padding: '7px 12px', borderRadius: '10px',
+                border: '1px solid var(--gx-mist)', background: 'var(--gx-white)',
+                fontSize: '12px', color: 'var(--gx-graphite)', cursor: 'pointer',
+              }}
+            >
+              <option value="mech_start">기구시작</option>
+              <option value="pi_start">가압시작</option>
+            </select>
+
+            {/* 월 */}
+            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-steel)' }}>월:</span>
+            <select
+              value={month}
+              onChange={(e) => { setMonth(e.target.value); setPage(1); setStageFilter(null); }}
+              style={{
+                padding: '7px 12px', borderRadius: '10px',
+                border: '1px solid var(--gx-mist)', background: 'var(--gx-white)',
+                fontSize: '12px', color: 'var(--gx-graphite)', cursor: 'pointer',
+              }}
+            >
+              {monthOptions.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+
+            <div style={{ width: '1px', height: '28px', background: 'var(--gx-mist)' }} />
+
+            {/* 검색 */}
+            <input
+              type="text"
+              placeholder="오더번호, 모델, S/N 검색..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              style={{
+                padding: '7px 12px', borderRadius: '10px',
+                border: '1px solid var(--gx-mist)', background: 'var(--gx-snow)',
+                fontSize: '12px', color: 'var(--gx-graphite)', minWidth: '200px',
+              }}
+            />
+
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{
+                fontSize: '11px', color: 'var(--gx-steel)',
+                fontFamily: "'JetBrains Mono', monospace",
+              }}>
+                {totalFiltered}건 {data ? `/ ${data.total}건` : ''}
+              </span>
+              <div style={{ width: '1px', height: '16px', background: 'var(--gx-mist)' }} />
+              <span style={{
+                fontSize: '10px', color: 'var(--gx-silver)',
+                fontFamily: "'JetBrains Mono', monospace",
+              }}>
+                {dataUpdatedAt ? `동기화 ${new Date(dataUpdatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}` : '—'}
+              </span>
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => refetch()}
+                disabled={isFetching}
                 style={{
-                  padding: '7px 16px', borderRadius: '10px',
-                  fontSize: '12px', fontWeight: 500, cursor: 'pointer',
-                  transition: 'all 0.15s', border: '1px solid',
-                  ...(activeTab === tab
-                    ? { background: 'var(--gx-accent)', color: '#fff', borderColor: 'var(--gx-accent)' }
-                    : { background: 'transparent', color: 'var(--gx-slate)', borderColor: 'var(--gx-mist)' }),
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '28px', height: '28px', borderRadius: '8px',
+                  border: '1px solid var(--gx-mist)', background: 'var(--gx-white)',
+                  cursor: isFetching ? 'default' : 'pointer',
+                  transition: 'all 0.15s',
+                  opacity: isFetching ? 0.5 : 1,
                 }}
-              >{tab}</button>
-            ))}
+                title="새로고침"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gx-slate)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ animation: isFetching ? 'spin 1s linear infinite' : 'none' }}>
+                  <path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                  <path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                </svg>
+              </button>
+            </div>
           </div>
-          <div style={{ width: '1px', height: '28px', background: 'var(--gx-mist)' }} />
-          <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-steel)' }}>기준:</span>
-          <select style={{
-            padding: '7px 12px', borderRadius: '10px',
-            border: '1px solid var(--gx-mist)', background: 'var(--gx-white)',
-            fontSize: '12px', color: 'var(--gx-graphite)', cursor: 'pointer',
+
+          {/* 하단: 공정 파이프라인 (circle 스타일 + 클릭 필터) */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: `repeat(${STAGE_FILTERS.length}, 1fr)`,
+            padding: '20px 24px 24px', position: 'relative',
+            borderTop: '1px solid var(--gx-cloud)',
           }}>
-            <option>기구시작</option>
-            <option>전장시작</option>
-            <option>출하</option>
-          </select>
-          <div style={{ width: '1px', height: '28px', background: 'var(--gx-mist)' }} />
-          <input
-            type="text"
-            placeholder="오더번호, 모델, S/N 검색..."
-            style={{
-              padding: '7px 12px', borderRadius: '10px',
-              border: '1px solid var(--gx-mist)', background: 'var(--gx-snow)',
-              fontSize: '12px', color: 'var(--gx-graphite)', minWidth: '200px',
-            }}
-          />
-          <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-steel)' }}>고객사:</span>
-          <select style={{
-            padding: '7px 12px', borderRadius: '10px',
-            border: '1px solid var(--gx-mist)', background: 'var(--gx-white)',
-            fontSize: '12px', color: 'var(--gx-graphite)', cursor: 'pointer',
-          }}>
-            <option>전체</option>
-          </select>
-          <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-steel)' }}>기구업체:</span>
-          <select style={{
-            padding: '7px 12px', borderRadius: '10px',
-            border: '1px solid var(--gx-mist)', background: 'var(--gx-white)',
-            fontSize: '12px', color: 'var(--gx-graphite)', cursor: 'pointer',
-          }}>
-            <option>전체</option>
-          </select>
-          <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-steel)' }}>전장업체:</span>
-          <select style={{
-            padding: '7px 12px', borderRadius: '10px',
-            border: '1px solid var(--gx-mist)', background: 'var(--gx-white)',
-            fontSize: '12px', color: 'var(--gx-graphite)', cursor: 'pointer',
-          }}>
-            <option>전체</option>
-          </select>
+            {/* 연결선 */}
+            <div style={{
+              position: 'absolute', top: '50%', left: '60px', right: '60px',
+              height: '2px', background: 'var(--gx-mist)', transform: 'translateY(-4px)',
+            }} />
+            {STAGE_FILTERS.map(sf => {
+              const count = stageCounts[sf.key] ?? 0;
+              const active = stageFilter === sf.key;
+              return (
+                <button
+                  key={sf.key}
+                  onClick={() => handleStageFilter(sf.key)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    gap: '10px', position: 'relative', zIndex: 1,
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    padding: 0,
+                  }}
+                >
+                  <div style={{
+                    width: '52px', height: '52px', borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '20px', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                    color: '#fff', background: sf.color,
+                    boxShadow: active
+                      ? `0 4px 14px ${sf.color}66, 0 0 0 3px ${sf.bg}`
+                      : `0 4px 14px ${sf.color}4D`,
+                    transition: 'all 0.2s',
+                    transform: active ? 'scale(1.1)' : 'scale(1)',
+                  }}>{count}</div>
+                  <div style={{
+                    fontSize: '12px', fontWeight: 600, textAlign: 'center',
+                    color: active ? sf.color : 'var(--gx-slate)',
+                    transition: 'color 0.15s',
+                  }}>{sf.label}</div>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Table */}
@@ -409,44 +435,130 @@ export default function ProductionPlanPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1200px' }}>
               <thead>
                 <tr style={{ background: 'var(--gx-cloud)' }}>
-                  {TABLE_COLS.map(h => (
-                    <th key={h} style={{
-                      padding: '11px 14px', textAlign: 'left',
-                      fontSize: '10.5px', fontWeight: 600, color: 'var(--gx-steel)',
-                      letterSpacing: '0.5px', textTransform: 'uppercase' as const,
-                      whiteSpace: 'nowrap', borderBottom: '2px solid var(--gx-mist)',
-                    }}>{h}</th>
+                  {TABLE_COLS.map(col => (
+                    <th
+                      key={col.label}
+                      onClick={col.key ? () => handleSort(col.key!) : undefined}
+                      style={{
+                        padding: '11px 14px', textAlign: 'left',
+                        fontSize: '10.5px', fontWeight: 600, color: 'var(--gx-steel)',
+                        letterSpacing: '0.5px', textTransform: 'uppercase' as const,
+                        whiteSpace: 'nowrap', borderBottom: '2px solid var(--gx-mist)',
+                        cursor: col.key ? 'pointer' : 'default',
+                        userSelect: 'none',
+                        background: sortCol === col.key ? 'rgba(99,102,241,0.06)' : undefined,
+                      }}
+                    >
+                      {col.label}
+                      {col.key && sortCol === col.key && (
+                        <span style={{ marginLeft: '4px', color: 'var(--gx-accent)', fontSize: '10px' }}>
+                          {sortDir === 'asc' ? '▲' : '▼'}
+                        </span>
+                      )}
+                      {col.key && sortCol !== col.key && (
+                        <span style={{ marginLeft: '4px', color: 'var(--gx-silver)', fontSize: '9px' }}>⇅</span>
+                      )}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {SAMPLE_DATA.map((row, i) => (
-                  <tr key={`${row.sn}-${i}`} style={{ borderBottom: '1px solid var(--gx-cloud)' }}>
-                    <td style={{ padding: '11px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px', color: 'var(--gx-graphite)' }}>{row.on}</td>
-                    <td style={{ padding: '11px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px', color: 'var(--gx-graphite)' }}>{row.pn}</td>
-                    <td style={{ padding: '11px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px', color: 'var(--gx-graphite)' }}>{row.sn}</td>
-                    <td style={{ padding: '11px 14px', fontWeight: 600, color: 'var(--gx-charcoal)', whiteSpace: 'nowrap' }}>{row.model}</td>
-                    <td style={{ padding: '11px 14px', color: 'var(--gx-graphite)', fontSize: '12.5px' }}>{row.customer}</td>
-                    <td style={{ padding: '11px 14px', color: 'var(--gx-graphite)', fontSize: '12.5px' }}>{row.line}</td>
-                    <td style={{ padding: '11px 14px', color: 'var(--gx-graphite)', fontSize: '12.5px' }}>{row.mechVendor}</td>
-                    <td style={{ padding: '11px 14px', color: 'var(--gx-graphite)', fontSize: '12.5px' }}>{row.elecVendor}</td>
-                    {row.dates.map((d, j) => (
-                      <DateCell key={j} value={d.value} type={d.type} />
-                    ))}
-                  </tr>
-                ))}
+                {isLoading ? (
+                  <tr><td colSpan={TABLE_COLS.length} style={{ padding: '40px 14px', textAlign: 'center', color: 'var(--gx-steel)', fontSize: '13px' }}>로딩 중...</td></tr>
+                ) : pageItems.length === 0 ? (
+                  <tr><td colSpan={TABLE_COLS.length} style={{ padding: '40px 14px', textAlign: 'center', color: 'var(--gx-steel)', fontSize: '13px' }}>
+                    {stageFilter ? '해당 공정에 데이터 없음' : '데이터 없음'}
+                  </td></tr>
+                ) : (
+                  pageItems.map((row: ProductionItem, i: number) => {
+                    const dupMap = getRowDupMap(row);
+                    return (
+                      <tr key={`${row.serial_number}-${i}`} style={{ borderBottom: '1px solid var(--gx-cloud)' }}>
+                        <td style={{ padding: '11px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px', color: 'var(--gx-graphite)' }}>{row.sales_order}</td>
+                        <td style={{ padding: '11px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px', color: 'var(--gx-graphite)' }}>{row.product_code}</td>
+                        <td style={{ padding: '11px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px', color: 'var(--gx-graphite)' }}>{row.serial_number}</td>
+                        <td style={{ padding: '11px 14px', fontWeight: 600, color: 'var(--gx-charcoal)', whiteSpace: 'nowrap' }}>{row.model}</td>
+                        <td style={{ padding: '11px 14px', color: 'var(--gx-graphite)', fontSize: '12.5px' }}>{row.customer}</td>
+                        <td style={{ padding: '11px 14px', color: 'var(--gx-graphite)', fontSize: '12.5px' }}>{row.line}</td>
+                        <td style={{ padding: '11px 14px', color: 'var(--gx-graphite)', fontSize: '12.5px' }}>{row.mech_partner}</td>
+                        <td style={{ padding: '11px 14px', color: 'var(--gx-graphite)', fontSize: '12.5px' }}>{row.elec_partner}</td>
+                        {DATE_KEYS.map(k => {
+                          const val = row[k] as string | null;
+                          const compKey = ENABLE_CHECKMARKS ? COMPLETION_MAP[k] : undefined;
+                          const completed = compKey ? row.completion[compKey] === true : false;
+                          const dupCount = val ? (dupMap[val.slice(0, 10)] || 0) : 0;
+                          return (
+                            <DateCell key={k} value={val} completed={completed} dupCount={dupCount} />
+                          );
+                        })}
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
-        </div>
 
-        {/* pulse animation */}
-        <style>{`
-          @keyframes pulse {
-            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
-            50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(16,185,129,0); }
-          }
-        `}</style>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              padding: '16px 24px', borderTop: '1px solid var(--gx-cloud)',
+            }}>
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                style={{
+                  padding: '6px 14px', borderRadius: '8px', fontSize: '12px',
+                  border: '1px solid var(--gx-mist)', background: 'var(--gx-white)',
+                  color: page <= 1 ? 'var(--gx-silver)' : 'var(--gx-graphite)',
+                  cursor: page <= 1 ? 'default' : 'pointer',
+                }}
+              >이전</button>
+              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                let pageNum: number;
+                if (totalPages <= 7) {
+                  pageNum = i + 1;
+                } else if (page <= 4) {
+                  pageNum = i + 1;
+                } else if (page >= totalPages - 3) {
+                  pageNum = totalPages - 6 + i;
+                } else {
+                  pageNum = page - 3 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setPage(pageNum)}
+                    style={{
+                      padding: '6px 12px', borderRadius: '8px', fontSize: '12px',
+                      fontWeight: page === pageNum ? 600 : 400,
+                      border: '1px solid',
+                      borderColor: page === pageNum ? 'var(--gx-accent)' : 'var(--gx-mist)',
+                      background: page === pageNum ? 'var(--gx-accent)' : 'var(--gx-white)',
+                      color: page === pageNum ? '#fff' : 'var(--gx-graphite)',
+                      cursor: 'pointer',
+                    }}
+                  >{pageNum}</button>
+                );
+              })}
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                style={{
+                  padding: '6px 14px', borderRadius: '8px', fontSize: '12px',
+                  border: '1px solid var(--gx-mist)', background: 'var(--gx-white)',
+                  color: page >= totalPages ? 'var(--gx-silver)' : 'var(--gx-graphite)',
+                  cursor: page >= totalPages ? 'default' : 'pointer',
+                }}
+              >다음</button>
+              <span style={{ fontSize: '11px', color: 'var(--gx-steel)', marginLeft: '8px' }}>
+                {items.length}건 중 {(page - 1) * PAGE_SIZE + 1}~{Math.min(page * PAGE_SIZE, items.length)}
+              </span>
+            </div>
+          )}
+        </div>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </div>
     </Layout>
   );

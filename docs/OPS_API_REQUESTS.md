@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-14 (#14 pi_start 3곳 완료 + #15 summary limit 분리)
+> 마지막 업데이트: 2026-03-15 (#16 defect API 요청 추가)
 
 ---
 
@@ -265,7 +265,7 @@ def get_workers():
 
 ## 공장 대시보드 (`/api/admin/factory`)
 
-### 9. 주간 공장 KPI — PENDING
+### 9. 주간 공장 KPI — DONE (2026-03-15)
 
 **엔드포인트**: `GET /api/admin/factory/weekly-kpi`
 
@@ -350,7 +350,7 @@ WHERE finishing_plan_end >= ISO_WEEK_START AND finishing_plan_end <= ISO_WEEK_EN
 
 ---
 
-### 10. 월간 생산 현황 — PENDING
+### 10. 월간 생산 현황 — DONE (2026-03-15)
 
 **엔드포인트**: `GET /api/admin/factory/monthly-detail`
 
@@ -706,6 +706,52 @@ const DATE_FIELDS = new Set(['ship_plan_date', 'mech_start', 'pi_start']);
 **수정**: summary용 `GROUP BY` 쿼리를 별도 실행하여 limit과 무관한 전체 건수 반환
 
 **커밋**: `e82e75f` (AXIS-OPS main)
+
+---
+
+### 16. 불량 현황 조회 API (QMS 연동) — PENDING
+
+**요청일**: 2026-03-15
+
+**엔드포인트**: `GET /api/admin/factory/defects`
+
+**인증**: `@view_access_required` (admin + GST+manager)
+
+**목적**: 공장 대시보드 KPI 카드 "불량 건수" 표시 + 활동 피드에 불량 이벤트 노출
+
+**요청 파라미터**:
+
+| 파라미터 | 타입 | 설명 |
+|----------|------|------|
+| `days` | int (default: 7) | 최근 N일 범위 |
+| `limit` | int (default: 20) | 최대 건수 |
+
+**응답 포맷 (희망)**:
+
+```json
+{
+  "total_defects": 12,
+  "defect_rate": 3.2,
+  "defects": [
+    {
+      "id": 1,
+      "serial_number": "SN-001",
+      "model": "MODEL-A",
+      "defect_type": "가압검사 불량",
+      "part": "BULKHEAD UNION",
+      "partner": "FNI",
+      "detected_at": "2026-03-15T10:30:00+09:00",
+      "description": "가압검사 누설 발견"
+    }
+  ]
+}
+```
+
+**FE 사용처**:
+1. KPI 카드 "불량 건수" — `total_defects` 표시 (현재 `—` placeholder)
+2. 활동 피드 — `defects[]` 배열을 ETL/생산완료 이벤트와 시간순 merge
+
+**참고**: QMS 데이터 스키마는 etl/defect에 load 되어 있으나 data thread가 미정의 상태. BE에서 어떤 테이블/뷰에서 집계할지 결정 필요.
 
 ---
 

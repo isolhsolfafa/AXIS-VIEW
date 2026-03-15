@@ -126,11 +126,11 @@ export default function App() {
         {/* 기존 /plan → /production/plan 리다이렉트 */}
         <Route path="/plan" element={<Navigate to="/production/plan" replace />} />
 
-        {/* ── 공장 대시보드 / 분석 (GST 전용 — 협력사 차단) ── */}
+        {/* ── 공장 대시보드 (생산관리와 동일 권한) ── */}
         <Route
           path="/factory"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'gst']}>
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'gst']}>
               <FactoryDashboardPage />
             </ProtectedRoute>
           }

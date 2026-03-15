@@ -103,7 +103,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'Dashboard',
     items: [
-      { label: '공장 대시보드', icon: <FactoryIcon />, to: '/factory', preparing: true, roles: ['admin', 'gst'] },
+      { label: '공장 대시보드', icon: <FactoryIcon />, to: '/factory', roles: ['admin', 'manager', 'gst'] },
       {
         label: '협력사 관리',
         icon: <UsersIcon />,
@@ -122,7 +122,7 @@ const navGroups: NavGroup[] = [
         to: '/production/plan',
         roles: ['admin', 'manager', 'gst'],
         children: [
-          { label: '생산일정', to: '/production/plan', preparing: true },
+          { label: '생산일정', to: '/production/plan' },
           { label: '생산실적', to: '/production/performance', preparing: true },
           { label: '출하이력', to: '/production/shipment', preparing: true },
         ],

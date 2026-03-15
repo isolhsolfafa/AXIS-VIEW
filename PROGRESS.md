@@ -1,8 +1,58 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-13 (v1.6.0 — 권한 매트릭스 세분화)
+> 마지막 업데이트: 2026-03-16 (v1.7.0 — 공장 API 연동 + 대시보드/생산일정 리팩토링)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.7.0: 공장 API 연동 + 대시보드/생산일정 리팩토링 — ✅ 완료 (2026-03-16)
+
+OPS Sprint 29 BE 완료 후 VIEW FE에서 샘플→실 API 전환 + UI 리팩토링.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| API 모듈 생성 | `api/factory.ts` | 타입 정의 + `getMonthlyDetail`, `getWeeklyKpi` 함수 |
+| Query 훅 생성 | `hooks/useFactory.ts` | `useMonthlyDetail`, `useWeeklyKpi` TanStack 훅 |
+| 공장 대시보드 | `FactoryDashboardPage.tsx` | 전면 리라이트 — 실 API, 자동 슬라이드, 활동 피드 |
+| 생산일정 | `ProductionPlanPage.tsx` | 전면 리라이트 — 통합 필터, sorting, 공정 중복 |
+| 활동 피드 | `FactoryDashboardPage.tsx` | ETL + 생산완료 + 출하완료 이벤트 통합 (시간순) |
+| KPI 카드 변경 | `FactoryDashboardPage.tsx` | PI 대기 → 불량 건수 (QMS 대기 placeholder) |
+| 전장업체 컬럼 | `FactoryDashboardPage.tsx` | 테이블 7열 → 8열 |
+| 사이드바 | `Sidebar.tsx` | 공장 대시보드 `preparing: true` 제거 |
+| API 요청 | `OPS_API_REQUESTS.md` | #16 불량 API 요청 PENDING 등록 |
+
+### OPS BE 연동
+
+| 엔드포인트 | 용도 |
+|----------|------|
+| `GET /api/admin/factory/weekly-kpi` | 주간 KPI (by_model, by_stage, pipeline) |
+| `GET /api/admin/factory/monthly-detail` | 월간 상세 (items, by_model, pagination) |
+
+---
+
+## v1.6.1: ETL 변경이력 개선 — ✅ 완료 (2026-03-15)
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| O/N 컬럼 추가 | `api/etl.ts` | `ChangeLogEntry`에 `sales_order` 필드 추가 |
+| O/N 컬럼 추가 | `EtlChangeLogPage.tsx` | 테이블 6열→7열, O/N `<td>` 추가, colSpan 업데이트 |
+| pi_start 추적 | `EtlChangeLogPage.tsx` | `FIELD_CONFIG` + `DATE_FIELDS`에 pi_start 추가 |
+| pi_start 추적 | `EtlChangeLogPage.tsx` | KPI 그리드 5열→6열, kpiCards에 가압시작 추가 |
+| pi_start 추적 | `EtlChangeLogPage.tsx` | 주간 차트에 가압시작 카테고리 + Bar(#EC4899) 추가 |
+| summary 수정 | OPS BE 연동 | 전체 변경 건수 limit 독립 (BE `e82e75f`) |
+
+### OPS BE 연동 커밋
+
+| 커밋 | 내용 |
+|------|------|
+| `6551d54` | ETL changes 응답에 `sales_order` 추가 |
+| `e82e75f` | summary COUNT 쿼리 분리 (limit 영향 제거) |
+| `faadd98` | `_FIELD_LABELS`에 `pi_start: 가압시작` 추가 |
 
 ---
 

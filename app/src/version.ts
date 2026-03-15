@@ -1,8 +1,8 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.6.0';
-export const BUILD_DATE = '2026-03-13';
+export const APP_VERSION = 'v1.7.0';
+export const BUILD_DATE = '2026-03-16';
 
 // 버전 이력
 // v1.0.0 | 2026-03-06 | Sprint 1~3     | 초기 릴리스 (로그인, 출퇴근 대시보드, 실 API 연동)
@@ -15,3 +15,5 @@ export const BUILD_DATE = '2026-03-13';
 // v1.5.0 | 2026-03-12 | Phase 5-A      | 협력사 관리 메뉴 개편 + 대시보드/평가지수/물량할당 페이지 + 근태 자사 필터
 // v1.5.1 | 2026-03-12 | Phase 5-A+     | 생산관리 메뉴 개편 (생산일정/생산실적/출하이력)
 // v1.6.0 | 2026-03-13 | Sprint 27 연동 | 권한 매트릭스 세분화 (GST 일반/협력사 manager 분리)
+// v1.6.1 | 2026-03-15 | ETL 개선       | O/N 컬럼 추가 + pi_start 변경 추적 + summary limit 수정
+// v1.7.0 | 2026-03-16 | Sprint 29 연동 | 공장 API 실데이터 연동 + 대시보드/생산일정 리팩토링

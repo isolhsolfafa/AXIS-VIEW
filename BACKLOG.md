@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-14 (v1.6.0+ — O/N 컬럼 추가 + ETL summary fix)
+> 마지막 업데이트: 2026-03-16 (v1.7.0 — 공장 API 연동 + 대시보드/생산일정 리팩토링)
 > 이 파일은 보류/재검토/계획/아이디어를 한 곳에서 관리합니다.
 > 완료된 항목은 PROGRESS.md로 이동합니다.
 
@@ -23,6 +23,9 @@
 | TASK-11 | ETL 변경이력 O/N 컬럼 추가 | ✅ 완료 | 테이블 6열→7열, `sales_order` 타입+셀 추가. OPS BE `6551d54` 연동 |
 | TASK-12 | ETL summary 카운트 limit 독립 | ✅ 완료 | summary `total_changes`가 200 고정 → BE 별도 GROUP BY 쿼리 분리. OPS BE `e82e75f` |
 | TASK-13 | pi_start 변경 추적 추가 | ✅ 완료 | CORE-ETL + OPS BE + VIEW FE 3곳 모두 수정 완료. ETL 실행 후 데이터 확인 필요 |
+| TASK-14 | 공장 대시보드 실 API 연동 | ✅ 완료 | OPS Sprint 29 연동. 자동 슬라이드, 활동 피드, 전장업체 추가, 준비중 태그 제거 |
+| TASK-15 | 생산일정 리팩토링 | ✅ 완료 | 통합 필터(오늘/이번주/전체), 공정 카운트 chip, 헤더 sorting, 공정 중복, 체크마크 준비 |
+| TASK-16 | 불량 API 요청 등록 | ⏳ OPS 대기 | OPS_API_REQUESTS #16 PENDING. QMS defect API 필요 (KPI 불량 건수 + 활동 피드) |
 
 ---
 
@@ -162,3 +165,4 @@
 | Phase 5-A+ | 생산관리 메뉴 개편 (생산일정/생산실적/출하이력) | ✅ 완료 |
 | v1.6.0 | 권한 매트릭스 세분화 — OPS Sprint 27 연동 (GST 일반/협력사 분리) | ✅ 완료 |
 | v1.6.0+ | ETL O/N 컬럼 추가 + summary limit 분리 + pi_start 스펙 문서화 | ✅ 완료 |
+| v1.7.0 | 공장 API 실데이터 연동 + 대시보드/생산일정 리팩토링 (OPS Sprint 29) | ✅ 완료 |
