@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-16 (#17 공장 API 협력사 manager 권한 요청)
+> 마지막 업데이트: 2026-03-16 (#17 manager 권한 + #18 주차 동기화)
 
 ---
 
@@ -777,6 +777,32 @@ const DATE_FIELDS = new Set(['ship_plan_date', 'mech_start', 'pi_start']);
 **파일**: `backend/app/routes/factory.py`
 
 **FE 상태**: 라우팅 + 사이드바 이미 manager 허용 → BE 수정 시 자동 반영
+
+---
+
+### 18. weekly-kpi 주차 동기화 오류 — PENDING
+
+**요청일**: 2026-03-16
+
+**엔드포인트**: `GET /api/admin/factory/weekly-kpi`
+
+**증상**: 오늘(2026-03-16, 월요일)은 ISO W12(03-16 ~ 03-22)인데, 파라미터 없이 호출 시 **W11(03-09 ~ 03-15)** 데이터를 반환
+
+**확인 결과**:
+```
+오늘: 2026-03-16 → Python isocalendar() → W12
+API 응답: week: 11, year: 2026, range: 03-09 ~ 03-15
+```
+
+**원인 추정**:
+- `factory.py`에서 `week` 미지정 시 기본값 계산 로직이 "현재 주차"가 아닌 "직전 완료 주차"를 반환
+- 또는 주차 시작 기준이 일요일/월요일로 달라서 1주 차이 발생
+
+**확인 필요**:
+- `factory.py`의 기본 week 계산 로직 (`datetime.isocalendar()` vs 커스텀 계산)
+- 의도적으로 "직전 완료 주차"를 반환하는 것인지, 버그인지 확인
+
+**FE 영향**: KPI 카드 "주간 생산량" + 공정별 완료율 + 모델별 차트가 전부 지난 주 기준으로 표시됨
 
 ---
 

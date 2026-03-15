@@ -155,7 +155,7 @@ export default function ProductionPlanPage() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
-  const [dateField, setDateField] = useState<'pi_start' | 'mech_start'>('mech_start');
+  const [dateField, setDateField] = useState<'pi_start' | 'mech_start'>('pi_start');
   const [search, setSearch] = useState('');
   const [quickFilter, setQuickFilter] = useState<'today' | 'week' | 'all'>('all');
   const [stageFilter, setStageFilter] = useState<string | null>(null);
