@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-15 (#16 defect API 요청 추가)
+> 마지막 업데이트: 2026-03-16 (#17 공장 API 협력사 manager 권한 요청)
 
 ---
 
@@ -752,6 +752,31 @@ const DATE_FIELDS = new Set(['ship_plan_date', 'mech_start', 'pi_start']);
 2. 활동 피드 — `defects[]` 배열을 ETL/생산완료 이벤트와 시간순 merge
 
 **참고**: QMS 데이터 스키마는 etl/defect에 load 되어 있으나 data thread가 미정의 상태. BE에서 어떤 테이블/뷰에서 집계할지 결정 필요.
+
+---
+
+### 17. 공장 API 협력사 manager 접근 허용 — PENDING
+
+**요청일**: 2026-03-16
+
+**대상 엔드포인트**:
+
+| 엔드포인트 | 현재 데코레이터 | 문제 |
+|----------|--------------|------|
+| `GET /api/admin/factory/weekly-kpi` | `@gst_or_admin_required` | `is_admin=true` OR `company='GST'`만 허용 → 협력사 manager 차단 |
+| `GET /api/admin/factory/monthly-detail` | `@view_access_required` | `is_admin=true` OR (`company='GST'` + `is_manager`)만 허용 → 협력사 manager 차단 |
+
+**증상**: VIEW FE에서 공장 대시보드/생산일정 페이지 접근은 허용했으나 (`allowedRoles: ['admin', 'manager', 'gst']`), BE API가 403 반환 → 데이터 없음 표시
+
+**요청 내용**: 협력사 manager (`is_manager=true`, `company != 'GST'`)도 공장 API 조회 가능하도록 데코레이터 수정
+
+**수정 방안** (택 1):
+1. 두 엔드포인트 모두 `@view_access_required`로 통일 + `@view_access_required`에 `is_manager=true`면 company 무관 허용 조건 추가
+2. 새 데코레이터 `@manager_or_above_required` 신설 — `is_admin` OR `is_manager` 체크
+
+**파일**: `backend/app/routes/factory.py`
+
+**FE 상태**: 라우팅 + 사이드바 이미 manager 허용 → BE 수정 시 자동 반영
 
 ---
 
