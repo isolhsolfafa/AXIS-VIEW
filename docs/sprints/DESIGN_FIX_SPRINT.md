@@ -2658,3 +2658,450 @@ function getDateType(dateStr: string | null): DateType {
 - [x] 공장 대시보드 피드백 반영: 자동 슬라이드, 활동 피드, 불량 KPI placeholder, 전장업체
 - [x] 생산일정 피드백 반영: 통합 필터바, sorting, 공정 중복, 공정 카운트 chip
 - [x] OPS_API_REQUESTS.md #16 — 불량 API(QMS) 요청 등록
+
+---
+---
+
+# Sprint 4: 권한 체계 재정비 + 반응형 레이아웃
+
+## 배경
+
+AXIS-VIEW 사이드바 권한 테스트 결과 FE/BE 간 권한 불일치 발생.
+GST 일반 직원(PI, QI)이 FE 페이지는 진입되지만 BE API에서 403 반환.
+추가로 태블릿/모바일 환경에서의 접근성 개선 요구.
+
+## 사전 조건
+
+- ✅ Sprint 3 (공장 대시보드 + 생산일정 API 연동) 완료
+- ✅ 권한 매트릭스 확정 (OPS_API_REQUESTS.md #11 참조)
+- ✅ FE 1차 수정 완료 — ProtectedRoute 'gst' role 추가, Sidebar roles 세분화, App.tsx 라우트 권한 적용
+- ⬜ OPS BE 데코레이터 변경 대기 (#11, #17)
+
+---
+
+## 확정 권한 매트릭스
+
+| 메뉴 | admin | GST+manager (PM) | GST+일반 (PI,QI) | 협력사+manager |
+|------|-------|-------------------|-------------------|----------------|
+| 공장 대시보드 | ✅ | ✅ | ✅ | ✅ |
+| 협력사 관리 | ✅ | ✅ | ❌ | ✅(자사) |
+| 생산관리 | ✅ | ✅ | ✅ | ✅ |
+| QR 관리 | ✅ | ✅ | ✅ | ✅ |
+| 권한 관리 | ✅ | ✅(GST만) | ❌ | ✅(자사) |
+| 불량 분석 | ✅ | ✅ | ✅ | ❌ |
+| CT 분석 | ✅ | ✅ | ✅ | ❌ |
+| AI 예측/챗봇 | ✅ | ✅ | ✅ | ❌ |
+
+**VIEW 접근 게이트**: `is_admin` OR `company='GST'` OR `is_manager` — 이 외 사용자는 로그인 불가
+
+---
+
+## 실행 순서
+
+### Step 1: tmux 세션 시작
+
+```bash
+tmux new -s axis-view-s4
+
+# 2분할 세로
+Ctrl+B, %
+```
+
+결과: 2개 패널
+```
+┌──────────┬──────────┐
+│  Lead    │   FE     │
+└──────────┴──────────┘
+```
+
+### Step 2: 왼쪽 패널(Lead)에서 Claude Code 시작
+
+```bash
+cd ~/Desktop/GST/AXIS-VIEW/app
+claude
+```
+
+### Step 3: accept edits on 확인
+
+- 하단에 `accept edits on` 표시 확인
+- 아니면 **Shift+Tab** 으로 전환
+
+### Step 4: Sprint 4 프롬프트 입력
+
+---
+
+## 🚀 Sprint 4 프롬프트 (복사해서 사용)
+
+```
+AXIS-VIEW Sprint 4: 권한 체계 재정비 + 반응형 레이아웃 개선
+
+⚠️ 반드시 읽어야 할 파일:
+- CLAUDE.md: ~/Desktop/GST/AXIS-VIEW/app/CLAUDE.md (프로젝트 컨텍스트)
+- OPS_API_REQUESTS.md: ~/Desktop/GST/AXIS-VIEW/docs/OPS_API_REQUESTS.md (#11 권한 매트릭스 확인)
+- 스프린트 가이드: ~/Desktop/GST/AXIS-VIEW/docs/sprints/DESIGN_FIX_SPRINT.md (Sprint 4 섹션)
+
+## 팀 구성
+1명의 teammate를 생성해줘. Sonnet 모델 사용:
+1. **FE** (Frontend 담당) - 소유: src/**
+
+## Phase A ~ Phase C를 순차 실행
+```
+
+---
+
+## Phase A: 권한 체계 FE 검증 + BE 연동 준비 (가벼움)
+
+> FE 1차 수정은 이미 완료됨. BE 데코레이터 반영 전 FE 쪽 정합성 확인 + 후속 작업.
+
+### Task A-1: 권한 FE 현재 상태 확인
+
+1. `ProtectedRoute.tsx` 확인 — `'gst'` role이 `company === 'GST'` 조건으로 동작하는지 검증
+2. `App.tsx` 라우트별 `allowedRoles` 매트릭스 일치 확인
+3. `Sidebar.tsx` navGroups roles 매트릭스 일치 확인
+
+**확인 기준 (App.tsx 라우트 ↔ Sidebar roles 일치)**:
+
+| 라우트 | allowedRoles |
+|--------|-------------|
+| `/factory` | `['admin', 'manager', 'gst']` |
+| `/partner/*` | `['admin', 'manager']` |
+| `/production/*` | `['admin', 'manager', 'gst']` |
+| `/qr/*` | `['admin', 'manager', 'gst']` |
+| `/admin/permissions` | `['admin', 'manager']` |
+| `/defect` | `['admin', 'gst']` |
+| `/ct` | `['admin', 'gst']` |
+
+### Task A-2: 로그인 게이트 정합성
+
+**파일**: `src/pages/LoginPage.tsx` 또는 `src/api/auth.ts`
+
+현재 로그인 시 `!is_admin && !is_manager` → 차단 로직이 있다면 수정 필요:
+- 변경: `!is_admin && !is_manager && company !== 'GST'` → 차단
+- GST 일반 직원(PI, QI)도 is_admin=false, is_manager=false이지만 로그인 가능해야 함
+
+### Task A-3: PermissionsPage 타이틀 버그 수정
+
+**파일**: `src/pages/admin/PermissionsPage.tsx` L113
+
+현재 Layout title이 `"QR 관리"`로 잘못 설정됨 → `"권한 관리"`로 수정
+
+```tsx
+// 현재
+<Layout title="QR 관리">
+
+// 수정
+<Layout title="권한 관리">
+```
+
+### Task A-4: 공장 대시보드 preparing 뱃지 제거
+
+**파일**: `Sidebar.tsx`
+
+공장 대시보드는 API 연동 완료 상태(Sprint 3 완료)이므로 `preparing: true` 제거.
+→ 현재 코드에서 이미 제거된 상태인지 확인.
+
+---
+
+## Phase B: 반응형 1단계 — 사이드바 접기 + 테이블 가로스크롤 (가벼움)
+
+> 태블릿(768px~1024px) 환경에서 사용 가능하게 만드는 최소 작업
+
+### Task B-1: 사이드바 접기/토글
+
+**대상 파일**: `Layout.tsx`, `Sidebar.tsx`, `Header.tsx`
+
+**변경 사항**:
+
+1. `Layout.tsx`에 `sidebarCollapsed` state 추가
+2. 사이드바 너비: 펼침 260px → 접힘 64px (아이콘만 표시)
+3. 토글 버튼: 사이드바 하단 또는 헤더 좌측에 햄버거 아이콘
+4. 접힌 상태에서:
+   - 아이콘만 표시 (label 숨김)
+   - hover 시 툴팁으로 label 표시
+   - children 메뉴는 hover 시 팝오버로 표시
+5. 메인 콘텐츠 `marginLeft` 연동
+6. localStorage에 접힘 상태 저장 (새로고침 유지)
+
+**CSS 변수 추가** (globals.css):
+```css
+:root {
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 64px;
+}
+```
+
+**Layout.tsx 구조**:
+```tsx
+export default function Layout({ children, title, ... }: LayoutProps) {
+  const [collapsed, setCollapsed] = useState(() =>
+    localStorage.getItem('sidebar_collapsed') === 'true'
+  );
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'var(--gx-cloud)', display: 'flex' }}>
+      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+      <div style={{
+        marginLeft: collapsed ? 'var(--sidebar-collapsed-width)' : 'var(--sidebar-width)',
+        flex: 1,
+        transition: 'margin-left 0.2s ease',
+      }}>
+        <Header title={title} ... />
+        <main style={{ padding: '28px 32px', maxWidth: '1440px' }}>
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
+```
+
+### Task B-2: 미디어 쿼리 자동 접기
+
+```css
+/* 1024px 이하에서 자동 접기 */
+@media (max-width: 1024px) {
+  :root {
+    --sidebar-width: 64px;
+  }
+}
+
+/* 768px 이하에서 완전 숨김 + 오버레이 */
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 0px;
+  }
+}
+```
+
+- 768px 이하: 사이드바 완전 숨김, 햄버거 메뉴로 오버레이 표시
+- 1024px 이하: 자동 접힘 (아이콘 모드)
+- 1024px 초과: 사용자 토글 기반
+
+### Task B-3: 테이블 가로스크롤
+
+**대상 페이지**: QrManagementPage, AttendancePage, ProductionPlanPage, PermissionsPage, ProductionPerformancePage
+
+**패턴**:
+```tsx
+{/* 테이블 래퍼에 가로스크롤 추가 */}
+<div style={{
+  overflowX: 'auto',
+  WebkitOverflowScrolling: 'touch',
+  borderRadius: 'var(--radius-gx-lg)',
+  border: '1px solid var(--gx-mist)',
+  background: 'var(--gx-white)',
+}}>
+  <table style={{ minWidth: '800px', ... }}>
+    ...
+  </table>
+</div>
+```
+
+- 각 테이블에 `minWidth` 설정 (컬럼 수에 따라 800px ~ 1200px)
+- 스크롤바 스타일 적용 (기존 커스텀 스크롤바)
+
+---
+
+## Phase C: 반응형 2단계 — KPI 카드/차트 그리드 반응형 (보통)
+
+> 태블릿에서 레이아웃이 자연스럽게 리플로우되도록 그리드 반응형 적용
+
+### Task C-1: KPI 카드 그리드 반응형
+
+**대상**: 모든 페이지의 KPI 카드 영역
+
+**패턴**:
+```tsx
+<div style={{
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+  gap: '12px',
+}}>
+  {/* KPI 카드들 */}
+</div>
+```
+
+- `repeat(4, 1fr)` → `repeat(auto-fit, minmax(220px, 1fr))`
+- 1440px: 4열, 1024px: 3열, 768px: 2열, 480px: 1열
+
+**대상 페이지별**:
+
+| 페이지 | 현재 그리드 | 변경 |
+|--------|-----------|------|
+| FactoryDashboardPage | 4열 고정 | auto-fit, minmax(220px, 1fr) |
+| AttendancePage | 4열 고정 | 동일 |
+| QrManagementPage | 4열 고정 | 동일 |
+| PermissionsPage | 3열 고정 | auto-fit, minmax(200px, 1fr) |
+| EtlChangeLogPage | 6열 고정 | auto-fit, minmax(160px, 1fr) |
+| ProductionPerformancePage | 4열 고정 | auto-fit, minmax(220px, 1fr) |
+| ShipmentHistoryPage | 4열 고정 | auto-fit, minmax(220px, 1fr) |
+
+### Task C-2: 차트 영역 반응형
+
+**대상**: FactoryDashboardPage의 차트 그리드
+
+현재 2열 고정 → 반응형:
+```tsx
+<div style={{
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+  gap: '16px',
+}}>
+  {/* 모델별 bar, 도넛 차트 등 */}
+</div>
+```
+
+- 1440px: 2열, 1024px 이하: 1열 스택
+- 차트 높이: 고정값 → `min-height + aspect-ratio` 또는 `vh` 기반
+
+### Task C-3: 필터바 반응형
+
+**대상**: 모든 페이지의 필터 바 (검색 + select + 버튼)
+
+```tsx
+<div style={{
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '8px',
+  alignItems: 'center',
+}}>
+  {/* 필터 요소들 */}
+</div>
+```
+
+- `flexWrap: 'wrap'` 추가 — 좁은 화면에서 줄바꿈
+- 검색 input `flex: 1, minWidth: '180px'` 설정
+- select `minWidth: '120px'` 설정
+
+### Task C-4: 메인 콘텐츠 패딩 반응형
+
+**파일**: `Layout.tsx`
+
+```tsx
+<main style={{
+  padding: 'clamp(16px, 3vw, 32px)',
+  maxWidth: '1440px',
+}}>
+```
+
+---
+
+## Phase D: 반응형 3단계 — 모바일 네비게이션 + 터치 최적화 (무거움, 선택적)
+
+> 스마트폰(~480px)까지 지원이 필요한 경우에만 진행. 태블릿 수준이면 Phase B~C로 충분.
+
+### Task D-1: 하단 네비게이션 바 (모바일)
+
+768px 이하에서 사이드바 대신 하단 탭 바 표시:
+
+```tsx
+{/* MobileNav.tsx (신규) */}
+<nav style={{
+  position: 'fixed',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  height: '56px',
+  background: 'var(--gx-white)',
+  borderTop: '1px solid var(--gx-mist)',
+  display: 'flex',
+  justifyContent: 'space-around',
+  alignItems: 'center',
+  zIndex: 100,
+}}>
+  <NavTab icon={<FactoryIcon />} label="대시보드" to="/factory" />
+  <NavTab icon={<CalendarIcon />} label="생산" to="/production/plan" />
+  <NavTab icon={<QrIcon />} label="QR" to="/qr" />
+  <NavTab icon={<UsersIcon />} label="협력사" to="/partner" />
+  <NavTab icon={<MenuIcon />} label="더보기" onClick={openDrawer} />
+</nav>
+```
+
+- 메인 5개 탭 + "더보기" 드로어
+- 더보기: 권한관리, 불량분석, CT분석, AI 등 2차 메뉴
+- 역할별 탭 표시 로직: Sidebar와 동일한 roles 필터 적용
+
+### Task D-2: 터치 타겟 최적화
+
+- 모든 클릭 타겟 최소 44x44px (WCAG 기준)
+- 테이블 행 높이: 44px → 48px (모바일)
+- 토글 버튼: 40x22px → 48x28px (모바일)
+- 탭/칩 버튼: padding 최소 10px 12px
+
+### Task D-3: 메인 콘텐츠 하단 여백
+
+하단 네비게이션 바가 콘텐츠를 가리지 않도록:
+
+```css
+@media (max-width: 768px) {
+  main {
+    padding-bottom: 72px; /* 56px nav + 16px 여백 */
+  }
+}
+```
+
+---
+
+## 빌드 + 검증
+
+### Task E-1: 빌드 확인
+
+1. `npm run build` 에러 없음 확인
+2. `version.ts` → 버전 bump
+
+### Task E-2: 권한 테스트 시나리오
+
+| # | 사용자 | 기대 결과 |
+|---|--------|----------|
+| 1 | admin (is_admin) | 전체 메뉴 표시, 전체 데이터 접근 |
+| 2 | GST+manager (PM, is_manager) | 전체 메뉴 표시, 권한관리 GST만 표시 |
+| 3 | GST+일반 (PI, !is_manager) | 공장/생산/QR/불량/CT/AI 표시, 협력사/권한 숨김 |
+| 4 | 협력사+manager (is_manager) | 협력사(자사)/생산/QR/권한(자사) 표시, 공장/불량/CT/AI 숨김 |
+| 5 | 협력사+일반 (!is_manager) | 로그인 차단 (VIEW 접근 불가) |
+
+### Task E-3: 반응형 테스트
+
+| 해상도 | 사이드바 | KPI 그리드 | 테이블 |
+|--------|---------|-----------|--------|
+| 1440px (데스크톱) | 펼침 260px | 4열 | 전체 표시 |
+| 1024px (태블릿 가로) | 접힘 64px (자동) | 3열 | 가로스크롤 |
+| 768px (태블릿 세로) | 숨김 + 오버레이 | 2열 | 가로스크롤 |
+| 480px (모바일, Phase D) | 하단 네비게이션 | 1열 | 가로스크롤 |
+
+---
+
+## 체크리스트
+
+### Phase A — 권한 (필수)
+- [ ] ProtectedRoute 'gst' role 동작 확인
+- [ ] App.tsx 라우트 allowedRoles 매트릭스 일치
+- [ ] Sidebar navGroups roles 매트릭스 일치
+- [ ] 로그인 게이트 GST 일반 직원 허용 확인
+- [ ] PermissionsPage Layout title "권한 관리" 수정
+- [ ] 공장 대시보드 preparing 뱃지 제거 확인
+
+### Phase B — 반응형 1단계 (필수)
+- [ ] 사이드바 접기/펼치기 토글
+- [ ] 접힌 상태 아이콘 + 툴팁
+- [ ] localStorage 접힘 상태 저장
+- [ ] 미디어 쿼리 자동 접기 (1024px/768px)
+- [ ] 오버레이 사이드바 (768px 이하)
+- [ ] 테이블 가로스크롤 (5개 페이지)
+
+### Phase C — 반응형 2단계 (권장)
+- [ ] KPI 카드 auto-fit 그리드 (7개 페이지)
+- [ ] 차트 그리드 반응형 (공장 대시보드)
+- [ ] 필터바 flexWrap
+- [ ] 메인 패딩 clamp
+
+### Phase D — 반응형 3단계 (선택적)
+- [ ] MobileNav 컴포넌트 신규
+- [ ] 하단 탭 바 역할 필터링
+- [ ] 터치 타겟 44px
+- [ ] 하단 여백 처리
+
+### 빌드/검증
+- [ ] npm run build 에러 없음
+- [ ] 권한 테스트 5개 시나리오 통과
+- [ ] 반응형 4개 해상도 확인
+- [ ] 버전 bump + CHANGELOG

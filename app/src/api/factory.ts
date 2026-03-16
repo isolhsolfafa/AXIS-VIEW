@@ -38,6 +38,7 @@ export interface ProductionItem {
   qi_start: string | null;
   si_start: string | null;
   finishing_plan_end: string | null;
+  ship_plan_date: string | null;
   completion: CompletionStatus;
   progress_pct: number;
 }

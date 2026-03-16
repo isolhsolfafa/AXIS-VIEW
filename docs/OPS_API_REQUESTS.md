@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-16 (#17 manager 권한 + #18 주차 동기화)
+> 마지막 업데이트: 2026-03-16 (#19 ship_plan_date 응답 추가)
 
 ---
 
@@ -777,6 +777,42 @@ const DATE_FIELDS = new Set(['ship_plan_date', 'mech_start', 'pi_start']);
 **파일**: `backend/app/routes/factory.py`
 
 **FE 상태**: 라우팅 + 사이드바 이미 manager 허용 → BE 수정 시 자동 반영
+
+---
+
+### 19. monthly-detail 응답에 ship_plan_date 추가 — PENDING
+
+**요청일**: 2026-03-16
+
+**엔드포인트**: `GET /api/admin/factory/monthly-detail`
+
+**증상**: 생산일정 출하 파이프라인 카운트가 `finishing_plan_end`(마무리종료/출하예정) 기준으로 집계되어 실제 출하계획일과 불일치
+
+**요청 내용**: 응답 `items[]`에 `ship_plan_date` (출하계획일, Excel U열) 필드 추가
+
+**DB 컬럼**: `plan.product_info.ship_plan_date` — 이미 존재 (ETL step2에서 `planned_finish` → `ship_plan_date`로 UPSERT)
+
+**수정 위치**: `factory.py` monthly-detail SELECT 쿼리에 `p.ship_plan_date` 추가
+
+```sql
+-- 현재
+SELECT p.sales_order, ..., p.finishing_plan_end, ...
+
+-- 변경 후
+SELECT p.sales_order, ..., p.finishing_plan_end, p.ship_plan_date, ...
+```
+
+**FE 사용처**:
+- `ProductionPlanPage.tsx` — 출하 파이프라인 circle 카운트 (STAGE_FILTERS shipped dateKey)
+- `ProductionPlanPage.tsx` — 테이블 "출하계획" 컬럼
+
+**용도 분리**:
+| 필드 | 용도 | 사용 페이지 |
+|------|------|-----------|
+| `finishing_plan_end` | 주간 생산지표 (weekly-kpi pipeline.shipped 집계 기준) | 공장 대시보드 |
+| `ship_plan_date` | 출하계획일 (생산일정 출하 카운트/필터 기준) | 생산일정 |
+
+**FE 상태**: FE 타입 + UI 변경 완료 (`ship_plan_date` 추가). BE 응답에 필드 추가 시 자동 반영.
 
 ---
 
