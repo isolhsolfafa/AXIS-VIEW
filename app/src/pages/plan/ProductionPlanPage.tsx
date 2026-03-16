@@ -7,8 +7,8 @@ import { useMonthlyDetail } from '@/hooks/useFactory';
 import type { ProductionItem, CompletionStatus } from '@/api/factory';
 
 /* ── 날짜 컬럼 키 ─── */
-type DateType = 'mech_start' | 'mech_end' | 'elec_start' | 'elec_end' | 'pi_start' | 'qi_start' | 'si_start' | 'finishing_plan_end' | 'ship_plan_date';
-const DATE_KEYS: DateType[] = ['mech_start', 'mech_end', 'elec_start', 'elec_end', 'pi_start', 'qi_start', 'si_start', 'finishing_plan_end', 'ship_plan_date'];
+type DateType = 'mech_start' | 'mech_end' | 'elec_start' | 'elec_end' | 'pi_start' | 'qi_start' | 'si_start' | 'ship_plan_date';
+const DATE_KEYS: DateType[] = ['mech_start', 'mech_end', 'elec_start', 'elec_end', 'pi_start', 'qi_start', 'si_start', 'ship_plan_date'];
 
 const TABLE_COLS: { label: string; key?: DateType }[] = [
   { label: 'O/N' }, { label: '제품번호' }, { label: 'S/N' }, { label: '모델' },
@@ -16,7 +16,7 @@ const TABLE_COLS: { label: string; key?: DateType }[] = [
   { label: '기구시작', key: 'mech_start' }, { label: '기구종료', key: 'mech_end' },
   { label: '전장시작', key: 'elec_start' }, { label: '전장종료', key: 'elec_end' },
   { label: '가압시작', key: 'pi_start' }, { label: '공정시작', key: 'qi_start' },
-  { label: '마무리', key: 'si_start' }, { label: '마무리종료', key: 'finishing_plan_end' }, { label: '출하계획', key: 'ship_plan_date' },
+  { label: '마무리', key: 'si_start' }, { label: '출하계획', key: 'ship_plan_date' },
 ];
 
 /* ── 완료 체크마크 매핑 (BE complete 값 준비 후 활성화) ─── */
@@ -157,7 +157,7 @@ export default function ProductionPlanPage() {
   });
   const [dateField, setDateField] = useState<'pi_start' | 'mech_start'>('pi_start');
   const [search, setSearch] = useState('');
-  const [quickFilter, setQuickFilter] = useState<'today' | 'week' | 'all'>('all');
+  const [quickFilter, setQuickFilter] = useState<'today' | 'week' | 'all'>('today');
   const [stageFilter, setStageFilter] = useState<string | null>(null);
   const [sortCol, setSortCol] = useState<DateType | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');

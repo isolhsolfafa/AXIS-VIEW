@@ -21,13 +21,17 @@
 - 샘플 데이터 전면 제거 → `monthly-detail` 실 API 연동 (500건 fetch, 클라이언트 페이지네이션)
 - **통합 필터바**: Quick filter(오늘/이번주/전체) + 공정 카운트 chip(가압/공정/마무리/출하)
 - 공정 카운트 chip 클릭 → 해당 공정만 필터 (파이프라인 통합)
-- **날짜 헤더 sorting**: 8개 날짜 컬럼 클릭 시 ▲/▼ 정렬 토글
+- **날짜 헤더 sorting**: 날짜 컬럼 클릭 시 ▲/▼ 정렬 토글
 - **공정 중복 표시**: 같은 행 내 동일 날짜 2/3/4개 셀 색상 배지 (파랑/핑크/주황)
 - 완료 체크마크(✓) 로직 준비 (`ENABLE_CHECKMARKS` 플래그, BE complete 값 대기)
-- KPI 카드 + 파이프라인 섹션 제거 → 간결한 UI
+- 출하 파이프라인 데이터 소스 `finishing_plan_end` → `ship_plan_date`(출하계획일) 변경
+- 마무리종료(`finishing_plan_end`) 컬럼 제거 — 하루 공정으로 불필요
+- 기본 필터를 "전체" → "오늘"로 변경 — 페이지 진입 시 오늘 기준 표시
 
 ### 기타
 - `OPS_API_REQUESTS.md` #16 — 불량 현황 API(QMS 연동) PENDING 등록
+- `OPS_API_REQUESTS.md` #19 — monthly-detail `ship_plan_date` 응답 추가 요청
+- `OPS_API_REQUESTS.md` #20 — monthly-detail `per_page` 상한 200→500 완화 요청
 - `OPS_API_REQUESTS.md` #9, #10 FE 연동 완료
 
 ---
