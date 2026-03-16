@@ -5,7 +5,7 @@ import { useState } from 'react';
 import type { AttendanceRecord } from '@/types/attendance';
 import { format, parseISO } from 'date-fns';
 
-type SortKey = 'worker_name' | 'company' | 'role' | 'check_in_time' | 'check_out_time' | 'status';
+type SortKey = 'worker_name' | 'company' | 'role' | 'work_site' | 'check_in_time' | 'check_out_time' | 'status';
 type SortDir = 'asc' | 'desc';
 
 interface AttendanceTableProps {
@@ -165,6 +165,7 @@ export default function AttendanceTable({ records }: AttendanceTableProps) {
       case 'worker_name': av = a.worker_name; bv = b.worker_name; break;
       case 'company': av = a.company; bv = b.company; break;
       case 'role': av = a.role; bv = b.role; break;
+      case 'work_site': av = a.work_site || ''; bv = b.work_site || ''; break;
       case 'check_in_time': av = a.check_in_time || 'zzz'; bv = b.check_in_time || 'zzz'; break;
       case 'check_out_time': av = a.check_out_time || 'zzz'; bv = b.check_out_time || 'zzz'; break;
       case 'status': av = a.status; bv = b.status; break;
@@ -176,6 +177,7 @@ export default function AttendanceTable({ records }: AttendanceTableProps) {
     { label: '이름', key: 'worker_name' },
     { label: '소속', key: 'company' },
     { label: '직무', key: 'role' },
+    { label: '근무지', key: 'work_site' },
     { label: '출근시간', key: 'check_in_time' },
     { label: '퇴근시간', key: 'check_out_time' },
     { label: '출근율', key: 'status' },
@@ -225,7 +227,7 @@ export default function AttendanceTable({ records }: AttendanceTableProps) {
             {sorted.length === 0 ? (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   style={{
                     textAlign: 'center',
                     padding: '48px 20px',
@@ -272,6 +274,17 @@ export default function AttendanceTable({ records }: AttendanceTableProps) {
                     </td>
                     <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--gx-graphite)' }}>
                       {record.role}
+                    </td>
+                    <td style={{ padding: '14px 20px', fontSize: '12px' }}>
+                      {record.work_site ? (
+                        <span style={{
+                          padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 500,
+                          background: record.work_site === '현장' ? 'rgba(16,185,129,0.08)' : 'rgba(99,102,241,0.08)',
+                          color: record.work_site === '현장' ? 'var(--gx-success)' : 'var(--gx-accent)',
+                        }}>{record.work_site}</span>
+                      ) : (
+                        <span style={{ color: 'var(--gx-silver)' }}>—</span>
+                      )}
                     </td>
                     <td
                       style={{
