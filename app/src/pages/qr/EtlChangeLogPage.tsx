@@ -23,6 +23,7 @@ const FIELD_CONFIG: Record<string, { label: string; color: string; bg: string }>
 const DATE_FIELDS = new Set(['ship_plan_date', 'mech_start', 'pi_start']);
 
 const PERIOD_OPTIONS = [
+  { value: 1, label: '오늘' },
   { value: 7, label: '최근 7일' },
   { value: 14, label: '최근 14일' },
   { value: 30, label: '최근 30일' },
@@ -66,7 +67,7 @@ function buildWeeklyChart(changes: ChangeLogEntry[]) {
 
 /* ── 페이지 컴포넌트 ───────────────────────────────── */
 export default function EtlChangeLogPage() {
-  const [period, setPeriod] = useState(7);
+  const [period, setPeriod] = useState(1);
   const [filterField, setFilterField] = useState('all');
   const [searchSN, setSearchSN] = useState('');
 
