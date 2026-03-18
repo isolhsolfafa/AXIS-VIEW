@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-16 (#20 per_page 상한 완화)
+> 마지막 업데이트: 2026-03-18 (#21 QR search에 Order No 추가)
 
 ---
 
@@ -906,6 +906,30 @@ if len(rows) == 0:
 ```
 
 **커밋**: `23c60c0` (AXIS-OPS main)
+
+---
+
+### 21. QR 목록 search 파라미터에 Order No 검색 추가 — PENDING
+
+**요청일**: 2026-03-18
+
+**엔드포인트**: `GET /api/admin/qr/list`
+
+**현재 동작**: `search` 파라미터가 `serial_number`, `qr_doc_id`만 매칭
+
+**요청 내용**: `search` LIKE 검색 대상에 `sales_order` (Order No) 추가
+
+**수정 위치**: `backend/app/routes/qr.py` — QR 목록 쿼리의 search WHERE 절
+
+```sql
+-- 현재
+WHERE (qr.serial_number ILIKE '%{search}%' OR qr.qr_doc_id ILIKE '%{search}%')
+
+-- 변경 후
+WHERE (qr.serial_number ILIKE '%{search}%' OR qr.qr_doc_id ILIKE '%{search}%' OR pi.sales_order ILIKE '%{search}%')
+```
+
+**FE 상태**: placeholder 텍스트 변경 대기 ("S/N, QR Doc ID, Order No 검색...")
 
 ---
 
