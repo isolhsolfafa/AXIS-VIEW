@@ -64,6 +64,31 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }
   revoked: { label: '폐기',    bg: 'rgba(239,68,68,0.1)',   color: '#dc2626' },
 };
 
+/* ── QR 타입 뱃지 ── */
+function QrTypeBadge({ qrType, qrDocId }: { qrType: 'PRODUCT' | 'TANK'; qrDocId: string }) {
+  if (qrType === 'TANK') {
+    const side = qrDocId.endsWith('-L') ? 'L' : 'R';
+    return (
+      <span style={{
+        display: 'inline-block', padding: '3px 8px', borderRadius: '4px',
+        fontSize: '11px', fontWeight: 600,
+        background: 'rgba(59,130,246,0.1)', color: '#2563eb',
+      }}>
+        Tank-{side}
+      </span>
+    );
+  }
+  return (
+    <span style={{
+      display: 'inline-block', padding: '3px 8px', borderRadius: '4px',
+      fontSize: '11px', fontWeight: 600,
+      background: 'rgba(100,116,139,0.1)', color: '#64748B',
+    }}>
+      제품
+    </span>
+  );
+}
+
 function StatusBadge({ status }: { status: string }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.active;
   return (
@@ -250,6 +275,7 @@ export default function QrManagementPage() {
   /* ── 테이블 컬럼 정의 ── */
   const columns: { key: string; label: string; sortable: boolean; width?: string }[] = [
     { key: 'qr_doc_id', label: 'QR Doc ID', sortable: false, width: '180px' },
+    { key: 'qr_type', label: '타입', sortable: false, width: '80px' },
     { key: 'serial_number', label: 'S/N', sortable: true, width: '140px' },
     { key: 'model', label: '모델', sortable: true, width: '130px' },
     { key: 'sales_order', label: 'Order No', sortable: true, width: '120px' },
@@ -556,6 +582,9 @@ export default function QrManagementPage() {
                     >
                       <td style={{ padding: '11px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--gx-accent)', fontWeight: 500 }}>
                         {item.qr_doc_id}
+                      </td>
+                      <td style={{ padding: '11px 14px' }}>
+                        <QrTypeBadge qrType={item.qr_type ?? 'PRODUCT'} qrDocId={item.qr_doc_id} />
                       </td>
                       <td style={{ padding: '11px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
                         {item.serial_number}

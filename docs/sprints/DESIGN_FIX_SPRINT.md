@@ -3105,3 +3105,230 @@ export default function Layout({ children, title, ... }: LayoutProps) {
 - [ ] 권한 테스트 5개 시나리오 통과
 - [ ] 반응형 4개 해상도 확인
 - [ ] 버전 bump + CHANGELOG
+
+---
+
+# Sprint 5: 다모델 QR 대시보드 — DUAL L/R Tank QR 표시 + 공수 합산
+
+> **의존성**: AXIS-OPS Sprint 31A (다모델 지원) 완료 후 진행
+> **범위**: FE — QR 대시보드 페이지, 공수 현황 페이지
+> **BE 변경**: qr_registry에 qr_type, parent_qr_doc_id 컬럼 추가됨 (Sprint 31A)
+
+## 배경
+
+Sprint 31A에서 DUAL 모델(GAIA-I DUAL, iVAS 등)의 Tank QR이 L/R로 분리되었음.
+- 제품 QR: `DOC_{SN}` — 캐비넷 본체에 부착, MECH/ELEC/PI/QI/SI 전 공정 입력 장치
+- Tank QR: `DOC_{SN}-L`, `DOC_{SN}-R` — 캐비넷 안에 들어가는 탱크 모듈에 부착, TMS 작업용
+
+qr_registry 스키마 변경:
+```
+qr_type: 'PRODUCT' (기본) | 'TANK' (L/R 탱크)
+parent_qr_doc_id: TANK QR인 경우 상위 PRODUCT QR의 qr_doc_id 참조
+```
+
+model_config에서 DUAL 여부가 결정되고, ETL(step2_load.py)에서 TANK QR이 자동 생성됨.
+View에서는 model_config를 직접 참조할 필요 없이, qr_registry 데이터만 그대로 표시하면 됨.
+
+## 물리적 흐름 이해
+
+```
+TMS 라인                    캐비넷 라인
+──────────                  ──────────────────────────────────
+[Tank-L 제작] ──┐
+  (DOC_{SN}-L)  ├──→ [도킹] → PI → QI → SI → 출하
+[Tank-R 제작] ──┘      ↑
+  (DOC_{SN}-R)     MECH → ELEC
+                   (DOC_{SN})
+```
+
+공수 = SN-L(TMS) + SN-R(TMS) + SN(MECH+ELEC+PI+QI+SI)
+
+---
+
+## Task 1: QR 대시보드 — 모듈시작 필터 수정
+
+### 현재 동작
+모듈시작 필터 선택 시 해당 serial_number의 모든 QR이 표시됨.
+DUAL 제품의 경우 PRODUCT QR + TANK L + TANK R = 3건이 보여서 불필요한 항목이 포함됨.
+
+### 수정 목표
+- **기구시작 필터**: PRODUCT QR만 표시 (기존과 동일, 변경 없음)
+- **모듈시작 필터**: DUAL이면 TANK QR만 표시, SINGLE이면 PRODUCT QR 표시
+
+### API 쿼리 수정 (BE 또는 FE에서 처리)
+
+```sql
+-- 모듈시작 화면: TANK QR이 있으면 TANK만, 없으면 PRODUCT
+SELECT qr.qr_doc_id, qr.serial_number, qr.qr_type,
+       qr.parent_qr_doc_id, qr.status,
+       pi.model, pi.module_start, pi.mech_partner
+FROM qr_registry qr
+JOIN plan.product_info pi ON qr.serial_number = pi.serial_number
+WHERE pi.module_start IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM qr_registry t
+    WHERE t.serial_number = qr.serial_number
+      AND t.qr_type = 'TANK'
+      AND qr.qr_type = 'PRODUCT'
+  )
+ORDER BY pi.module_start;
+```
+
+결과:
+| 모델 | 표시되는 QR |
+|---|---|
+| GAIA-I (SINGLE) | DOC_12345 (PRODUCT) |
+| GAIA-I DUAL | DOC_12345-L, DOC_12345-R (TANK만) |
+| iVAS | DOC_67890-L, DOC_67890-R (TANK만) |
+
+### FE 수정 포인트
+- QR 대시보드 테이블에 `qr_type` 컬럼 표시 (PRODUCT / TANK 뱃지)
+- TANK QR 행에 "(L)" "(R)" 접미사 시각적 표시
+- 기존 기구시작 필터는 변경 불필요 (TANK QR은 mech_start 없으므로 자연 필터링)
+
+---
+
+## Task 2: QR 테이블 UI 개선
+
+### TANK QR 시각 표시
+```jsx
+// QR 타입 뱃지
+{qr.qr_type === 'TANK' && (
+  <Badge variant="info" size="sm">
+    {qr.qr_doc_id.endsWith('-L') ? 'Tank-L' : 'Tank-R'}
+  </Badge>
+)}
+{qr.qr_type === 'PRODUCT' && (
+  <Badge variant="default" size="sm">제품</Badge>
+)}
+```
+
+### DUAL 제품 그룹핑 (선택적)
+DUAL 제품의 경우 serial_number 기준으로 L/R을 한 행으로 묶어서 표시할 수도 있음:
+```
+SN: ABC-12345  |  모델: GAIA-I DUAL  |  Tank-L: ✅ 완료  |  Tank-R: ⏳ 진행중
+```
+
+---
+
+## SWS JP 라인 PI 예외 참고
+
+SWS 모델은 기본적으로 PI_CHAMBER만 진행 (model_config: pi_lng_util=FALSE, pi_chamber=TRUE).
+단, product_info.line='JP'인 경우 task_seed.py에서 런타임에 pi_lng_util=TRUE로 오버라이드.
+View에서는 app_task_details.is_applicable 값을 그대로 표시하면 되고, 별도 분기 불필요.
+
+---
+
+## 체크리스트
+
+### Task 1 — 모듈시작 필터
+- [ ] API 쿼리에 qr_type 기반 필터링 적용 (DUAL → TANK만, SINGLE → PRODUCT)
+- [ ] 기구시작 필터 기존 동작 유지 확인
+
+### Task 2 — QR 테이블 UI
+- [ ] qr_type 뱃지 (제품 / Tank-L / Tank-R) 표시
+- [ ] DUAL 제품 그룹핑 표시 (선택적)
+
+### 검증
+- [ ] GAIA-I DUAL 제품: 모듈시작에서 TANK L/R만 표시
+- [ ] GAIA-I SINGLE 제품: 모듈시작에서 PRODUCT QR 표시, 기존 동작 유지
+- [ ] iVAS 제품: always_dual — TANK L/R 표시 확인
+- [ ] DRAGON 제품: TANK QR 없음, TMS 없음 — 모듈시작에 미표시 확인
+- [ ] SWS 제품: TANK QR 없음 (tank_in_mech), 모듈시작에 미표시 확인
+- [ ] npm run build 에러 없음
+
+---
+
+# Backlog: 다모델 QR 확장 (Sprint 5에서 분리)
+
+> Sprint 5 Task 1/2 완료 후 필요 시 진행. 신규 페이지 + 신규 API 필요.
+
+## 공수 현황 페이지 — L + R + 본체 합산
+
+**범위**: 신규 페이지 개발 + OPS BE API 신규 필요
+
+### 공수 계산 구조
+```
+총 공수 = TMS(L) + TMS(R) + MECH + ELEC + PI + QI + SI
+```
+
+serial_number 기준 GROUP BY로 모든 qr_doc_id의 작업시간이 합산됨.
+
+### API 쿼리 예시
+```sql
+SELECT
+  t.serial_number,
+  pi.model,
+  t.task_category,
+  SUM(t.duration_minutes) AS total_duration,
+  COUNT(CASE WHEN t.completed_at IS NOT NULL THEN 1 END) AS completed_count,
+  COUNT(*) AS total_count
+FROM app_task_details t
+JOIN plan.product_info pi ON t.serial_number = pi.serial_number
+WHERE t.is_applicable = TRUE
+GROUP BY t.serial_number, pi.model, t.task_category
+ORDER BY t.serial_number, t.task_category;
+```
+
+### FE 표시 (공수 현황 테이블)
+| S/N | 모델 | MECH | ELEC | TMS(L) | TMS(R) | PI | QI | SI | 합계 |
+|---|---|---|---|---|---|---|---|---|---|
+| ABC-123 | GAIA-I DUAL | 120m | 80m | 45m | 45m | 30m | 20m | 15m | 355m |
+| DEF-456 | GAIA-I | 120m | 80m | 90m | - | 30m | 20m | 15m | 355m |
+
+DUAL 모델: TMS가 L/R로 분리 표시
+SINGLE 모델: TMS 하나로 표시
+
+### TMS L/R 구분 쿼리
+```sql
+SELECT
+  t.serial_number,
+  CASE
+    WHEN t.qr_doc_id LIKE '%-L' THEN 'TMS(L)'
+    WHEN t.qr_doc_id LIKE '%-R' THEN 'TMS(R)'
+    ELSE 'TMS'
+  END AS tms_label,
+  SUM(t.duration_minutes) AS duration
+FROM app_task_details t
+WHERE t.task_category = 'TMS'
+  AND t.is_applicable = TRUE
+GROUP BY t.serial_number, tms_label;
+```
+
+### 체크리스트
+- [ ] OPS BE 공수 조회 API 개발
+- [ ] serial_number 기준 전체 공수 합산 표시
+- [ ] DUAL 모델 TMS L/R 분리 컬럼 표시
+- [ ] SINGLE 모델 TMS 단일 컬럼 표시
+
+---
+
+## 제품 상세 페이지 — Tank QR 연관 표시
+
+**범위**: 신규 페이지 개발 (QR 행 클릭 → 상세)
+
+### API 호출
+```
+GET /api/app/qr?serial_number={sn}
+```
+
+### FE 표시
+```
+제품 정보
+  S/N: ABC-12345
+  모델: GAIA-I DUAL
+  제품 QR: DOC_ABC-12345
+
+연관 Tank QR
+  ┌─────────────────────┬──────────┬───────────┐
+  │ QR                  │ 타입     │ TMS 진행률 │
+  ├─────────────────────┼──────────┼───────────┤
+  │ DOC_ABC-12345-L     │ Tank-L   │ 2/2 완료  │
+  │ DOC_ABC-12345-R     │ Tank-R   │ 1/2 진행  │
+  └─────────────────────┴──────────┴───────────┘
+```
+
+### 체크리스트
+- [ ] OPS BE 상세 조회 API 확인/개발
+- [ ] 연관 TANK QR 목록 표시
+- [ ] TANK QR별 TMS 진행률 표시
