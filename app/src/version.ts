@@ -18,4 +18,4 @@ export const BUILD_DATE = '2026-03-18';
 // v1.6.1 | 2026-03-15 | ETL 개선       | O/N 컬럼 추가 + pi_start 변경 추적 + summary limit 수정
 // v1.7.0 | 2026-03-16 | Sprint 29 연동 | 공장 API 실데이터 연동 + 대시보드/생산일정 리팩토링
 // v1.7.1 | 2026-03-16 | UX 개선        | 공장 대시보드 자동 새로고침 + 근태 근무지 컬럼
-// v1.8.0 | 2026-03-18 | Sprint 5       | QR DUAL Tank 뱃지 + 기구/모듈 필터 분리 + ETL 오늘 필터 + Order No 검색
+// v1.8.0 | 2026-03-18 | Sprint 5       | QR DUAL Tank 뱃지 + 기구/모듈 필터 분리 + ETL 오늘 필터 + Order No 검색 + 슬라이드 정지/재생
