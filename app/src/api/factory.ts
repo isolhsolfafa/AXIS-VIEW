@@ -21,6 +21,19 @@ export interface CompletionStatus {
   si: boolean;
 }
 
+export interface CategoryProgress {
+  total: number;
+  completed: number;
+  pct: number;
+}
+
+export interface TaskProgress {
+  total: number;
+  completed: number;
+  progress_pct: number;
+  by_category: Record<string, CategoryProgress>;
+}
+
 export interface ProductionItem {
   sales_order: string;
   product_code: string;
@@ -41,6 +54,7 @@ export interface ProductionItem {
   ship_plan_date: string | null;
   completion: CompletionStatus;
   progress_pct: number;
+  task_progress?: TaskProgress;
 }
 
 export interface ModelCount {

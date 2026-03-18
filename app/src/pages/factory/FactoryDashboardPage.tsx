@@ -388,8 +388,14 @@ export default function FactoryDashboardPage() {
                 <tr><td colSpan={8} style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--gx-steel)', fontSize: '13px' }}>데이터 없음</td></tr>
               ) : (
                 visibleItems.map(r => {
-                  const pLevel = progressLevel(r.progress_pct);
-                  const sCfg = statusOf(r.progress_pct);
+                  const tp = r.task_progress;
+                  const cats = ['MECH', 'ELEC', 'TMS'] as const;
+                  const viewTotal = tp ? cats.reduce((s, c) => s + (tp.by_category[c]?.total || 0), 0) : 0;
+                  const viewCompleted = tp ? cats.reduce((s, c) => s + (tp.by_category[c]?.completed || 0), 0) : 0;
+                  const viewPct = viewTotal > 0 ? Math.round(viewCompleted / viewTotal * 1000) / 10 : r.progress_pct;
+                  const pLevel = progressLevel(viewPct);
+                  const sCfg = statusOf(viewPct);
+                  const CAT_COLORS: Record<string, string> = { MECH: '#3B82F6', ELEC: '#F59E0B', TMS: '#8B5CF6' };
                   return (
                     <tr key={r.serial_number} style={{ borderBottom: '1px solid var(--gx-cloud)' }}>
                       <td style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>{r.model}</td>
@@ -397,15 +403,32 @@ export default function FactoryDashboardPage() {
                       <td style={{ padding: '14px 20px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--gx-graphite)' }}>{r.mech_start?.slice(5) || '—'}</td>
                       <td style={{ padding: '14px 20px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--gx-graphite)' }}>{r.finishing_plan_end?.slice(5) || '—'}</td>
                       <td style={{ padding: '14px 20px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: tp ? '6px' : 0 }}>
                           <div style={{ flex: 1, height: '6px', borderRadius: '3px', background: 'var(--gx-mist)', minWidth: '80px', overflow: 'hidden' }}>
-                            <div style={{ width: `${r.progress_pct}%`, height: '100%', borderRadius: '3px', background: pLevel.bar }} />
+                            <div style={{ width: `${viewPct}%`, height: '100%', borderRadius: '3px', background: pLevel.bar }} />
                           </div>
                           <span style={{
                             fontSize: '12px', fontWeight: 600, color: pLevel.text,
                             fontFamily: "'JetBrains Mono', monospace", minWidth: '42px', textAlign: 'right' as const,
-                          }}>{r.progress_pct}%</span>
+                          }}>{viewPct}%</span>
                         </div>
+                        {tp && (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            {cats.map(cat => {
+                              const c = tp.by_category[cat];
+                              if (!c) return null;
+                              return (
+                                <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <span style={{ fontSize: '9px', fontWeight: 600, color: CAT_COLORS[cat], minWidth: '28px' }}>{cat}</span>
+                                  <div style={{ width: '36px', height: '3px', borderRadius: '2px', background: 'var(--gx-mist)', overflow: 'hidden' }}>
+                                    <div style={{ width: `${c.pct}%`, height: '100%', borderRadius: '2px', background: CAT_COLORS[cat] }} />
+                                  </div>
+                                  <span style={{ fontSize: '9px', color: 'var(--gx-steel)', fontFamily: "'JetBrains Mono', monospace" }}>{c.completed}/{c.total}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: '14px 20px' }}>
                         <span style={{

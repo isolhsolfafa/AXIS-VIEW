@@ -3335,3 +3335,135 @@ GET /api/app/qr?serial_number={sn}
 - [ ] OPS BE 상세 조회 API 확인/개발
 - [ ] 연관 TANK QR 목록 표시
 - [ ] TANK QR별 TMS 진행률 표시
+
+---
+
+# Sprint 6: 태스크 레벨 진행률 — 공장 대시보드 OPS 앱 동기화 ✅ FE 완료
+
+> **목적**: 공장 대시보드(VIEW)에서 OPS 앱과 동일한 태스크 단위 진행률 표시
+> **범위**: FE — 생산 현황 상세 페이지 (monthly-detail)
+> **BE 변경**: ✅ factory.py `task_progress` 필드 추가 완료 (Cowork에서 수정됨)
+
+## 배경
+
+현재 공장 대시보드는 **공정 단위**(MECH/ELEC/TMS/PI/QI/SI boolean)로 진행률을 표시.
+OPS 앱은 **태스크 단위**(완료 태스크 수 / 전체 태스크 수)로 표시.
+
+```
+동일 제품 (MECH 3/7 완료, TMS 4/4 완료):
+
+현재 VIEW:  전체 0%, MECH 0%, TMS 0%     ← 공정 전체 완료가 아니라 0%
+OPS 앱:    전체 33%, MECH 50%, TMS 100%  ← 태스크별 비율
+```
+
+## BE 수정 (✅ 완료)
+
+`backend/app/routes/factory.py`에 `_get_task_progress_by_serial()` 함수 추가.
+`GET /api/admin/factory/monthly-detail` 응답에 `task_progress` 필드 추가됨.
+
+### API 응답 변경 (기존 필드 유지 + 신규 추가)
+
+```json
+{
+  "serial_number": "GBWS-6899",
+  "model": "GAIA-I DUAL",
+  "completion": {
+    "mech": false, "elec": false, "tm": false,
+    "pi": false, "qi": false, "si": false
+  },
+  "progress_pct": 0.0,
+  "task_progress": {
+    "total": 20,
+    "completed": 7,
+    "progress_pct": 35.0,
+    "by_category": {
+      "MECH": {"total": 7, "completed": 3, "pct": 42.9},
+      "ELEC": {"total": 6, "completed": 0, "pct": 0.0},
+      "TMS":  {"total": 4, "completed": 4, "pct": 100.0},
+      "PI":   {"total": 2, "completed": 0, "pct": 0.0},
+      "QI":   {"total": 1, "completed": 0, "pct": 0.0},
+      "SI":   {"total": 2, "completed": 0, "pct": 0.0}
+    }
+  }
+}
+```
+
+하위 호환: 기존 `progress_pct` (공정 단위)와 `completion` (boolean) 필드는 그대로 유지.
+신규 `task_progress` 필드를 사용하면 OPS 앱과 동일한 태스크 레벨 진행률 표시 가능.
+
+## FE 수정 (Teammate 작업)
+
+> CLAUDE.md를 먼저 읽고 현재 프로젝트 구조를 파악할 것.
+
+### Task 1: 생산 현황 상세 — 진행률 바 태스크 레벨로 변경
+
+현재 monthly-detail 페이지에서 `progress_pct` (공정 단위)로 프로그레스바를 표시하고 있음.
+이를 `task_progress.progress_pct` (태스크 단위)로 변경.
+
+```
+현재:  전체 진행률 = completion boolean 카운트 / 공정 수
+변경:  전체 진행률 = task_progress.completed / task_progress.total
+```
+
+### Task 2: 카테고리별 진행률 바 추가
+
+각 제품 카드/행에서 카테고리별 태스크 진행률을 표시.
+**⚠️ VIEW에서는 협력사 공정(MECH, ELEC, TMS)만 표시. PI/QI/SI는 사내공정이라 VIEW에서 미표시.**
+
+표시 대상 카테고리 (설정 기반 — 추후 확장 가능):
+```javascript
+// 기본값: 협력사 공정만
+const DEFAULT_VIEW_CATEGORIES = ['MECH', 'ELEC', 'TMS'];
+
+// 설정에서 오버라이드 가능 (admin_settings 또는 localStorage)
+const viewCategories = settings.dashboardCategories || DEFAULT_VIEW_CATEGORIES;
+```
+
+나중에 PI/QI/SI도 보고 싶으면 설정에서 추가하면 됨 (코드 수정 불필요).
+
+```
+GBWS-6899 | GAIA-I DUAL | 전체: 35%
+  MECH  ████████░░░░░░  42.9%  (3/7)
+  ELEC  ░░░░░░░░░░░░░░   0.0%  (0/6)
+  TMS   ██████████████ 100.0%  (4/4)
+```
+
+전체 진행률(`task_progress.progress_pct`)은 BE에서 전체(PI/QI/SI 포함) 기준으로 계산되므로,
+VIEW용 전체 진행률은 FE에서 MECH+ELEC+TMS만으로 재계산:
+```javascript
+const viewCategories = ['MECH', 'ELEC', 'TMS'];
+const viewTotal = viewCategories.reduce((sum, cat) => sum + (byCategory[cat]?.total || 0), 0);
+const viewCompleted = viewCategories.reduce((sum, cat) => sum + (byCategory[cat]?.completed || 0), 0);
+const viewPct = viewTotal > 0 ? Math.round(viewCompleted / viewTotal * 1000) / 10 : 0;
+```
+
+`task_progress.by_category`에서 VIEW_CATEGORIES에 해당하는 것만 렌더링.
+카테고리가 없으면 해당 모델에 적용 안 되는 공정 (예: DRAGON의 TMS → 미표시).
+
+### Task 3: KPI 카드 — 전체 완료율도 태스크 기반으로 변경
+
+주간 KPI의 `completion_rate`도 태스크 기반으로 변경할 수 있으나,
+이건 별도 API 수정이 필요하므로 **Phase 2에서 진행** (선택적).
+
+현재는 monthly-detail의 개별 제품 진행률만 변경.
+
+## 체크리스트
+
+**BE (✅ 완료)**:
+- [x] factory.py — `_get_task_progress_by_serial()` 함수 추가
+- [x] monthly-detail 응답에 `task_progress` 필드 추가 (하위 호환)
+
+**FE (완료)**:
+- [x] monthly-detail 페이지: 전체 진행률을 MECH+ELEC+TMS 태스크 기준으로 재계산
+- [x] 카테고리별 미니 프로그레스바 표시 (MECH/ELEC/TMS — 색상 구분)
+- [x] 완료 수 / 전체 수 텍스트 표시 (예: "3/7")
+- [x] 카테고리 미존재 시 해당 바 미표시 (모델별 자동 대응)
+- [x] 기존 `completion` boolean 뱃지는 유지 (상태 컬럼)
+- [x] `task_progress` 없을 시 기존 `progress_pct` fallback
+- [x] `TaskProgress`, `CategoryProgress` 타입 추가 (`api/factory.ts`)
+- [x] npm run build 에러 없음
+
+**검증 (배포 후)**:
+- [ ] GAIA-I DUAL: MECH/ELEC/TMS 전부 표시 확인
+- [ ] DRAGON: TMS 미표시 확인
+- [ ] 기존 데이터 없는 제품: task_progress 빈 객체 처리 (에러 안 나게)
