@@ -258,14 +258,23 @@ export default function QrManagementPage() {
         date_to: dateTo || undefined,
       };
       const result = await getQrList(exportParams);
-      if (result.items.length === 0) {
+      let exportItems = result.items;
+      // 화면과 동일한 필터/정렬 적용
+      if (dateField === 'mech_start') {
+        exportItems = exportItems.filter(item => resolveQrType(item.qr_type, item.qr_doc_id) === 'PRODUCT');
+      } else {
+        exportItems = [...exportItems].sort((a, b) =>
+          a.serial_number.localeCompare(b.serial_number) || a.qr_doc_id.localeCompare(b.qr_doc_id)
+        );
+      }
+      if (exportItems.length === 0) {
         alert('추출할 데이터가 없습니다.');
         return;
       }
       const dateLabel = dateField === 'mech_start' ? '기구시작' : '모듈시작';
       const range = dateFrom || dateTo ? `_${dateFrom || ''}~${dateTo || ''}` : '';
       const filename = `QR_${dateLabel}${range}.csv`;
-      downloadCsv(result.items, filename);
+      downloadCsv(exportItems, filename);
     } catch {
       alert('CSV 추출 중 오류가 발생했습니다.');
     } finally {
