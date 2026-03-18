@@ -69,6 +69,7 @@ export default function FactoryDashboardPage() {
   /* ── 자동 슬라이드 페이지네이션 (5건씩, 5초 간격) ── */
   const ITEMS_PER_SLIDE = 5;
   const [slidePage, setSlidePage] = useState(0);
+  const [slideAutoPlay, setSlideAutoPlay] = useState(true);
 
   const sortedItems = useMemo(() => {
     if (!monthly?.items?.length) return [];
@@ -84,12 +85,12 @@ export default function FactoryDashboardPage() {
   const visibleItems = sortedItems.slice(slidePage * ITEMS_PER_SLIDE, (slidePage + 1) * ITEMS_PER_SLIDE);
 
   useEffect(() => {
-    if (sortedItems.length <= ITEMS_PER_SLIDE) return;
+    if (!slideAutoPlay || sortedItems.length <= ITEMS_PER_SLIDE) return;
     const timer = setInterval(() => {
       setSlidePage(prev => (prev + 1) % totalSlidePages);
     }, 5000);
     return () => clearInterval(timer);
-  }, [sortedItems.length, totalSlidePages]);
+  }, [sortedItems.length, totalSlidePages, slideAutoPlay]);
 
   const kpiCards = useMemo(() => {
     if (!kpi) return [];
@@ -323,6 +324,28 @@ export default function FactoryDashboardPage() {
             </div>
             {totalSlidePages > 1 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  onClick={() => setSlideAutoPlay(prev => !prev)}
+                  style={{
+                    width: '28px', height: '28px', borderRadius: 'var(--radius-gx-sm)',
+                    border: '1px solid var(--gx-mist)', background: 'var(--gx-cloud)',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: slideAutoPlay ? 'var(--gx-accent)' : 'var(--gx-steel)',
+                    transition: 'all 0.2s', marginRight: '4px',
+                  }}
+                  title={slideAutoPlay ? '자동 전환 정지' : '자동 전환 재생'}
+                >
+                  {slideAutoPlay ? (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                      <rect x="2" y="1" width="3" height="10" rx="0.5"/>
+                      <rect x="7" y="1" width="3" height="10" rx="0.5"/>
+                    </svg>
+                  ) : (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                      <path d="M2.5 1.5v9l8-4.5z"/>
+                    </svg>
+                  )}
+                </button>
                 {Array.from({ length: totalSlidePages }).map((_, i) => (
                   <button
                     key={i}
