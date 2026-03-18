@@ -65,26 +65,30 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }
 };
 
 /* ── QR 타입 뱃지 ── */
-function QrTypeBadge({ qrType, qrDocId }: { qrType: 'PRODUCT' | 'TANK'; qrDocId: string }) {
-  if (qrType === 'TANK') {
-    const side = qrDocId.endsWith('-L') ? 'L' : 'R';
-    return (
-      <span style={{
-        display: 'inline-block', padding: '3px 8px', borderRadius: '4px',
-        fontSize: '11px', fontWeight: 600,
-        background: 'rgba(59,130,246,0.1)', color: '#2563eb',
-      }}>
-        Tank-{side}
-      </span>
-    );
-  }
+function resolveQrType(qrType: string | undefined, qrDocId: string): 'PRODUCT' | 'TANK-L' | 'TANK-R' {
+  if (qrType === 'TANK') return qrDocId.endsWith('-L') ? 'TANK-L' : 'TANK-R';
+  // BE에서 qr_type 미제공 시 QR Doc ID 접미사로 판별
+  if (qrDocId.endsWith('-L')) return 'TANK-L';
+  if (qrDocId.endsWith('-R')) return 'TANK-R';
+  return 'PRODUCT';
+}
+
+const QR_TYPE_STYLE: Record<string, { label: string; bg: string; color: string }> = {
+  'PRODUCT': { label: '제품', bg: 'rgba(100,116,139,0.1)', color: '#64748B' },
+  'TANK-L':  { label: 'Tank-L', bg: 'rgba(59,130,246,0.1)', color: '#2563eb' },
+  'TANK-R':  { label: 'Tank-R', bg: 'rgba(139,92,246,0.1)', color: '#7c3aed' },
+};
+
+function QrTypeBadge({ qrType, qrDocId }: { qrType?: 'PRODUCT' | 'TANK'; qrDocId: string }) {
+  const resolved = resolveQrType(qrType, qrDocId);
+  const cfg = QR_TYPE_STYLE[resolved];
   return (
     <span style={{
       display: 'inline-block', padding: '3px 8px', borderRadius: '4px',
       fontSize: '11px', fontWeight: 600,
-      background: 'rgba(100,116,139,0.1)', color: '#64748B',
+      background: cfg.bg, color: cfg.color,
     }}>
-      제품
+      {cfg.label}
     </span>
   );
 }
@@ -286,11 +290,22 @@ export default function QrManagementPage() {
     { key: 'status', label: '상태', sortable: false, width: '80px' },
   ];
 
-  const items = data?.items ?? [];
+  const rawItems = data?.items ?? [];
   const stats = data?.stats ?? { total: 0, active: 0, shipped: 0, revoked: 0 };
   const models = data?.models ?? [];
   const totalPages = data?.total_pages ?? 1;
   const total = data?.total ?? 0;
+
+  // 기구시작: TANK QR 숨김 / 모듈시작: S/N 기준 그룹핑 정렬
+  const items = useMemo(() => {
+    if (dateField === 'mech_start') {
+      return rawItems.filter(item => resolveQrType(item.qr_type, item.qr_doc_id) === 'PRODUCT');
+    }
+    // 모듈시작: 같은 S/N끼리 묶이도록 serial_number → qr_doc_id 순 정렬
+    return [...rawItems].sort((a, b) =>
+      a.serial_number.localeCompare(b.serial_number) || a.qr_doc_id.localeCompare(b.qr_doc_id)
+    );
+  }, [rawItems, dateField]);
 
   /* ── 공통 input 스타일 ── */
   const selectStyle: React.CSSProperties = {

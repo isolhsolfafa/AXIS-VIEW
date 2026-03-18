@@ -5,7 +5,7 @@ export interface QrRecord {
   qr_id: number;
   qr_doc_id: string;
   serial_number: string;
-  status: 'active' | 'revoked';
+  status: 'active' | 'shipped' | 'revoked';
   qr_type: 'PRODUCT' | 'TANK';
   parent_qr_doc_id: string | null;
   qr_created_at: string | null;
