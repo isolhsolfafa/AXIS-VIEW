@@ -66,6 +66,22 @@ export default function FactoryDashboardPage() {
   const handleRefreshAll = () => { refetchKpi(); refetchMonthly(); refetchEtl(); };
   const lastSync = kpiUpdatedAt ? new Date(kpiUpdatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '—';
 
+  /* ── 카테고리 필터 (localStorage 저장) ── */
+  const ALL_CATEGORIES = ['MECH', 'ELEC', 'TMS', 'PI', 'QI', 'SI'] as const;
+  const [viewCategories, setViewCategories] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('axis_view_dashboard_categories');
+      return saved ? JSON.parse(saved) : ['MECH', 'ELEC', 'TMS'];
+    } catch { return ['MECH', 'ELEC', 'TMS']; }
+  });
+  const toggleCategory = (cat: string) => {
+    setViewCategories(prev => {
+      const next = prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat];
+      localStorage.setItem('axis_view_dashboard_categories', JSON.stringify(next));
+      return next;
+    });
+  };
+
   /* ── 자동 슬라이드 페이지네이션 (5건씩, 5초 간격) ── */
   const ITEMS_PER_SLIDE = 5;
   const [slidePage, setSlidePage] = useState(0);
@@ -318,8 +334,20 @@ export default function FactoryDashboardPage() {
           <div style={{ padding: '20px 24px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>생산 현황 상세</div>
-              <div style={{ fontSize: '11px', color: 'var(--gx-steel)', marginTop: '2px' }}>
-                이번 달 기구시작 기준 정렬 · 총 {sortedItems.length}건
+              <div style={{ fontSize: '11px', color: 'var(--gx-steel)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span>이번 달 기구시작 기준 정렬 · 총 {sortedItems.length}건</span>
+                <span style={{ color: 'var(--gx-mist)' }}>|</span>
+                {ALL_CATEGORIES.map(cat => (
+                  <label key={cat} style={{ display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', userSelect: 'none' }}>
+                    <input
+                      type="checkbox"
+                      checked={viewCategories.includes(cat)}
+                      onChange={() => toggleCategory(cat)}
+                      style={{ width: '12px', height: '12px', accentColor: 'var(--gx-accent)', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '10px', fontWeight: 600, color: viewCategories.includes(cat) ? 'var(--gx-charcoal)' : 'var(--gx-silver)' }}>{cat}</span>
+                  </label>
+                ))}
               </div>
             </div>
             {totalSlidePages > 1 && (
@@ -388,14 +416,13 @@ export default function FactoryDashboardPage() {
                 <tr><td colSpan={8} style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--gx-steel)', fontSize: '13px' }}>데이터 없음</td></tr>
               ) : (
                 visibleItems.map(r => {
-                  const tp = r.task_progress;
-                  const cats = ['MECH', 'ELEC', 'TMS'] as const;
-                  const viewTotal = tp ? cats.reduce((s, c) => s + (tp.by_category[c]?.total || 0), 0) : 0;
-                  const viewCompleted = tp ? cats.reduce((s, c) => s + (tp.by_category[c]?.completed || 0), 0) : 0;
+                  const tp = (r as any).task_progress as import('@/api/factory').TaskProgress | undefined;
+                  const viewTotal = tp ? viewCategories.reduce((s: number, c: string) => s + (tp.by_category[c]?.total || 0), 0) : 0;
+                  const viewCompleted = tp ? viewCategories.reduce((s: number, c: string) => s + (tp.by_category[c]?.completed || 0), 0) : 0;
                   const viewPct = viewTotal > 0 ? Math.round(viewCompleted / viewTotal * 1000) / 10 : r.progress_pct;
                   const pLevel = progressLevel(viewPct);
                   const sCfg = statusOf(viewPct);
-                  const CAT_COLORS: Record<string, string> = { MECH: '#3B82F6', ELEC: '#F59E0B', TMS: '#8B5CF6' };
+                  const CAT_COLORS: Record<string, string> = { MECH: '#3B82F6', ELEC: '#F59E0B', TMS: '#8B5CF6', PI: '#EC4899', QI: '#10B981', SI: '#EF4444' };
                   return (
                     <tr key={r.serial_number} style={{ borderBottom: '1px solid var(--gx-cloud)' }}>
                       <td style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>{r.model}</td>
@@ -414,7 +441,7 @@ export default function FactoryDashboardPage() {
                         </div>
                         {tp && (
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            {cats.map(cat => {
+                            {viewCategories.map(cat => {
                               const c = tp.by_category[cat];
                               if (!c) return null;
                               return (
