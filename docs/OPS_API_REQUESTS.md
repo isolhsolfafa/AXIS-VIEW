@@ -909,7 +909,7 @@ if len(rows) == 0:
 
 ---
 
-### 21. QR 목록 search 파라미터에 Order No 검색 추가 — PENDING
+### 21. QR 목록 search 파라미터에 Order No 검색 추가 — DONE (2026-03-18)
 
 **요청일**: 2026-03-18
 

@@ -433,7 +433,7 @@ export default function QrManagementPage() {
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                placeholder="S/N 또는 QR Doc ID 검색..."
+                placeholder="S/N, QR Doc ID, Order No 검색..."
                 style={{
                   width: '100%', padding: '8px 12px 8px 36px',
                   borderRadius: 'var(--radius-gx-md)', border: '1px solid var(--gx-mist)',
