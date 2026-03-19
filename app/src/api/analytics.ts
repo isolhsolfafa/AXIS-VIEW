@@ -6,40 +6,41 @@ import apiClient from './client';
 /* ── 타입 정의 ── */
 
 export interface AnalyticsSummary {
-  period: string;
-  unique_workers: number;
+  period?: string;
+  unique_users: number;
   total_requests: number;
-  avg_response_ms: number;
+  avg_duration_ms: number;
   error_rate: number;
-  daily: DailyMetric[];
-  prev_unique_workers?: number;
+  error_count?: number;
+  daily?: DailyMetric[];
+  prev_unique_users?: number;
   prev_error_rate?: number;
 }
 
 export interface DailyMetric {
   date: string;
-  unique_workers: number;
+  unique_users: number;
   total_requests: number;
   error_count: number;
 }
 
 export interface WorkerAnalytics {
   worker_id: number;
-  name: string;
+  name?: string;
   email: string;
   role: string;
   company: string;
-  access_count: number;
-  total_duration_min: number;
-  top_endpoints: string[];
+  request_count: number;
+  total_duration_min?: number;
+  top_endpoints?: string[];
 }
 
 export interface EndpointAnalytics {
   endpoint: string;
-  method: string;
-  call_count: number;
-  avg_response_ms: number;
-  error_count: number;
+  method?: string;
+  count: number;
+  avg_duration_ms?: number;
+  error_count?: number;
 }
 
 export interface HourlyTraffic {

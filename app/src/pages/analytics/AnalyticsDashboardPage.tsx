@@ -97,17 +97,19 @@ export default function AnalyticsDashboardPage() {
   const [workerSort, setWorkerSort] = useState<'access' | 'duration'>('access');
   const sortedWorkers = useMemo(() => {
     return [...workers].sort((a, b) =>
-      workerSort === 'access' ? b.access_count - a.access_count : b.total_duration_min - a.total_duration_min
+      workerSort === 'access'
+        ? (b.request_count ?? 0) - (a.request_count ?? 0)
+        : (b.total_duration_min ?? 0) - (a.total_duration_min ?? 0)
     );
   }, [workers, workerSort]);
 
   // 기능별 상위 10개
   const topEndpoints = useMemo(() => {
-    return [...endpoints].sort((a, b) => b.call_count - a.call_count).slice(0, 10);
+    return [...endpoints].sort((a, b) => (b.count ?? 0) - (a.count ?? 0)).slice(0, 10);
   }, [endpoints]);
 
   // 기능별 최대값 (바 비율 계산용)
-  const maxCallCount = topEndpoints.length > 0 ? topEndpoints[0].call_count : 1;
+  const maxCallCount = topEndpoints.length > 0 ? (topEndpoints[0].count ?? 1) : 1;
 
   const selectStyle: React.CSSProperties = {
     padding: '8px 12px', borderRadius: 'var(--radius-gx-md)',
@@ -139,10 +141,10 @@ export default function AnalyticsDashboardPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
           <KpiCard
             label="접속자 수"
-            value={summaryLoading ? '—' : `${summary?.unique_workers ?? 0}명`}
+            value={summaryLoading ? '—' : `${summary?.unique_users ?? 0}명`}
             sub="고유 사용자"
             color="var(--gx-accent)"
-            trend={summary?.prev_unique_workers != null ? `${summary.unique_workers - summary.prev_unique_workers >= 0 ? '▲' : '▼'} ${Math.abs(summary.unique_workers - summary.prev_unique_workers)} vs 전기간` : undefined}
+            trend={summary?.prev_unique_users != null ? `${summary.unique_users - summary.prev_unique_users >= 0 ? '▲' : '▼'} ${Math.abs(summary.unique_users - summary.prev_unique_users)} vs 전기간` : undefined}
           />
           <KpiCard
             label="총 요청 수"
@@ -152,7 +154,7 @@ export default function AnalyticsDashboardPage() {
           />
           <KpiCard
             label="평균 응답"
-            value={summaryLoading ? '—' : `${summary?.avg_response_ms ?? 0}ms`}
+            value={summaryLoading ? '—' : `${summary?.avg_duration_ms ?? 0}ms`}
             sub="API 응답 시간"
             color="var(--gx-success)"
           />
@@ -186,7 +188,7 @@ export default function AnalyticsDashboardPage() {
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: 'var(--gx-steel)' }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid var(--gx-mist)', fontSize: '12px' }} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px' }} />
-                <Bar yAxisId="left" dataKey="unique_workers" name="접속자" fill="var(--gx-accent)" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="left" dataKey="unique_users" name="접속자" fill="var(--gx-accent)" radius={[4, 4, 0, 0]} />
                 <Line yAxisId="right" dataKey="total_requests" name="요청 수" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3 }} />
               </ComposedChart>
             </ResponsiveContainer>
@@ -235,13 +237,13 @@ export default function AnalyticsDashboardPage() {
                     <tr key={w.worker_id} style={{ borderBottom: '1px solid var(--gx-cloud)' }}>
                       <td style={{ padding: '10px 14px', fontWeight: 600, color: i < 3 ? 'var(--gx-accent)' : 'var(--gx-steel)' }}>{i + 1}</td>
                       <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--gx-charcoal)' }}>
-                        <div>{w.name}</div>
+                        <div>{w.name || w.email?.split('@')[0] || '—'}</div>
                         <div style={{ fontSize: '10px', color: 'var(--gx-steel)' }}>{w.company}</div>
                       </td>
                       <td style={{ padding: '10px 14px', color: 'var(--gx-slate)' }}>{w.role}</td>
-                      <td style={{ padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: 'var(--gx-charcoal)' }}>{w.access_count}</td>
+                      <td style={{ padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: 'var(--gx-charcoal)' }}>{w.request_count ?? 0}</td>
                       <td style={{ padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", color: 'var(--gx-slate)' }}>
-                        {w.total_duration_min >= 60 ? `${Math.floor(w.total_duration_min / 60)}h ${w.total_duration_min % 60}m` : `${w.total_duration_min}m`}
+                        {(w.total_duration_min ?? 0) >= 60 ? `${Math.floor((w.total_duration_min ?? 0) / 60)}h ${(w.total_duration_min ?? 0) % 60}m` : `${w.total_duration_min ?? 0}m`}
                       </td>
                     </tr>
                   ))}
@@ -274,7 +276,7 @@ export default function AnalyticsDashboardPage() {
                     </span>
                     <div style={{ flex: 1, height: '18px', borderRadius: '4px', background: 'var(--gx-cloud)', overflow: 'hidden', position: 'relative' }}>
                       <div style={{
-                        width: `${(ep.call_count / maxCallCount) * 100}%`, height: '100%',
+                        width: `${((ep.count ?? 0) / maxCallCount) * 100}%`, height: '100%',
                         borderRadius: '4px', background: i < 3 ? 'var(--gx-accent)' : 'var(--gx-mist)',
                         transition: 'width 0.3s',
                       }} />
@@ -283,7 +285,7 @@ export default function AnalyticsDashboardPage() {
                       fontSize: '11px', fontWeight: 600, color: 'var(--gx-charcoal)',
                       fontFamily: "'JetBrains Mono', monospace", minWidth: '50px', textAlign: 'right',
                     }}>
-                      {Number(ep.call_count ?? 0).toLocaleString()}
+                      {Number(ep.count ?? 0).toLocaleString()}
                     </span>
                   </div>
                 ))}
