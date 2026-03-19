@@ -87,10 +87,11 @@ export default function AnalyticsDashboardPage() {
   const { data: endpointData, isLoading: endpointLoading } = useEndpointAnalytics(period);
   const { data: hourlyData } = useHourlyTraffic(today);
 
-  const summary = summaryData?.summary;
-  const workers = workerData?.workers ?? [];
-  const endpoints = endpointData?.endpoints ?? [];
-  const hourly = hourlyData?.hourly ?? [];
+  // API 응답이 { summary: {...} } 또는 직접 {...} 형태 모두 대응
+  const summary = (summaryData as any)?.summary ?? summaryData ?? null;
+  const workers: any[] = (workerData as any)?.workers ?? (Array.isArray(workerData) ? workerData : []);
+  const endpoints: any[] = (endpointData as any)?.endpoints ?? (Array.isArray(endpointData) ? endpointData : []);
+  const hourly: any[] = (hourlyData as any)?.hourly ?? (Array.isArray(hourlyData) ? hourlyData : []);
 
   // 사용자별 정렬
   const [workerSort, setWorkerSort] = useState<'access' | 'duration'>('access');
@@ -145,7 +146,7 @@ export default function AnalyticsDashboardPage() {
           />
           <KpiCard
             label="총 요청 수"
-            value={summaryLoading ? '—' : `${(summary?.total_requests ?? 0).toLocaleString()}건`}
+            value={summaryLoading ? '—' : `${Number(summary?.total_requests ?? 0).toLocaleString()}건`}
             sub="API 호출"
             color="var(--gx-info)"
           />
@@ -282,7 +283,7 @@ export default function AnalyticsDashboardPage() {
                       fontSize: '11px', fontWeight: 600, color: 'var(--gx-charcoal)',
                       fontFamily: "'JetBrains Mono', monospace", minWidth: '50px', textAlign: 'right',
                     }}>
-                      {ep.call_count.toLocaleString()}
+                      {Number(ep.call_count ?? 0).toLocaleString()}
                     </span>
                   </div>
                 ))}
