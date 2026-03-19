@@ -150,7 +150,10 @@ function SortIndicator({ active, direction }: { active: boolean; direction: 'asc
 function downloadCsv(items: { qr_doc_id: string; serial_number: string }[], filename: string) {
   const BOM = '\uFEFF';
   const header = 'QR_DOC_ID,SN';
-  const rows = items.map(r => `${r.qr_doc_id},${r.serial_number}`);
+  const rows = items.map(r => {
+    const suffix = r.qr_doc_id.endsWith('-L') ? '-L' : r.qr_doc_id.endsWith('-R') ? '-R' : '';
+    return `${r.qr_doc_id},${r.serial_number}${suffix}`;
+  });
   const csv = BOM + [header, ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);

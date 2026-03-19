@@ -866,6 +866,105 @@ API 응답: week: 11, year: 2026, range: 03-09 ~ 03-15
 
 ---
 
+### 22. 출하 카운트 판정 로직 변경 — SI_SHIPMENT task 기준 — PENDING
+
+**요청일**: 2026-03-19
+
+**배경**: 현재 공장 대시보드 `pipeline.shipped`가 `completion_status.si_completed + finishing_plan_end <= today` 기준.
+SI 카테고리는 마무리공정(SI_FINISHING) + 출하완료(SI_SHIPMENT) 2개 task로 구성되어 있어서,
+마무리만 끝나고 출하가 안 된 경우와 실제 출하 완료를 구분할 수 없음.
+
+**SI task 구조**:
+
+| Task ID | Task Name | Type | 의미 |
+|---------|-----------|------|------|
+| `SI_FINISHING` | 마무리공정 | NORMAL (시작/종료) | GST 내부 마무리 공정 |
+| `SI_SHIPMENT` | 출하완료 | SINGLE_ACTION (원클릭) | 실제 출하 처리 (SAP 전산 필요) |
+
+**현재 문제 (`factory.py` L364-377)**:
+
+```python
+# 현재 — si_completed = SI_FINISHING + SI_SHIPMENT 모두 완료
+if r.get('si_completed'):
+    fpe = r.get('finishing_plan_end')
+    if fpe and fpe > today:
+        pipeline['si'] += 1        # 출하예정일 미래 → SI
+    else:
+        pipeline['shipped'] += 1   # 출하예정일 도래 → 출하 (부정확)
+```
+
+**문제점**:
+1. `finishing_plan_end`(마무리종료예정)을 출하 기준으로 사용 — 생산일정용 필드
+2. `si_completed`는 마무리+출하 통합 → 마무리만 완료된 상태 구분 불가
+3. `finishing_plan_end`가 null이면 무조건 shipped로 카운트됨 (버그)
+
+**요청 내용**: `pipeline` 집계 시 `app_task_details` JOIN하여 SI_FINISHING / SI_SHIPMENT 개별 완료 판정
+
+**수정 방향**:
+
+```python
+# 수정 — task 단위 개별 판정
+# 1) 월간 대상 S/N에 대해 SI task 완료 여부 조회
+si_tasks = """
+    SELECT serial_number, task_id, completed_at
+    FROM app_task_details
+    WHERE task_category = 'SI'
+      AND task_id IN ('SI_FINISHING', 'SI_SHIPMENT')
+      AND serial_number IN (... 대상 S/N ...)
+"""
+
+# 2) pipeline 분류
+for r in rows:
+    si_finishing_done = SI_FINISHING completed_at IS NOT NULL
+    si_shipment_done = SI_SHIPMENT completed_at IS NOT NULL
+
+    if si_shipment_done:
+        pipeline['shipped'] += 1     # 실제 출하 완료
+    elif si_finishing_done:
+        pipeline['si'] += 1          # 마무리 완료, 출하 대기
+    elif r.get('qi_completed'):
+        ...
+```
+
+**대상 엔드포인트 2개**:
+
+| 엔드포인트 | 용도 | 변경 사항 |
+|-----------|------|----------|
+| `GET /api/admin/factory/weekly-kpi` | 공장 대시보드 파이프라인 | `pipeline.shipped` → SI_SHIPMENT 기준 |
+| `GET /api/admin/factory/monthly-detail` | 생산일정 + 출하이력 | 응답에 `si_finishing_completed`, `si_shipment_completed` 개별 필드 추가 |
+
+**monthly-detail 응답 변경 (items[])**:
+
+```json
+{
+  "completion": {
+    "mech": true,
+    "elec": true,
+    "tm": null,
+    "pi": true,
+    "qi": true,
+    "si_finishing": true,
+    "si_shipment": false
+  },
+  "si_shipment_at": null
+}
+```
+
+- 기존 `si: boolean` → `si_finishing: boolean` + `si_shipment: boolean`으로 분리
+- `si_shipment_at`: 출하완료 시각 (출하이력 페이지용, null이면 미출하)
+
+**FE 사용처**:
+
+| 페이지 | 사용 데이터 |
+|--------|-----------|
+| 공장 대시보드 파이프라인 | `pipeline.shipped` (SI_SHIPMENT 기준) |
+| 출하이력 페이지 | `si_shipment_at IS NOT NULL` 목록 + 출하일시 표시 |
+| 생산실적 페이지 | MECH/ELEC/TM 실적확인 (기존 구조 유지, 출하와 무관) |
+
+**FE 상태**: FE 타입 수정 대기. BE 응답 변경 후 `CompletionStatus` 인터페이스 + 공장 대시보드 + 출하이력 페이지 동시 업데이트 예정.
+
+---
+
 ## 해결 완료
 
 ### 13. QR 목록 자사 필터 제거 — DONE (2026-03-13)
