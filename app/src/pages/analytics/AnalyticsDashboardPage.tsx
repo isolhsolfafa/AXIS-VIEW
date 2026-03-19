@@ -91,7 +91,7 @@ export default function AnalyticsDashboardPage() {
   const summary = (summaryData as any)?.summary ?? summaryData ?? null;
   const workers: any[] = (workerData as any)?.workers ?? (Array.isArray(workerData) ? workerData : []);
   const endpoints: any[] = (endpointData as any)?.endpoints ?? (Array.isArray(endpointData) ? endpointData : []);
-  const hourly: any[] = (hourlyData as any)?.hourly ?? (Array.isArray(hourlyData) ? hourlyData : []);
+  const hourly: any[] = (hourlyData as any)?.hours ?? (hourlyData as any)?.hourly ?? (Array.isArray(hourlyData) ? hourlyData : []);
 
   // 사용자별 정렬
   const [workerSort, setWorkerSort] = useState<'access' | 'duration'>('access');

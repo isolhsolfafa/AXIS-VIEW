@@ -64,7 +64,7 @@ export interface EndpointAnalyticsResponse {
 
 export interface HourlyResponse {
   date: string;
-  hourly: HourlyTraffic[];
+  hours: HourlyTraffic[];
 }
 
 /* ── API 호출 ── */
