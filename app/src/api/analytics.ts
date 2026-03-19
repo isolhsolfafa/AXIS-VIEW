@@ -30,8 +30,8 @@ export interface WorkerAnalytics {
   email: string;
   role: string;
   company: string;
-  request_count: number;
-  total_duration_min?: number;
+  total_requests: number;
+  usage_minutes: number;
   top_endpoints?: string[];
 }
 

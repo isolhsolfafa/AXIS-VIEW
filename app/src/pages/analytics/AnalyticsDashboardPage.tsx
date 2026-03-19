@@ -98,8 +98,8 @@ export default function AnalyticsDashboardPage() {
   const sortedWorkers = useMemo(() => {
     return [...workers].sort((a, b) =>
       workerSort === 'access'
-        ? (b.request_count ?? 0) - (a.request_count ?? 0)
-        : (b.total_duration_min ?? 0) - (a.total_duration_min ?? 0)
+        ? (b.total_requests ?? 0) - (a.total_requests ?? 0)
+        : (b.usage_minutes ?? 0) - (a.usage_minutes ?? 0)
     );
   }, [workers, workerSort]);
 
@@ -181,7 +181,7 @@ export default function AnalyticsDashboardPage() {
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
-              <ComposedChart data={summary.daily} barCategoryGap="30%">
+              <ComposedChart data={summary.daily} barCategoryGap="20%" barSize={summary.daily.length <= 3 ? 40 : undefined}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--gx-mist)" />
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--gx-steel)' }} tickFormatter={d => d.slice(5)} axisLine={false} tickLine={false} />
                 <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'var(--gx-steel)' }} axisLine={false} tickLine={false} allowDecimals={false} />
@@ -241,9 +241,9 @@ export default function AnalyticsDashboardPage() {
                         <div style={{ fontSize: '10px', color: 'var(--gx-steel)' }}>{w.company}</div>
                       </td>
                       <td style={{ padding: '10px 14px', color: 'var(--gx-slate)' }}>{w.role}</td>
-                      <td style={{ padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: 'var(--gx-charcoal)' }}>{w.request_count ?? 0}</td>
+                      <td style={{ padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: 'var(--gx-charcoal)' }}>{w.total_requests ?? 0}</td>
                       <td style={{ padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", color: 'var(--gx-slate)' }}>
-                        {(w.total_duration_min ?? 0) >= 60 ? `${Math.floor((w.total_duration_min ?? 0) / 60)}h ${(w.total_duration_min ?? 0) % 60}m` : `${w.total_duration_min ?? 0}m`}
+                        {(w.usage_minutes ?? 0) >= 60 ? `${Math.floor((w.usage_minutes ?? 0) / 60)}h ${(w.usage_minutes ?? 0) % 60}m` : `${w.usage_minutes ?? 0}m`}
                       </td>
                     </tr>
                   ))}
