@@ -37,8 +37,8 @@ const ENDPOINT_LABELS: Record<string, string> = {
   'notices.get_notices': '공지사항',
 };
 
-function getEndpointLabel(endpoint: string): string {
-  return ENDPOINT_LABELS[endpoint] || endpoint;
+function getEndpointLabel(endpoint: string, label?: string): string {
+  return label || ENDPOINT_LABELS[endpoint] || endpoint;
 }
 
 /* ── KPI 카드 ── */
@@ -272,7 +272,7 @@ export default function AnalyticsDashboardPage() {
                       fontSize: '11px', fontWeight: 600, color: i < 3 ? 'var(--gx-accent)' : 'var(--gx-steel)',
                       minWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>
-                      {getEndpointLabel(ep.endpoint)}
+                      {getEndpointLabel(ep.endpoint, ep.label)}
                     </span>
                     <div style={{ flex: 1, height: '18px', borderRadius: '4px', background: 'var(--gx-cloud)', overflow: 'hidden', position: 'relative' }}>
                       <div style={{

@@ -37,10 +37,11 @@ export interface WorkerAnalytics {
 
 export interface EndpointAnalytics {
   endpoint: string;
+  label?: string;
   method?: string;
   count: number;
-  avg_duration_ms?: number;
-  error_count?: number;
+  avg_ms?: number;
+  error_rate?: number;
 }
 
 export interface HourlyTraffic {
