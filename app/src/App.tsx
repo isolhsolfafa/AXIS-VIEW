@@ -17,6 +17,7 @@ import ShipmentHistoryPage from '@/pages/production/ShipmentHistoryPage';
 import DefectAnalysisPage from '@/pages/defect/DefectAnalysisPage';
 import CtAnalysisPage from '@/pages/ct/CtAnalysisPage';
 import PermissionsPage from '@/pages/admin/PermissionsPage';
+import AnalyticsDashboardPage from '@/pages/analytics/AnalyticsDashboardPage';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 function NotFoundPage() {
@@ -148,6 +149,16 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['admin', 'gst']}>
               <CtAnalysisPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ── 사용자 분석 (admin 전용) ── */}
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AnalyticsDashboardPage />
             </ProtectedRoute>
           }
         />

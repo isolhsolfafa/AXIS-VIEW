@@ -86,6 +86,12 @@ const ShieldIcon = () => (
   </svg>
 );
 
+const ChartBarIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+    <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+  </svg>
+);
+
 const LockIcon = () => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
     <rect x="3" y="6" width="8" height="6" rx="1.5"/>
@@ -150,6 +156,7 @@ const navGroups: NavGroup[] = [
     items: [
       { label: '불량 분석', icon: <AlertIcon />, to: '/defect', preparing: true, roles: ['admin', 'gst'] },
       { label: 'CT 분석', icon: <ClockIcon />, to: '/ct', preparing: true, roles: ['admin', 'gst'] },
+      { label: '사용자 분석', icon: <ChartBarIcon />, to: '/analytics', roles: ['admin'] },
     ],
   },
   {
