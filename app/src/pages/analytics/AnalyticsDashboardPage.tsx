@@ -190,8 +190,8 @@ export default function AnalyticsDashboardPage() {
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: 'var(--gx-steel)' }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid var(--gx-mist)', fontSize: '12px' }} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px' }} />
-                <Bar yAxisId="left" dataKey="unique_users" name="접속자" fill="var(--gx-accent)" radius={[4, 4, 0, 0]} />
-                <Line yAxisId="right" dataKey="total_requests" name="요청 수" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3 }} />
+                <Bar yAxisId="left" dataKey="users" name="접속자" fill="var(--gx-accent)" radius={[4, 4, 0, 0]} />
+                <Line yAxisId="right" dataKey="requests" name="요청 수" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3 }} />
               </ComposedChart>
             </ResponsiveContainer>
           )}
@@ -315,7 +315,7 @@ export default function AnalyticsDashboardPage() {
                 <XAxis dataKey="hour" tick={{ fontSize: 11, fill: 'var(--gx-steel)' }} tickFormatter={h => `${h}시`} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: 'var(--gx-steel)' }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid var(--gx-mist)', fontSize: '12px' }} labelFormatter={h => `${h}시`} />
-                <Bar dataKey="count" name="요청 수" fill="var(--gx-accent)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="requests" name="요청 수" fill="var(--gx-accent)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
