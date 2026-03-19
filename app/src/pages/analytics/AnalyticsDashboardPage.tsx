@@ -96,11 +96,13 @@ export default function AnalyticsDashboardPage() {
   // 사용자별 정렬
   const [workerSort, setWorkerSort] = useState<'access' | 'duration'>('access');
   const sortedWorkers = useMemo(() => {
-    return [...workers].sort((a, b) =>
-      workerSort === 'access'
-        ? (b.total_requests ?? 0) - (a.total_requests ?? 0)
-        : (b.usage_minutes ?? 0) - (a.usage_minutes ?? 0)
-    );
+    return [...workers]
+      .filter(w => (w.role ?? '').toUpperCase() !== 'ADMIN')
+      .sort((a, b) =>
+        workerSort === 'access'
+          ? (b.total_requests ?? 0) - (a.total_requests ?? 0)
+          : (b.usage_minutes ?? 0) - (a.usage_minutes ?? 0)
+      );
   }, [workers, workerSort]);
 
   // 기능별 상위 10개
