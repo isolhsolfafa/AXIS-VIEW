@@ -3467,3 +3467,811 @@ const viewPct = viewTotal > 0 ? Math.round(viewCompleted / viewTotal * 1000) / 1
 - [ ] GAIA-I DUAL: MECH/ELEC/TMS 전부 표시 확인
 - [ ] DRAGON: TMS 미표시 확인
 - [ ] 기존 데이터 없는 제품: task_progress 빈 객체 처리 (에러 안 나게)
+
+---
+
+# Sprint 7: 사용자 분석 대시보드 — Access Log 시각화 ✅ 완료
+
+> **목적**: 사용자 접속 빈도, 사용 시간, 기능 사용 패턴, 에러율을 대시보드로 시각화
+> **의존성**: AXIS-OPS Sprint 32 (app_access_log 테이블 + analytics API) 완료 후 진행
+> **범위**: FE — 신규 페이지 + 차트 컴포넌트
+
+## 배경
+
+AXIS-OPS Sprint 32에서 모든 인증 API 호출을 `app_access_log` 테이블에 기록.
+VIEW에서 이 데이터를 시각화하여 관리자가 사용자 행동 패턴을 파악할 수 있도록 함.
+
+## BE API (AXIS-OPS Sprint 32에서 구현)
+
+```
+GET /api/admin/analytics/summary?period=7d      → 기간별 요약 (접속자, 요청수, 에러율)
+GET /api/admin/analytics/by-worker?period=30d   → 사용자별 상세 (접속횟수, 사용시간, 주요 기능)
+GET /api/admin/analytics/by-endpoint?period=7d  → 기능별 상세 (호출수, 평균 응답시간, 에러율)
+GET /api/admin/analytics/hourly?date=2026-03-18 → 시간대별 트래픽 (24시간 분포)
+```
+
+## FE 구현
+
+### Task 1: 사이드바 메뉴 추가
+
+사이드바에 "사용자 분석" 메뉴 추가 (admin + view_access 권한):
+```
+📊 공장 대시보드
+📋 생산일정
+📈 사용자 분석     ← 신규
+⚙️ 설정
+```
+
+### Task 2: 요약 KPI 카드 (상단)
+
+`GET /api/admin/analytics/summary?period=7d` 데이터로 KPI 카드 4개:
+
+```
+┌─────────────┬─────────────┬─────────────┬─────────────┐
+│  접속자 수   │  총 요청 수  │  평균 응답   │  에러율      │
+│     25명     │   3,420건   │   145ms     │   2.3%      │
+│  ▲ +3 vs 전주│             │             │  ▼ -0.5%    │
+└─────────────┴─────────────┴─────────────┴─────────────┘
+```
+
+### Task 3: 일별 접속 추이 차트
+
+`summary.daily` 데이터로 라인/바 차트:
+- X축: 날짜 (최근 7일 / 30일 토글)
+- Y축 좌: 접속자 수 (바)
+- Y축 우: 요청 수 (라인)
+- 라이브러리: recharts 또는 기존 사용 중인 차트 라이브러리
+
+### Task 4: 사용자별 테이블
+
+`GET /api/admin/analytics/by-worker?period=30d` 데이터:
+
+```
+┌──────┬──────────────┬────────┬────────┬──────────┬──────────────────┐
+│ 순위 │ 이름/이메일   │ 역할   │ 접속수  │ 사용시간  │ 주요 사용 기능    │
+├──────┼──────────────┼────────┼────────┼──────────┼──────────────────┤
+│  1   │ 김작업       │ worker │ 156회  │ 9시간43분│ 작업시작, QR스캔  │
+│  2   │ 박관리       │ admin  │ 89회   │ 5시간12분│ QR목록, 설정     │
+│  3   │ 이검사       │ worker │ 67회   │ 4시간30분│ 작업완료, QR스캔  │
+└──────┴──────────────┴────────┴────────┴──────────┴──────────────────┘
+```
+
+정렬: 접속수 / 사용시간 기준 토글 가능
+기간: 7일 / 30일 드롭다운
+
+### Task 5: 기능별 사용량 차트
+
+`GET /api/admin/analytics/by-endpoint?period=7d` 데이터:
+
+수평 바 차트:
+```
+작업 시작 (POST /work/start)    ████████████████  890회
+QR 제품 조회 (GET /product)     ████████████      650회
+작업 완료 (POST /work/complete) ████████          420회
+태스크 목록 (GET /tasks)        ██████            310회
+로그인 (POST /auth/login)       ████              210회
+```
+
+엔드포인트를 사용자 친화적 이름으로 매핑:
+```javascript
+const ENDPOINT_LABELS = {
+    'work.start_work': '작업 시작',
+    'work.complete_work': '작업 완료',
+    'product.get_product_by_qr': 'QR 제품 조회',
+    'work.get_tasks_by_serial': '태스크 목록',
+    'auth.login': '로그인',
+    'qr.get_qr_list': 'QR 목록',
+    'hr.check_attendance': '출퇴근',
+    // ...
+};
+```
+
+### Task 6: 시간대별 트래픽 히트맵 (선택적)
+
+`GET /api/admin/analytics/hourly?date=2026-03-18` 데이터:
+
+24시간 바 차트로 피크 타임 확인:
+```
+   06  07  08  09  10  11  12  13  14  15  16  17  18
+   ▁   ▃   █   ██  ██  █   ▃   █   ██  ██  █   ▃   ▁
+```
+
+### Task 7: 기간 필터 + 자동 갱신
+
+- 기간 선택: 오늘 / 7일 / 30일 (커스텀은 추후)
+- 자동 갱신: staleTime=2분 (TanStack Query)
+- 날짜 범위 피커: 추후 필요 시 추가
+
+## 체크리스트
+
+**사전 조건**:
+- [x] AXIS-OPS Sprint 32 완료 (app_access_log 테이블 + analytics API 4개)
+
+**FE (완료)**:
+- [x] 사이드바 "사용자 분석" 메뉴 추가 — Analysis 그룹, admin 전용
+- [x] KPI 카드 4개 (접속자, 요청수, 응답시간, 에러율)
+- [x] 일별 접속 추이 차트 (바+라인) — ComposedChart
+- [x] 사용자별 테이블 (정렬, 기간 필터) — ADMIN 제외, name/company 표시
+- [x] 기능별 사용량 수평 바 차트 — BE label 한글 매핑
+- [x] 시간대별 트래픽 차트 — BarChart
+- [x] 기간 필터 (오늘/7일/30일)
+- [x] 엔드포인트 → BE label 우선 + FE fallback 매핑
+- [x] 빈 데이터 / 로딩 / 에러 상태 처리
+- [x] npm run build 에러 없음
+
+---
+
+# Sprint 8: 생산실적 API 연동 — Mock → 실시간 데이터 전환
+
+> **목적**: ProductionPerformancePage의 100% Mock 데이터를 OPS Sprint 33 API로 교체하고, 실적확인/취소 버튼 액션을 실제 API 호출로 연결
+> **의존성**: AXIS-OPS Sprint 33 (생산실적 API 4개) 완료 후 진행
+> **범위**: FE — API 모듈 신규 + TanStack Query 훅 신규 + 기존 페이지 Mock→API 전환
+
+## 배경
+
+`ProductionPerformancePage.tsx`는 현재 상단에 `PrepareBanner` ("API 연동 준비 중 · 아래 데이터는 샘플입니다")를 표시하며, 6개 O/N 그룹(`SAMPLE_ORDERS`), 주차 상수(`WEEKS`), 월마감 샘플(`MONTHLY_SUMMARY`)이 모두 하드코딩된 Mock 상태.
+
+OPS Sprint 33이 완료되면 아래 4개 엔드포인트가 사용 가능:
+
+```
+GET  /api/admin/production/performance      → O/N 단위 주간 실적 + 실적확인 이력
+POST /api/admin/production/confirm           → 실적확인 처리
+DELETE /api/admin/production/confirm/:id     → 실적확인 취소 (admin only)
+GET  /api/admin/production/monthly-summary   → 월마감 주차별 집계
+```
+
+## BE API 응답 스키마 (OPS Sprint 33, OPS_API_REQUESTS #23~#26 참조)
+
+### #23 GET /performance 응답 핵심 필드
+
+```typescript
+{
+  week: string;          // "W12"
+  month: string;         // "2026-03"
+  orders: Array<{
+    sales_order: string;
+    model: string;
+    sns: Array<{
+      serial_number: string;
+      mech_partner: string;
+      elec_partner: string;
+      progress: {
+        MECH: { total: number; done: number; pct: number };
+        ELEC: { total: number; done: number; pct: number };
+        TM:   { total: number; done: number; pct: number; tank_module_done?: boolean };
+      };
+      checklist: {
+        MECH: { completed: boolean; completed_at: string | null };
+        ELEC: { completed: boolean; completed_at: string | null };
+      };
+    }>;
+    sn_count: number;
+    sn_summary: string;               // "GBWS-6627~6629"
+    partner_info: { mech: string; elec: string; mixed: boolean };
+    process_status: {
+      MECH: { ready: number; total: number; checklist_ready: number; confirmable: boolean };
+      ELEC: { ready: number; total: number; checklist_ready: number; confirmable: boolean };
+      TM:   { ready: number; total: number; confirmable: boolean };
+    };
+    confirms: Array<{
+      id: number;
+      process_type: string;
+      confirmed_week: string;
+      confirmed_by: string;
+      confirmed_at: string;
+    }>;
+  }>;
+  summary: {
+    total_orders: number;
+    mech_confirmable: number;
+    elec_confirmable: number;
+    tm_confirmable: number;
+  };
+}
+```
+
+### #24 POST /confirm 요청/응답
+
+```typescript
+// Request
+{ sales_order: string; process_type: "MECH"|"ELEC"|"TM"; confirmed_week: string; confirmed_month: string }
+// Response (성공)
+{ success: true; confirm_id: number; sales_order: string; process_type: string; confirmed_week: string; sn_count: number; confirmed_at: string }
+// Response (실패)
+{ error: "NOT_CONFIRMABLE"; message: string; details: Array<{ serial_number: string; reason: string }> }
+```
+
+### #25 DELETE /confirm/:id — 응답
+
+```typescript
+{ success: true; deleted_id: number; sales_order: string; process_type: string; confirmed_week: string }
+```
+
+### #26 GET /monthly-summary 응답
+
+```typescript
+{
+  month: string;
+  weeks: Array<{
+    week: string;
+    mech: { completed: number; confirmed: number };
+    elec: { completed: number; confirmed: number };
+    tm:   { completed: number; confirmed: number };
+  }>;
+  totals: {
+    mech: { completed: number; confirmed: number };
+    elec: { completed: number; confirmed: number };
+    tm:   { completed: number; confirmed: number };
+  };
+}
+```
+
+## FE 구현
+
+> CLAUDE.md를 먼저 읽고 현재 프로젝트 구조를 파악할 것.
+
+### Task 1: TypeScript 타입 정의 (`src/types/production.ts` 신규)
+
+API 응답 스키마에 맞는 타입 정의. 기존 페이지의 Mock 타입(`OrderGroup`, `SnDetail`, `ProcessConfirm`, `ConfirmStatus`)을 API 응답 구조로 대체.
+
+```typescript
+// ─── 공정 진행률 ───
+export interface ProcessProgress {
+  total: number;
+  done: number;
+  pct: number;
+  tank_module_done?: boolean;       // TM only
+  pressure_test_done?: boolean;     // TM only
+}
+
+export interface SNProgress {
+  MECH: ProcessProgress;
+  ELEC: ProcessProgress;
+  TM: ProcessProgress;
+}
+
+// ─── S/N 체크리스트 ───
+export interface ChecklistStatus {
+  completed: boolean;
+  completed_at: string | null;
+}
+
+export interface SNChecklist {
+  MECH: ChecklistStatus;
+  ELEC: ChecklistStatus;
+}
+
+// ─── S/N 상세 ───
+export interface SNDetail {
+  serial_number: string;
+  mech_partner: string;
+  elec_partner: string;
+  progress: SNProgress;
+  checklist: SNChecklist;
+}
+
+// ─── 공정별 확인 가능 상태 ───
+export interface ProcessStatus {
+  ready: number;
+  total: number;
+  checklist_ready?: number;
+  confirmable: boolean;
+}
+
+// ─── 실적확인 이력 ───
+export interface ConfirmRecord {
+  id: number;
+  process_type: 'MECH' | 'ELEC' | 'TM';
+  confirmed_week: string;
+  confirmed_by: string;
+  confirmed_at: string;
+}
+
+// ─── O/N 그룹 ───
+export interface OrderGroup {
+  sales_order: string;
+  model: string;
+  sns: SNDetail[];
+  sn_count: number;
+  sn_summary: string;
+  partner_info: { mech: string; elec: string; mixed: boolean };
+  process_status: {
+    MECH: ProcessStatus;
+    ELEC: ProcessStatus;
+    TM: ProcessStatus;
+  };
+  confirms: ConfirmRecord[];
+}
+
+// ─── GET /performance 응답 ───
+export interface PerformanceResponse {
+  week: string;
+  month: string;
+  orders: OrderGroup[];
+  summary: {
+    total_orders: number;
+    mech_confirmable: number;
+    elec_confirmable: number;
+    tm_confirmable: number;
+  };
+}
+
+// ─── POST /confirm 요청 ───
+export interface ConfirmRequest {
+  sales_order: string;
+  process_type: 'MECH' | 'ELEC' | 'TM';
+  confirmed_week: string;
+  confirmed_month: string;
+}
+
+// ─── POST /confirm 응답 ───
+export interface ConfirmResponse {
+  success: boolean;
+  confirm_id: number;
+  sales_order: string;
+  process_type: string;
+  confirmed_week: string;
+  sn_count: number;
+  confirmed_at: string;
+}
+
+// ─── DELETE /confirm/:id 응답 ───
+export interface CancelConfirmResponse {
+  success: boolean;
+  deleted_id: number;
+  sales_order: string;
+  process_type: string;
+  confirmed_week: string;
+}
+
+// ─── GET /monthly-summary 응답 ───
+export interface ProcessSummary {
+  completed: number;
+  confirmed: number;
+}
+
+export interface WeekSummary {
+  week: string;
+  mech: ProcessSummary;
+  elec: ProcessSummary;
+  tm: ProcessSummary;
+}
+
+export interface MonthlySummaryResponse {
+  month: string;
+  weeks: WeekSummary[];
+  totals: {
+    mech: ProcessSummary;
+    elec: ProcessSummary;
+    tm: ProcessSummary;
+  };
+}
+```
+
+### Task 2: API 모듈 (`src/api/production.ts` 신규)
+
+기존 패턴 참조: `src/api/attendance.ts` (Mock 토글 + apiClient 사용)
+
+```typescript
+import apiClient from './client';
+import type {
+  PerformanceResponse, ConfirmRequest, ConfirmResponse,
+  CancelConfirmResponse, MonthlySummaryResponse,
+} from '@/types/production';
+
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+
+/**
+ * 주간 생산실적 조회 (O/N 단위)
+ */
+export async function getPerformance(
+  week?: string,
+  month?: string,
+): Promise<PerformanceResponse> {
+  if (USE_MOCK) {
+    const { getMockPerformance } = await import('@/mocks/production');
+    return getMockPerformance(week);
+  }
+  const params = new URLSearchParams();
+  if (week) params.set('week', week);
+  if (month) params.set('month', month);
+  const res = await apiClient.get<PerformanceResponse>(
+    `/api/admin/production/performance?${params}`,
+  );
+  return res.data;
+}
+
+/**
+ * 실적확인 처리
+ */
+export async function confirmProduction(body: ConfirmRequest): Promise<ConfirmResponse> {
+  const res = await apiClient.post<ConfirmResponse>(
+    '/api/admin/production/confirm',
+    body,
+  );
+  return res.data;
+}
+
+/**
+ * 실적확인 취소 (admin only)
+ */
+export async function cancelConfirm(confirmId: number): Promise<CancelConfirmResponse> {
+  const res = await apiClient.delete<CancelConfirmResponse>(
+    `/api/admin/production/confirm/${confirmId}`,
+  );
+  return res.data;
+}
+
+/**
+ * 월마감 집계 조회
+ */
+export async function getMonthlySummary(
+  month?: string,
+): Promise<MonthlySummaryResponse> {
+  if (USE_MOCK) {
+    const { getMockMonthlySummary } = await import('@/mocks/production');
+    return getMockMonthlySummary(month);
+  }
+  const params = month ? `?month=${month}` : '';
+  const res = await apiClient.get<MonthlySummaryResponse>(
+    `/api/admin/production/monthly-summary${params}`,
+  );
+  return res.data;
+}
+```
+
+> ⚠ Mock fallback은 기존 `SAMPLE_ORDERS`, `MONTHLY_SUMMARY`를 `src/mocks/production.ts`로 이동하면 됨 (선택적). API 우선 연결이 목표이므로, VITE_USE_MOCK=false 상태에서 작업할 것.
+
+### Task 3: TanStack Query 훅 (`src/hooks/useProduction.ts` 신규)
+
+기존 패턴 참조: `src/hooks/useAttendance.ts` (useSettings 연동 + refetchInterval)
+
+```typescript
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  getPerformance, confirmProduction, cancelConfirm, getMonthlySummary,
+} from '@/api/production';
+import type { ConfirmRequest } from '@/types/production';
+
+/**
+ * 주간 생산실적 조회
+ */
+export function usePerformance(week?: string, month?: string) {
+  return useQuery({
+    queryKey: ['production', 'performance', week, month],
+    queryFn: () => getPerformance(week, month),
+    staleTime: 60 * 1000,          // 1분
+    refetchInterval: 5 * 60 * 1000, // 5분
+  });
+}
+
+/**
+ * 실적확인 처리 (mutation)
+ * 성공 시 performance 쿼리 invalidate → 자동 리페치
+ */
+export function useConfirmProduction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ConfirmRequest) => confirmProduction(body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['production'] });
+    },
+  });
+}
+
+/**
+ * 실적확인 취소 (mutation)
+ * 성공 시 performance + monthly-summary 쿼리 invalidate
+ */
+export function useCancelConfirm() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (confirmId: number) => cancelConfirm(confirmId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['production'] });
+    },
+  });
+}
+
+/**
+ * 월마감 집계 조회
+ */
+export function useMonthlySummary(month?: string) {
+  return useQuery({
+    queryKey: ['production', 'monthly-summary', month],
+    queryFn: () => getMonthlySummary(month),
+    staleTime: 5 * 60 * 1000,      // 5분
+  });
+}
+```
+
+### Task 4: Mock 데이터 분리 (`src/mocks/production.ts` 신규)
+
+기존 페이지에서 상수로 선언된 Mock 데이터를 별도 파일로 이동. `VITE_USE_MOCK=true`일 때만 dynamic import로 로드.
+
+```typescript
+// src/mocks/production.ts
+// 기존 ProductionPerformancePage.tsx의 SAMPLE_ORDERS, MONTHLY_SUMMARY를
+// API 응답 형식에 맞게 변환하여 export
+
+import type { PerformanceResponse, MonthlySummaryResponse } from '@/types/production';
+
+export function getMockPerformance(_week?: string): PerformanceResponse {
+  return {
+    week: 'W11',
+    month: '2026-03',
+    orders: [
+      // 기존 SAMPLE_ORDERS 6개를 API 스키마로 변환
+      // sales_order, model, sns[].progress.MECH/ELEC/TM 등
+      // ... (기존 Mock 구조에서 필드명만 맞추면 됨)
+    ],
+    summary: {
+      total_orders: 6,
+      mech_confirmable: 1,
+      elec_confirmable: 1,
+      tm_confirmable: 0,
+    },
+  };
+}
+
+export function getMockMonthlySummary(_month?: string): MonthlySummaryResponse {
+  return {
+    month: '2026-03',
+    weeks: [
+      { week: 'W10', mech: { completed: 8, confirmed: 8 }, elec: { completed: 6, confirmed: 6 }, tm: { completed: 4, confirmed: 4 } },
+      { week: 'W11', mech: { completed: 4, confirmed: 3 }, elec: { completed: 2, confirmed: 2 }, tm: { completed: 1, confirmed: 1 } },
+      { week: 'W12', mech: { completed: 0, confirmed: 0 }, elec: { completed: 0, confirmed: 0 }, tm: { completed: 0, confirmed: 0 } },
+      { week: 'W13', mech: { completed: 0, confirmed: 0 }, elec: { completed: 0, confirmed: 0 }, tm: { completed: 0, confirmed: 0 } },
+    ],
+    totals: {
+      mech: { completed: 12, confirmed: 11 }, elec: { completed: 8, confirmed: 8 }, tm: { completed: 5, confirmed: 5 },
+    },
+  };
+}
+```
+
+> Mock 데이터 내용은 기존 `SAMPLE_ORDERS`, `MONTHLY_SUMMARY`를 참고해서 API 스키마에 맞게 변환. 필드 매핑표는 Task 5 참조.
+
+### Task 5: ProductionPerformancePage.tsx — Mock→API 전환
+
+**핵심 변경: 삭제/교체 대상**
+
+| 항목 | 라인 | 액션 |
+|------|------|------|
+| Mock 타입 (`ConfirmStatus`, `SnDetail`, `ProcessConfirm`, `OrderGroup`) | L10~40 | 삭제 → `@/types/production`에서 import |
+| `WEEKS` 상수 | L43~48 | 삭제 → API 응답 `week` 필드 사용 |
+| `SAMPLE_ORDERS` 상수 | L51~114 | 삭제 → `usePerformance()` 데이터 사용 |
+| `MONTHLY_SUMMARY` 상수 | L117~122 | 삭제 → `useMonthlySummary()` 데이터 사용 |
+| `countDone()` 유틸 | L125~130 | 삭제 → API `process_status.ready`/`total` 사용 |
+| `summarizeSNs()` 유틸 | L132~144 | 삭제 → API `sn_summary` 사용 |
+| `partnerInfo()` 유틸 | L146~150 | 삭제 → API `partner_info` 사용 |
+| `PrepareBanner` 컴포넌트 | L242~261 | 삭제 (더 이상 Mock 아님) |
+| `MiniProgress` 컴포넌트 | L153~166 | 유지 (S/N 상세에서 계속 사용) |
+| `ProcessCell` 컴포넌트 | L168~240 | 수정 — props를 API 스키마에 맞게 변경 |
+
+**5-1. import 변경**
+
+```typescript
+// 추가
+import { usePerformance, useMonthlySummary, useConfirmProduction, useCancelConfirm } from '@/hooks/useProduction';
+import type { OrderGroup, ConfirmRecord } from '@/types/production';
+import { useAuth } from '@/hooks/useAuth';  // admin 권한 확인용
+```
+
+**5-2. 메인 컴포넌트 내부 변경**
+
+```typescript
+export default function ProductionPerformancePage() {
+  const [activeWeek, setActiveWeek] = useState<string>('');   // API 응답에서 초기값 설정
+  const [activeView, setActiveView] = useState<'weekly' | 'monthly'>('weekly');
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<'all' | 'done' | 'pending'>('all');
+
+  const { user } = useAuth();
+  const isAdmin = user?.is_admin === true;
+
+  // ─── API 데이터 ───
+  const { data: perfData, isLoading, error } = usePerformance(activeWeek || undefined);
+  const { data: monthlyData } = useMonthlySummary();
+  const confirmMutation = useConfirmProduction();
+  const cancelMutation = useCancelConfirm();
+
+  // activeWeek 초기값: API 응답의 week
+  useEffect(() => {
+    if (perfData?.week && !activeWeek) setActiveWeek(perfData.week);
+  }, [perfData?.week]);
+
+  // ─── KPI 산출 (API summary 사용) ───
+  const summary = perfData?.summary;
+  const orders = perfData?.orders ?? [];
+  const totalON = summary?.total_orders ?? 0;
+  const totalSN = orders.reduce((s, o) => s + o.sn_count, 0);
+
+  // 확인된 건수: confirms 배열에서 process_type별 count
+  const mechConfirmed = orders.filter(o => o.confirms.some(c => c.process_type === 'MECH')).length;
+  const elecConfirmed = orders.filter(o => o.confirms.some(c => c.process_type === 'ELEC')).length;
+  const tmConfirmed = orders.filter(o => o.confirms.some(c => c.process_type === 'TM')).length;
+  const mechReady = summary?.mech_confirmable ?? 0;
+  const elecReady = summary?.elec_confirmable ?? 0;
+
+  // ... 나머지 렌더링 로직은 동일하되, 데이터 소스만 교체
+}
+```
+
+**5-3. 실적확인 버튼 onClick 연결**
+
+`ProcessCell` 컴포넌트 내부의 "실적확인" 버튼에 mutation 연결:
+
+```tsx
+// confirm.status === 'ready' → confirmable === true 로 변경
+{process_status.confirmable && !hasConfirm && (
+  <button
+    onClick={(e) => {
+      e.stopPropagation();  // row expand 방지
+      confirmMutation.mutate({
+        sales_order: order.sales_order,
+        process_type: processType,          // 'MECH' | 'ELEC' | 'TM'
+        confirmed_week: perfData?.week ?? '',
+        confirmed_month: perfData?.month ?? '',
+      });
+    }}
+    disabled={confirmMutation.isPending}
+    style={{ /* 기존 스타일 유지 */ }}
+  >
+    {confirmMutation.isPending ? '처리중...' : '실적확인'}
+  </button>
+)}
+```
+
+**5-4. 실적확인 취소 버튼 (Admin only)**
+
+확인 완료된 셀에 admin만 볼 수 있는 취소 버튼 추가:
+
+```tsx
+{confirm && isAdmin && (
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      if (window.confirm(`${order.sales_order} ${processType} 실적확인을 취소하시겠습니까?`)) {
+        cancelMutation.mutate(confirm.id);
+      }
+    }}
+    style={{
+      fontSize: '8px', padding: '1px 6px', borderRadius: '4px',
+      background: 'rgba(239,68,68,0.06)', color: 'var(--gx-danger)',
+      border: '1px solid rgba(239,68,68,0.15)', cursor: 'pointer',
+    }}
+  >
+    취소
+  </button>
+)}
+```
+
+**5-5. 주차 탭 — 동적 생성**
+
+기존 `WEEKS` 상수 대신 현재 월의 주차를 동적으로 생성하거나, API 응답의 `week`을 기준으로 ±2주 범위를 표시:
+
+```typescript
+// 간단한 주차 계산 유틸 (ISO 주차 기준)
+function getWeeksForMonth(month: string): Array<{ label: string; range: string; current: boolean }> {
+  // month = "2026-03" → 해당 월에 포함되는 ISO 주차 계산
+  // 또는 현재 주 기준 ±2주 표시
+  // API week 값과 비교하여 current 표시
+  // ...
+}
+```
+
+> 주차 계산 로직은 ISO 8601 기준 (월요일 시작). 기존 OPS 주차 계산과 동일.
+
+**5-6. 월마감 뷰 — API 데이터 바인딩**
+
+`MONTHLY_SUMMARY` 상수를 `useMonthlySummary()` 데이터로 교체:
+
+```tsx
+{activeView === 'monthly' && monthlyData && (
+  <div>
+    {/* 기존 테이블 구조 유지 */}
+    <tbody>
+      {monthlyData.weeks.map(row => (
+        // row.week, row.mech.completed, row.mech.confirmed 등
+      ))}
+      {/* 합계 행 → monthlyData.totals 사용 */}
+    </tbody>
+  </div>
+)}
+```
+
+**5-7. 로딩/에러 상태 처리**
+
+```tsx
+{isLoading && (
+  <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--gx-steel)' }}>
+    <div className="spinner" />
+    데이터를 불러오는 중...
+  </div>
+)}
+{error && (
+  <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--gx-danger)' }}>
+    데이터 로드 실패: {(error as Error).message}
+  </div>
+)}
+```
+
+**5-8. 필드 매핑표 (Mock → API)**
+
+기존 Mock 필드와 API 응답 필드 대응:
+
+| Mock (기존) | API (신규) | 설명 |
+|---|---|---|
+| `order.on` | `order.sales_order` | O/N |
+| `order.model` | `order.model` | 동일 |
+| `order.customer` | — | API 미포함 (product_info에서 필요 시 추가) |
+| `order.line` | — | API 미포함 (필요 시 추가) |
+| `order.snList` | `order.sns` | S/N 배열 |
+| `sn.sn` | `sn.serial_number` | S/N 번호 |
+| `sn.mechProgress` (0~100 number) | `sn.progress.MECH.pct` | MECH 진행률 |
+| `sn.elecProgress` | `sn.progress.ELEC.pct` | ELEC 진행률 |
+| `sn.tmProgress` (-1=N/A) | `sn.progress.TM.pct` (total=0이면 N/A) | TM 진행률 |
+| `sn.mechEnd` | `sn.checklist.MECH.completed_at` | MECH 완료일 |
+| `sn.elecEnd` | `sn.checklist.ELEC.completed_at` | ELEC 완료일 |
+| `order.mechConfirm.status` | `confirms[]`에서 MECH 존재 여부 + `process_status.MECH.confirmable` | 확인 상태 판정 |
+| `order.snList.length` | `order.sn_count` | S/N 수 |
+| `summarizeSNs(order.snList)` | `order.sn_summary` | S/N 요약 텍스트 |
+| `partnerInfo(snList, 'mechPartner')` | `order.partner_info.mech` + `.mixed` | 협력사 표시 |
+
+> **주의**: Mock에 있던 `customer`, `line` 필드는 현재 API 스키마에 미포함. 필요 시 OPS BE에 추가 요청 (OPS_API_REQUESTS에 기록).
+
+### Task 6: 일괄확인 버튼 연결
+
+기존 "기구 일괄확인 (N건)" / "전장 일괄확인 (N건)" 버튼에 연속 mutation 호출:
+
+```typescript
+const handleBatchConfirm = async (processType: 'MECH' | 'ELEC') => {
+  const confirmable = orders.filter(o =>
+    o.process_status[processType].confirmable &&
+    !o.confirms.some(c => c.process_type === processType)
+  );
+  if (confirmable.length === 0) return;
+
+  const confirmed = window.confirm(
+    `${processType === 'MECH' ? '기구' : '전장'} 실적확인 ${confirmable.length}건을 일괄 처리하시겠습니까?`
+  );
+  if (!confirmed) return;
+
+  for (const order of confirmable) {
+    await confirmMutation.mutateAsync({
+      sales_order: order.sales_order,
+      process_type: processType,
+      confirmed_week: perfData?.week ?? '',
+      confirmed_month: perfData?.month ?? '',
+    });
+  }
+  // invalidateQueries는 onSuccess에서 자동 처리
+};
+```
+
+## 체크리스트
+
+**사전 조건**:
+- [ ] AXIS-OPS Sprint 33 완료 (production API 4개 + plan.production_confirm 테이블)
+- [ ] OPS BE 배포 완료 (Railway)
+
+**FE (Teammate 작업)**:
+- [ ] `src/types/production.ts` — 타입 정의 (API 응답 + 요청 전체)
+- [ ] `src/api/production.ts` — API 함수 4개 (getPerformance, confirmProduction, cancelConfirm, getMonthlySummary)
+- [ ] `src/hooks/useProduction.ts` — TanStack Query 훅 4개 (usePerformance, useConfirmProduction, useCancelConfirm, useMonthlySummary)
+- [ ] `src/mocks/production.ts` — Mock 데이터 이동 (기존 상수 → API 스키마 변환)
+- [ ] ProductionPerformancePage.tsx — Mock 상수 삭제 (SAMPLE_ORDERS, MONTHLY_SUMMARY, WEEKS)
+- [ ] ProductionPerformancePage.tsx — Mock 유틸 삭제 (countDone, summarizeSNs, partnerInfo)
+- [ ] ProductionPerformancePage.tsx — PrepareBanner 삭제
+- [ ] ProductionPerformancePage.tsx — Mock 타입 삭제 → import from @/types/production
+- [ ] ProductionPerformancePage.tsx — usePerformance() 훅 연결 + 주간뷰 데이터 바인딩
+- [ ] ProductionPerformancePage.tsx — useMonthlySummary() 훅 연결 + 월마감뷰 데이터 바인딩
+- [ ] ProcessCell 컴포넌트 — props 리팩터링 (API process_status + confirms 기반)
+- [ ] 실적확인 버튼 — confirmMutation.mutate() 연결 (개별 + 일괄)
+- [ ] 실적확인 취소 버튼 — cancelMutation.mutate() (Admin only) + window.confirm
+- [ ] 주차 탭 — 동적 생성 또는 API week 기반 네비게이션
+- [ ] 로딩/에러/빈 데이터 상태 처리
+- [ ] KPI 카드 — API summary 데이터 바인딩
+- [ ] npm run build 에러 없음
+- [ ] VITE_USE_MOCK=false 상태에서 API 호출 확인
