@@ -1,8 +1,8 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.8.0';
-export const BUILD_DATE = '2026-03-18';
+export const APP_VERSION = 'v1.9.0';
+export const BUILD_DATE = '2026-03-20';
 
 // 버전 이력
 // v1.0.0 | 2026-03-06 | Sprint 1~3     | 초기 릴리스 (로그인, 출퇴근 대시보드, 실 API 연동)
@@ -19,3 +19,4 @@ export const BUILD_DATE = '2026-03-18';
 // v1.7.0 | 2026-03-16 | Sprint 29 연동 | 공장 API 실데이터 연동 + 대시보드/생산일정 리팩토링
 // v1.7.1 | 2026-03-16 | UX 개선        | 공장 대시보드 자동 새로고침 + 근태 근무지 컬럼
 // v1.8.0 | 2026-03-18 | Sprint 5       | QR DUAL Tank 뱃지 + 기구/모듈 필터 분리 + ETL 오늘 필터 + Order No 검색 + 슬라이드 정지/재생
+// v1.9.0 | 2026-03-20 | Sprint 6~8     | 태스크 진행률 + 카테고리 필터 + 사용자 분석 대시보드 + 생산실적 API 연동
