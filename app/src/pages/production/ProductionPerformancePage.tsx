@@ -240,7 +240,7 @@ export default function ProductionPerformancePage() {
                 { label: '기구 확인', value: `${mechConfirmed}/${totalON}`, sub: mechReady > 0 ? `${mechReady}건 확인 가능` : '대기', color: 'var(--gx-success)' },
                 { label: '전장 확인', value: `${elecConfirmed}/${totalON}`, sub: elecReady > 0 ? `${elecReady}건 확인 가능` : '대기', color: '#3B82F6' },
                 { label: 'TM 확인', value: `${tmConfirmed}/${tmApplicable.length}`, sub: `GAIA ${tmApplicable.length}건`, color: 'var(--gx-accent)' },
-                { label: '월간 누적', value: monthlyData ? `${monthlyData.totals.mech.confirmed + monthlyData.totals.elec.confirmed + monthlyData.totals.tm.confirmed}` : '—', sub: `${perfData?.month ?? ''} 공정 확인`, color: 'var(--gx-warning)' },
+                { label: '월간 누적', value: monthlyData?.totals ? `${(monthlyData.totals.mech?.confirmed ?? 0) + (monthlyData.totals.elec?.confirmed ?? 0) + (monthlyData.totals.tm?.confirmed ?? 0)}` : '—', sub: `${perfData?.month ?? ''} 공정 확인`, color: 'var(--gx-warning)' },
               ].map(k => (
                 <div key={k.label} style={{
                   background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
@@ -516,24 +516,24 @@ export default function ProductionPerformancePage() {
                               {row.week}
                               {isCurrent && <span style={{ fontSize: '8px', fontWeight: 600, padding: '1px 5px', borderRadius: '5px', background: 'rgba(99,102,241,0.08)', color: 'var(--gx-accent)', marginLeft: '5px' }}>현재</span>}
                             </td>
-                            <MonthlyCell value={row.mech.completed} max={0} />
-                            <MonthlyCell value={row.mech.confirmed} max={row.mech.completed} isConfirm />
-                            <MonthlyCell value={row.elec.completed} max={0} />
-                            <MonthlyCell value={row.elec.confirmed} max={row.elec.completed} isConfirm />
-                            <MonthlyCell value={row.tm.completed} max={0} />
-                            <MonthlyCell value={row.tm.confirmed} max={row.tm.completed} isConfirm />
+                            <MonthlyCell value={row.mech?.completed ?? 0} max={0} />
+                            <MonthlyCell value={row.mech?.confirmed ?? 0} max={row.mech?.completed ?? 0} isConfirm />
+                            <MonthlyCell value={row.elec?.completed ?? 0} max={0} />
+                            <MonthlyCell value={row.elec?.confirmed ?? 0} max={row.elec?.completed ?? 0} isConfirm />
+                            <MonthlyCell value={row.tm?.completed ?? 0} max={0} />
+                            <MonthlyCell value={row.tm?.confirmed ?? 0} max={row.tm?.completed ?? 0} isConfirm />
                           </tr>
                         );
                       })}
                       {/* 합계 */}
                       <tr style={{ background: 'var(--gx-cloud)', borderTop: '2px solid var(--gx-mist)' }}>
                         <td style={{ padding: '13px 20px', fontWeight: 700, color: 'var(--gx-charcoal)', fontSize: '13px' }}>합계</td>
-                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-success)' }}>{monthlyData.totals.mech.completed}</td>
-                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-accent)' }}>{monthlyData.totals.mech.confirmed}</td>
-                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-success)' }}>{monthlyData.totals.elec.completed}</td>
-                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-accent)' }}>{monthlyData.totals.elec.confirmed}</td>
-                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-success)' }}>{monthlyData.totals.tm.completed}</td>
-                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-accent)' }}>{monthlyData.totals.tm.confirmed}</td>
+                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-success)' }}>{monthlyData?.totals?.mech?.completed ?? 0}</td>
+                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-accent)' }}>{monthlyData?.totals?.mech?.confirmed ?? 0}</td>
+                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-success)' }}>{monthlyData?.totals?.elec?.completed ?? 0}</td>
+                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-accent)' }}>{monthlyData?.totals?.elec?.confirmed ?? 0}</td>
+                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-success)' }}>{monthlyData?.totals?.tm?.completed ?? 0}</td>
+                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-accent)' }}>{monthlyData?.totals?.tm?.confirmed ?? 0}</td>
                       </tr>
                     </tbody>
                   </table>
