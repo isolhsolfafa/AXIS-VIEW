@@ -405,8 +405,8 @@ export default function ProductionPerformancePage() {
                               processType="MECH"
                               processStatus={(order.process_status?.MECH ?? { ready: 0, total: 0, confirmable: false })}
                               confirms={order.confirms ?? []}
-                              partnerDisplay={order.partner_info.mech}
-                              mixed={order.partner_info.mixed}
+                              partnerDisplay={(order.partner_info?.mech ?? '—')}
+                              mixed={(order.partner_info?.mixed ?? false)}
                               onConfirm={() => handleConfirm(order.sales_order, 'MECH')}
                               confirmPending={confirmMutation.isPending}
                             />
@@ -415,8 +415,8 @@ export default function ProductionPerformancePage() {
                               processType="ELEC"
                               processStatus={(order.process_status?.ELEC ?? { ready: 0, total: 0, confirmable: false })}
                               confirms={order.confirms ?? []}
-                              partnerDisplay={order.partner_info.elec}
-                              mixed={order.partner_info.mixed}
+                              partnerDisplay={(order.partner_info?.elec ?? '—')}
+                              mixed={(order.partner_info?.mixed ?? false)}
                               onConfirm={() => handleConfirm(order.sales_order, 'ELEC')}
                               confirmPending={confirmMutation.isPending}
                             />
