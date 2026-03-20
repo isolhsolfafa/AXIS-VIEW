@@ -433,10 +433,10 @@ export default function ProductionPerformancePage() {
                           </tr>
 
                           {/* S/N 상세 */}
-                          {isExpanded && order.sns.map((sn, idx) => (
+                          {isExpanded && (order.sns ?? []).map((sn, idx) => (
                             <tr key={sn.serial_number} style={{
                               background: 'var(--gx-snow)',
-                              borderBottom: idx === order.sns.length - 1 ? '2px solid var(--gx-mist)' : '1px solid var(--gx-cloud)',
+                              borderBottom: idx === (order.sns ?? []).length - 1 ? '2px solid var(--gx-mist)' : '1px solid var(--gx-cloud)',
                             }}>
                               <td />
                               <td style={{ padding: '8px 14px' }}>
@@ -451,21 +451,21 @@ export default function ProductionPerformancePage() {
                               {/* MECH progress */}
                               <td style={{ padding: '8px 14px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                  <MiniProgress value={sn.progress.MECH.pct} total={sn.progress.MECH.total} />
-                                  {sn.checklist.MECH.completed_at && <span style={{ fontSize: '8.5px', color: 'var(--gx-silver)', fontFamily: "'JetBrains Mono', monospace" }}>완료 {sn.checklist.MECH.completed_at.slice(5, 10)}</span>}
+                                  <MiniProgress value={sn.progress?.MECH?.pct ?? 0} total={sn.progress?.MECH?.total ?? 0} />
+                                  {sn.checklist?.MECH?.completed_at && <span style={{ fontSize: '8.5px', color: 'var(--gx-silver)', fontFamily: "'JetBrains Mono', monospace" }}>완료 {sn.checklist.MECH.completed_at.slice(5, 10)}</span>}
                                 </div>
                               </td>
                               {/* ELEC progress */}
                               <td style={{ padding: '8px 14px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                  <MiniProgress value={sn.progress.ELEC.pct} total={sn.progress.ELEC.total} />
-                                  {sn.checklist.ELEC.completed_at && <span style={{ fontSize: '8.5px', color: 'var(--gx-silver)', fontFamily: "'JetBrains Mono', monospace" }}>완료 {sn.checklist.ELEC.completed_at.slice(5, 10)}</span>}
+                                  <MiniProgress value={sn.progress?.ELEC?.pct ?? 0} total={sn.progress?.ELEC?.total ?? 0} />
+                                  {sn.checklist?.ELEC?.completed_at && <span style={{ fontSize: '8.5px', color: 'var(--gx-silver)', fontFamily: "'JetBrains Mono', monospace" }}>완료 {sn.checklist.ELEC.completed_at.slice(5, 10)}</span>}
                                 </div>
                               </td>
                               {/* TM progress */}
                               <td style={{ padding: '8px 14px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                  <MiniProgress value={sn.progress.TM.pct} total={sn.progress.TM.total} />
+                                  <MiniProgress value={sn.progress?.TM?.pct ?? 0} total={sn.progress?.TM?.total ?? 0} />
                                 </div>
                               </td>
                             </tr>
