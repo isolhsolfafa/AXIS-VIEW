@@ -4274,8 +4274,10 @@ const handleBatchConfirm = async (processType: 'MECH' | 'ELEC') => {
 - [x] KPI 카드 — API summary 데이터 바인딩
 - [x] npm run build 에러 없음
 
+**DB 경로**: `plan.production_confirm` (Core DB, plan 스키마, Migration 027)
+
 **검증 (배포 후)**:
 - [ ] VITE_USE_MOCK=false 상태에서 API 호출 확인
-- [ ] 실적확인 버튼 클릭 → DB 반영 확인
+- [ ] 실적확인 버튼 클릭 → `plan.production_confirm` INSERT 확인
 - [ ] 일괄확인 동작 확인
 - [ ] 월마감 뷰 데이터 표시 확인

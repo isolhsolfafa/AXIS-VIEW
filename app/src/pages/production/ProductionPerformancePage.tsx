@@ -145,23 +145,23 @@ export default function ProductionPerformancePage() {
   const summary = perfData?.summary;
   const totalON = summary?.total_orders ?? orders.length;
   const totalSN = orders.reduce((s, o) => s + o.sn_count, 0);
-  const mechConfirmed = orders.filter(o => o.confirms.some(c => c.process_type === 'MECH')).length;
-  const elecConfirmed = orders.filter(o => o.confirms.some(c => c.process_type === 'ELEC')).length;
-  const tmApplicable = orders.filter(o => o.process_status.TM.total > 0);
-  const tmConfirmed = orders.filter(o => o.confirms.some(c => c.process_type === 'TM')).length;
+  const mechConfirmed = orders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'MECH')).length;
+  const elecConfirmed = orders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'ELEC')).length;
+  const tmApplicable = orders.filter(o => (o.process_status?.TM?.total ?? 0) > 0);
+  const tmConfirmed = orders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'TM')).length;
   const mechReady = summary?.mech_confirmable ?? 0;
   const elecReady = summary?.elec_confirmable ?? 0;
 
   // 필터
   const filteredOrders = orders.filter(o => {
     if (statusFilter === 'done') {
-      const hasAll = (['MECH', 'ELEC'] as const).every(pt => o.confirms.some(c => c.process_type === pt));
-      const tmDone = o.process_status.TM.total === 0 || o.confirms.some(c => c.process_type === 'TM');
+      const hasAll = (['MECH', 'ELEC'] as const).every(pt => (o.confirms ?? []).some(c => c.process_type === pt));
+      const tmDone = (o.process_status?.TM?.total ?? 0) === 0 || (o.confirms ?? []).some(c => c.process_type === 'TM');
       return hasAll && tmDone;
     }
     if (statusFilter === 'pending') {
-      const hasAll = (['MECH', 'ELEC'] as const).every(pt => o.confirms.some(c => c.process_type === pt));
-      const tmDone = o.process_status.TM.total === 0 || o.confirms.some(c => c.process_type === 'TM');
+      const hasAll = (['MECH', 'ELEC'] as const).every(pt => (o.confirms ?? []).some(c => c.process_type === pt));
+      const tmDone = (o.process_status?.TM?.total ?? 0) === 0 || (o.confirms ?? []).some(c => c.process_type === 'TM');
       return !(hasAll && tmDone);
     }
     return true;
@@ -179,7 +179,7 @@ export default function ProductionPerformancePage() {
   const handleBatchConfirm = async (processType: 'MECH' | 'ELEC') => {
     const confirmable = orders.filter(o =>
       o.process_status[processType].confirmable &&
-      !o.confirms.some(c => c.process_type === processType)
+      !(o.confirms ?? []).some(c => c.process_type === processType)
     );
     if (confirmable.length === 0) return;
     if (!window.confirm(`${processType === 'MECH' ? '기구' : '전장'} 실적확인 ${confirmable.length}건을 일괄 처리하시겠습니까?`)) return;
@@ -364,8 +364,8 @@ export default function ProductionPerformancePage() {
                       const isExpanded = expandedOrders.has(order.sales_order);
 
                       // O/N 전체 완료 여부 (3공정 모두 confirmed)
-                      const allConfirmed = (['MECH', 'ELEC'] as const).every(pt => order.confirms.some(c => c.process_type === pt))
-                        && (order.process_status.TM.total === 0 || order.confirms.some(c => c.process_type === 'TM'));
+                      const allConfirmed = (['MECH', 'ELEC'] as const).every(pt => (order.confirms ?? []).some(c => c.process_type === pt))
+                        && ((order.process_status?.TM?.total ?? 0) === 0 || (order.confirms ?? []).some(c => c.process_type === 'TM'));
 
                       return (
                         <tbody key={order.sales_order}>
@@ -403,8 +403,8 @@ export default function ProductionPerformancePage() {
                             {/* 기구 */}
                             <ProcessCell
                               processType="MECH"
-                              processStatus={order.process_status.MECH}
-                              confirms={order.confirms}
+                              processStatus={(order.process_status?.MECH ?? { ready: 0, total: 0, confirmable: false })}
+                              confirms={order.confirms ?? []}
                               partnerDisplay={order.partner_info.mech}
                               mixed={order.partner_info.mixed}
                               onConfirm={() => handleConfirm(order.sales_order, 'MECH')}
@@ -413,8 +413,8 @@ export default function ProductionPerformancePage() {
                             {/* 전장 */}
                             <ProcessCell
                               processType="ELEC"
-                              processStatus={order.process_status.ELEC}
-                              confirms={order.confirms}
+                              processStatus={(order.process_status?.ELEC ?? { ready: 0, total: 0, confirmable: false })}
+                              confirms={order.confirms ?? []}
                               partnerDisplay={order.partner_info.elec}
                               mixed={order.partner_info.mixed}
                               onConfirm={() => handleConfirm(order.sales_order, 'ELEC')}
@@ -423,8 +423,8 @@ export default function ProductionPerformancePage() {
                             {/* TM */}
                             <ProcessCell
                               processType="TM"
-                              processStatus={order.process_status.TM}
-                              confirms={order.confirms}
+                              processStatus={(order.process_status?.TM ?? { ready: 0, total: 0, confirmable: false })}
+                              confirms={order.confirms ?? []}
                               partnerDisplay=""
                               mixed={false}
                               onConfirm={() => handleConfirm(order.sales_order, 'TM')}
