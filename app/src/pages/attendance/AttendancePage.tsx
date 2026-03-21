@@ -154,7 +154,7 @@ export default function AttendancePage() {
       return {
         ...c,
         hq_count: breakdown?.hq ?? 0,
-        site_count: breakdown?.site ?? (c.checked_in - (breakdown?.hq ?? 0)),
+        site_count: breakdown?.site ?? 0,
         not_checked: noCheckout,  // 퇴근 미체크만 카운트 (미출근 제외)
         alert_type: (noCheckout > 5 ? 'danger' : noCheckout > 0 ? 'warning' : 'ok') as 'danger' | 'warning' | 'ok',
       };

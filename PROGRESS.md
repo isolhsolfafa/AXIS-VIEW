@@ -1,8 +1,70 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-16 (v1.7.0 — 공장 API 연동 + 대시보드/생산일정 리팩토링)
+> 마지막 업데이트: 2026-03-21 (v1.7.3 — 근태 차트 주간/월간 추이 + 퇴근 미체크 필터 + TMS(E) 버그 수정)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.7.3: 근태 차트 주간/월간 추이 + 퇴근 미체크 필터 + TMS(E) 버그 수정 — ✅ 완료 (2026-03-21)
+
+근태관리 페이지 차트/하단 그리드의 미구현 탭 로직 구현 및 데이터 불일치 버그 수정.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| 차트 주간/월간 탭 | `ChartSection.tsx` | 전면 리라이트 — 일간: 기존 스택 바+도넛, 주간/월간: 라인 차트(전체/본사/현장 추이). BE API 미연동 시 placeholder 표시 |
+| 차트 레이아웃 전환 | `ChartSection.tsx` | 일간: `2fr 1fr` (바+도넛), 주간/월간: `1fr` (라인만, 도넛 숨김) |
+| `TrendDataPoint` type export | `ChartSection.tsx` | 추후 AttendancePage에서 trend API 연동 시 사용할 타입 |
+| 퇴근 미체크 필터 | `BottomGrid.tsx` | `activeCheckoutTab` state 추가. 전체/본사/현장 탭 클릭 시 `work_site` 기반 필터링. 카운트도 연동 |
+| TMS(E) fallback 버그 | `AttendancePage.tsx` | `site_count: breakdown?.site ?? (c.checked_in - ...)` → `breakdown?.site ?? 0`. Summary/레코드 불일치 해소 |
+
+### 발견 및 조치
+
+| 구분 | 내용 |
+|------|------|
+| ChartSection | 일간/주간/월간 탭 UI만 존재, state 변경 시 차트 데이터 불변 → 탭별 차트 전환 구현 |
+| BottomGrid | 전체/본사/현장 탭 UI만 존재, state 자체 없음 → 필터 로직 구현 |
+| TMS(E) 1명 표시 | Summary API `checked_in=1` vs FE `isActiveProductLine` 필터 제거 → fallback이 raw 값 사용 → 0 고정으로 수정 |
+
+### BE 요청
+
+| # | 엔드포인트 | 상태 |
+|---|-----------|------|
+| 29 | `GET /api/admin/hr/attendance/trend?date_from=&date_to=` | PENDING — OPS_API_REQUESTS.md 등록 완료 |
+
+---
+
+## v1.7.2: 근태 KPI 카드 정적 데이터 제거 + 어제 출근율 비교 — ✅ 완료 (2026-03-21)
+
+근태관리 페이지 상단 KPI 카드의 하드코딩 값 제거 및 어제 대비 출근율 비교 로직 추가.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| KPI fallback 제거 | `KpiCards.tsx` | fallback `7, 32, 66, 87.8` → 모두 `0`으로 변경 |
+| 출입 협력사 라벨 변경 | `KpiCards.tsx` | "등록 협력사" → "오늘 출입 협력사" (출근자 1명 이상인 회사만 카운트) |
+| 출입 협력사 sub 텍스트 | `KpiCards.tsx` | "활성 협력사 · 오늘 기준" → "등록 N개사 중" (전체 등록 수 표시) |
+| 출근율 비교 하드코딩 제거 | `KpiCards.tsx` | `+2.1% vs 어제` 정적 → 어제 데이터 기반 동적 계산. 데이터 없으면 숨김 |
+| 어제 데이터 조회 | `AttendancePage.tsx` | `useAttendanceToday(yesterday)` 추가 — 기존 `getAttendanceByDate` API 재활용 |
+| companyCount 계산 변경 | `AttendancePage.tsx` | `companies.length` → `new Set(checkedInRecords.map(r => r.company)).size` |
+| enhancedSummary 확장 | `AttendancePage.tsx` | `total_company_count`, `yesterday_attendance_rate` 필드 추가 |
+| import 추가 | `AttendancePage.tsx` | `subDays` (date-fns) import |
+
+### 발견 및 조치
+
+| 구분 | 내용 |
+|------|------|
+| 문제 1 | 등록 협력사 카드가 전체 등록 수(7)를 표시 → 오늘 출근자가 있는 회사만 카운트하도록 변경 |
+| 문제 2 | 평균 출근율 "+2.1% vs 어제" 완전 하드코딩 → 어제 날짜 API 추가 호출로 실 비교 구현 |
+| 문제 3 | KPI fallback 값이 Mock 수치(7, 32, 66, 87.8)로 박혀 있어 실 API 시 오류 표시 가능 → 0으로 변경 |
+| CompanySummaryCards | 하드코딩 없음 확인 — 모든 값이 props로 동적 전달 (양호) |
+
+### BE 추가 작업
+
+없음 — 어제 날짜 조회는 기존 `/api/admin/hr/attendance?date=` API로 처리.
 
 ---
 

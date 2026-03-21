@@ -1,6 +1,7 @@
 // src/components/attendance/BottomGrid.tsx
 // 하단 그리드 — 퇴근 미체크 + 근무지 요약 (컨셉 HTML 완전 적용)
 
+import { useState } from 'react';
 import type { AttendanceRecord } from '@/types/attendance';
 import { format, parseISO } from 'date-fns';
 
@@ -41,10 +42,21 @@ function formatTime(iso: string | null): string {
 }
 
 const CHECKOUT_TABS = ['전체', '본사', '현장'] as const;
+type CheckoutTab = typeof CHECKOUT_TABS[number];
 
 export default function BottomGrid({ notCheckedRecords, locationSummaries }: BottomGridProps) {
+  const [activeCheckoutTab, setActiveCheckoutTab] = useState<CheckoutTab>('전체');
   const totalHq = locationSummaries.reduce((acc, l) => acc + l.hq, 0);
   const totalSite = locationSummaries.reduce((acc, l) => acc + l.site, 0);
+
+  // 퇴근 미체크 필터 (전체/본사/현장)
+  const filteredNotChecked = activeCheckoutTab === '전체'
+    ? notCheckedRecords
+    : notCheckedRecords.filter((r) => {
+        const site = r.work_site || (r as ExtendedRecord).location;
+        if (activeCheckoutTab === '본사') return site === 'HQ' || site === '본사';
+        return site === 'GST' || site === '현장';
+      });
 
   return (
     <div
@@ -78,13 +90,14 @@ export default function BottomGrid({ notCheckedRecords, locationSummaries }: Bot
               퇴근 미체크 인원
             </div>
             <div style={{ fontSize: '11px', color: 'var(--gx-steel)', marginTop: '2px' }}>
-              확인 필요 · {notCheckedRecords.length}명
+              확인 필요 · {filteredNotChecked.length}명
             </div>
           </div>
           <div style={{ display: 'flex', gap: '4px' }}>
             {CHECKOUT_TABS.map((tab) => (
               <button
                 key={tab}
+                onClick={() => setActiveCheckoutTab(tab)}
                 style={{
                   padding: '5px 12px',
                   borderRadius: 'var(--radius-gx-sm)',
@@ -92,8 +105,8 @@ export default function BottomGrid({ notCheckedRecords, locationSummaries }: Bot
                   fontWeight: 500,
                   border: 'none',
                   cursor: 'pointer',
-                  color: tab === '전체' ? 'var(--gx-accent)' : 'var(--gx-steel)',
-                  background: tab === '전체' ? 'var(--gx-accent-soft)' : 'transparent',
+                  color: activeCheckoutTab === tab ? 'var(--gx-accent)' : 'var(--gx-steel)',
+                  background: activeCheckoutTab === tab ? 'var(--gx-accent-soft)' : 'transparent',
                   transition: 'all 0.15s',
                 }}
               >
@@ -104,7 +117,7 @@ export default function BottomGrid({ notCheckedRecords, locationSummaries }: Bot
         </div>
         <div style={{ padding: '20px 24px 24px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            {notCheckedRecords.slice(0, 6).map((record, idx) => {
+            {filteredNotChecked.slice(0, 6).map((record, idx) => {
               const avatarData = CHECKOUT_AVATARS[record.company] || { gradient: 'linear-gradient(135deg, #64748B, #94A3B8)', initials: '???' };
               const location = (record as ExtendedRecord).sub_location || (record as ExtendedRecord).location || '현장';
               const checkIn = formatTime(record.check_in_time);
@@ -116,7 +129,7 @@ export default function BottomGrid({ notCheckedRecords, locationSummaries }: Bot
                     alignItems: 'center',
                     gap: '14px',
                     padding: '12px 0',
-                    borderBottom: idx < Math.min(notCheckedRecords.length - 1, 5) ? '1px solid var(--gx-cloud)' : 'none',
+                    borderBottom: idx < Math.min(filteredNotChecked.length - 1, 5) ? '1px solid var(--gx-cloud)' : 'none',
                   }}
                 >
                   <div
@@ -157,7 +170,7 @@ export default function BottomGrid({ notCheckedRecords, locationSummaries }: Bot
                 </div>
               );
             })}
-            {notCheckedRecords.length === 0 && (
+            {filteredNotChecked.length === 0 && (
               <div
                 style={{
                   textAlign: 'center',

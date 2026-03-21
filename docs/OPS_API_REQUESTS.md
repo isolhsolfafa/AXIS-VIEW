@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-19 (#22 출하 카운트, #23~#26 생산실적 API)
+> 마지막 업데이트: 2026-03-21 (#29 근태 기간별 출입 추이 API)
 
 ---
 
@@ -1317,6 +1317,56 @@ WHERE (qr.serial_number ILIKE '%{search}%' OR qr.qr_doc_id ILIKE '%{search}%' OR
 3. VIEW 실적페이지에서 체크리스트 미완 시 confirmable=false UI 반영
 
 **시급도**: 낮음 — 체크리스트 기능 Sprint 진행 후 연동. 현재는 `false`로 비활성 상태이므로 영향 없음.
+
+---
+
+### 29. 근태 기간별 출입 추이 API — PENDING
+
+**등록일**: 2026-03-21
+
+**엔드포인트**: `GET /api/admin/hr/attendance/trend`
+
+**요청 내용**: 날짜 범위 지정 시 일별 출입 인원 집계를 반환하는 API
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|----------|------|------|------|
+| `date_from` | string (YYYY-MM-DD) | ✅ | 시작일 |
+| `date_to` | string (YYYY-MM-DD) | ✅ | 종료일 |
+
+**응답 형식**:
+```json
+{
+  "date_from": "2026-03-15",
+  "date_to": "2026-03-21",
+  "trend": [
+    {
+      "date": "2026-03-15",
+      "total_registered": 130,
+      "checked_in": 98,
+      "hq_count": 32,
+      "site_count": 66
+    },
+    {
+      "date": "2026-03-16",
+      "total_registered": 130,
+      "checked_in": 102,
+      "hq_count": 35,
+      "site_count": 67
+    }
+  ]
+}
+```
+
+**목적**: VIEW 근태관리 차트 섹션의 주간(7일)/월간(30일) 출입 인원 추이 라인 차트 표시
+
+**FE 현황**: ChartSection 주간/월간 탭 UI 구현 완료. `trendData` props 수신 대기 중. API 연동 후 `useAttendanceTrend(dateFrom, dateTo)` 훅 생성 예정.
+
+**구현 참고**:
+- 기존 `GET /api/admin/hr/attendance?date=` 를 날짜별로 반복 호출하는 방식은 비효율 (7~30회 호출)
+- BE에서 SQL `GROUP BY date` 한 번으로 처리하는 것이 최적
+- `hq_count`/`site_count`는 `work_site` 컬럼 기준 집계
+
+**시급도**: 중 — FE 차트 UI는 완성, BE 연동만 남은 상태
 
 ---
 

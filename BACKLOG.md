@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-16 (v1.7.1 — 공장 대시보드 자동 새로고침 + 근태 근무지 컬럼)
+> 마지막 업데이트: 2026-03-21 (v1.7.3 — 근태 차트 주간/월간 추이 + 퇴근 미체크 필터 + TMS(E) 버그)
 > 이 파일은 보류/재검토/계획/아이디어를 한 곳에서 관리합니다.
 > 완료된 항목은 PROGRESS.md로 이동합니다.
 
@@ -28,6 +28,10 @@
 | TASK-16 | 불량 API 요청 등록 | ⏳ OPS 대기 | OPS_API_REQUESTS #16 PENDING. QMS defect API 필요 (KPI 불량 건수 + 활동 피드) |
 | TASK-17 | 출하 데이터 소스 변경 | ✅ 완료 | 출하 카운트 `finishing_plan_end` → `ship_plan_date` 전환. 마무리종료 컬럼 제거. 기본 필터 "오늘" |
 | TASK-18 | per_page 200 제한 | ⏳ OPS 대기 | OPS_API_REQUESTS #20 PENDING. monthly-detail 상한 200→500 완화 필요 (208건 중 8건 누락) |
+| TASK-19 | 근태 KPI 카드 정적 데이터 제거 | ✅ 완료 | v1.7.2 — fallback(7,32,66,87.8)→0, "등록 협력사"→"오늘 출입 협력사", "+2.1%"→어제 API 비교 |
+| TASK-20 | TMS(E) 카드 1명 표시 버그 | ✅ 완료 | v1.7.3 — `site_count` fallback이 Summary raw 값 사용 → `breakdown?.site ?? 0`으로 수정 |
+| TASK-21 | 차트 주간/월간 탭 로직 | 🔄 FE 완료 | v1.7.3 — 라인 차트 UI 구현. BE trend API 연동 대기 (OPS_API_REQUESTS #29 PENDING) |
+| TASK-22 | 퇴근 미체크 전체/본사/현장 필터 | ✅ 완료 | v1.7.3 — `activeCheckoutTab` state + `work_site` 기반 필터링. FE 단독 구현 |
 
 ---
 
