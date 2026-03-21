@@ -3,11 +3,12 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getWorkers, toggleManager } from '@/api/workers';
+import type { WorkersParams } from '@/api/workers';
 
-export function useWorkers() {
+export function useWorkers(params?: WorkersParams) {
   return useQuery({
-    queryKey: ['workers'],
-    queryFn: getWorkers,
+    queryKey: ['workers', params],
+    queryFn: () => getWorkers(params),
     staleTime: 30_000,
   });
 }

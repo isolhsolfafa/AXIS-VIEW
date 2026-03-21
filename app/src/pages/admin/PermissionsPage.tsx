@@ -51,7 +51,10 @@ const ROLE_LABELS: Record<string, string> = {
 /* ── 페이지 ──────────────────────────────────────────── */
 export default function PermissionsPage() {
   const { user: currentUser } = useAuth();
-  const { data, isLoading, isError, error } = useWorkers();
+  const [showAll, setShowAll] = useState(false);
+  const { data, isLoading, isError, error } = useWorkers(
+    showAll ? undefined : { is_manager: true }
+  );
   const toggleMutation = useToggleManager();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -222,8 +225,24 @@ export default function PermissionsPage() {
               color: 'var(--gx-graphite)',
             }}
           />
-          <div style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--gx-steel)' }}>
-            {isLoading ? '로딩...' : `${filtered.length}명 표시`}
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--gx-steel)' }}>
+              {isLoading ? '로딩...' : `${showAll ? '전체' : 'Manager'} ${filtered.length}명`}
+            </span>
+            <button
+              onClick={() => setShowAll(!showAll)}
+              style={{
+                fontSize: '11px', fontWeight: 500, padding: '5px 12px',
+                borderRadius: '8px', cursor: 'pointer', transition: 'all 0.15s',
+                border: '1px solid',
+                ...(showAll
+                  ? { background: 'var(--gx-accent)', color: '#fff', borderColor: 'var(--gx-accent)' }
+                  : { background: 'var(--gx-snow)', color: 'var(--gx-steel)', borderColor: 'var(--gx-mist)' }
+                ),
+              }}
+            >
+              {showAll ? '전체 보기 중' : '전체 보기'}
+            </button>
           </div>
         </div>
 

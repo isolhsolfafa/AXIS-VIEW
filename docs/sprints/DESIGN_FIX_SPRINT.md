@@ -4281,3 +4281,624 @@ const handleBatchConfirm = async (processType: 'MECH' | 'ELEC') => {
 - [ ] 실적확인 버튼 클릭 → `plan.production_confirm` INSERT 확인
 - [ ] 일괄확인 동작 확인
 - [ ] 월마감 뷰 데이터 표시 확인
+
+---
+
+# Sprint 9: 실적확인 설정 패널 + 권한 관리 필터 — admin_settings 연동
+
+> **목적**: (1) 생산실적 페이지에 공정별 on/off 토글 설정 패널 추가 (admin_settings 기반), (2) 권한 관리 페이지에 Manager/Admin 필터 기본 적용
+> **의존성**: AXIS-OPS Sprint 34 (SETTING_KEYS 레지스트리 + GET/PUT admin_settings 확장 + workers is_manager 필터) 완료 후 진행
+> **범위**: FE — API 모듈 2개 신규/수정 + 훅 2개 신규/수정 + 페이지 2개 수정
+
+## 배경
+
+### 실적 페이지 설정 패널
+
+OPS Sprint 33에서 admin_settings에 공정별 실적확인 on/off 설정 7개가 추가됨:
+
+```
+confirm_mech_enabled = true       기구 실적확인 ON
+confirm_elec_enabled = true       전장 실적확인 ON
+confirm_tm_enabled   = true       TM 실적확인 ON
+confirm_pi_enabled   = false      PI 실적확인 OFF
+confirm_qi_enabled   = false      QI 실적확인 OFF
+confirm_si_enabled   = false      SI 실적확인 OFF
+confirm_checklist_required = false 체크리스트 필수 OFF
+```
+
+현재 FE에서는 이 설정을 읽지 않고, BE의 `confirmable` 플래그만 사용 중. Admin이 현장 상황에 따라 특정 공정의 실적확인을 켜고 끌 수 있는 UI가 필요.
+
+### 권한 관리 필터
+
+현재 `GET /api/admin/workers?limit=500`으로 전체 작업자를 가져와서 테이블에 표시. 협력사별로 수십 명이 나오는데 실제 Manager는 1~2명. OPS Sprint 34에서 `is_manager` 쿼리 파라미터가 추가되므로, FE에서 기본적으로 Manager/Admin만 표시하고 필요 시 전체를 볼 수 있게 변경.
+
+## BE API (AXIS-OPS Sprint 34에서 구현)
+
+```
+GET  /api/admin/settings                           → 전체 설정 조회 (confirm_* 포함)
+PUT  /api/admin/settings                           → 설정 업데이트 (SETTING_KEYS 타입별 검증)
+GET  /api/admin/workers?is_manager=true             → Manager/Admin만 필터
+GET  /api/admin/workers?company=FNI&is_manager=true → 회사 + Manager 복합 필터
+```
+
+## FE 구현
+
+> CLAUDE.md를 먼저 읽고 현재 프로젝트 구조를 파악할 것.
+
+### Task 1: admin_settings API 모듈 (`src/api/adminSettings.ts` 신규)
+
+VIEW에서 OPS admin_settings를 읽고 수정하는 API 모듈. 기존 패턴 참조: `src/api/attendance.ts`
+
+```typescript
+// src/api/adminSettings.ts
+import apiClient from './client';
+
+export interface AdminSettingsResponse {
+  // bool 타입
+  heating_jacket_enabled: boolean;
+  phase_block_enabled: boolean;
+  location_qr_required: boolean;
+  auto_pause_enabled: boolean;
+  geo_check_enabled: boolean;
+  geo_strict_mode: boolean;
+
+  // 실적확인 설정 (Sprint 33)
+  confirm_mech_enabled: boolean;
+  confirm_elec_enabled: boolean;
+  confirm_tm_enabled: boolean;
+  confirm_pi_enabled: boolean;
+  confirm_qi_enabled: boolean;
+  confirm_si_enabled: boolean;
+  confirm_checklist_required: boolean;
+
+  // PI 위임 설정 (Sprint 31C)
+  pi_capable_mech_partners: string[];
+  pi_gst_override_lines: string[];
+
+  // 기타 (time, number 등)
+  [key: string]: unknown;
+}
+
+/**
+ * admin_settings 전체 조회
+ */
+export async function getAdminSettings(): Promise<AdminSettingsResponse> {
+  const { data } = await apiClient.get<AdminSettingsResponse>('/api/admin/settings');
+  return data;
+}
+
+/**
+ * admin_settings 업데이트 (부분 업데이트 가능)
+ */
+export async function updateAdminSettings(
+  updates: Partial<AdminSettingsResponse>
+): Promise<{ message: string; updated_keys: string[] }> {
+  const { data } = await apiClient.put<{ message: string; updated_keys: string[] }>(
+    '/api/admin/settings',
+    updates,
+  );
+  return data;
+}
+```
+
+### Task 2: admin_settings TanStack Query 훅 (`src/hooks/useAdminSettings.ts` 신규)
+
+```typescript
+// src/hooks/useAdminSettings.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getAdminSettings, updateAdminSettings } from '@/api/adminSettings';
+import type { AdminSettingsResponse } from '@/api/adminSettings';
+
+/**
+ * admin_settings 조회 훅
+ */
+export function useAdminSettings() {
+  return useQuery({
+    queryKey: ['admin-settings'],
+    queryFn: getAdminSettings,
+    staleTime: 5 * 60 * 1000,  // 5분 (설정은 자주 안 바뀜)
+  });
+}
+
+/**
+ * admin_settings 업데이트 훅
+ * 성공 시 admin-settings 쿼리 invalidate + production 쿼리도 invalidate
+ */
+export function useUpdateAdminSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (updates: Partial<AdminSettingsResponse>) => updateAdminSettings(updates),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-settings'] });
+      qc.invalidateQueries({ queryKey: ['production'] });  // confirmable 재계산
+    },
+  });
+}
+```
+
+### Task 3: workers API 수정 (`src/api/workers.ts` 수정)
+
+기존 `getWorkers()`에 필터 파라미터 추가:
+
+```typescript
+// src/api/workers.ts (수정)
+import apiClient from './client';
+import type { Worker } from '@/types/auth';
+
+export interface WorkersResponse {
+  workers: Worker[];
+  total: number;
+}
+
+export interface WorkersParams {
+  company?: string;
+  is_manager?: boolean;
+  limit?: number;
+}
+
+export async function getWorkers(params?: WorkersParams): Promise<WorkersResponse> {
+  const queryParams: Record<string, string> = {};
+  if (params?.company) queryParams.company = params.company;
+  if (params?.is_manager !== undefined) queryParams.is_manager = String(params.is_manager);
+  queryParams.limit = String(params?.limit ?? 500);
+
+  const { data } = await apiClient.get<WorkersResponse>('/api/admin/workers', {
+    params: queryParams,
+  });
+  return data;
+}
+
+export async function toggleManager(
+  workerId: number,
+  isManager: boolean
+): Promise<{ success: boolean; worker: Worker }> {
+  const { data } = await apiClient.put<{ success: boolean; worker: Worker }>(
+    `/api/admin/workers/${workerId}/manager`,
+    { is_manager: isManager },
+  );
+  return data;
+}
+```
+
+### Task 4: useWorkers 훅 수정 (`src/hooks/useWorkers.ts` 수정)
+
+```typescript
+// src/hooks/useWorkers.ts (수정)
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getWorkers, toggleManager } from '@/api/workers';
+import type { WorkersParams } from '@/api/workers';
+
+export function useWorkers(params?: WorkersParams) {
+  return useQuery({
+    queryKey: ['workers', params],
+    queryFn: () => getWorkers(params),
+    staleTime: 30_000,
+  });
+}
+
+export function useToggleManager() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workerId, isManager }: { workerId: number; isManager: boolean }) =>
+      toggleManager(workerId, isManager),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workers'] });
+    },
+  });
+}
+```
+
+### Task 5: 생산실적 페이지 — 설정 패널 추가 (`ProductionPerformancePage.tsx` 수정)
+
+**5-1. import 추가**
+
+```typescript
+import { useAdminSettings, useUpdateAdminSettings } from '@/hooks/useAdminSettings';
+```
+
+**5-2. 설정 패널 컴포넌트 (페이지 내부에 정의)**
+
+```tsx
+function ConfirmSettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { data: settings, isLoading } = useAdminSettings();
+  const updateMutation = useUpdateAdminSettings();
+
+  if (!open) return null;
+
+  const TOGGLES = [
+    { key: 'confirm_mech_enabled', label: '기구 (MECH)', group: 'active' },
+    { key: 'confirm_elec_enabled', label: '전장 (ELEC)', group: 'active' },
+    { key: 'confirm_tm_enabled', label: 'Tank Module (TM)', group: 'active' },
+    { key: 'confirm_pi_enabled', label: 'PI', group: 'inactive' },
+    { key: 'confirm_qi_enabled', label: 'QI', group: 'inactive' },
+    { key: 'confirm_si_enabled', label: 'SI', group: 'inactive' },
+  ] as const;
+
+  const handleToggle = (key: string, currentValue: boolean) => {
+    updateMutation.mutate({ [key]: !currentValue });
+  };
+
+  return (
+    <div style={{
+      position: 'absolute', top: '48px', right: '0', width: '300px', zIndex: 100,
+      background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-md)',
+      border: '1px solid var(--gx-mist)',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)',
+      padding: '16px',
+    }}>
+      {/* 헤더 */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--gx-mist)',
+      }}>
+        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
+          실적확인 설정
+        </span>
+        <button onClick={onClose} style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: 'var(--gx-steel)', fontSize: '16px',
+        }}>✕</button>
+      </div>
+
+      {isLoading ? (
+        <div style={{ textAlign: 'center', padding: '20px', color: 'var(--gx-steel)', fontSize: '12px' }}>
+          설정 불러오는 중...
+        </div>
+      ) : (
+        <>
+          {/* 공정별 토글 */}
+          <div style={{ marginBottom: '14px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--gx-steel)', marginBottom: '8px', letterSpacing: '0.3px' }}>
+              공정별 실적확인 활성화
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {TOGGLES.map(t => {
+                const value = settings?.[t.key as keyof typeof settings] as boolean ?? false;
+                return (
+                  <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{
+                      fontSize: '12px', fontWeight: 500,
+                      color: value ? 'var(--gx-charcoal)' : 'var(--gx-steel)',
+                    }}>{t.label}</span>
+                    {/* 토글 스위치 — SettingsModal 패턴 재사용 */}
+                    <button
+                      onClick={() => handleToggle(t.key, value)}
+                      disabled={updateMutation.isPending}
+                      style={{
+                        width: '40px', height: '22px', borderRadius: '11px',
+                        border: 'none', cursor: 'pointer', position: 'relative',
+                        background: value ? 'var(--gx-accent)' : 'var(--gx-silver)',
+                        transition: 'background 0.2s',
+                        opacity: updateMutation.isPending ? 0.6 : 1,
+                      }}
+                    >
+                      <span style={{
+                        position: 'absolute', top: '2px',
+                        left: value ? '20px' : '2px',
+                        width: '18px', height: '18px', borderRadius: '50%',
+                        background: 'var(--gx-white)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                        transition: 'left 0.2s',
+                      }} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 구분선 */}
+          <div style={{ borderTop: '1px solid var(--gx-mist)', margin: '12px 0' }} />
+
+          {/* 체크리스트 필수 */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-charcoal)' }}>
+                체크리스트 필수
+              </span>
+              <div style={{ fontSize: '10px', color: 'var(--gx-steel)', marginTop: '2px' }}>
+                자주검사 완료 시에만 실적확인 가능
+              </div>
+            </div>
+            <button
+              onClick={() => handleToggle('confirm_checklist_required', settings?.confirm_checklist_required ?? false)}
+              disabled={updateMutation.isPending}
+              style={{
+                width: '40px', height: '22px', borderRadius: '11px',
+                border: 'none', cursor: 'pointer', position: 'relative',
+                background: (settings?.confirm_checklist_required) ? 'var(--gx-accent)' : 'var(--gx-silver)',
+                transition: 'background 0.2s',
+              }}
+            >
+              <span style={{
+                position: 'absolute', top: '2px',
+                left: (settings?.confirm_checklist_required) ? '20px' : '2px',
+                width: '18px', height: '18px', borderRadius: '50%',
+                background: 'var(--gx-white)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                transition: 'left 0.2s',
+              }} />
+            </button>
+          </div>
+
+          {/* 저장 피드백 */}
+          {updateMutation.isSuccess && (
+            <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--gx-success)', textAlign: 'center' }}>
+              설정이 저장되었습니다.
+            </div>
+          )}
+          {updateMutation.isError && (
+            <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--gx-danger)', textAlign: 'center' }}>
+              저장 실패. 다시 시도해주세요.
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+**5-3. toolbar에 ⚙️ 버튼 추가 (admin only)**
+
+```tsx
+export default function ProductionPerformancePage() {
+  // 기존 state...
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { user } = useAuth();
+  const isAdmin = user?.is_admin === true;
+
+  // ... 기존 로직 ...
+
+  return (
+    <Layout title="생산실적">
+      <div style={{ padding: '28px 32px', maxWidth: '1600px' }}>
+        {/* Toolbar */}
+        <div style={{ display: 'flex', alignItems: 'center', ... }}>
+          {/* 기존 주간/월마감 토글, 주차 탭, 상태 필터 ... */}
+
+          {/* ★ Sprint 9: 설정 버튼 (admin only) — toolbar 오른쪽 끝 */}
+          {isAdmin && (
+            <div style={{ marginLeft: 'auto', position: 'relative' }}>
+              <button
+                onClick={() => setSettingsOpen(!settingsOpen)}
+                style={{
+                  width: '32px', height: '32px', borderRadius: '8px',
+                  border: '1px solid var(--gx-mist)', background: 'var(--gx-snow)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: settingsOpen ? 'var(--gx-accent)' : 'var(--gx-steel)',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                </svg>
+              </button>
+              <ConfirmSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+            </div>
+          )}
+        </div>
+      </div>
+    </Layout>
+  );
+}
+```
+
+**5-4. 외부 클릭 시 패널 닫기**
+
+`ConfirmSettingsPanel` 내부에 기존 `SettingsModal.tsx`와 동일한 `useEffect` + `mousedown` 패턴 적용:
+
+```typescript
+const panelRef = useRef<HTMLDivElement>(null);
+useEffect(() => {
+  if (!open) return;
+  function handleClick(e: MouseEvent) {
+    if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+      onClose();
+    }
+  }
+  document.addEventListener('mousedown', handleClick);
+  return () => document.removeEventListener('mousedown', handleClick);
+}, [open, onClose]);
+```
+
+**5-5. confirmable + confirm_enabled 연동**
+
+현재 `ProcessCell`에서 `processStatus.confirmable`만 보고 실적확인 버튼을 표시. Sprint 9에서는 admin_settings의 `confirm_{공정}_enabled`도 함께 확인:
+
+```tsx
+// 메인 컴포넌트에서 admin settings 읽기
+const { data: adminSettings } = useAdminSettings();
+
+// ProcessCell에 enabled prop 전달
+const isProcessEnabled = (pt: string): boolean => {
+  const key = `confirm_${pt.toLowerCase()}_enabled`;
+  return (adminSettings as Record<string, unknown>)?.[key] === true;
+};
+
+// 렌더링 시
+<ProcessCell
+  processType="MECH"
+  processStatus={order.process_status?.MECH ?? { ready: 0, total: 0, confirmable: false }}
+  confirms={order.confirms}
+  partnerDisplay={order.partner_info?.mech ?? ''}
+  mixed={order.partner_info?.mixed ?? false}
+  onConfirm={() => handleConfirm(order.sales_order, 'MECH')}
+  confirmPending={confirmMutation.isPending}
+  enabled={isProcessEnabled('MECH')}   // ★ Sprint 9 추가
+/>
+```
+
+**5-6. ProcessCell — enabled prop 추가**
+
+```tsx
+function ProcessCell({ processType, processStatus, confirms, partnerDisplay, mixed, onConfirm, confirmPending, enabled = true }: {
+  // ... 기존 props ...
+  enabled?: boolean;  // ★ Sprint 9 추가
+}) {
+  // enabled=false면 confirmable이어도 버튼 숨김
+  const showConfirmButton = enabled && processStatus.confirmable && !confirm;
+
+  // 비활성 공정 시각적 표시
+  if (!enabled && processStatus.total > 0) {
+    return (
+      <td style={{ padding: '12px 14px', minWidth: '140px', opacity: 0.5 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--gx-steel)', fontFamily: "'JetBrains Mono', monospace" }}>
+            {processStatus.ready}/{processStatus.total}
+          </span>
+          <span style={{ fontSize: '9px', color: 'var(--gx-silver)', fontStyle: 'italic' }}>확인 비활성</span>
+        </div>
+      </td>
+    );
+  }
+
+  // ... 기존 렌더링 (confirm 버튼은 showConfirmButton 조건으로) ...
+}
+```
+
+### Task 6: 권한 관리 페이지 — Manager 기본 필터 (`PermissionsPage.tsx` 수정)
+
+**6-1. 기본 뷰: Manager/Admin만 표시**
+
+```tsx
+export default function PermissionsPage() {
+  const { user: currentUser } = useAuth();
+  const [showAll, setShowAll] = useState(false);  // ★ Sprint 9 추가
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterCompany, setFilterCompany] = useState('');
+
+  // ★ Sprint 9: is_manager 파라미터 전달
+  const { data, isLoading, isError, error } = useWorkers(
+    showAll ? undefined : { is_manager: true }
+  );
+
+  const allWorkers = data?.workers ?? [];
+
+  // Manager는 자사 소속만 (기존 로직 유지)
+  const workers = useMemo(() => {
+    if (currentUser?.is_admin) return allWorkers;
+    if (currentUser?.is_manager) return allWorkers.filter((w) => w.company === currentUser.company);
+    return allWorkers;
+  }, [allWorkers, currentUser]);
+
+  // ... 기존 필터링 로직 ...
+```
+
+**6-2. 필터바에 "전체 보기" 토글 추가**
+
+```tsx
+{/* 필터 바 (기존 select, input 뒤에 추가) */}
+<div style={{
+  marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px',
+}}>
+  <span style={{ fontSize: '12px', color: 'var(--gx-steel)' }}>
+    {showAll ? `전체 ${filtered.length}명` : `Manager ${filtered.length}명`}
+  </span>
+  <button
+    onClick={() => setShowAll(!showAll)}
+    style={{
+      fontSize: '11px', fontWeight: 500, padding: '5px 12px',
+      borderRadius: '8px', cursor: 'pointer', transition: 'all 0.15s',
+      border: '1px solid',
+      ...(showAll
+        ? { background: 'var(--gx-accent)', color: '#fff', borderColor: 'var(--gx-accent)' }
+        : { background: 'var(--gx-snow)', color: 'var(--gx-steel)', borderColor: 'var(--gx-mist)' }
+      ),
+    }}
+  >
+    {showAll ? '전체 보기 중' : '전체 보기'}
+  </button>
+</div>
+```
+
+**6-3. KPI 카드 업데이트**
+
+`showAll=false`일 때는 Manager/Admin만 표시되므로 KPI도 맞춤:
+
+```tsx
+// KPI
+const totalWorkers = workers.length;
+const adminCount = workers.filter((w) => w.is_admin).length;
+const managerCount = workers.filter((w) => w.is_manager && !w.is_admin).length;
+const generalCount = showAll ? workers.filter((w) => !w.is_manager && !w.is_admin).length : 0;
+
+// KPI 카드 배열
+const kpis = [
+  { label: showAll ? '전체 작업자' : '관리자', value: totalWorkers, color: 'var(--gx-charcoal)' },
+  { label: 'Admin', value: adminCount, color: 'var(--gx-accent)' },
+  { label: 'Manager', value: managerCount, color: 'var(--gx-success)' },
+  ...(showAll ? [{ label: '일반', value: generalCount, color: 'var(--gx-steel)' }] : []),
+];
+```
+
+### Task 7: 일괄확인 버튼 — confirm_enabled 반영
+
+기존 toolbar의 "기구 일괄확인 (N건)" / "전장 일괄확인 (N건)" 버튼도 `confirm_{공정}_enabled=false`이면 숨김:
+
+```tsx
+{/* 일괄 확인 — enabled인 공정만 표시 */}
+{isProcessEnabled('MECH') && mechReady > 0 && (
+  <button onClick={() => handleBatchConfirm('MECH')} style={...}>
+    기구 일괄확인 ({mechReady}건)
+  </button>
+)}
+{isProcessEnabled('ELEC') && elecReady > 0 && (
+  <button onClick={() => handleBatchConfirm('ELEC')} style={...}>
+    전장 일괄확인 ({elecReady}건)
+  </button>
+)}
+```
+
+### Task 8: 설정 패널 열릴 때 ESC 키로 닫기
+
+```typescript
+useEffect(() => {
+  if (!settingsOpen) return;
+  const handleKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') setSettingsOpen(false);
+  };
+  document.addEventListener('keydown', handleKey);
+  return () => document.removeEventListener('keydown', handleKey);
+}, [settingsOpen]);
+```
+
+## 체크리스트
+
+**사전 조건**:
+- [ ] AXIS-OPS Sprint 34 완료 (SETTING_KEYS + admin_settings GET/PUT 확장 + workers is_manager 필터)
+- [ ] OPS BE 배포 완료 (Railway)
+
+**신규 파일 (FE)**:
+- [ ] `src/api/adminSettings.ts` — getAdminSettings(), updateAdminSettings()
+- [ ] `src/hooks/useAdminSettings.ts` — useAdminSettings(), useUpdateAdminSettings()
+
+**수정 파일 (FE)**:
+- [ ] `src/api/workers.ts` — getWorkers()에 WorkersParams (company, is_manager) 추가
+- [ ] `src/hooks/useWorkers.ts` — useWorkers(params?) 파라미터 전달
+- [ ] `ProductionPerformancePage.tsx` — ConfirmSettingsPanel 컴포넌트 추가
+- [ ] `ProductionPerformancePage.tsx` — toolbar에 ⚙️ 버튼 (admin only)
+- [ ] `ProductionPerformancePage.tsx` — 외부 클릭 / ESC 키로 패널 닫기
+- [ ] `ProductionPerformancePage.tsx` — useAdminSettings() 연동
+- [ ] `ProductionPerformancePage.tsx` — ProcessCell에 enabled prop 추가
+- [ ] `ProductionPerformancePage.tsx` — enabled=false 시 "확인 비활성" 표시 + 버튼 숨김
+- [ ] `ProductionPerformancePage.tsx` — 일괄확인 버튼에 confirm_enabled 반영
+- [ ] `PermissionsPage.tsx` — showAll 상태 추가 (기본 false → Manager/Admin만)
+- [ ] `PermissionsPage.tsx` — useWorkers(params) 호출에 is_manager 전달
+- [ ] `PermissionsPage.tsx` — "전체 보기" 토글 버튼 추가
+- [ ] `PermissionsPage.tsx` — KPI 카드 showAll 대응
+
+**빌드 검증**:
+- [ ] npm run build 에러 없음
+- [ ] TypeScript strict 에러 없음
+
+**기능 검증**:
+- [ ] 실적 페이지 — admin 로그인 시 ⚙️ 표시, 비admin 시 미표시
+- [ ] ⚙️ 클릭 → 설정 패널 열림, 외부 클릭 / ESC → 닫힘
+- [ ] 토글 ON/OFF → PUT 호출 → 즉시 반영
+- [ ] confirm_mech_enabled=false → MECH 컬럼 "확인 비활성" 표시 + 실적확인 버튼 숨김
+- [ ] confirm_pi_enabled=true로 변경 → PI 공정도 confirmable 시 버튼 표시
+- [ ] 일괄확인 버튼 — 비활성 공정은 숨김
+- [ ] 권한 페이지 — 기본: Manager/Admin만 표시
+- [ ] "전체 보기" 클릭 → 전체 작업자 표시 (Manager 지정용)
+- [ ] 기존 Manager 토글 기능 정상 동작 (regression)

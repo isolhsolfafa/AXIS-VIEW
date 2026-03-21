@@ -4,11 +4,12 @@
 // 실적확인 단위: O/N × 공정(MECH/ELEC/TM) 개별 확인
 // DB: plan.production_confirm (Core DB)
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Layout from '@/components/layout/Layout';
 import { usePerformance, useMonthlySummary, useConfirmProduction, useCancelConfirm } from '@/hooks/useProduction';
 import type { ConfirmRecord } from '@/types/production';
 import { useAuth } from '@/store/authStore';
+import { useAdminSettings, useUpdateAdminSettings } from '@/hooks/useAdminSettings';
 
 /* ─── MiniProgress ─────────────────────────────────── */
 function MiniProgress({ value, total }: { value: number; total?: number }) {
@@ -26,8 +27,109 @@ function MiniProgress({ value, total }: { value: number; total?: number }) {
   );
 }
 
+/* ─── ConfirmSettingsPanel — 실적확인 설정 패널 ────── */
+function ConfirmSettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { data: settings, isLoading } = useAdminSettings();
+  const updateMutation = useUpdateAdminSettings();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => { document.removeEventListener('mousedown', handleClick); document.removeEventListener('keydown', handleKey); };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const TOGGLES = [
+    { key: 'confirm_mech_enabled', label: '기구 (MECH)' },
+    { key: 'confirm_elec_enabled', label: '전장 (ELEC)' },
+    { key: 'confirm_tm_enabled', label: 'Tank Module (TM)' },
+    { key: 'confirm_pi_enabled', label: 'PI' },
+    { key: 'confirm_qi_enabled', label: 'QI' },
+    { key: 'confirm_si_enabled', label: 'SI' },
+  ];
+
+  const handleToggle = (key: string, currentValue: boolean) => {
+    updateMutation.mutate({ [key]: !currentValue });
+  };
+
+  return (
+    <div ref={panelRef} style={{
+      position: 'absolute', top: '48px', right: '0', width: '300px', zIndex: 100,
+      background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-md)',
+      border: '1px solid var(--gx-mist)',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)',
+      padding: '16px',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--gx-mist)' }}>
+        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>실적확인 설정</span>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gx-steel)', fontSize: '16px' }}>&#10005;</button>
+      </div>
+
+      {isLoading ? (
+        <div style={{ textAlign: 'center', padding: '20px', color: 'var(--gx-steel)', fontSize: '12px' }}>설정 불러오는 중...</div>
+      ) : (
+        <>
+          <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--gx-steel)', marginBottom: '10px', letterSpacing: '0.3px', textTransform: 'uppercase' as const }}>공정별 실적확인</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {TOGGLES.map(t => {
+              const value = (settings as Record<string, unknown>)?.[t.key] as boolean ?? false;
+              return (
+                <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 500, color: value ? 'var(--gx-charcoal)' : 'var(--gx-steel)' }}>{t.label}</span>
+                  <button onClick={() => handleToggle(t.key, value)} disabled={updateMutation.isPending} style={{
+                    width: '40px', height: '22px', borderRadius: '11px', border: 'none', cursor: 'pointer', position: 'relative',
+                    background: value ? 'var(--gx-accent)' : 'var(--gx-silver)', transition: 'background 0.2s',
+                    opacity: updateMutation.isPending ? 0.6 : 1,
+                  }}>
+                    <span style={{
+                      position: 'absolute', top: '2px', left: value ? '20px' : '2px',
+                      width: '18px', height: '18px', borderRadius: '50%', background: 'var(--gx-white)',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.15)', transition: 'left 0.2s',
+                    }} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--gx-mist)', margin: '14px 0' }} />
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-charcoal)' }}>체크리스트 필수</span>
+              <div style={{ fontSize: '10px', color: 'var(--gx-steel)', marginTop: '2px' }}>자주검사 완료 시에만 실적확인 가능</div>
+            </div>
+            <button onClick={() => handleToggle('confirm_checklist_required', (settings as Record<string, unknown>)?.confirm_checklist_required as boolean ?? false)} disabled={updateMutation.isPending} style={{
+              width: '40px', height: '22px', borderRadius: '11px', border: 'none', cursor: 'pointer', position: 'relative',
+              background: ((settings as Record<string, unknown>)?.confirm_checklist_required as boolean) ? 'var(--gx-accent)' : 'var(--gx-silver)', transition: 'background 0.2s',
+            }}>
+              <span style={{
+                position: 'absolute', top: '2px', left: ((settings as Record<string, unknown>)?.confirm_checklist_required as boolean) ? '20px' : '2px',
+                width: '18px', height: '18px', borderRadius: '50%', background: 'var(--gx-white)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.15)', transition: 'left 0.2s',
+              }} />
+            </button>
+          </div>
+
+          {updateMutation.isSuccess && <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--gx-success)', textAlign: 'center' }}>설정이 저장되었습니다.</div>}
+          {updateMutation.isError && <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--gx-danger)', textAlign: 'center' }}>저장 실패</div>}
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ─── ProcessCell — 공정별 인라인 확인 셀 ──────────── */
-function ProcessCell({ processType, processStatus, confirms, partnerDisplay, mixed, onConfirm, confirmPending }: {
+function ProcessCell({ processType, processStatus, confirms, partnerDisplay, mixed, onConfirm, confirmPending, enabled = true }: {
   processType: 'MECH' | 'ELEC' | 'TM';
   processStatus: { ready: number; total: number; confirmable: boolean };
   confirms: ConfirmRecord[];
@@ -35,6 +137,7 @@ function ProcessCell({ processType, processStatus, confirms, partnerDisplay, mix
   mixed: boolean;
   onConfirm: () => void;
   confirmPending: boolean;
+  enabled?: boolean;
 }) {
   const confirm = confirms.find(c => c.process_type === processType);
   const allDone = processStatus.ready === processStatus.total && processStatus.total > 0;
@@ -43,6 +146,21 @@ function ProcessCell({ processType, processStatus, confirms, partnerDisplay, mix
     return (
       <td style={{ padding: '12px 14px' }}>
         <span style={{ fontSize: '11px', color: 'var(--gx-silver)', fontStyle: 'italic' }}>N/A</span>
+      </td>
+    );
+  }
+
+  if (!enabled && processStatus.total > 0) {
+    return (
+      <td style={{ padding: '12px 14px', minWidth: '140px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', opacity: 0.5 }}>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', fontWeight: 700, color: 'var(--gx-silver)' }}>
+            {processStatus.ready}/{processStatus.total}
+          </span>
+          <span style={{ fontSize: '9px', fontWeight: 600, padding: '2px 8px', borderRadius: '8px', background: 'var(--gx-cloud)', color: 'var(--gx-steel)', display: 'inline-block', width: 'fit-content' }}>
+            확인 비활성
+          </span>
+        </div>
       </td>
     );
   }
@@ -69,7 +187,7 @@ function ProcessCell({ processType, processStatus, confirms, partnerDisplay, mix
             }}>
               &#10003; 확인
             </span>
-          ) : processStatus.confirmable ? (
+          ) : enabled && processStatus.confirmable && !confirm ? (
             <button
               onClick={(e) => { e.stopPropagation(); onConfirm(); }}
               disabled={confirmPending}
@@ -117,9 +235,17 @@ export default function ProductionPerformancePage() {
   const [activeView, setActiveView] = useState<'weekly' | 'monthly'>('weekly');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<'all' | 'done' | 'pending'>('all');
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const { user: _user } = useAuth();
-  void _user; // auth context available for future role-based rendering
+  const { user } = useAuth();
+  const isAdmin = user?.is_admin === true;
+
+  const { data: adminSettings } = useAdminSettings();
+
+  const isProcessEnabled = (pt: string): boolean => {
+    const key = `confirm_${pt.toLowerCase()}_enabled`;
+    return (adminSettings as Record<string, unknown>)?.[key] !== false;
+  };
 
   // API data
   const { data: perfData, isLoading, isError, error } = usePerformance(
@@ -340,6 +466,22 @@ export default function ProductionPerformancePage() {
                   <span style={{ fontSize: '9px', fontWeight: 600, padding: '2px 8px', borderRadius: '8px', background: 'rgba(245,158,11,0.08)', color: 'var(--gx-warning)' }}>마감 전</span>
                 </div>
               )}
+
+              {isAdmin && (
+                <div style={{ marginLeft: 'auto', position: 'relative' }}>
+                  <button onClick={() => setSettingsOpen(!settingsOpen)} style={{
+                    width: '32px', height: '32px', borderRadius: '8px',
+                    border: '1px solid var(--gx-mist)', background: settingsOpen ? 'var(--gx-accent-soft)' : 'var(--gx-snow)',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: settingsOpen ? 'var(--gx-accent)' : 'var(--gx-steel)', transition: 'all 0.15s',
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <ConfirmSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+                </div>
+              )}
             </div>
 
             {/* ─── 주간 뷰 ─── */}
@@ -409,6 +551,7 @@ export default function ProductionPerformancePage() {
                               mixed={(order.partner_info?.mixed ?? false)}
                               onConfirm={() => handleConfirm(order.sales_order, 'MECH')}
                               confirmPending={confirmMutation.isPending}
+                              enabled={isProcessEnabled('MECH')}
                             />
                             {/* 전장 */}
                             <ProcessCell
@@ -419,6 +562,7 @@ export default function ProductionPerformancePage() {
                               mixed={(order.partner_info?.mixed ?? false)}
                               onConfirm={() => handleConfirm(order.sales_order, 'ELEC')}
                               confirmPending={confirmMutation.isPending}
+                              enabled={isProcessEnabled('ELEC')}
                             />
                             {/* TM */}
                             <ProcessCell
@@ -429,6 +573,7 @@ export default function ProductionPerformancePage() {
                               mixed={false}
                               onConfirm={() => handleConfirm(order.sales_order, 'TM')}
                               confirmPending={confirmMutation.isPending}
+                              enabled={isProcessEnabled('TM')}
                             />
                           </tr>
 

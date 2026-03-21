@@ -9,9 +9,20 @@ export interface WorkersResponse {
   total: number;
 }
 
-export async function getWorkers(): Promise<WorkersResponse> {
+export interface WorkersParams {
+  company?: string;
+  is_manager?: boolean;
+  limit?: number;
+}
+
+export async function getWorkers(params?: WorkersParams): Promise<WorkersResponse> {
+  const queryParams: Record<string, string> = {};
+  if (params?.company) queryParams.company = params.company;
+  if (params?.is_manager !== undefined) queryParams.is_manager = String(params.is_manager);
+  queryParams.limit = String(params?.limit ?? 500);
+
   const { data } = await apiClient.get<WorkersResponse>('/api/admin/workers', {
-    params: { limit: 500 },
+    params: queryParams,
   });
   return data;
 }
