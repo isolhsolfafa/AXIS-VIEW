@@ -2,8 +2,8 @@
 // 출퇴근 API — VITE_USE_MOCK=true 시 Mock 데이터 반환, false 시 실제 API 호출
 
 import apiClient from './client';
-import type { DailyAttendanceResponse, CompanySummaryResponse } from '@/types/attendance';
-import { getMockTodayAttendance, getMockCompanySummary } from '@/mocks/attendance';
+import type { DailyAttendanceResponse, CompanySummaryResponse, AttendanceTrendResponse, TrendDataPoint } from '@/types/attendance';
+import { getMockTodayAttendance, getMockCompanySummary, getMockAttendanceTrend } from '@/mocks/attendance';
 import { isActiveProductLine } from '@/utils/workSiteMapping';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
@@ -51,4 +51,33 @@ export async function getAttendanceSummary(): Promise<CompanySummaryResponse> {
     '/api/admin/hr/attendance/summary'
   );
   return response.data;
+}
+
+/**
+ * 기간별 출입 추이 조회
+ */
+export async function getAttendanceTrend(dateFrom: string, dateTo: string): Promise<TrendDataPoint[]> {
+  if (USE_MOCK) {
+    return getMockAttendanceTrend(dateFrom, dateTo);
+  }
+  const response = await apiClient.get<AttendanceTrendResponse>(
+    '/api/admin/hr/attendance/trend',
+    { params: { date_from: dateFrom, date_to: dateTo } },
+  );
+  return response.data.trend.map(transformTrendPoint);
+}
+
+function transformTrendPoint(item: AttendanceTrendResponse['trend'][number]): TrendDataPoint {
+  const d = new Date(item.date + 'T00:00:00+09:00');
+  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const dayName = dayNames[d.getDay()];
+  return {
+    date: `${mm}/${dd}(${dayName})`,
+    dateRaw: item.date,
+    total: item.checked_in,
+    hq: item.hq_count,
+    site: item.site_count,
+  };
 }

@@ -23,13 +23,7 @@ interface CompanyChartData {
   site: number;
 }
 
-export interface TrendDataPoint {
-  date: string;       // "03/17(월)" 형식 표시용
-  dateRaw: string;    // "2026-03-17" 원본
-  total: number;
-  hq: number;
-  site: number;
-}
+import type { TrendDataPoint } from '@/types/attendance';
 
 interface ChartSectionProps {
   companies: CompanyChartData[];
@@ -38,6 +32,7 @@ interface ChartSectionProps {
   notChecked: number;
   trendData?: TrendDataPoint[];
   trendLoading?: boolean;
+  onTabChange?: (tab: '일간' | '주간' | '월간') => void;
 }
 
 const TABS = ['일간', '주간', '월간'] as const;
@@ -90,8 +85,9 @@ function LineTooltip({ active, payload, label }: { active?: boolean; payload?: A
   );
 }
 
-export default function ChartSection({ companies, hqTotal, siteTotal, notChecked, trendData, trendLoading }: ChartSectionProps) {
+export default function ChartSection({ companies, hqTotal, siteTotal, notChecked, trendData, trendLoading, onTabChange }: ChartSectionProps) {
   const [activeTab, setActiveTab] = useState<TabType>('일간');
+  const handleTabClick = (tab: TabType) => { setActiveTab(tab); onTabChange?.(tab); };
   const totalPeople = hqTotal + siteTotal;
   const isDaily = activeTab === '일간';
 
@@ -145,7 +141,7 @@ export default function ChartSection({ companies, hqTotal, siteTotal, notChecked
             {TABS.map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => handleTabClick(tab)}
                 style={{
                   padding: '5px 12px',
                   borderRadius: 'var(--radius-gx-sm)',

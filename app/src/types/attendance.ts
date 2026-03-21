@@ -40,3 +40,25 @@ export interface CompanySummaryResponse {
   date: string;
   by_company: CompanySummary[];
 }
+
+// --- 추이 차트 ---
+
+export interface TrendDataPoint {
+  date: string;       // "03/17(월)" 형식 표시용
+  dateRaw: string;    // "2026-03-17" 원본
+  total: number;
+  hq: number;
+  site: number;
+}
+
+export interface AttendanceTrendResponse {
+  date_from: string;
+  date_to: string;
+  trend: Array<{
+    date: string;
+    total_registered: number;
+    checked_in: number;
+    hq_count: number;
+    site_count: number;
+  }>;
+}

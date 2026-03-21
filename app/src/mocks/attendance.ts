@@ -280,3 +280,36 @@ export function getMockCompanySummary(): CompanySummaryResponse {
 }
 
 export { MOCK_COMPANIES };
+
+// --- Mock 추이 데이터 ---
+import type { TrendDataPoint } from '@/types/attendance';
+
+export function getMockAttendanceTrend(dateFrom: string, dateTo: string): TrendDataPoint[] {
+  const start = new Date(dateFrom + 'T00:00:00+09:00');
+  const end = new Date(dateTo + 'T00:00:00+09:00');
+  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+  const points: TrendDataPoint[] = [];
+  const current = new Date(start);
+
+  while (current <= end) {
+    const mm = String(current.getMonth() + 1).padStart(2, '0');
+    const dd = String(current.getDate()).padStart(2, '0');
+    const dayName = dayNames[current.getDay()];
+    const isWeekend = current.getDay() === 0 || current.getDay() === 6;
+    const seed = current.getFullYear() * 10000 + (current.getMonth() + 1) * 100 + current.getDate();
+    const pseudoRandom = ((seed * 9301 + 49297) % 233280) / 233280;
+    const base = isWeekend ? 15 : 95;
+    const variance = Math.floor(pseudoRandom * 20) - 10;
+    const total = Math.max(0, base + variance);
+    const hq = Math.floor(total * 0.35);
+    const site = total - hq;
+
+    points.push({
+      date: `${mm}/${dd}(${dayName})`,
+      dateRaw: `${current.getFullYear()}-${mm}-${dd}`,
+      total, hq, site,
+    });
+    current.setDate(current.getDate() + 1);
+  }
+  return points;
+}

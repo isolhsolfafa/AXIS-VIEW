@@ -2,7 +2,7 @@
 // 출퇴근 데이터 TanStack Query 훅 — 설정 연동 자동 갱신
 
 import { useQuery } from '@tanstack/react-query';
-import { getAttendanceToday, getAttendanceByDate, getAttendanceSummary } from '@/api/attendance';
+import { getAttendanceToday, getAttendanceByDate, getAttendanceSummary, getAttendanceTrend } from '@/api/attendance';
 import { useSettings } from '@/hooks/useSettings';
 
 // 근무 시간대 판단: 07:00~17:20
@@ -47,5 +47,17 @@ export function useAttendanceSummary() {
     queryFn: getAttendanceSummary,
     refetchInterval: isWorkingHours() ? intervalMs : false,
     staleTime: 60 * 1000,
+  });
+}
+
+/**
+ * 기간별 출입 추이 훅
+ */
+export function useAttendanceTrend(dateFrom: string, dateTo: string) {
+  return useQuery({
+    queryKey: ['attendance', 'trend', dateFrom, dateTo],
+    queryFn: () => getAttendanceTrend(dateFrom, dateTo),
+    staleTime: 5 * 60 * 1000,
+    enabled: !!dateFrom && !!dateTo,
   });
 }

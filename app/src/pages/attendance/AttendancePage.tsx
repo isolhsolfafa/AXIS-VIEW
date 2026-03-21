@@ -11,7 +11,7 @@ import CompanySummaryCards from '@/components/attendance/CompanySummaryCards';
 import AttendanceTable from '@/components/attendance/AttendanceTable';
 import BottomGrid from '@/components/attendance/BottomGrid';
 import FilterBar from '@/components/attendance/FilterBar';
-import { useAttendanceToday, useAttendanceSummary } from '@/hooks/useAttendance';
+import { useAttendanceToday, useAttendanceSummary, useAttendanceTrend } from '@/hooks/useAttendance';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/store/authStore';
 import type { AttendanceRecord } from '@/types/attendance';
@@ -43,6 +43,20 @@ export default function AttendancePage() {
   // 어제 출근율 비교용 데이터 조회
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
   const { data: yesterdayData } = useAttendanceToday(yesterday);
+
+  // 추이 차트 데이터
+  const [chartTab, setChartTab] = useState<'일간' | '주간' | '월간'>('일간');
+  const trendRange = useMemo(() => {
+    const now = new Date();
+    const days = chartTab === '주간' ? 7 : chartTab === '월간' ? 30 : 0;
+    if (days === 0) return null;
+    const from = new Date(now);
+    from.setDate(now.getDate() - days + 1);
+    return { dateFrom: format(from, 'yyyy-MM-dd'), dateTo: format(now, 'yyyy-MM-dd') };
+  }, [chartTab]);
+  const { data: trendData, isLoading: trendLoading } = useAttendanceTrend(
+    trendRange?.dateFrom ?? '', trendRange?.dateTo ?? '',
+  );
 
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
 
@@ -203,6 +217,9 @@ export default function AttendancePage() {
             hqTotal={hqTotal}
             siteTotal={siteTotal}
             notChecked={summary?.not_checked ?? 0}
+            trendData={trendData}
+            trendLoading={trendLoading}
+            onTabChange={setChartTab}
           />
         </div>
       )}
