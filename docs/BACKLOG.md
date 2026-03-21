@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-12
+> 마지막 업데이트: 2026-03-19
 > 관련: AXIS_VIEW_ROADMAP.md, OPS_API_REQUESTS.md
 
 ---
@@ -55,7 +55,7 @@ To-Be (AXIS-VIEW):
 | **주간 탭** | W10~W13 (3월 기준), 공정별 progress 100% = 완료 건수 |
 | **월마감 탭** | 주차별 집계 → 월 합계, 정산 근거 |
 | **실적확인** | 공정별 인라인 확인 (기구/전장/TM 각각 독립) |
-| **확인 기준** | 해당 O/N의 모든 S/N이 해당 공정 100% → 확인 버튼 활성 |
+| **확인 기준** | 협력사: progress 100% + 자주검사 체크리스트 완료 → 확인 버튼 활성 |
 | **일괄 처리** | 상단 "기구 일괄확인 (N건)" 또는 체크박스 선택 → 플로팅 바 |
 
 #### 실적확인 단위 — 공정별 개별 확인
@@ -131,12 +131,25 @@ GET  /api/admin/production/monthly-summary?month=2026-03
      → 주차별 공정 완료 건수 + 확인 건수
 ```
 
+#### 실적확인 조건 (확정)
+
+| 공정 | progress 조건 | 추가 조건 | SAP 전산 |
+|------|-------------|----------|---------|
+| MECH | 생산 task 완료 (자주검사 제외) | 자주검사 체크리스트 완료 (성적서) | ✅ |
+| ELEC | 생산 task 완료 (자주검사 제외) | 자주검사 체크리스트 완료 (성적서) | ✅ |
+| TM | TANK_MODULE 완료 | 가압검사(PRESSURE_TEST)는 실적 기준에서 제외 | ✅ |
+
+- 자주검사 체크리스트: OPS 앱에서 시작 → 체크리스트 토스트 → 항목별 체크 → 디지털 검사 성적서 생성
+- DB: `checklist` 스키마 (`checklist_master`, `checklist_record`) 이미 존재, 설계 검토 중
+- 자체공정(PI, QI, 마무리): OPS 완료 timestamp 자동 적재 → 추후 보고서/챗봇 활용
+
 #### 미결 사항
 
 | 항목 | 상태 | 내용 |
 |------|------|------|
 | 주간 대상 기준 | 🟡 확인 필요 | 해당 주에 완료(end 찍힌) O/N? 또는 활성(진행중) O/N? |
 | QMS 연동 | 🟡 확인 필요 | production_confirm 데이터를 QMS에도 반영해야 하는지 |
+| 체크리스트 설계 | 🟡 검토 중 | OPS 앱 자주검사 체크리스트 기능 + checklist 스키마 설계 확정 필요 |
 
 ---
 
@@ -144,9 +157,21 @@ GET  /api/admin/production/monthly-summary?month=2026-03
 
 | 항목 | 내용 |
 |------|------|
-| 상태 | 미정 — 스켈레톤만 구현 |
-| 데이터 소스 | `plan.product_info.ship_plan_date` + `actual_ship_date` (realtime 아님) |
-| 과제 | 실시간 출하 데이터 소스 확보 방안 검토 필요 |
+| 상태 | 데이터 소스 확정 — BE 수정 대기 (OPS #22) |
+| 데이터 소스 | `app_task_details WHERE task_id='SI_SHIPMENT' AND completed_at IS NOT NULL` |
+| 출하 판정 | SI_SHIPMENT task 완료 = 실제 출하 (원클릭 액션) |
+| SAP 전산 | 출하 시 SAP 전산 처리 필요 |
+
+#### 실적/출하 구조 (확정)
+
+| 구분 | 공정 | 실적확인 | 출하 판정 | SAP |
+|------|------|---------|----------|-----|
+| 협력사 실적 | MECH, ELEC, TM | ✅ VIEW에서 확인 | - | ✅ |
+| GST 자체공정 | PI, QI, 마무리(SI_FINISHING) | 내부실적 (timestamp 자동) | - | ❌ |
+| 출하 | SI_SHIPMENT | - | ✅ completed_at 기준 | ✅ |
+
+- `finishing_plan_end`: 생산일정 전용 (일정 관리)
+- `SI_SHIPMENT completed_at`: 출하 카운트 기준 (공장 대시보드 + 출하이력)
 
 ---
 

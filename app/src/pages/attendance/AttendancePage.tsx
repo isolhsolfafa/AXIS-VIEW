@@ -2,7 +2,7 @@
 // 협력사 출퇴근 대시보드 — 컨셉 HTML 완전 적용
 
 import { useState, useMemo } from 'react';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import Layout from '@/components/layout/Layout';
 import StatusBar from '@/components/attendance/StatusBar';
 import KpiCards from '@/components/attendance/KpiCards';
@@ -39,6 +39,10 @@ export default function AttendancePage() {
     selectedDate !== today ? selectedDate : undefined
   );
   const { data: summaryData } = useAttendanceSummary();
+
+  // 어제 출근율 비교용 데이터 조회
+  const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+  const { data: yesterdayData } = useAttendanceToday(yesterday);
 
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
 
@@ -77,10 +81,21 @@ export default function AttendancePage() {
   // 출입 인원 기반 본사/현장 집계 (출근한 사람만)
   const hqTotal = checkedInRecords.filter((r) => r.work_site === 'HQ').length;
   const siteTotal = checkedInRecords.filter((r) => r.work_site === 'GST').length;
-  const companyCount = companies.length || new Set(allRecords.map((r) => r.company)).size;
+
+  // 오늘 출입 협력사: 출근자가 1명 이상인 회사만 카운트
+  const todayActiveCompanyCount = new Set(checkedInRecords.map((r) => r.company)).size;
+  // 전체 등록 협력사 수
+  const totalCompanyCount = companies.length || new Set(allRecords.map((r) => r.company)).size;
+
   const avgRate = summary && summary.total_registered > 0
     ? Math.round((summary.checked_in / summary.total_registered) * 1000) / 10
     : 0;
+
+  // 어제 출근율 계산
+  const yesterdaySummary = yesterdayData?.summary;
+  const yesterdayRate = yesterdaySummary && yesterdaySummary.total_registered > 0
+    ? Math.round((yesterdaySummary.checked_in / yesterdaySummary.total_registered) * 1000) / 10
+    : null;
 
   // Enhanced KPI summary
   const enhancedSummary = summary
@@ -89,8 +104,10 @@ export default function AttendancePage() {
         hq_count: hqTotal,
         site_count: siteTotal,
         avg_attendance_rate: avgRate,
-        company_count: companyCount,
+        company_count: todayActiveCompanyCount,
+        total_company_count: totalCompanyCount,
         no_checkout_count: noCheckoutRecords.length,
+        yesterday_attendance_rate: yesterdayRate,
       }
     : null;
 

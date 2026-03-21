@@ -12,6 +12,8 @@ interface KpiSummary {
   site_count?: number;
   avg_attendance_rate?: number;
   company_count?: number;
+  total_company_count?: number;
+  yesterday_attendance_rate?: number | null;
 }
 
 interface KpiCardsProps {
@@ -55,19 +57,32 @@ const DownArrow = () => (
 );
 
 export default function KpiCards({ summary }: KpiCardsProps) {
-  const companyCount = summary.company_count ?? 7;
-  const hqCount = summary.hq_count ?? 32;
-  const siteCount = summary.site_count ?? 66;
-  const avgRate = summary.avg_attendance_rate ?? 87.8;
+  const companyCount = summary.company_count ?? 0;
+  const hqCount = summary.hq_count ?? 0;
+  const siteCount = summary.site_count ?? 0;
+  const avgRate = summary.avg_attendance_rate ?? 0;
+
+  // 어제 대비 출근율 변화 계산
+  const yesterdayRate = summary.yesterday_attendance_rate;
+  const rateChange = (() => {
+    if (yesterdayRate == null || yesterdayRate === 0) return null;
+    const diff = Math.round((avgRate - yesterdayRate) * 10) / 10;
+    if (diff === 0) return null;
+    return {
+      dir: diff > 0 ? 'up' : 'down',
+      label: `${diff > 0 ? '+' : ''}${diff}%`,
+      note: 'vs 어제',
+    };
+  })();
 
   const cards = [
     {
       type: 'primary',
-      label: '등록 협력사',
+      label: '오늘 출입 협력사',
       icon: <BuildingIcon />,
       value: companyCount,
       unit: '개사',
-      sub: '활성 협력사 · 오늘 기준',
+      sub: summary.total_company_count ? `등록 ${summary.total_company_count}개사 중` : '오늘 기준',
       change: null,
       iconBg: 'var(--gx-accent-soft)',
       iconColor: 'var(--gx-accent)',
@@ -102,7 +117,7 @@ export default function KpiCards({ summary }: KpiCardsProps) {
       value: avgRate,
       unit: '%',
       sub: null,
-      change: { dir: 'up', label: '+2.1%', note: 'vs 어제' },
+      change: rateChange,
       iconBg: 'var(--gx-info-bg)',
       iconColor: 'var(--gx-info)',
     },

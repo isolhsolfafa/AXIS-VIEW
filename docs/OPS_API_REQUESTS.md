@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-18 (#21 QR search에 Order No 추가)
+> 마지막 업데이트: 2026-03-19 (#22 출하 카운트, #23~#26 생산실적 API)
 
 ---
 
@@ -866,6 +866,242 @@ API 응답: week: 11, year: 2026, range: 03-09 ~ 03-15
 
 ---
 
+## 생산실적 (`/api/admin/production`)
+
+### 23. 생산실적 조회 — O/N 단위 공정별 progress + 실적확인 이력 — PENDING
+
+**요청일**: 2026-03-19
+
+**엔드포인트**: `GET /api/admin/production/performance`
+
+**권한**: `@view_access_required`
+
+**쿼리 파라미터**:
+
+| 파라미터 | 타입 | 설명 | 기본값 |
+|----------|------|------|--------|
+| `week` | string | ISO 주차 (예: `W11`) | 현재 주 |
+| `month` | string | `YYYY-MM` | 현재 월 |
+| `view` | string | `weekly` \| `monthly` | `weekly` |
+
+**응답 예시 (weekly)**:
+
+```json
+{
+  "week": "W12",
+  "month": "2026-03",
+  "orders": [
+    {
+      "sales_order": "6238",
+      "model": "GAIA-I DUAL",
+      "sns": [
+        {
+          "serial_number": "GBWS-6627",
+          "mech_partner": "BAT",
+          "elec_partner": "C&A",
+          "progress": {
+            "MECH": { "total": 7, "done": 7, "pct": 100 },
+            "ELEC": { "total": 6, "done": 4, "pct": 66 },
+            "TM":   { "total": 2, "done": 1, "pct": 50, "tank_module_done": true, "pressure_test_done": false }
+          },
+          "checklist": {
+            "MECH": { "completed": true, "completed_at": "2026-03-15T14:30:00+09:00" },
+            "ELEC": { "completed": false, "completed_at": null }
+          }
+        }
+      ],
+      "sn_count": 3,
+      "sn_summary": "GBWS-6627~6629",
+      "partner_info": { "mech": "BAT", "elec": "C&A", "mixed": false },
+      "process_status": {
+        "MECH": { "ready": 3, "total": 3, "checklist_ready": 3, "confirmable": true },
+        "ELEC": { "ready": 1, "total": 3, "checklist_ready": 0, "confirmable": false },
+        "TM":   { "ready": 2, "total": 3, "confirmable": false }
+      },
+      "confirms": [
+        { "id": 1, "process_type": "MECH", "confirmed_week": "W12", "confirmed_by": "김동규", "confirmed_at": "2026-03-15T16:00:00+09:00" }
+      ]
+    }
+  ],
+  "summary": {
+    "total_orders": 8,
+    "mech_confirmable": 5,
+    "elec_confirmable": 3,
+    "tm_confirmable": 2
+  }
+}
+```
+
+**응답 필드 설명**:
+
+| 필드 | 설명 |
+|------|------|
+| `orders[]` | O/N 단위 그룹핑 목록 |
+| `sns[].progress` | S/N별 공정 진행률 (task 기준) |
+| `sns[].progress.TM.tank_module_done` | TM 실적 기준 — TANK_MODULE task 완료 여부 |
+| `sns[].checklist` | S/N별 자주검사 체크리스트 완료 여부 (`checklist.checklist_record` 기반) |
+| `process_status.confirmable` | O/N 전체 S/N이 해당 공정 조건 충족 시 true |
+| `confirms[]` | 기존 실적확인 이력 (`plan.production_confirm`) |
+| `summary` | 일괄확인용 건수 집계 |
+
+**실적확인 가능 조건 (`confirmable = true`)**:
+
+| 공정 | 조건 |
+|------|------|
+| MECH | 모든 S/N의 MECH 생산 task 완료 + SELF_INSPECTION 체크리스트 완료 |
+| ELEC | 모든 S/N의 ELEC 생산 task 완료 + INSPECTION 체크리스트 완료 |
+| TM | 모든 S/N의 TANK_MODULE task 완료 (PRESSURE_TEST 무관) |
+
+**데이터 소스**:
+- `app_task_details` — task별 progress (기존 OPS 데이터)
+- `checklist.checklist_record` — 자주검사 완료 여부
+- `plan.production_confirm` — 실적확인 이력
+- `plan.product_info` — O/N, 모델, 협력사 정보
+
+**FE 사용처**: `ProductionPerformancePage.tsx` — O/N 테이블 + 공정별 인라인 확인
+
+---
+
+### 24. 실적확인 처리 — PENDING
+
+**요청일**: 2026-03-19
+
+**엔드포인트**: `POST /api/admin/production/confirm`
+
+**권한**: `@manager_or_admin_required`
+
+**요청 Body**:
+
+```json
+{
+  "sales_order": "6238",
+  "process_type": "MECH",
+  "confirmed_week": "W12",
+  "confirmed_month": "2026-03"
+}
+```
+
+**처리 로직**:
+
+1. 해당 O/N의 모든 S/N에 대해 공정별 confirmable 조건 재검증
+2. 조건 미충족 시 → 400 에러 (어떤 S/N이 미충족인지 상세 반환)
+3. 조건 충족 시 → `plan.production_confirm` INSERT
+4. `UNIQUE(sales_order, process_type, confirmed_week)` 위반 시 → 409 (이미 확인됨)
+
+**응답 예시 (성공)**:
+
+```json
+{
+  "success": true,
+  "confirm_id": 42,
+  "sales_order": "6238",
+  "process_type": "MECH",
+  "confirmed_week": "W12",
+  "sn_count": 3,
+  "confirmed_at": "2026-03-15T16:00:00+09:00"
+}
+```
+
+**응답 예시 (실패)**:
+
+```json
+{
+  "error": "NOT_CONFIRMABLE",
+  "message": "MECH 실적확인 조건 미충족",
+  "details": [
+    { "serial_number": "GBWS-6629", "reason": "progress 85% (5/7 tasks)" },
+    { "serial_number": "GBWS-6628", "reason": "자주검사 체크리스트 미완료" }
+  ]
+}
+```
+
+**FE 사용처**: `ProductionPerformancePage.tsx` — 실적확인 버튼 클릭 + 일괄확인
+
+---
+
+### 25. 실적확인 취소 — PENDING
+
+**요청일**: 2026-03-19
+
+**엔드포인트**: `DELETE /api/admin/production/confirm/:id`
+
+**권한**: `@admin_required` (Admin만 취소 가능 — 오입력 대응)
+
+**처리 로직**: `plan.production_confirm` 해당 행 DELETE (hard delete)
+
+**응답 예시**:
+
+```json
+{
+  "success": true,
+  "deleted_id": 42,
+  "sales_order": "6238",
+  "process_type": "MECH",
+  "confirmed_week": "W12"
+}
+```
+
+**FE 사용처**: `ProductionPerformancePage.tsx` — 확인된 실적 옆 취소 버튼 (Admin만 표시)
+
+---
+
+### 26. 월마감 집계 — PENDING
+
+**요청일**: 2026-03-19
+
+**엔드포인트**: `GET /api/admin/production/monthly-summary`
+
+**권한**: `@manager_or_admin_required`
+
+**쿼리 파라미터**:
+
+| 파라미터 | 타입 | 설명 | 기본값 |
+|----------|------|------|--------|
+| `month` | string | `YYYY-MM` | 현재 월 |
+
+**응답 예시**:
+
+```json
+{
+  "month": "2026-03",
+  "weeks": [
+    {
+      "week": "W10",
+      "mech": { "completed": 8, "confirmed": 8 },
+      "elec": { "completed": 6, "confirmed": 5 },
+      "tm":   { "completed": 4, "confirmed": 4 }
+    },
+    {
+      "week": "W11",
+      "mech": { "completed": 10, "confirmed": 10 },
+      "elec": { "completed": 9, "confirmed": 8 },
+      "tm":   { "completed": 5, "confirmed": 5 }
+    }
+  ],
+  "totals": {
+    "mech": { "completed": 18, "confirmed": 18 },
+    "elec": { "completed": 15, "confirmed": 13 },
+    "tm":   { "completed": 9, "confirmed": 9 }
+  }
+}
+```
+
+**응답 필드 설명**:
+
+| 필드 | 설명 |
+|------|------|
+| `weeks[].completed` | 해당 주에 progress 100% 도달한 O/N 수 |
+| `weeks[].confirmed` | 해당 주에 실적확인 완료된 O/N 수 |
+| `totals` | 월 합계 (주차별 합산) — 재무·회계 정산 근거 |
+
+**데이터 소스**:
+- `plan.production_confirm` — 확인 이력 GROUP BY week, process_type
+- `app_task_details` — progress 완료 건수 집계
+
+**FE 사용처**: `ProductionPerformancePage.tsx` — 월마감 탭 (주차별 완료/확인 이중 컬럼 + 합계 행)
+
+---
+
 ### 22. 출하 카운트 판정 로직 변경 — SI_SHIPMENT task 기준 — PENDING
 
 **요청일**: 2026-03-19
@@ -1029,6 +1265,58 @@ WHERE (qr.serial_number ILIKE '%{search}%' OR qr.qr_doc_id ILIKE '%{search}%' OR
 ```
 
 **FE 상태**: placeholder 텍스트 변경 대기 ("S/N, QR Doc ID, Order No 검색...")
+
+---
+
+### 27. Sprint 33 보완 — monthly-summary 주차별 집계 로직 미완성 — BACKLOG
+
+**등록일**: 2026-03-20
+
+**엔드포인트**: `GET /api/admin/production/monthly-summary`
+
+**현재 상태**: `production.py` 내 weekly 집계 로직이 `pass`로 비어있음. 응답의 `weeks` 배열에 주차별 breakdown이 없고 전체 합계(`totals`)만 반환.
+
+**영향**: VIEW Sprint 8 월마감 뷰에서 `monthlyData.weeks.map(...)` 으로 주차별 행을 렌더링 → `weeks`가 빈 배열이면 "데이터 없음" 표시됨
+
+**시급도**: 낮음 — 현재 테스트 중인 모델 2개뿐이고 완료된 실적이 없어서 당장 영향 없음. 실제 progress 100% O/N이 생기기 전에 완성 필요.
+
+**수정 필요 내용**:
+1. `production.py` — 각 O/N의 `mech_start` 기준 ISO 주차 계산하여 `weekly[주차]`에 completed/confirmed 분배
+2. `test_production.py` — `test_monthly_returns_orders`에 주차별 데이터 검증 추가
+
+**함께 수정할 항목** (코드 품질):
+- `production.py` Line 8: 미사용 `import math` 삭제
+- `production.py` 중복 확인 감지: `'unique' in error_msg.lower()` → `psycopg2.errors.UniqueViolation` 에러코드(23505) 방식으로 변경
+
+---
+
+### 28. confirm_checklist_required — 체크리스트 연동 로직 미구현 — BACKLOG
+
+**등록일**: 2026-03-21
+
+**관련 코드**: `production.py` → `_is_process_confirmable()`
+
+**현재 상태**: `confirm_checklist_required` 키는 Sprint 33 migration에 `false`로 등록됨. 하지만 `_is_process_confirmable()`에서 이 키를 **체크하지 않음** — 체크리스트 데이터 구조 자체가 아직 없기 때문.
+
+**현재 로직**: `confirm_{process}_enabled = true` + progress 100% = confirmable
+
+**목표 로직 (추후)**:
+- `confirm_checklist_required = false` → progress 100%만으로 confirmable (현재와 동일)
+- `confirm_checklist_required = true` → progress 100% **+ MECH/ELEC/TM 체크리스트 완료** = confirmable
+
+**선행 조건**: 자주검사 체크리스트 Sprint (데이터 구조 + CRUD)
+
+**수정 필요 내용**:
+1. 체크리스트 테이블/모델 설계 및 migration
+2. `_is_process_confirmable()`에 체크리스트 완료 조건 추가:
+   ```python
+   if settings.get('confirm_checklist_required', False):
+       if not _is_checklist_completed(sales_order, process_type):
+           return False
+   ```
+3. VIEW 실적페이지에서 체크리스트 미완 시 confirmable=false UI 반영
+
+**시급도**: 낮음 — 체크리스트 기능 Sprint 진행 후 연동. 현재는 `false`로 비활성 상태이므로 영향 없음.
 
 ---
 
