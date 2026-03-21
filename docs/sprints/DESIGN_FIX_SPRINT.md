@@ -4284,7 +4284,7 @@ const handleBatchConfirm = async (processType: 'MECH' | 'ELEC') => {
 
 ---
 
-# Sprint 9: 실적확인 설정 패널 + 권한 관리 필터 — admin_settings 연동
+# Sprint 9: 실적확인 설정 패널 + 권한 관리 필터 — admin_settings 연동 ✅ FE 완료
 
 > **목적**: (1) 생산실적 페이지에 공정별 on/off 토글 설정 패널 추가 (admin_settings 기반), (2) 권한 관리 페이지에 Manager/Admin 필터 기본 적용
 > **의존성**: AXIS-OPS Sprint 34 (SETTING_KEYS 레지스트리 + GET/PUT admin_settings 확장 + workers is_manager 필터) 완료 후 진행
@@ -4866,39 +4866,433 @@ useEffect(() => {
 ## 체크리스트
 
 **사전 조건**:
-- [ ] AXIS-OPS Sprint 34 완료 (SETTING_KEYS + admin_settings GET/PUT 확장 + workers is_manager 필터)
-- [ ] OPS BE 배포 완료 (Railway)
+- [x] AXIS-OPS Sprint 34 완료
+- [x] OPS BE 배포 완료 (Railway)
 
-**신규 파일 (FE)**:
-- [ ] `src/api/adminSettings.ts` — getAdminSettings(), updateAdminSettings()
-- [ ] `src/hooks/useAdminSettings.ts` — useAdminSettings(), useUpdateAdminSettings()
+**신규 파일 (FE — 완료)**:
+- [x] `src/api/adminSettings.ts` — getAdminSettings(), updateAdminSettings()
+- [x] `src/hooks/useAdminSettings.ts` — useAdminSettings(), useUpdateAdminSettings()
 
-**수정 파일 (FE)**:
-- [ ] `src/api/workers.ts` — getWorkers()에 WorkersParams (company, is_manager) 추가
-- [ ] `src/hooks/useWorkers.ts` — useWorkers(params?) 파라미터 전달
-- [ ] `ProductionPerformancePage.tsx` — ConfirmSettingsPanel 컴포넌트 추가
-- [ ] `ProductionPerformancePage.tsx` — toolbar에 ⚙️ 버튼 (admin only)
-- [ ] `ProductionPerformancePage.tsx` — 외부 클릭 / ESC 키로 패널 닫기
-- [ ] `ProductionPerformancePage.tsx` — useAdminSettings() 연동
-- [ ] `ProductionPerformancePage.tsx` — ProcessCell에 enabled prop 추가
-- [ ] `ProductionPerformancePage.tsx` — enabled=false 시 "확인 비활성" 표시 + 버튼 숨김
-- [ ] `ProductionPerformancePage.tsx` — 일괄확인 버튼에 confirm_enabled 반영
-- [ ] `PermissionsPage.tsx` — showAll 상태 추가 (기본 false → Manager/Admin만)
-- [ ] `PermissionsPage.tsx` — useWorkers(params) 호출에 is_manager 전달
-- [ ] `PermissionsPage.tsx` — "전체 보기" 토글 버튼 추가
-- [ ] `PermissionsPage.tsx` — KPI 카드 showAll 대응
+**수정 파일 (FE — 완료)**:
+- [x] `src/api/workers.ts` — getWorkers()에 WorkersParams (company, is_manager) 추가
+- [x] `src/hooks/useWorkers.ts` — useWorkers(params?) 파라미터 전달
+- [x] `ProductionPerformancePage.tsx` — ConfirmSettingsPanel 컴포넌트 추가
+- [x] `ProductionPerformancePage.tsx` — toolbar에 ⚙️ 버튼 (admin only)
+- [x] `ProductionPerformancePage.tsx` — 외부 클릭 / ESC 키로 패널 닫기
+- [x] `ProductionPerformancePage.tsx` — useAdminSettings() 연동
+- [x] `ProductionPerformancePage.tsx` — ProcessCell에 enabled prop 추가
+- [x] `ProductionPerformancePage.tsx` — enabled=false 시 "확인 비활성" 표시 + 버튼 숨김
+- [x] `ProductionPerformancePage.tsx` — 일괄확인 버튼에 confirm_enabled 반영
+- [x] `PermissionsPage.tsx` — showAll 상태 추가 (기본 false → Manager/Admin만)
+- [x] `PermissionsPage.tsx` — useWorkers(params) 호출에 is_manager 전달
+- [x] `PermissionsPage.tsx` — "전체 보기" 토글 버튼 추가
+
+**빌드 검증**:
+- [x] npm run build 에러 없음
+- [x] TypeScript strict 에러 없음
+
+**기능 검증 (배포 후)**:
+- [ ] 실적 페이지 — admin 로그인 시 ⚙️ 표시, 비admin 시 미표시
+- [ ] ⚙️ 클릭 → 설정 패널 열림, 외부 클릭 / ESC → 닫힘
+- [ ] 토글 ON/OFF → PUT 호출 → 즉시 반영
+- [ ] 권한 페이지 — 기본: Manager/Admin만 표시 + "전체 보기" 토글
+- [ ] 기존 Manager 토글 기능 정상 동작 (regression)
+
+---
+
+# Sprint 10 (VIEW): 근태 추이 API 연동 + TrendDataPoint 타입 분리
+
+**목표**: OPS BE #29 `GET /api/admin/hr/attendance/trend` 엔드포인트 연동 + ChartSection 주간/월간 라인 차트를 실 데이터로 교체. `TrendDataPoint` 타입을 `types/attendance.ts`로 이동하여 장기적으로 올바른 의존성 구조 확보.
+
+**범위**: 타입 1 + API 1 + 훅 1 + 컴포넌트 2 수정
+**의존성**: OPS BE #29 (trend API 배포)
+**선행**: Sprint 9 (의존성 없음 — 독립 병렬 가능)
+
+---
+
+### Task 1: `src/types/attendance.ts` — TrendDataPoint 타입 이동
+
+**현재 문제**: `TrendDataPoint`가 `ChartSection.tsx` 컴포넌트 내부에 정의 + export됨.
+추후 `useAttendanceTrend()` 훅, `attendance.ts` API 모듈에서 이 타입을 import하면 **컴포넌트 → 컴포넌트 의존성**이 생김 (역방향).
+
+**변경**: `types/attendance.ts`로 이동하여 `types → api → hooks → components` 단방향 유지.
+
+**파일**: `src/types/attendance.ts`
+
+기존 내용 끝에 추가:
+
+```typescript
+// --- 추이 차트 ---
+
+/** 일별 출입 인원 추이 데이터 포인트 */
+export interface TrendDataPoint {
+  date: string;       // "03/17(월)" 형식 표시용
+  dateRaw: string;    // "2026-03-17" 원본
+  total: number;
+  hq: number;
+  site: number;
+}
+
+/** GET /api/admin/hr/attendance/trend 응답 */
+export interface AttendanceTrendResponse {
+  date_from: string;
+  date_to: string;
+  trend: Array<{
+    date: string;           // "2026-03-17"
+    total_registered: number;
+    checked_in: number;
+    hq_count: number;
+    site_count: number;
+  }>;
+}
+```
+
+**참고**: `TrendDataPoint`는 FE 표시용 (날짜 포맷 변환 후), `AttendanceTrendResponse`는 BE 원본 응답 타입. 변환은 API 모듈에서 수행.
+
+---
+
+### Task 2: `src/components/attendance/ChartSection.tsx` — import 변경
+
+**변경 전** (Line 26~32):
+```typescript
+export interface TrendDataPoint {
+  date: string;
+  dateRaw: string;
+  total: number;
+  hq: number;
+  site: number;
+}
+```
+
+**변경 후**:
+```typescript
+import type { TrendDataPoint } from '@/types/attendance';
+```
+
+- 인터페이스 정의 삭제
+- import로 교체
+- `ChartSectionProps`의 `trendData?: TrendDataPoint[]`는 그대로 유지 (타입 참조만 변경)
+- `export`가 제거되므로, 현재 다른 곳에서 import하는 곳이 없어야 함 → 없음 확인 완료
+
+---
+
+### Task 3: `src/api/attendance.ts` — getAttendanceTrend() 추가
+
+**파일**: `src/api/attendance.ts`
+
+기존 import 수정 + 함수 추가:
+
+```typescript
+import type {
+  DailyAttendanceResponse,
+  CompanySummaryResponse,
+  AttendanceTrendResponse,
+  TrendDataPoint,
+} from '@/types/attendance';
+
+// ... 기존 getAttendanceToday, getAttendanceByDate, getAttendanceSummary 유지 ...
+
+/**
+ * 기간별 출입 추이 조회
+ * @param dateFrom - 시작일 (YYYY-MM-DD)
+ * @param dateTo   - 종료일 (YYYY-MM-DD)
+ */
+export async function getAttendanceTrend(
+  dateFrom: string,
+  dateTo: string,
+): Promise<TrendDataPoint[]> {
+  if (USE_MOCK) {
+    return getMockAttendanceTrend(dateFrom, dateTo);
+  }
+  const response = await apiClient.get<AttendanceTrendResponse>(
+    '/api/admin/hr/attendance/trend',
+    { params: { date_from: dateFrom, date_to: dateTo } },
+  );
+  return response.data.trend.map(transformTrendPoint);
+}
+
+/** BE 응답 → FE TrendDataPoint 변환 */
+function transformTrendPoint(item: AttendanceTrendResponse['trend'][number]): TrendDataPoint {
+  const d = new Date(item.date + 'T00:00:00+09:00');
+  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const dayName = dayNames[d.getDay()];
+
+  return {
+    date: `${mm}/${dd}(${dayName})`,
+    dateRaw: item.date,
+    total: item.checked_in,
+    hq: item.hq_count,
+    site: item.site_count,
+  };
+}
+```
+
+**Mock import 추가** (기존 import 라인):
+```typescript
+import {
+  getMockTodayAttendance,
+  getMockCompanySummary,
+  getMockAttendanceTrend,   // ★ 추가
+} from '@/mocks/attendance';
+```
+
+---
+
+### Task 4: `src/mocks/attendance.ts` — getMockAttendanceTrend() 추가
+
+**파일**: `src/mocks/attendance.ts`
+
+기존 Mock 함수들 아래에 추가:
+
+```typescript
+import type { TrendDataPoint } from '@/types/attendance';
+
+/**
+ * Mock 추이 데이터 생성 (주간 7일 / 월간 30일)
+ */
+export function getMockAttendanceTrend(dateFrom: string, dateTo: string): TrendDataPoint[] {
+  const start = new Date(dateFrom + 'T00:00:00+09:00');
+  const end = new Date(dateTo + 'T00:00:00+09:00');
+  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+  const points: TrendDataPoint[] = [];
+
+  const current = new Date(start);
+  while (current <= end) {
+    const mm = String(current.getMonth() + 1).padStart(2, '0');
+    const dd = String(current.getDate()).padStart(2, '0');
+    const dayName = dayNames[current.getDay()];
+    const isWeekend = current.getDay() === 0 || current.getDay() === 6;
+
+    // 주말: 낮은 수치, 평일: 정상 수치 + 랜덤 변동
+    const base = isWeekend ? 15 : 95;
+    const variance = Math.floor(Math.random() * 20) - 10;
+    const total = Math.max(0, base + variance);
+    const hq = Math.floor(total * 0.35);
+    const site = total - hq;
+
+    points.push({
+      date: `${mm}/${dd}(${dayName})`,
+      dateRaw: `${current.getFullYear()}-${mm}-${dd}`,
+      total,
+      hq,
+      site,
+    });
+
+    current.setDate(current.getDate() + 1);
+  }
+
+  return points;
+}
+```
+
+---
+
+### Task 5: `src/hooks/useAttendance.ts` — useAttendanceTrend() 훅 추가
+
+**파일**: `src/hooks/useAttendance.ts`
+
+기존 import 수정 + 훅 추가:
+
+```typescript
+import {
+  getAttendanceToday,
+  getAttendanceByDate,
+  getAttendanceSummary,
+  getAttendanceTrend,     // ★ 추가
+} from '@/api/attendance';
+
+// ... 기존 useAttendanceToday, useAttendanceSummary 유지 ...
+
+/**
+ * 기간별 출입 추이 훅
+ * @param dateFrom - 시작일 (YYYY-MM-DD)
+ * @param dateTo   - 종료일 (YYYY-MM-DD)
+ */
+export function useAttendanceTrend(dateFrom: string, dateTo: string) {
+  return useQuery({
+    queryKey: ['attendance', 'trend', dateFrom, dateTo],
+    queryFn: () => getAttendanceTrend(dateFrom, dateTo),
+    staleTime: 5 * 60 * 1000,   // 5분 — 추이 데이터는 자주 안 바뀜
+    enabled: !!dateFrom && !!dateTo,
+  });
+}
+```
+
+**설계 포인트**:
+- `staleTime: 5분` — 일간 데이터와 달리 추이는 과거 데이터 포함이라 자주 갱신 불필요
+- `enabled` 조건: dateFrom/dateTo가 빈 문자열이면 호출 안 함
+- `refetchInterval` 없음 — 수동 탭 전환 시에만 새로 호출
+
+---
+
+### Task 6: `AttendancePage.tsx` — useAttendanceTrend 연동
+
+**파일**: `src/pages/attendance/AttendancePage.tsx`
+
+**6-1. 날짜 범위 계산 함수 추가**:
+
+```typescript
+/** 오늘 기준 N일 전 ~ 오늘 범위 계산 */
+function getDateRange(days: number): { dateFrom: string; dateTo: string } {
+  const today = new Date();
+  const from = new Date(today);
+  from.setDate(today.getDate() - days + 1);
+
+  const fmt = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  return { dateFrom: fmt(from), dateTo: fmt(today) };
+}
+```
+
+**6-2. chartTab → 날짜 범위 매핑**:
+
+```typescript
+export default function AttendancePage() {
+  // 기존 state...
+  const [chartTab, setChartTab] = useState<'일간' | '주간' | '월간'>('일간');
+
+  // ★ Sprint 10: 추이 데이터 연동
+  const trendRange = chartTab === '주간'
+    ? getDateRange(7)
+    : chartTab === '월간'
+      ? getDateRange(30)
+      : null;
+
+  const {
+    data: trendData,
+    isLoading: trendLoading,
+  } = useAttendanceTrend(
+    trendRange?.dateFrom ?? '',
+    trendRange?.dateTo ?? '',
+  );
+```
+
+**6-3. ChartSection에 trendData 전달** (기존 placeholder 교체):
+
+변경 전:
+```tsx
+<ChartSection
+  companies={companiesChartData}
+  hqTotal={hqTotal}
+  siteTotal={siteTotal}
+  notChecked={notChecked}
+/>
+```
+
+변경 후:
+```tsx
+<ChartSection
+  companies={companiesChartData}
+  hqTotal={hqTotal}
+  siteTotal={siteTotal}
+  notChecked={notChecked}
+  trendData={trendData}          // ★ Sprint 10
+  trendLoading={trendLoading}    // ★ Sprint 10
+/>
+```
+
+**6-4. chartTab 상태를 ChartSection과 동기화**:
+
+ChartSection 내부에 이미 `activeTab` state가 있음. AttendancePage에서 관리하는 `chartTab`과 동기화 필요:
+
+방법 A (권장): ChartSection에 `onTabChange` 콜백 추가
+```tsx
+<ChartSection
+  ...
+  onTabChange={(tab) => setChartTab(tab)}
+/>
+```
+
+ChartSection 내부:
+```tsx
+interface ChartSectionProps {
+  // ... 기존 ...
+  onTabChange?: (tab: '일간' | '주간' | '월간') => void;  // ★ Sprint 10
+}
+
+// 탭 클릭 핸들러에서
+const handleTabClick = (tab: TabType) => {
+  setActiveTab(tab);
+  onTabChange?.(tab);
+};
+```
+
+---
+
+### Task 7: `ChartSection.tsx` — placeholder 제거 + 실 데이터 연동
+
+**현재**: 주간/월간 탭에 trendData가 없으면 placeholder("BE API 연동 후 표시됩니다") 표시.
+
+**변경**: trendData가 있으면 라인 차트 렌더링, trendLoading이면 스피너, 없으면 placeholder 유지 (BE 미배포 시 graceful fallback).
+
+```tsx
+// 주간/월간 라인 차트 영역
+{activeTab !== '일간' && (
+  trendLoading ? (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 260 }}>
+      <div style={{ fontSize: '12px', color: 'var(--gx-steel)' }}>로딩 중...</div>
+    </div>
+  ) : trendData && trendData.length > 0 ? (
+    <ResponsiveContainer width="100%" height={260}>
+      <LineChart data={trendData}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--gx-mist)" />
+        <XAxis
+          dataKey="date"
+          tick={{ fontSize: 11, fill: 'var(--gx-steel)' }}
+          interval={activeTab === '월간' ? 4 : 0}
+        />
+        <YAxis tick={{ fontSize: 11, fill: 'var(--gx-steel)' }} />
+        <Tooltip content={<TrendTooltip />} />
+        <Line type="monotone" dataKey="total" stroke="var(--gx-charcoal)" strokeWidth={2} name="전체" dot={{ r: 3 }} />
+        <Line type="monotone" dataKey="hq" stroke="var(--gx-accent)" strokeWidth={1.5} name="본사" dot={{ r: 2 }} />
+        <Line type="monotone" dataKey="site" stroke="var(--gx-success)" strokeWidth={1.5} name="현장" dot={{ r: 2 }} />
+      </LineChart>
+    </ResponsiveContainer>
+  ) : (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 260 }}>
+      <div style={{ fontSize: '12px', color: 'var(--gx-silver)' }}>
+        {activeTab === '주간' ? '최근 7일' : '최근 30일'} 추이 데이터 없음
+      </div>
+    </div>
+  )
+)}
+```
+
+---
+
+## 체크리스트
+
+**사전 조건**:
+- [ ] OPS BE #29 `GET /api/admin/hr/attendance/trend` 배포 완료 (또는 Mock으로 우선 개발)
+
+**신규 파일**:
+- [ ] 없음 (기존 파일 수정만)
+
+**수정 파일**:
+- [ ] `src/types/attendance.ts` — `TrendDataPoint`, `AttendanceTrendResponse` 타입 추가
+- [ ] `src/components/attendance/ChartSection.tsx` — 내부 TrendDataPoint 정의 삭제 → import 변경, onTabChange 콜백 추가
+- [ ] `src/api/attendance.ts` — `getAttendanceTrend()` + `transformTrendPoint()` 추가
+- [ ] `src/mocks/attendance.ts` — `getMockAttendanceTrend()` Mock 함수 추가
+- [ ] `src/hooks/useAttendance.ts` — `useAttendanceTrend()` 훅 추가
+- [ ] `src/pages/attendance/AttendancePage.tsx` — trendRange 계산 + useAttendanceTrend 호출 + ChartSection 연동
 
 **빌드 검증**:
 - [ ] npm run build 에러 없음
 - [ ] TypeScript strict 에러 없음
+- [ ] `TrendDataPoint` import 경로가 `@/types/attendance`로 통일
 
 **기능 검증**:
-- [ ] 실적 페이지 — admin 로그인 시 ⚙️ 표시, 비admin 시 미표시
-- [ ] ⚙️ 클릭 → 설정 패널 열림, 외부 클릭 / ESC → 닫힘
-- [ ] 토글 ON/OFF → PUT 호출 → 즉시 반영
-- [ ] confirm_mech_enabled=false → MECH 컬럼 "확인 비활성" 표시 + 실적확인 버튼 숨김
-- [ ] confirm_pi_enabled=true로 변경 → PI 공정도 confirmable 시 버튼 표시
-- [ ] 일괄확인 버튼 — 비활성 공정은 숨김
-- [ ] 권한 페이지 — 기본: Manager/Admin만 표시
-- [ ] "전체 보기" 클릭 → 전체 작업자 표시 (Manager 지정용)
-- [ ] 기존 Manager 토글 기능 정상 동작 (regression)
+- [ ] 일간 탭 — 기존 스택 바 + 도넛 정상 (regression)
+- [ ] 주간 탭 — 7일 라인 차트 표시 (전체/본사/현장 3개 라인)
+- [ ] 월간 탭 — 30일 라인 차트 표시 (XAxis interval=4로 라벨 간격 조정)
+- [ ] BE 미배포 시 Mock 모드 정상 동작 (VITE_USE_MOCK=true)
+- [ ] 탭 전환 시 API 재호출 (queryKey 변경)
+- [ ] trendLoading 상태 → "로딩 중..." 표시
+- [ ] 빈 데이터 → "추이 데이터 없음" 표시
