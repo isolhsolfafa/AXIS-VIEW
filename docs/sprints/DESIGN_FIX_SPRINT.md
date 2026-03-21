@@ -4892,15 +4892,15 @@ useEffect(() => {
 - [x] TypeScript strict 에러 없음
 
 **기능 검증 (배포 후)**:
-- [ ] 실적 페이지 — admin 로그인 시 ⚙️ 표시, 비admin 시 미표시
-- [ ] ⚙️ 클릭 → 설정 패널 열림, 외부 클릭 / ESC → 닫힘
-- [ ] 토글 ON/OFF → PUT 호출 → 즉시 반영
-- [ ] 권한 페이지 — 기본: Manager/Admin만 표시 + "전체 보기" 토글
-- [ ] 기존 Manager 토글 기능 정상 동작 (regression)
+- [x] 실적 페이지 — admin 로그인 시 ⚙️ 표시, 비admin 시 미표시
+- [x] ⚙️ 클릭 → 설정 패널 열림, 외부 클릭 / ESC → 닫힘
+- [x] 토글 ON/OFF → PUT 호출 → 즉시 반영
+- [x] 권한 페이지 — 기본: Manager/Admin만 표시 + "전체 보기" 토글
+- [x] 기존 Manager 토글 기능 정상 동작 (regression)
 
 ---
 
-# Sprint 10 (VIEW): 근태 추이 API 연동 + TrendDataPoint 타입 분리
+# Sprint 10 (VIEW): 근태 추이 API 연동 + TrendDataPoint 타입 분리 ✅ FE 완료
 
 **목표**: OPS BE #29 `GET /api/admin/hr/attendance/trend` 엔드포인트 연동 + ChartSection 주간/월간 라인 차트를 실 데이터로 교체. `TrendDataPoint` 타입을 `types/attendance.ts`로 이동하여 장기적으로 올바른 의존성 구조 확보.
 
@@ -5065,9 +5065,12 @@ export function getMockAttendanceTrend(dateFrom: string, dateTo: string): TrendD
     const dayName = dayNames[current.getDay()];
     const isWeekend = current.getDay() === 0 || current.getDay() === 6;
 
-    // 주말: 낮은 수치, 평일: 정상 수치 + 랜덤 변동
+    // 주말: 낮은 수치, 평일: 정상 수치 + 날짜 기반 시드 변동
+    // Math.random() 대신 날짜 기반 결정적 시드 → 렌더링마다 동일 데이터
+    const seed = current.getFullYear() * 10000 + (current.getMonth() + 1) * 100 + current.getDate();
+    const pseudoRandom = ((seed * 9301 + 49297) % 233280) / 233280;  // 0~1 결정적 난수
     const base = isWeekend ? 15 : 95;
-    const variance = Math.floor(Math.random() * 20) - 10;
+    const variance = Math.floor(pseudoRandom * 20) - 10;
     const total = Math.max(0, base + variance);
     const hq = Math.floor(total * 0.35);
     const site = total - hq;
@@ -5179,7 +5182,7 @@ export default function AttendancePage() {
 변경 전:
 ```tsx
 <ChartSection
-  companies={companiesChartData}
+  companies={chartData}
   hqTotal={hqTotal}
   siteTotal={siteTotal}
   notChecked={notChecked}
@@ -5189,7 +5192,7 @@ export default function AttendancePage() {
 변경 후:
 ```tsx
 <ChartSection
-  companies={companiesChartData}
+  companies={chartData}
   hqTotal={hqTotal}
   siteTotal={siteTotal}
   notChecked={notChecked}
@@ -5232,37 +5235,32 @@ const handleTabClick = (tab: TabType) => {
 
 **변경**: trendData가 있으면 라인 차트 렌더링, trendLoading이면 스피너, 없으면 placeholder 유지 (BE 미배포 시 graceful fallback).
 
+**현재 코드 기준 차트 스타일** (v1.7.3 보라 톤 통일):
+
+| 항목 | 값 |
+|------|-----|
+| 차트 높이 | 200px |
+| 전체 라인 | `#6366F1` (indigo), strokeWidth 2, dot r=3 |
+| 본사 라인 | `#818CF8` (medium indigo), strokeWidth 1.5, strokeDasharray "4 2" |
+| 현장 라인 | `#A5B4FC` (light indigo), strokeWidth 1.5, strokeDasharray "4 2" |
+| CartesianGrid | `strokeDasharray="0"` (실선), `vertical={false}` |
+| XAxis/YAxis | `axisLine={false}`, `tickLine={false}`, DM Sans 폰트 |
+
+현재 ChartSection에 이미 라인 차트 렌더링 코드가 구현되어 있음 (Line 245~292).
+Sprint 10에서는 **trendData를 실제 API/Mock 데이터로 교체하는 것**이 핵심이며, 차트 스타일 변경은 불필요.
+
+Task 7에서 변경할 부분은 **placeholder 영역만** — trendData가 undefined일 때의 빈 상태 메시지:
+
 ```tsx
-// 주간/월간 라인 차트 영역
-{activeTab !== '일간' && (
-  trendLoading ? (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 260 }}>
-      <div style={{ fontSize: '12px', color: 'var(--gx-steel)' }}>로딩 중...</div>
-    </div>
-  ) : trendData && trendData.length > 0 ? (
-    <ResponsiveContainer width="100%" height={260}>
-      <LineChart data={trendData}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--gx-mist)" />
-        <XAxis
-          dataKey="date"
-          tick={{ fontSize: 11, fill: 'var(--gx-steel)' }}
-          interval={activeTab === '월간' ? 4 : 0}
-        />
-        <YAxis tick={{ fontSize: 11, fill: 'var(--gx-steel)' }} />
-        <Tooltip content={<TrendTooltip />} />
-        <Line type="monotone" dataKey="total" stroke="var(--gx-charcoal)" strokeWidth={2} name="전체" dot={{ r: 3 }} />
-        <Line type="monotone" dataKey="hq" stroke="var(--gx-accent)" strokeWidth={1.5} name="본사" dot={{ r: 2 }} />
-        <Line type="monotone" dataKey="site" stroke="var(--gx-success)" strokeWidth={1.5} name="현장" dot={{ r: 2 }} />
-      </LineChart>
-    </ResponsiveContainer>
-  ) : (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 260 }}>
-      <div style={{ fontSize: '12px', color: 'var(--gx-silver)' }}>
-        {activeTab === '주간' ? '최근 7일' : '최근 30일'} 추이 데이터 없음
-      </div>
-    </div>
-  )
-)}
+// 현재 placeholder (Line 294~310) — trendData 없을 때 표시
+// Sprint 10 후: BE 미배포 + Mock OFF 시에만 도달
+<div style={{
+  height: '200px',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  color: 'var(--gx-steel)', fontSize: '13px',
+}}>
+  {activeTab === '주간' ? '최근 7일' : '최근 30일'} 추이 데이터 없음
+</div>
 ```
 
 ---
@@ -5270,29 +5268,23 @@ const handleTabClick = (tab: TabType) => {
 ## 체크리스트
 
 **사전 조건**:
-- [ ] OPS BE #29 `GET /api/admin/hr/attendance/trend` 배포 완료 (또는 Mock으로 우선 개발)
+- [x] Mock으로 우선 개발 (OPS BE #29 배포 후 자동 전환)
 
-**신규 파일**:
-- [ ] 없음 (기존 파일 수정만)
-
-**수정 파일**:
-- [ ] `src/types/attendance.ts` — `TrendDataPoint`, `AttendanceTrendResponse` 타입 추가
-- [ ] `src/components/attendance/ChartSection.tsx` — 내부 TrendDataPoint 정의 삭제 → import 변경, onTabChange 콜백 추가
-- [ ] `src/api/attendance.ts` — `getAttendanceTrend()` + `transformTrendPoint()` 추가
-- [ ] `src/mocks/attendance.ts` — `getMockAttendanceTrend()` Mock 함수 추가
-- [ ] `src/hooks/useAttendance.ts` — `useAttendanceTrend()` 훅 추가
-- [ ] `src/pages/attendance/AttendancePage.tsx` — trendRange 계산 + useAttendanceTrend 호출 + ChartSection 연동
+**수정 파일 (완료)**:
+- [x] `src/types/attendance.ts` — `TrendDataPoint`, `AttendanceTrendResponse` 타입 추가
+- [x] `src/components/attendance/ChartSection.tsx` — 내부 TrendDataPoint 삭제 → import + onTabChange 콜백
+- [x] `src/api/attendance.ts` — `getAttendanceTrend()` + `transformTrendPoint()` + Mock fallback
+- [x] `src/mocks/attendance.ts` — `getMockAttendanceTrend()` 결정적 Mock
+- [x] `src/hooks/useAttendance.ts` — `useAttendanceTrend()` 훅 (staleTime 5분)
+- [x] `src/pages/attendance/AttendancePage.tsx` — chartTab + trendRange + useAttendanceTrend + ChartSection 연동
 
 **빌드 검증**:
-- [ ] npm run build 에러 없음
-- [ ] TypeScript strict 에러 없음
-- [ ] `TrendDataPoint` import 경로가 `@/types/attendance`로 통일
+- [x] npm run build 에러 없음
+- [x] TypeScript strict 에러 없음
+- [x] `TrendDataPoint` import 경로 `@/types/attendance` 통일
 
-**기능 검증**:
+**기능 검증 (배포 후)**:
 - [ ] 일간 탭 — 기존 스택 바 + 도넛 정상 (regression)
-- [ ] 주간 탭 — 7일 라인 차트 표시 (전체/본사/현장 3개 라인)
-- [ ] 월간 탭 — 30일 라인 차트 표시 (XAxis interval=4로 라벨 간격 조정)
-- [ ] BE 미배포 시 Mock 모드 정상 동작 (VITE_USE_MOCK=true)
+- [ ] 주간 탭 — 7일 라인 차트 표시
+- [ ] 월간 탭 — 30일 라인 차트 표시
 - [ ] 탭 전환 시 API 재호출 (queryKey 변경)
-- [ ] trendLoading 상태 → "로딩 중..." 표시
-- [ ] 빈 데이터 → "추이 데이터 없음" 표시
