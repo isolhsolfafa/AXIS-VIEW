@@ -5460,11 +5460,69 @@ export interface ProcessStatus {
 
 ---
 
-## Task 6: 빌드 검증 + 기능 테스트
+## Task 6: `api/production.ts` — `mixed` 판정 로직 수정 (#33-3) ✅ 완료
+
+**파일**: `src/api/production.ts`
+
+**변경**: `partner_info.mixed` 판정을 `mech_partner !== elec_partner` (공정 간 비교) → `sns` 배열 기반 (S/N 간 비교)로 수정
+
+```typescript
+// 변경 전 (오류)
+mixed: (raw.mech_partner || '') !== (raw.elec_partner || ''),
+
+// 변경 후
+const sns = raw.sns ?? [];
+const mechMixed = sns.length > 1 && new Set(sns.map((s: any) => s.mech_partner)).size > 1;
+const elecMixed = sns.length > 1 && new Set(sns.map((s: any) => s.elec_partner)).size > 1;
+// ...
+mixed: mechMixed || elecMixed,
+```
+
+**이유**: "혼재"는 같은 O/N 내 S/N이 2대 이상일 때, 같은 공정에서 S/N별 협력사가 다른 경우. 기존 로직은 MECH 협력사 ≠ ELEC 협력사(다른 공정 간 비교)를 혼재로 판정 — S/N 1대인 O/N에서도 혼재 표시.
+
+---
+
+## Task 7: `ProductionPerformancePage.tsx` — ProcessCell N/A 상태 혼재 마크 표시 (#33-6) ✅ 완료
+
+**파일**: `src/pages/production/ProductionPerformancePage.tsx`
+
+**변경**: `ProcessCell` 컴포넌트의 `total === 0` (N/A) early return에 `partnerDisplay` + `mixed` 렌더링 추가
+
+```tsx
+// 변경 전
+if (processStatus.total === 0) {
+  return <td><span>N/A</span></td>;
+}
+
+// 변경 후
+if (processStatus.total === 0) {
+  return (
+    <td>
+      <div>
+        <span>N/A</span>
+        {partnerDisplay && (
+          <div>
+            <span>{partnerDisplay}</span>
+            {mixed && <span>혼재</span>}
+          </div>
+        )}
+      </div>
+    </td>
+  );
+}
+```
+
+**이유**: 작업 미착수(progress 0) O/N에서도 협력사 배정은 되어 있으므로 혼재 마크 표시 필요. O/N 6587 (GAIA-I DUAL, 5대: FNI/BAT 혼재) 에서 발견.
+
+---
+
+## Task 8: 빌드 검증 + 기능 테스트
 
 1. `npm run build` — TypeScript 에러 없음 확인
 2. `Record<string, ProcessStatus>` 변경 후 FE에서 `order.processes?.MECH`, `order.processes?.TM` 접근이 optional chaining과 호환되는지 확인
 3. 기존 `ProcessCell` 컴포넌트 동작 regression 테스트
+4. N/A 상태 O/N에서 협력사 + 혼재 마크 표시 확인
+5. `sn_count=1` O/N에서 혼재 마크 미표시 확인
 
 ---
 

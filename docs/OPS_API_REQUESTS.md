@@ -1851,6 +1851,19 @@ export interface SNProgress {
 export type SNProgress = Record<string, ProcessProgress>;
 ```
 
+#### 33-6. `ProcessCell` N/A 상태에서 협력사 + 혼재 마크 미표시 — FE 수정 완료
+
+**보고일**: 2026-03-23
+**증상**: O/N 6587 (GAIA-I DUAL, 5대) — 기구 FNI/BAT 혼재, 전장 C&A/TMS 혼재인데 혼재 마크 미표시
+
+**원인**: `ProcessCell` 컴포넌트 line 145-151에서 `processStatus.total === 0` (N/A) 시 즉시 `<td>N/A</td>` 반환 → `partnerDisplay` + `mixed` 렌더링 블록에 도달 못함
+
+**참고**: O/N 6587은 작업 미착수 상태 (progress 0) → 모든 공정 total=0 → 전부 N/A early return
+
+**수정** (`ProductionPerformancePage.tsx` ProcessCell):
+- N/A 분기 안에 `partnerDisplay` + `mixed` 렌더링 블록 추가
+- progress 미착수 상태에서도 O/N 행에 협력사 + 혼재 마크 정상 표시
+
 ---
 
 #### 요약: VIEW 수정 체크리스트
@@ -1862,6 +1875,7 @@ export type SNProgress = Record<string, ProcessProgress>;
 | 33-3 | `api/production.ts` | `partner_info.mixed` "혼재" 판정 로직 수정 — `sns` 배열 기반 S/N별 협력사 비교 | 높음 | ✅ 완료 |
 | 33-4 | — | `sns[].checklist` — BACKLOG #28 연계, 현재 수정 불필요 | 낮음 | — |
 | 33-5 | `types/production.ts` | `SNProgress` → `Record<string, ProcessProgress>` 확장 | 중간 | ✅ 완료 |
+| 33-6 | `ProductionPerformancePage.tsx` | ProcessCell N/A 상태에서 협력사 + 혼재 마크 표시 | 높음 | ✅ 완료 |
 
 ---
 

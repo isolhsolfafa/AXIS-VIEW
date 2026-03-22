@@ -145,7 +145,21 @@ function ProcessCell({ processType, processStatus, confirms, partnerDisplay, mix
   if (processStatus.total === 0) {
     return (
       <td style={{ padding: '12px 14px' }}>
-        <span style={{ fontSize: '11px', color: 'var(--gx-silver)', fontStyle: 'italic' }}>N/A</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ fontSize: '11px', color: 'var(--gx-silver)', fontStyle: 'italic' }}>N/A</span>
+          {/* N/A 상태에서도 협력사 + 혼재 마크 표시 */}
+          {partnerDisplay && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <span style={{ fontSize: '10px', color: 'var(--gx-steel)' }}>{partnerDisplay}</span>
+              {mixed && (
+                <span style={{
+                  fontSize: '7.5px', fontWeight: 700, padding: '1px 4px', borderRadius: '3px',
+                  background: 'rgba(245,158,11,0.1)', color: 'var(--gx-warning)',
+                }}>혼재</span>
+              )}
+            </div>
+          )}
+        </div>
       </td>
     );
   }
