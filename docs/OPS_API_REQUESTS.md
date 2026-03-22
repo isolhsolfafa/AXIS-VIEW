@@ -1729,6 +1729,14 @@ sns_progress = _calc_sn_progress(cur, serial_numbers)
 - O/N 2222 (TEST-2222: MECH 3/6) → `confirmable=false` ✅ (정상 — 미완료)
 - 각 O/N이 독립적으로 판정됨
 
+**2026-03-23 확인 결과 (3차)**: MECH/ELEC `✓ 확인` 정상. **TM 실적확인 버튼 클릭 시 실패**.
+
+**3차 근본 원인**: `POST /confirm` 엔드포인트에서 FE가 전송한 `process_type='TM'`으로 `_is_process_confirmable()` 호출 → `cats.get('TM', {})` = 빈 dict (DB에는 `task_category='TMS'`) → `has_data=False` → NOT_CONFIRMABLE 반환
+
+**3차 수정** (`production.py` confirm_production):
+- `_PROC_TO_CAT = {'TM': 'TMS'}` 역방향 매핑 추가
+- `_is_process_confirmable(sns_progress, db_category, settings, proc_key=process_type, serial_numbers=serial_numbers)` — DB category로 progress 조회, proc_key로 settings 조회
+
 ---
 
 ### 33. VIEW FE — production performance 응답 변환 필요 항목
