@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-22 (#32 BE TMS→TM 매핑 + FE process_status→processes)
+> 마지막 업데이트: 2026-03-22 (#32-B processes 내부 필드명 ready/confirmable 불일치)
 
 ---
 
@@ -1599,3 +1599,95 @@ _CATEGORY_TO_PROCESS = {'TMS': 'TM'}
 | - | TM 관련 | 변경 불필요 — BE가 TM으로 내려주므로 기존 코드 그대로 동작 |
 
 **confirm API**: `process_type: 'TM'` 그대로 유지 — DB `confirms.process_type` = 'TM', `admin_settings.confirm_tm_enabled` = TM 기준
+
+---
+
+### 32-B. processes 내부 필드명 불일치 — `ready` 미반환 + `confirmable` 미동작 — BUG
+
+**보고일**: 2026-03-22
+**시급도**: 높음 — #32 FE 수정(`process_status`→`processes`) 이후 발견된 후속 버그
+**선행**: #32 FE 완료 + BE TMS→TM 매핑 완료
+
+**증상 (2026-03-22 스크린샷)**:
+
+```
+O/N 1111:  MECH  /6  |  ELEC  /6  |  TM  /2     ← ready 값 없이 "/total"만 표시
+                  —         —            (없음)    ← 확인 버튼 미표시
+```
+
+- `processes` 키 자체는 정상 동작 (N/A → `/6`으로 변경됨 ✅)
+- 그러나 `6/6`이 아닌 `/6`으로 표시 → **`ready` 필드 누락**
+- `confirm_mech_enabled = true`로 설정해도 **실적확인 버튼 미활성**
+
+**원인 분석: BE 응답 필드명 vs FE 참조 필드명**
+
+FE `ProcessStatus` 타입이 기대하는 구조:
+```typescript
+// types/production.ts
+interface ProcessStatus {
+  ready: number;       // ← FE가 사용하는 필드명
+  total: number;
+  checklist_ready?: number;
+  confirmable: boolean; // ← 확인 버튼 활성화 조건
+}
+```
+
+BE가 실제 반환하는 구조 (**API 확인 완료 2026-03-22**):
+```json
+{
+  "MECH": {
+    "total": 6,
+    "completed": 6,       // ← "ready"가 아닌 "completed"
+    "pct": 100.0,
+    "confirmable": false,  // ← 반환됨 — admin_settings false 때문
+    "confirmed": false,
+    "confirmed_at": null,
+    "confirm_id": null
+  }
+}
+```
+
+**FE 코드에서의 영향:**
+
+| FE 코드 | 참조 필드 | 현재 동작 | 원인 |
+|---------|----------|----------|------|
+| `{processStatus.ready}/{processStatus.total}` (line 178) | `ready` | `/6` 표시 | BE가 `completed`로 반환, `ready`는 undefined |
+| `processStatus.ready === processStatus.total` (line 143) | `ready` | `allDone = false` 항상 | undefined !== 6 |
+| `processStatus.confirmable` (line 190) | `confirmable` | 버튼 미표시 | `confirm_mech_enabled=false` → confirmable=false (정상) |
+
+**확인 버튼 활성화 조건 (3가지 모두 충족 필요)**:
+```tsx
+// line 190
+enabled && processStatus.confirmable && !confirm
+```
+1. `enabled`: `isProcessEnabled('MECH')` → `confirm_mech_enabled !== false` → **true** ✅ (설정 ON)
+2. `confirmable`: BE 응답값 → **false 또는 undefined** ❌
+3. `!confirm`: confirms 배열에 MECH 확인 기록 없음 → **true** ✅
+
+→ **`confirmable`이 false/undefined라서 버튼 미표시**
+
+**해결 방안 (BE 확인 완료)**:
+
+| # | 원인 | BE 수정 | FE 대응 |
+|---|------|--------|---------|
+| 1 | `completed` 반환, `ready` 없음 | `ready` alias 추가 (`ready = completed`) | FE는 `ready` 참조 유지 |
+| 2 | `confirmable=false` — `_is_process_confirmable`에 DB키(`pt='TMS'`) 전달 → `confirm_tms_enabled` 조회 실패 | `proc_key`('TM') 전달로 수정 → `confirm_tm_enabled` 조회 | 수정 불필요 |
+| 3 | `confirm_mech_enabled=false` 설정 | admin_settings에서 `true`로 변경 필요 | 수정 불필요 (설정 변경만) |
+
+**BE 수정 후 정상 응답 구조**:
+```json
+{
+  "MECH": {
+    "total": 6,
+    "completed": 6,
+    "ready": 6,
+    "pct": 100.0,
+    "confirmable": true,
+    "confirmed": false,
+    "confirmed_at": null,
+    "confirm_id": null
+  }
+}
+```
+
+**전제 조건**: `admin_settings.confirm_mech_enabled = true` (Admin 옵션에서 설정)
