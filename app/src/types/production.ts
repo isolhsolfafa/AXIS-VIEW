@@ -9,11 +9,7 @@ export interface ProcessProgress {
   pressure_test_done?: boolean;
 }
 
-export interface SNProgress {
-  MECH: ProcessProgress;
-  ELEC: ProcessProgress;
-  TM: ProcessProgress;
-}
+export type SNProgress = Record<string, ProcessProgress>;
 
 export interface ChecklistStatus {
   completed: boolean;
@@ -36,8 +32,14 @@ export interface SNDetail {
 export interface ProcessStatus {
   ready: number;
   total: number;
+  completed?: number;
+  pct?: number;
   checklist_ready?: number;
   confirmable: boolean;
+  confirmed?: boolean;
+  confirmed_at?: string | null;
+  confirmed_by?: string | null;
+  confirm_id?: number | null;
 }
 
 export interface ConfirmRecord {
@@ -55,11 +57,7 @@ export interface OrderGroup {
   sn_count: number;
   sn_summary: string;
   partner_info: { mech: string; elec: string; mixed: boolean };
-  processes: {
-    MECH: ProcessStatus;
-    ELEC: ProcessStatus;
-    TM: ProcessStatus;
-  };
+  processes: Record<string, ProcessStatus>;
   confirms: ConfirmRecord[];
 }
 

@@ -5288,3 +5288,202 @@ Task 7에서 변경할 부분은 **placeholder 영역만** — trendData가 unde
 - [ ] 주간 탭 — 7일 라인 차트 표시
 - [ ] 월간 탭 — 30일 라인 차트 표시
 - [ ] 탭 전환 시 API 재호출 (queryKey 변경)
+
+---
+
+# Sprint 11 (VIEW): 생산실적 BE 응답 매핑 + 타입 정합성 수정 ✅ 완료
+
+> **목적**: BE #31(sns 배열), #32(processes 키), #32-B(ready + confirmable) 수정 완료 후, FE 타입과 BE 응답 간 불일치 3건 해소
+> **선행**: OPS BE 배포 완료 (production.py — sns, sn_summary, ready, proc_key, TMS→TM 매핑)
+> **참조**: OPS_API_REQUESTS.md #33
+
+---
+
+## 배경
+
+BE `_build_order_item()` 응답이 수정되면서, FE `OrderGroup` 타입과 아래 3가지 불일치가 발생:
+
+1. **`partner_info`**: FE는 `order.partner_info.mech`를 참조하나, BE는 `mech_partner`/`elec_partner` flat 문자열 반환
+2. **`confirms`**: FE는 `order.confirms[]` 배열을 참조하나, BE는 `processes.*.confirmed/confirmed_at/confirm_id`로 내장 반환
+3. **`SNProgress` 타입**: FE는 `{MECH, ELEC, TM}` 고정 3키, BE는 PI/QI/SI도 반환 가능
+
+---
+
+## Task 1: `types/production.ts` — `SNProgress` 타입 확장
+
+**파일**: `src/types/production.ts`
+
+**변경**:
+```typescript
+// 변경 전
+export interface SNProgress {
+  MECH: ProcessProgress;
+  ELEC: ProcessProgress;
+  TM: ProcessProgress;
+}
+
+// 변경 후
+export type SNProgress = Record<string, ProcessProgress>;
+```
+
+**이유**: BE가 PI, QI, SI 공정도 반환 가능. 고정 키 타입은 확장 시마다 수정 필요.
+
+---
+
+## Task 2: `types/production.ts` — `OrderGroup.processes` 타입 확장
+
+**파일**: `src/types/production.ts`
+
+**변경**:
+```typescript
+// 변경 전
+export interface OrderGroup {
+  // ...
+  processes: {
+    MECH: ProcessStatus;
+    ELEC: ProcessStatus;
+    TM: ProcessStatus;
+  };
+  // ...
+}
+
+// 변경 후
+export interface OrderGroup {
+  // ...
+  processes: Record<string, ProcessStatus>;
+  // ...
+}
+```
+
+**이유**: SNProgress와 동일 — PI/QI/SI 확장 대비.
+
+---
+
+## Task 3: `api/production.ts` — `getPerformance()` 응답 변환 (partner_info)
+
+**파일**: `src/api/production.ts`
+
+**변경**: `getPerformance()` 리턴 전에 BE 응답을 FE 타입으로 변환
+
+```typescript
+export async function getPerformance(week?: string, month?: string): Promise<PerformanceResponse> {
+  const params = new URLSearchParams();
+  if (week) params.set('week', week);
+  if (month) params.set('month', month);
+  const query = params.toString();
+  const { data } = await apiClient.get<PerformanceResponse>(
+    `/api/admin/production/performance${query ? `?${query}` : ''}`,
+  );
+
+  // BE 응답 → FE 타입 변환
+  data.orders = data.orders.map(order => ({
+    ...order,
+    partner_info: {
+      mech: (order as any).mech_partner || '—',
+      elec: (order as any).elec_partner || '—',
+      mixed: (order as any).mech_partner !== (order as any).elec_partner,
+    },
+  }));
+
+  return data;
+}
+```
+
+**핵심**: BE의 flat `mech_partner`/`elec_partner` → FE가 기대하는 `partner_info` 객체로 조립. `mixed`는 MECH/ELEC 파트너가 다른 경우 true.
+
+---
+
+## Task 4: `api/production.ts` — `getPerformance()` 응답 변환 (confirms)
+
+**파일**: `src/api/production.ts` (Task 3과 동일 위치에 추가)
+
+**변경**: Task 3의 map 안에서 `confirms` 배열도 함께 구성
+
+```typescript
+data.orders = data.orders.map(order => {
+  // confirms 배열 변환: processes 내부 confirmed 정보 → ConfirmRecord[]
+  const confirms: ConfirmRecord[] = Object.entries(order.processes ?? {})
+    .filter(([, v]) => v.confirmed)
+    .map(([pt, v]) => ({
+      id: v.confirm_id ?? 0,
+      process_type: pt as 'MECH' | 'ELEC' | 'TM',
+      confirmed_week: data.week ?? '',
+      confirmed_by: '',
+      confirmed_at: v.confirmed_at ?? '',
+    }));
+
+  return {
+    ...order,
+    partner_info: {
+      mech: (order as any).mech_partner || '—',
+      elec: (order as any).elec_partner || '—',
+      mixed: (order as any).mech_partner !== (order as any).elec_partner,
+    },
+    confirms,
+  };
+});
+```
+
+**핵심**: FE의 `ProcessCell` 컴포넌트가 `confirms.find(c => c.process_type === processType)`로 확인 기록을 조회함. BE는 `processes.MECH.confirmed=true`로 내장하므로, API 레이어에서 배열로 풀어줌.
+
+---
+
+## Task 5: `ProcessStatus` 타입에 BE 필드 추가
+
+**파일**: `src/types/production.ts`
+
+**변경**:
+```typescript
+// 변경 전
+export interface ProcessStatus {
+  ready: number;
+  total: number;
+  checklist_ready?: number;
+  confirmable: boolean;
+}
+
+// 변경 후
+export interface ProcessStatus {
+  ready: number;
+  total: number;
+  completed?: number;        // BE 원본 필드
+  pct?: number;              // 진행률 (BE 계산값)
+  checklist_ready?: number;
+  confirmable: boolean;
+  confirmed?: boolean;       // confirms 배열 변환용
+  confirmed_at?: string | null;
+  confirm_id?: number | null;
+}
+```
+
+**이유**: Task 4에서 `processes` 내부의 `confirmed`, `confirmed_at`, `confirm_id`를 읽어서 `confirms` 배열로 변환하므로, 타입에 해당 필드가 있어야 TypeScript 에러 방지.
+
+---
+
+## Task 6: 빌드 검증 + 기능 테스트
+
+1. `npm run build` — TypeScript 에러 없음 확인
+2. `Record<string, ProcessStatus>` 변경 후 FE에서 `order.processes?.MECH`, `order.processes?.TM` 접근이 optional chaining과 호환되는지 확인
+3. 기존 `ProcessCell` 컴포넌트 동작 regression 테스트
+
+---
+
+## 체크리스트
+
+**타입 수정 (완료)**:
+- [x] `types/production.ts` — `SNProgress` → `Record<string, ProcessProgress>`
+- [x] `types/production.ts` — `OrderGroup.processes` → `Record<string, ProcessStatus>`
+- [x] `types/production.ts` — `ProcessStatus`에 `confirmed`, `confirmed_at`, `confirmed_by`, `confirm_id` 추가
+
+**API 변환 (완료)**:
+- [x] `api/production.ts` — `getPerformance()` 후처리: `partner_info` 객체 구성 (BE flat → FE 객체)
+- [x] `api/production.ts` — `getPerformance()` 후처리: `confirms[]` 배열 변환 (processes 내장 → 배열)
+
+**빌드 검증**:
+- [x] `npm run build` 에러 없음
+- [x] TypeScript strict 에러 없음
+
+**기능 검증 (배포 후)**:
+- [ ] O/N 행 — MECH/ELEC/TM 정상 표시
+- [ ] 파트너 표시 — MECH/ELEC 파트너명 정상 렌더링
+- [ ] 실적확인 완료 표시 — confirmed=true인 공정에 체크마크 표시
