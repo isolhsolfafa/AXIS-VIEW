@@ -1691,3 +1691,190 @@ enabled && processStatus.confirmable && !confirm
 ```
 
 **전제 조건**: `admin_settings.confirm_mech_enabled = true` (Admin 옵션에서 설정)
+
+---
+
+#### #32-B 해결 — 2026-03-22
+
+**상태**: ✅ RESOLVED (BE 수정 완료)
+
+**적용 내용**:
+1. `_is_process_confirmable()` — `proc_key` 파라미터 추가. `confirm_{proc_key}_enabled` 키로 조회하여 TMS→TM 매핑 후에도 `confirm_tm_enabled` 정상 참조
+2. `processes[proc_key]` — `'ready': completed` alias 추가. FE `processStatus.ready` 참조와 일치
+
+**배포 후 확인**: `confirm_mech_enabled=true` 설정 → O/N 행에 `6/6` 표시 + 확인 버튼 활성화 여부
+
+---
+
+### 33. VIEW FE — production performance 응답 변환 필요 항목
+
+**보고일**: 2026-03-22
+**시급도**: 중간 — BE 배포 후 FE 연동 시 대응 필요
+**선행**: #31 (sns 배열), #32 (processes 키), #32-B (ready + confirmable) 모두 BE 완료
+
+**현황**: FE `types/production.ts`의 `OrderGroup` 타입 vs BE `_build_order_item()` 응답 간 불일치 3건 존재
+
+#### 33-1. `partner_info` 객체 미반환 — FE 변환 처리
+
+**FE 참조** (`ProductionPerformancePage.tsx` line 550-562):
+```tsx
+partnerDisplay={(order.partner_info?.mech ?? '—')}
+mixed={(order.partner_info?.mixed ?? false)}
+```
+
+**BE 응답**: `mech_partner`, `elec_partner` flat 문자열
+
+**수정 위치**: `api/production.ts` — `getPerformance()` 응답 후처리
+```typescript
+// BE 응답 → FE 타입 변환
+orders.map(order => ({
+  ...order,
+  partner_info: {
+    mech: order.mech_partner || '—',
+    elec: order.elec_partner || '—',
+    mixed: order.mech_partner !== order.elec_partner,
+  },
+}))
+```
+
+#### 33-2. `confirms` 배열 미반환 — FE 변환 처리
+
+**FE 참조** (`ProductionPerformancePage.tsx` line 142, 274-290, 509, 549):
+```tsx
+const confirm = confirms.find(c => c.process_type === processType);
+const mechConfirmed = orders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'MECH')).length;
+```
+
+**BE 응답**: `processes.MECH.confirmed`, `.confirmed_at`, `.confirm_id` (개별 내장)
+
+**수정 위치**: `api/production.ts` — `getPerformance()` 응답 후처리
+```typescript
+// processes 내부 confirmed 정보 → confirms 배열로 변환
+const confirms: ConfirmRecord[] = Object.entries(order.processes)
+  .filter(([, v]) => v.confirmed)
+  .map(([pt, v]) => ({
+    id: v.confirm_id,
+    process_type: pt as 'MECH' | 'ELEC' | 'TM',
+    confirmed_week: week,
+    confirmed_by: '',
+    confirmed_at: v.confirmed_at ?? '',
+  }));
+```
+
+#### 33-3. `sns[].checklist` — 추후 대응 (BACKLOG)
+
+**FE 참조** (`ProductionPerformancePage.tsx` line 600-607):
+```tsx
+{sn.checklist?.MECH?.completed_at && <span>완료 {sn.checklist.MECH.completed_at.slice(5, 10)}</span>}
+```
+
+**BE 응답**: `sns[].checklist` 미반환 — optional chaining으로 보호되어 에러 없음, 단순히 미표시
+
+**대응**: confirm_checklist_required Stage 2 (BACKLOG #28) 구현 시 BE에 `checklist` 필드 추가 예정. 현재 수정 불필요.
+
+#### 33-4. `SNProgress` 타입 확장 (권장)
+
+**현재**: `SNProgress = { MECH, ELEC, TM }` 고정 3키
+**BE 실제**: PI, QI, SI도 반환 가능
+
+**권장 수정** (`types/production.ts`):
+```typescript
+// 현재
+export interface SNProgress {
+  MECH: ProcessProgress;
+  ELEC: ProcessProgress;
+  TM: ProcessProgress;
+}
+// 권장
+export type SNProgress = Record<string, ProcessProgress>;
+```
+
+---
+
+#### 요약: VIEW 수정 체크리스트
+
+| # | 파일 | 변경 | 시급도 |
+|---|------|------|--------|
+| 33-1 | `api/production.ts` | `getPerformance()` 후처리: `partner_info` 객체 구성 | 높음 |
+| 33-2 | `api/production.ts` | `getPerformance()` 후처리: `confirms` 배열 변환 | 높음 |
+| 33-3 | — | `sns[].checklist` — BACKLOG #28 연계, 현재 수정 불필요 | 낮음 |
+| 33-4 | `types/production.ts` | `SNProgress` → `Record<string, ProcessProgress>` | 중간 |
+
+---
+
+### 34. SAP I/F 대비 실적확인 데이터 구조 보강 — BACKLOG
+
+**보고일**: 2026-03-22
+**시급도**: 낮음 — SAP 연동 설계 확정 시 착수
+**선행**: #31, #32, #32-B 완료
+
+**현황**: 실적확인 데이터가 `plan.production_confirm` 테이블에 O/N + 공정 단위로 저장됨. SAP PP/CO 모듈 연동 시 아래 구조적 문제 존재:
+
+| # | 현재 한계 | SAP 요구 | 영향 |
+|---|----------|---------|------|
+| 1 | O/N 단위 확인 (S/N 상세 없음) | S/N 단위 공정 실적 (CO11N) | 어떤 S/N이 언제 완료됐는지 추적 불가 |
+| 2 | 수량 정보 없음 (sn_count만) | yield_qty(양품), scrap_qty(불량), rework_qty(재작업) | 수량 기반 실적 보고 불가 |
+| 3 | 내부 공정코드만 (MECH/ELEC/TM) | SAP Operation Number(0010, 0020) + Work Center | 공정 매핑 테이블 필요 |
+| 4 | 삭제=soft delete만 | SAP 전송 후 취소 시 역전기(reversal posting) 필요 | 전송 상태 추적 부재 |
+
+**필요 테이블 (2개 신규 + 1개 보강)**:
+
+**1. `plan.production_confirm_detail` — S/N 단위 실적 상세:**
+```sql
+CREATE TABLE plan.production_confirm_detail (
+    id SERIAL PRIMARY KEY,
+    confirm_id INTEGER NOT NULL REFERENCES plan.production_confirm(id),
+    serial_number VARCHAR(255) NOT NULL,
+    process_type VARCHAR(20) NOT NULL,
+    yield_qty INTEGER NOT NULL DEFAULT 1,
+    scrap_qty INTEGER NOT NULL DEFAULT 0,
+    rework_qty INTEGER NOT NULL DEFAULT 0,
+    sap_operation VARCHAR(10),          -- SAP 공정번호
+    sap_work_center VARCHAR(20),        -- SAP 작업장
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**2. `plan.sap_interface_log` — SAP 전송 이력:**
+```sql
+CREATE TABLE plan.sap_interface_log (
+    id SERIAL PRIMARY KEY,
+    confirm_id INTEGER NOT NULL REFERENCES plan.production_confirm(id),
+    interface_type VARCHAR(20) NOT NULL,    -- 'CO11N', 'REVERSAL'
+    sap_doc_number VARCHAR(50),
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',  -- PENDING, SENT, SUCCESS, FAILED, REVERSED
+    request_payload JSONB,
+    response_payload JSONB,
+    error_message TEXT,
+    sent_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    retry_count INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**3. `plan.production_confirm` 컬럼 추가:**
+```sql
+ALTER TABLE plan.production_confirm
+    ADD COLUMN sap_status VARCHAR(20) DEFAULT 'NOT_SENT',
+    ADD COLUMN sap_doc_number VARCHAR(50),
+    ADD COLUMN sap_sent_at TIMESTAMPTZ;
+```
+
+**데이터 흐름 (SAP I/F 시)**:
+```
+실적확인 클릭 → production_confirm INSERT
+              → production_confirm_detail INSERT (S/N별)
+              → sap_status = 'NOT_SENT'
+
+SAP 배치     → NOT_SENT 건 조회 → RFC/BAPI 호출
+              → sap_interface_log INSERT
+              → 성공: sap_status = 'CONFIRMED' + sap_doc_number
+              → 실패: sap_status = 'FAILED' + retry_count++
+
+실적확인 취소 → deleted_at SET
+              → sap_status = 'CONFIRMED'이면 역전기 요청
+              → sap_interface_log INSERT (type='REVERSAL')
+```
+
+**선제 적용 가능 항목**: `production_confirm`에 `sap_status` 컬럼만 먼저 추가 — 기존 로직 영향 없음 (DEFAULT 'NOT_SENT')
