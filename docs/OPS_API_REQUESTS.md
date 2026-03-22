@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-21 (#29 근태 기간별 출입 추이 API)
+> 마지막 업데이트: 2026-03-22 (#32 BE TMS→TM 매핑 + FE process_status→processes)
 
 ---
 
@@ -1370,6 +1370,39 @@ WHERE (qr.serial_number ILIKE '%{search}%' OR qr.qr_doc_id ILIKE '%{search}%' OR
 
 ---
 
+### 30. 비활성 계정 관리 — 30일 미사용 비활성화 + 6개월 후 삭제 — BACKLOG
+
+**등록일**: 2026-03-21
+
+**기능 요약**: 마지막 출근(`check_in_at`) 기준 30일 미사용 계정을 자동 비활성화, 비활성화 후 6개월 경과 시 삭제. 각 단계에서 메일 알림 발송.
+
+**비활성화 기준일**: `attendance_log` 테이블의 마지막 `check_in_at` (출근 기록 기준)
+
+**단계**:
+
+| 단계 | 조건 | 처리 | 메일 수신자 |
+|------|------|------|-------------|
+| 1. 비활성화 경고 | 마지막 check_in 후 25일 | 메일 발송만 (사전 안내) | admin + 해당 작업자의 is_manager |
+| 2. 비활성화 | 마지막 check_in 후 30일 | `is_active = false` 처리 | admin + 해당 작업자의 is_manager |
+| 3. 삭제 경고 | 비활성화 후 5개월 25일 | 메일 발송만 (최종 안내) | admin + 해당 작업자의 is_manager |
+| 4. 삭제 | 비활성화 후 6개월 | soft delete (`deleted_at` 처리) | admin |
+
+**구현 필요**:
+1. **Scheduled Job**: 매일 1회 실행 (cron) — 비활성화/삭제 대상 조회 + 처리
+2. **workers 테이블**: `is_active` 컬럼 (없으면 추가), `deactivated_at` 타임스탬프
+3. **메일 발송**: Flask-Mail 또는 외부 서비스 (SendGrid 등)
+4. **메일 내용**: 대상자 리스트 + 마지막 출근일 + 비활성화/삭제 예정일
+5. **admin 설정 연동** (선택): `inactive_days_threshold` 키로 30일 기본값 조정 가능
+
+**주의사항**:
+- 비활성화된 계정은 로그인 차단 + workers 목록에서 기본 숨김
+- 삭제는 soft delete — 작업 이력(`app_task_details`, `attendance_log`)은 보존
+- 한 번도 출근 기록 없는 계정 → 가입일(`created_at`) 기준으로 판정
+
+**시급도**: 낮음 — 현재 인원 규모에서는 수동 관리 가능. 인원 증가 시 필요.
+
+---
+
 ### QR 목록 조회 500 에러 — DONE (2026-03-07)
 
 **엔드포인트**: `GET /api/admin/qr/list`
@@ -1377,3 +1410,192 @@ WHERE (qr.serial_number ILIKE '%{search}%' OR qr.qr_doc_id ILIKE '%{search}%' OR
 **증상**: JWT 토큰 정상 전송 시 500 INTERNAL_ERROR 반환
 
 **해결**: BE 측 수정 완료 → 200 정상 반환
+
+---
+
+## 생산실적 버그 (`/api/admin/production/performance`)
+
+### 31. O/N 펼침 시 S/N 상세 리스트 미반환 — BUG
+
+**보고일**: 2026-03-22
+**엔드포인트**: `GET /api/admin/production/performance?week=W12`
+**시급도**: 높음 — 생산실적 핵심 기능 (S/N 단위 진행률 확인 불가)
+
+**증상**:
+- O/N 1111 행은 리스트에 정상 표시됨 (모델: GAIA-I, sn_count: 1, "(1대)")
+- 그러나 O/N 1111을 **펼치면(expand) S/N 하위 리스트가 나오지 않음**
+- 모든 O/N의 MECH / ELEC / TM 진행률이 **N/A**로 표시됨
+
+**테스트 데이터 상태 (OPS 공장 대시보드에서 확인)**:
+- O/N: 1111, S/N: TEST-1111, 모델: GAIA-I
+- progress: **100%** (MECH 6/6, ELEC 6/6, TMS 2/2)
+- 상태: **완료**
+- → OPS 공장 대시보드(`/factory`)에서는 정상 표시됨
+
+**FE 분석 결과 (문제 없음)**:
+```tsx
+// ProductionPerformancePage.tsx:581
+{isExpanded && (order.sns ?? []).map((sn, idx) => ( ... ))}
+```
+- FE는 `order.sns` 배열을 그대로 렌더링 (별도 필터링 없음)
+- `sns`가 빈 배열 `[]` 또는 `undefined`이면 아무것도 표시 안 됨
+- `sn_count: 1`은 표시되므로 집계 값은 오지만, **상세 배열이 비어있음**
+
+**추정 원인 (BE 확인 필요)**:
+
+| # | 가능성 | 확인 방법 |
+|---|--------|-----------|
+| 1 | `sns` 배열 조회 쿼리에서 JOIN 조건 불일치 — `sn_count`는 단순 COUNT로 가져오지만, `sns` 상세는 partner/progress 테이블 JOIN 시 TEST-1111이 누락 | `sns` 조회 SQL 확인 |
+| 2 | `process_status.*.total`이 모두 0 → 공장 대시보드는 `checklist_items` 기반이지만 performance API는 다른 테이블/쿼리 사용 | performance 쿼리의 progress 집계 로직 확인 |
+| 3 | `sns` 필드를 populate하는 로직이 특정 조건(예: production_plan status)에서만 동작 | performance 엔드포인트의 sns 구성 코드 확인 |
+
+**기대하는 정상 응답 (O/N 1111 부분)**:
+```json
+{
+  "sales_order": "1111",
+  "model": "GAIA-I",
+  "sn_count": 1,
+  "sn_summary": "TEST-1111",
+  "sns": [
+    {
+      "serial_number": "TEST-1111",
+      "mech_partner": "...",
+      "elec_partner": "...",
+      "progress": {
+        "MECH": { "total": 6, "done": 6, "pct": 100 },
+        "ELEC": { "total": 6, "done": 6, "pct": 100 },
+        "TM": { "total": 2, "done": 2, "pct": 100 }
+      },
+      "checklist": { ... }
+    }
+  ],
+  "process_status": {
+    "MECH": { "total": 6, "ready": 6, "confirmable": true },
+    "ELEC": { "total": 6, "ready": 6, "confirmable": true },
+    "TM": { "total": 2, "ready": 2, "confirmable": true }
+  }
+}
+```
+
+**디버깅 순서 (BE)**:
+1. API 직접 호출 → O/N 1111의 `sns` 배열 값 확인 (`[]`인지 데이터 있는지)
+2. `sns` 배열 구성 쿼리 확인 — `plan` + `workers`(partner) + `checklist_items`(progress) JOIN 로직
+3. 공장 대시보드 API와 performance API의 **쿼리 차이점** 비교
+4. `process_status.*.total` 집계 로직 — 왜 모든 O/N이 N/A(total=0)인지
+
+**FE 상태**: 수정 불필요 — BE 응답에 `sns` 데이터가 정상 포함되면 즉시 표시됨
+
+---
+
+#### #31 해결 — 2026-03-22
+
+**상태**: ✅ RESOLVED
+
+**근본 원인**: `production.py` `_build_order_item()` 함수가 `sns` 필드를 반환하지 않았음. `serial_numbers`(문자열 배열)만 존재했고, FE가 기대하는 `sns`(S/N별 progress/partner 포함 객체 배열)는 구성 로직 자체가 없었음.
+
+**수정 내용** (`AXIS-OPS/backend/app/routes/production.py`):
+1. `_build_order_item()`에 `sns_detail` 배열 구성 로직 추가 — `products` 루프 돌며 S/N별 `progress` 딕셔너리(MECH/ELEC/TMS/PI/QI/SI) 조립
+2. `sn_summary` 필드 추가 — FE line 541에서 참조하나 BE에서 미반환이었음. 1대면 S/N 그대로, 2대 이상이면 "첫번째 외 N대" 형식
+3. 응답 return에 `'sns': sns_detail`, `'sn_summary': sn_summary` 추가
+
+**수정 후 응답 구조**:
+```json
+{
+  "sales_order": "1111",
+  "model": "GAIA-I",
+  "sn_count": 1,
+  "sn_summary": "TEST-1111",
+  "serial_numbers": ["TEST-1111"],
+  "sns": [
+    {
+      "serial_number": "TEST-1111",
+      "mech_partner": "...",
+      "elec_partner": "...",
+      "progress": {
+        "MECH": { "total": 6, "done": 6, "pct": 100.0 },
+        "ELEC": { "total": 6, "done": 6, "pct": 100.0 },
+        "TMS": { "total": 2, "done": 2, "pct": 100.0 }
+      }
+    }
+  ],
+  "progress_pct": 100.0,
+  "processes": { ... }
+}
+```
+
+**배포 후 확인사항**: O/N 펼침(expand) 시 S/N 상세 리스트 + 공정별 진행률 정상 표시 여부
+
+---
+
+### 32. FE-BE 키 불일치 — process_status→processes, TMS→TM 매핑
+
+**보고일**: 2026-03-22
+**시급도**: 높음 — 생산실적 O/N·S/N 진행률 전체 N/A 표시
+
+**증상**:
+```
+O/N 1111 행:     MECH N/A  |  ELEC N/A  |  TM N/A     ← 전부 N/A
+  └ TEST-1111:   MECH 100% |  ELEC 100% |  TM N/A     ← TM만 N/A
+```
+- OPS 공장 대시보드에서는 MECH 6/6, ELEC 6/6, TMS 2/2 정상 표시
+
+**근본 원인 (2가지)**:
+
+| # | BE 실제 응답 | FE 현재 참조 | 영향 |
+|---|-------------|-------------|------|
+| 1 | `order.processes` | `order.process_status` | O/N 행 MECH/ELEC/TM 전부 N/A |
+| 2 | `sn.progress.TMS` | `sn.progress.TM` | S/N 행 TM N/A |
+
+**수정 방향 (확정): BE 매핑 1줄 + FE 키 이름 1곳**
+
+FE에서 TM→TMS 전면 변경은 **비권장**:
+- `TMS`는 DB `task_category` 컬럼 전용 값
+- 나머지 시스템 전체(`role_enum`, `completion_status`, `admin_settings`)는 `TM` 사용
+- FE를 TMS에 맞추면 `confirm_tms_enabled` 조회 시도 → DB에 `confirm_tm_enabled`만 존재 → confirmable 영구 실패
+- 향후 TMS/TM 혼동 반복
+
+| 원래 계획 (FE→TMS) | 수정 계획 (BE 매핑→TM) |
+|--------------------|----------------------|
+| FE 수정 7곳 (TM→TMS) + 1곳 (processes) | **FE 수정 1곳** (processes만) |
+| BE 수정 0 | BE 매핑 상수 1줄 + 적용 3곳 |
+| confirm_tm_enabled 문제 **미해결** | **해결** |
+| 시스템 일관성 ❌ (FE만 TMS, 나머지 TM) | ✅ 전체 TM |
+
+**BE 수정 (production.py — 매핑 1줄)**:
+```python
+_CATEGORY_TO_PROCESS = {'TMS': 'TM'}
+# 사용: process_key = _CATEGORY_TO_PROCESS.get(pt, pt)
+```
+- `processes` 딕셔너리 구성 시 `TMS` → `TM`으로 매핑
+- `sns[].progress` 구성 시 동일 매핑 적용
+- 결과: 응답에서 `TMS` 키가 `TM`으로 통일
+
+**BE 수정 후 응답 구조**:
+```json
+{
+  "sales_order": "1111",
+  "processes": {
+    "MECH": { "total": 6, "ready": 6, "confirmable": true },
+    "ELEC": { "total": 6, "ready": 6, "confirmable": true },
+    "TM":   { "total": 2, "ready": 2, "confirmable": true }
+  },
+  "sns": [{
+    "serial_number": "TEST-1111",
+    "progress": {
+      "MECH": { "total": 6, "done": 6, "pct": 100 },
+      "ELEC": { "total": 6, "done": 6, "pct": 100 },
+      "TM":   { "total": 2, "done": 2, "pct": 100 }
+    }
+  }]
+}
+```
+
+**FE 수정 (VIEW만 — 1곳)**:
+
+| # | 파일 | 변경 내용 |
+|---|------|----------|
+| 1 | `types/production.ts` | `OrderGroup.process_status` → `processes` |
+| 2 | `ProductionPerformancePage.tsx` | 모든 `order.process_status` → `order.processes` |
+| - | TM 관련 | 변경 불필요 — BE가 TM으로 내려주므로 기존 코드 그대로 동작 |
+
+**confirm API**: `process_type: 'TM'` 그대로 유지 — DB `confirms.process_type` = 'TM', `admin_settings.confirm_tm_enabled` = TM 기준

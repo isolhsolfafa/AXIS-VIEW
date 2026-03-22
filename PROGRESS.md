@@ -1,8 +1,39 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-21 (v1.7.3 — 근태 차트 주간/월간 추이 + 퇴근 미체크 필터 + TMS(E) 버그 수정)
+> 마지막 업데이트: 2026-03-22 (v1.7.4 — 생산실적 BE-FE 키 매핑 수정)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.7.4: 생산실적 BE-FE 키 매핑 수정 — ✅ 완료 (2026-03-22)
+
+생산실적 페이지 O/N·S/N 진행률 N/A 표시 버그 수정. BE 응답 키(`processes`)에 FE 참조 키(`process_status`) 통일.
+
+### 배경
+
+- O/N 1111 (TEST-1111, progress 100%) 테스트 중 발견
+- OPS 공장 대시보드에서는 정상 표시, VIEW 생산실적 페이지에서만 전체 N/A
+- 원인: BE가 `processes` 키로 반환하는데 FE가 `process_status`로 참조
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| 타입 정의 | `types/production.ts` | `OrderGroup.process_status` → `OrderGroup.processes` |
+| 페이지 참조 | `ProductionPerformancePage.tsx` | 모든 `order.process_status` / `o.process_status` → `order.processes` / `o.processes` (8곳) |
+
+### BE 연계 (OPS_API_REQUESTS #32)
+
+- BE `production.py`에 TMS→TM 매핑 상수 추가 필요 (`_CATEGORY_TO_PROCESS = {'TMS': 'TM'}`)
+- DB `task_category`는 'TMS'이나 시스템 표준은 'TM' (role_enum, confirm, admin_settings 모두 TM)
+- BE 매핑 완료 후 S/N TM progress도 정상 표시 예정
+
+### 영향 범위
+
+- FE VIEW만 수정 — OPS Flutter 영향 없음
+- TM 키 관련 코드 변경 없음 (BE 매핑으로 해결)
+- confirm API `process_type: 'TM'` 그대로 유지
 
 ---
 

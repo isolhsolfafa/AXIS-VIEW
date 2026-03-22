@@ -59,5 +59,6 @@ export function useAttendanceTrend(dateFrom: string, dateTo: string) {
     queryFn: () => getAttendanceTrend(dateFrom, dateTo),
     staleTime: 5 * 60 * 1000,
     enabled: !!dateFrom && !!dateTo,
+    retry: 1, // Mock fallback이 있으므로 재시도 최소화
   });
 }

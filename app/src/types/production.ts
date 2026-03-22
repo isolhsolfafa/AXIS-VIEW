@@ -55,7 +55,7 @@ export interface OrderGroup {
   sn_count: number;
   sn_summary: string;
   partner_info: { mech: string; elec: string; mixed: boolean };
-  process_status: {
+  processes: {
     MECH: ProcessStatus;
     ELEC: ProcessStatus;
     TM: ProcessStatus;

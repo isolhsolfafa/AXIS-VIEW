@@ -273,7 +273,7 @@ export default function ProductionPerformancePage() {
   const totalSN = orders.reduce((s, o) => s + o.sn_count, 0);
   const mechConfirmed = orders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'MECH')).length;
   const elecConfirmed = orders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'ELEC')).length;
-  const tmApplicable = orders.filter(o => (o.process_status?.TM?.total ?? 0) > 0);
+  const tmApplicable = orders.filter(o => (o.processes?.TM?.total ?? 0) > 0);
   const tmConfirmed = orders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'TM')).length;
   const mechReady = summary?.mech_confirmable ?? 0;
   const elecReady = summary?.elec_confirmable ?? 0;
@@ -282,12 +282,12 @@ export default function ProductionPerformancePage() {
   const filteredOrders = orders.filter(o => {
     if (statusFilter === 'done') {
       const hasAll = (['MECH', 'ELEC'] as const).every(pt => (o.confirms ?? []).some(c => c.process_type === pt));
-      const tmDone = (o.process_status?.TM?.total ?? 0) === 0 || (o.confirms ?? []).some(c => c.process_type === 'TM');
+      const tmDone = (o.processes?.TM?.total ?? 0) === 0 || (o.confirms ?? []).some(c => c.process_type === 'TM');
       return hasAll && tmDone;
     }
     if (statusFilter === 'pending') {
       const hasAll = (['MECH', 'ELEC'] as const).every(pt => (o.confirms ?? []).some(c => c.process_type === pt));
-      const tmDone = (o.process_status?.TM?.total ?? 0) === 0 || (o.confirms ?? []).some(c => c.process_type === 'TM');
+      const tmDone = (o.processes?.TM?.total ?? 0) === 0 || (o.confirms ?? []).some(c => c.process_type === 'TM');
       return !(hasAll && tmDone);
     }
     return true;
@@ -304,7 +304,7 @@ export default function ProductionPerformancePage() {
 
   const handleBatchConfirm = async (processType: 'MECH' | 'ELEC') => {
     const confirmable = orders.filter(o =>
-      o.process_status[processType].confirmable &&
+      o.processes[processType].confirmable &&
       !(o.confirms ?? []).some(c => c.process_type === processType)
     );
     if (confirmable.length === 0) return;
@@ -507,7 +507,7 @@ export default function ProductionPerformancePage() {
 
                       // O/N 전체 완료 여부 (3공정 모두 confirmed)
                       const allConfirmed = (['MECH', 'ELEC'] as const).every(pt => (order.confirms ?? []).some(c => c.process_type === pt))
-                        && ((order.process_status?.TM?.total ?? 0) === 0 || (order.confirms ?? []).some(c => c.process_type === 'TM'));
+                        && ((order.processes?.TM?.total ?? 0) === 0 || (order.confirms ?? []).some(c => c.process_type === 'TM'));
 
                       return (
                         <tbody key={order.sales_order}>
@@ -545,7 +545,7 @@ export default function ProductionPerformancePage() {
                             {/* 기구 */}
                             <ProcessCell
                               processType="MECH"
-                              processStatus={(order.process_status?.MECH ?? { ready: 0, total: 0, confirmable: false })}
+                              processStatus={(order.processes?.MECH ?? { ready: 0, total: 0, confirmable: false })}
                               confirms={order.confirms ?? []}
                               partnerDisplay={(order.partner_info?.mech ?? '—')}
                               mixed={(order.partner_info?.mixed ?? false)}
@@ -556,7 +556,7 @@ export default function ProductionPerformancePage() {
                             {/* 전장 */}
                             <ProcessCell
                               processType="ELEC"
-                              processStatus={(order.process_status?.ELEC ?? { ready: 0, total: 0, confirmable: false })}
+                              processStatus={(order.processes?.ELEC ?? { ready: 0, total: 0, confirmable: false })}
                               confirms={order.confirms ?? []}
                               partnerDisplay={(order.partner_info?.elec ?? '—')}
                               mixed={(order.partner_info?.mixed ?? false)}
@@ -567,7 +567,7 @@ export default function ProductionPerformancePage() {
                             {/* TM */}
                             <ProcessCell
                               processType="TM"
-                              processStatus={(order.process_status?.TM ?? { ready: 0, total: 0, confirmable: false })}
+                              processStatus={(order.processes?.TM ?? { ready: 0, total: 0, confirmable: false })}
                               confirms={order.confirms ?? []}
                               partnerDisplay=""
                               mixed={false}

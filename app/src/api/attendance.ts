@@ -60,11 +60,17 @@ export async function getAttendanceTrend(dateFrom: string, dateTo: string): Prom
   if (USE_MOCK) {
     return getMockAttendanceTrend(dateFrom, dateTo);
   }
-  const response = await apiClient.get<AttendanceTrendResponse>(
-    '/api/admin/hr/attendance/trend',
-    { params: { date_from: dateFrom, date_to: dateTo } },
-  );
-  return response.data.trend.map(transformTrendPoint);
+  try {
+    const response = await apiClient.get<AttendanceTrendResponse>(
+      '/api/admin/hr/attendance/trend',
+      { params: { date_from: dateFrom, date_to: dateTo } },
+    );
+    return response.data.trend.map(transformTrendPoint);
+  } catch {
+    // BE Sprint 35 배포 전까지 Mock fallback — 배포 후 자동 전환
+    console.warn('[attendance] trend API 미배포 — Mock fallback 사용');
+    return getMockAttendanceTrend(dateFrom, dateTo);
+  }
 }
 
 function transformTrendPoint(item: AttendanceTrendResponse['trend'][number]): TrendDataPoint {
