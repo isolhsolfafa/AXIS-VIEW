@@ -21,10 +21,14 @@ export async function getPerformance(week?: string, month?: string): Promise<Per
     const raw = order as any;
 
     // partner_info: BE flat → FE 객체
+    // mixed 판정: 같은 O/N 내 S/N이 2대 이상일 때, 같은 공정에서 S/N별 협력사가 다른 경우
+    const sns = raw.sns ?? [];
+    const mechMixed = sns.length > 1 && new Set(sns.map((s: any) => s.mech_partner)).size > 1;
+    const elecMixed = sns.length > 1 && new Set(sns.map((s: any) => s.elec_partner)).size > 1;
     const partnerInfo = order.partner_info ?? {
       mech: raw.mech_partner || '—',
       elec: raw.elec_partner || '—',
-      mixed: (raw.mech_partner || '') !== (raw.elec_partner || ''),
+      mixed: mechMixed || elecMixed,
     };
 
     // confirms: processes 내부 confirmed → ConfirmRecord[]

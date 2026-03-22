@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-22 (#32-B processes 내부 필드명 ready/confirmable 불일치)
+> 마지막 업데이트: 2026-03-22 (#33-3 혼재 로직 오류 + 실적확인 버튼 미활성 추가 조사)
 
 ---
 
@@ -1704,6 +1704,31 @@ enabled && processStatus.confirmable && !confirm
 
 **배포 후 확인**: `confirm_mech_enabled=true` 설정 → O/N 행에 `6/6` 표시 + 확인 버튼 활성화 여부
 
+**2026-03-22 확인 결과 (1차)**:
+- `6/6` 표시: ✅ 정상 (`ready` alias 적용됨)
+- 확인 버튼: ❌ 미활성 — `confirm_mech_enabled=true` 설정해도 버튼 안 나옴
+
+**2026-03-23 근본 원인 확인 (2차)**:
+
+`_is_process_confirmable()`에 **전체 주차의 모든 S/N progress**가 전달되고 있었음. 함수가 `for sn, cats in sns_progress.items():`로 전체를 순회하므로, 같은 주차에 미완료 S/N이 있는 **다른 O/N**이 하나라도 있으면 현재 O/N도 `confirmable=false`가 됨.
+
+```python
+# 버그: sns_progress는 주차 내 전체 O/N의 S/N을 포함
+serial_numbers = [row['serial_number'] for row in product_rows]  # 주차 전체
+sns_progress = _calc_sn_progress(cur, serial_numbers)
+# → _is_process_confirmable(sns_progress, ...)  ← 전체 S/N 순회!
+```
+
+**수정 내용** (`production.py`):
+1. `_is_process_confirmable()` — `serial_numbers` 파라미터 추가. 현재 O/N의 S/N만 필터링하여 판정
+2. `has_data` 플래그 추가 — 해당 공정 데이터가 0건이면 `False` 반환 (빈 루프 → True 방지)
+3. `_build_order_item()` 호출 시 `serial_numbers` 전달
+
+**수정 후 정상 동작**:
+- O/N 1111 (TEST-1111: MECH 6/6) → `confirmable=true` ✅
+- O/N 2222 (TEST-2222: MECH 3/6) → `confirmable=false` ✅ (정상 — 미완료)
+- 각 O/N이 독립적으로 판정됨
+
 ---
 
 ### 33. VIEW FE — production performance 응답 변환 필요 항목
@@ -1761,7 +1786,36 @@ const confirms: ConfirmRecord[] = Object.entries(order.processes)
   }));
 ```
 
-#### 33-3. `sns[].checklist` — 추후 대응 (BACKLOG)
+#### 33-3. `partner_info.mixed` "혼재" 판정 로직 오류 — FE 수정 필요
+
+**증상**: O/N 1111 (S/N 1대 — TEST-1111)인데 MECH/ELEC 모두 "혼재" 마크 표시
+
+**현재 FE 로직** (`api/production.ts` line 27):
+```typescript
+mixed: (raw.mech_partner || '') !== (raw.elec_partner || ''),
+```
+→ MECH 협력사(FNI) ≠ ELEC 협력사(C&A)이면 `mixed=true`
+
+**문제**: "혼재"의 올바른 의미는 **같은 O/N 내에 여러 S/N이 있을 때, 같은 공정에서 S/N마다 협력사가 다른 경우**
+- O/N 1111은 S/N 1대 → 혼재 불가능
+- MECH와 ELEC의 협력사가 다른 것은 정상 (기구=FNI, 전장=C&A)
+
+**수정 방안 (택 1)**:
+- **A안 (BE에서 판정)**: BE가 `partner_info.mixed`를 직접 계산하여 반환. S/N이 2대 이상이고 같은 공정의 partner가 다를 때만 true
+- **B안 (FE에서 수정)**: `sns` 배열에서 같은 공정의 partner를 비교
+```typescript
+mixed: order.sns.length > 1 &&
+  new Set(order.sns.map(s => s.mech_partner)).size > 1
+```
+
+**임시 조치**: `sn_count === 1`이면 `mixed: false` 강제
+```typescript
+mixed: order.sn_count > 1 && (raw.mech_partner || '') !== (raw.elec_partner || ''),
+```
+
+---
+
+#### 33-4. `sns[].checklist` — 추후 대응 (BACKLOG)
 
 **FE 참조** (`ProductionPerformancePage.tsx` line 600-607):
 ```tsx
@@ -1772,7 +1826,7 @@ const confirms: ConfirmRecord[] = Object.entries(order.processes)
 
 **대응**: confirm_checklist_required Stage 2 (BACKLOG #28) 구현 시 BE에 `checklist` 필드 추가 예정. 현재 수정 불필요.
 
-#### 33-4. `SNProgress` 타입 확장 (권장)
+#### 33-5. `SNProgress` 타입 확장 (권장)
 
 **현재**: `SNProgress = { MECH, ELEC, TM }` 고정 3키
 **BE 실제**: PI, QI, SI도 반환 가능
@@ -1793,12 +1847,13 @@ export type SNProgress = Record<string, ProcessProgress>;
 
 #### 요약: VIEW 수정 체크리스트
 
-| # | 파일 | 변경 | 시급도 |
-|---|------|------|--------|
-| 33-1 | `api/production.ts` | `getPerformance()` 후처리: `partner_info` 객체 구성 | 높음 |
-| 33-2 | `api/production.ts` | `getPerformance()` 후처리: `confirms` 배열 변환 | 높음 |
-| 33-3 | — | `sns[].checklist` — BACKLOG #28 연계, 현재 수정 불필요 | 낮음 |
-| 33-4 | `types/production.ts` | `SNProgress` → `Record<string, ProcessProgress>` | 중간 |
+| # | 파일 | 변경 | 시급도 | 상태 |
+|---|------|------|--------|------|
+| 33-1 | `api/production.ts` | `getPerformance()` 후처리: `partner_info` 객체 구성 | 높음 | ✅ 완료 |
+| 33-2 | `api/production.ts` | `getPerformance()` 후처리: `confirms` 배열 변환 | 높음 | ✅ 완료 |
+| 33-3 | `api/production.ts` | `partner_info.mixed` "혼재" 판정 로직 수정 — `sns` 배열 기반 S/N별 협력사 비교 | 높음 | ✅ 완료 |
+| 33-4 | — | `sns[].checklist` — BACKLOG #28 연계, 현재 수정 불필요 | 낮음 | — |
+| 33-5 | `types/production.ts` | `SNProgress` → `Record<string, ProcessProgress>` 확장 | 중간 | ✅ 완료 |
 
 ---
 
