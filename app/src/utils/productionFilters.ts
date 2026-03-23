@@ -27,24 +27,43 @@ export function filterByProcessTab(
     if (tab === 'mech_elec') {
       const hasMechElec = (o.processes?.MECH?.total ?? 0) > 0 || (o.processes?.ELEC?.total ?? 0) > 0;
       if (!hasMechElec) return false;
-      if (weekStart && weekEnd) {
-        const mechEnd = o.mech_end;
-        const elecEnd = o.elec_end;
-        const mechInRange = mechEnd && mechEnd >= weekStart && mechEnd < weekEnd;
-        const elecInRange = elecEnd && elecEnd >= weekStart && elecEnd < weekEnd;
+      // end 필드가 하나라도 있을 때만 범위 필터 적용
+      if (weekStart && weekEnd && (o.mech_end || o.elec_end)) {
+        const mechInRange = o.mech_end && o.mech_end >= weekStart && o.mech_end < weekEnd;
+        const elecInRange = o.elec_end && o.elec_end >= weekStart && o.elec_end < weekEnd;
         if (!mechInRange && !elecInRange) return false;
       }
       return true;
     } else {
       const hasTM = (o.processes?.TM?.total ?? 0) > 0;
       if (!hasTM) return false;
-      if (weekStart && weekEnd) {
-        const modEnd = o.module_end;
-        if (!modEnd || modEnd < weekStart || modEnd >= weekEnd) return false;
+      // module_end가 있을 때만 범위 필터 적용
+      if (weekStart && weekEnd && o.module_end) {
+        if (o.module_end < weekStart || o.module_end >= weekEnd) return false;
       }
       return true;
     }
   });
+}
+
+/** 공정 confirmed 판정 (all_confirmed → confirmed fallback) */
+function isProcConfirmed(proc: OrderGroup['processes'][string] | undefined): boolean {
+  if (!proc) return false;
+  if (proc.mixed && proc.partner_confirms) return proc.partner_confirms.every(pc => pc.all_confirmed);
+  if (proc.all_confirmed !== undefined) return proc.all_confirmed;
+  return proc.confirmed ?? false;
+}
+
+/** 공정 ready 판정 (sn_confirms → confirmable fallback) */
+function isProcReady(proc: OrderGroup['processes'][string] | undefined): boolean {
+  if (!proc) return false;
+  if (proc.mixed && proc.partner_confirms) {
+    return proc.partner_confirms.some(pc => pc.sn_confirms.some(sc => sc.confirmable && !sc.confirmed));
+  }
+  if (proc.sn_confirms && proc.sn_confirms.length > 0) {
+    return proc.sn_confirms.some(sc => sc.confirmable && !sc.confirmed);
+  }
+  return (proc.confirmable ?? false) && !isProcConfirmed(proc);
 }
 
 /** 상태 필터 */
@@ -55,13 +74,9 @@ export function filterByStatus(
   if (status === 'all') return orders;
 
   const isDone = (o: OrderGroup): boolean => {
-    const mechDone = !o.processes?.MECH || (o.processes.MECH.mixed
-      ? o.processes.MECH.partner_confirms?.every(pc => pc.all_confirmed) ?? true
-      : o.processes.MECH.all_confirmed ?? false);
-    const elecDone = !o.processes?.ELEC || (o.processes.ELEC.mixed
-      ? o.processes.ELEC.partner_confirms?.every(pc => pc.all_confirmed) ?? true
-      : o.processes.ELEC.all_confirmed ?? false);
-    const tmDone = (o.processes?.TM?.total ?? 0) === 0 || (o.processes?.TM?.all_confirmed ?? false);
+    const mechDone = !o.processes?.MECH || isProcConfirmed(o.processes.MECH);
+    const elecDone = !o.processes?.ELEC || isProcConfirmed(o.processes.ELEC);
+    const tmDone = (o.processes?.TM?.total ?? 0) === 0 || isProcConfirmed(o.processes.TM);
     return mechDone && elecDone && tmDone;
   };
 
@@ -75,53 +90,17 @@ export function calcTabKpi(orders: OrderGroup[], tab: 'mech_elec' | 'tm') {
     return {
       totalON: orders.length,
       totalSN: orders.reduce((s, o) => s + o.sn_count, 0),
-      mechConfirmed: orders.filter(o => {
-        const proc = o.processes?.MECH;
-        if (!proc) return false;
-        if (proc.mixed && proc.partner_confirms) return proc.partner_confirms.every(pc => pc.all_confirmed);
-        return proc.all_confirmed ?? false;
-      }).length,
-      elecConfirmed: orders.filter(o => {
-        const proc = o.processes?.ELEC;
-        if (!proc) return false;
-        if (proc.mixed && proc.partner_confirms) return proc.partner_confirms.every(pc => pc.all_confirmed);
-        return proc.all_confirmed ?? false;
-      }).length,
-      mechReady: orders.filter(o => {
-        const proc = o.processes?.MECH;
-        if (!proc) return false;
-        if (proc.mixed && proc.partner_confirms) {
-          return proc.partner_confirms.some(pc => pc.sn_confirms.some(sc => sc.confirmable && !sc.confirmed));
-        }
-        return (proc.sn_confirms ?? []).some(sc => sc.confirmable && !sc.confirmed);
-      }).length,
-      elecReady: orders.filter(o => {
-        const proc = o.processes?.ELEC;
-        if (!proc) return false;
-        if (proc.mixed && proc.partner_confirms) {
-          return proc.partner_confirms.some(pc => pc.sn_confirms.some(sc => sc.confirmable && !sc.confirmed));
-        }
-        return (proc.sn_confirms ?? []).some(sc => sc.confirmable && !sc.confirmed);
-      }).length,
+      mechConfirmed: orders.filter(o => isProcConfirmed(o.processes?.MECH)).length,
+      elecConfirmed: orders.filter(o => isProcConfirmed(o.processes?.ELEC)).length,
+      mechReady: orders.filter(o => isProcReady(o.processes?.MECH)).length,
+      elecReady: orders.filter(o => isProcReady(o.processes?.ELEC)).length,
     };
   }
   return {
     totalON: orders.length,
     totalSN: orders.reduce((s, o) => s + o.sn_count, 0),
-    tmConfirmed: orders.filter(o => {
-      const proc = o.processes?.TM;
-      if (!proc) return false;
-      if (proc.mixed && proc.partner_confirms) return proc.partner_confirms.every(pc => pc.all_confirmed);
-      return proc.all_confirmed ?? false;
-    }).length,
-    tmReady: orders.filter(o => {
-      const proc = o.processes?.TM;
-      if (!proc) return false;
-      if (proc.mixed && proc.partner_confirms) {
-        return proc.partner_confirms.some(pc => pc.sn_confirms.some(sc => sc.confirmable && !sc.confirmed));
-      }
-      return (proc.sn_confirms ?? []).some(sc => sc.confirmable && !sc.confirmed);
-    }).length,
+    tmConfirmed: orders.filter(o => isProcConfirmed(o.processes?.TM)).length,
+    tmReady: orders.filter(o => isProcReady(o.processes?.TM)).length,
   };
 }
 

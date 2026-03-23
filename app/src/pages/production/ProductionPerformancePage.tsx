@@ -497,83 +497,60 @@ export default function ProductionPerformancePage() {
     ? getISOWeekRange(activeWeek, currentYear)
     : ['', ''];
 
-  // 공정 탭별 O/N 필터 (end date 범위 포함)
+  // 공정 탭별 O/N 필터 (end date 범위 포함 — end 필드가 없으면 필터 건너뜀)
   const tabOrders = orders.filter(o => {
     if (activeProcessTab === 'mech_elec') {
       const hasMechElec = (o.processes?.MECH?.total ?? 0) > 0 || (o.processes?.ELEC?.total ?? 0) > 0;
       if (!hasMechElec) return false;
-      if (weekStart && weekEnd) {
-        const mechEnd = o.mech_end;
-        const elecEnd = o.elec_end;
-        const mechInRange = mechEnd && mechEnd >= weekStart && mechEnd < weekEnd;
-        const elecInRange = elecEnd && elecEnd >= weekStart && elecEnd < weekEnd;
+      // end 필드가 하나라도 있을 때만 범위 필터 적용
+      if (weekStart && weekEnd && (o.mech_end || o.elec_end)) {
+        const mechInRange = o.mech_end && o.mech_end >= weekStart && o.mech_end < weekEnd;
+        const elecInRange = o.elec_end && o.elec_end >= weekStart && o.elec_end < weekEnd;
         if (!mechInRange && !elecInRange) return false;
       }
       return true;
     } else {
       const hasTM = (o.processes?.TM?.total ?? 0) > 0;
       if (!hasTM) return false;
-      if (weekStart && weekEnd) {
-        const modEnd = o.module_end;
-        if (!modEnd || modEnd < weekStart || modEnd >= weekEnd) return false;
+      // module_end가 있을 때만 범위 필터 적용
+      if (weekStart && weekEnd && o.module_end) {
+        if (o.module_end < weekStart || o.module_end >= weekEnd) return false;
       }
       return true;
     }
   });
 
-  // 탭별 KPI 산출
-  const mechConfirmedInTab = tabOrders.filter(o => {
-    const proc = o.processes?.MECH;
+  // 탭별 KPI 산출 (sn_confirms가 없으면 기존 confirmable/confirmed fallback)
+  const isConfirmedProc = (proc: typeof orders[0]['processes'][string] | undefined): boolean => {
     if (!proc) return false;
     if (proc.mixed && proc.partner_confirms) return proc.partner_confirms.every(pc => pc.all_confirmed);
-    return proc.all_confirmed ?? false;
-  }).length;
-  const elecConfirmedInTab = tabOrders.filter(o => {
-    const proc = o.processes?.ELEC;
-    if (!proc) return false;
-    if (proc.mixed && proc.partner_confirms) return proc.partner_confirms.every(pc => pc.all_confirmed);
-    return proc.all_confirmed ?? false;
-  }).length;
-  const mechReadyInTab = tabOrders.filter(o => {
-    const proc = o.processes?.MECH;
+    if (proc.all_confirmed !== undefined) return proc.all_confirmed;
+    return proc.confirmed ?? false;
+  };
+  const isReadyProc = (proc: typeof orders[0]['processes'][string] | undefined): boolean => {
     if (!proc) return false;
     if (proc.mixed && proc.partner_confirms) {
       return proc.partner_confirms.some(pc => pc.sn_confirms.some(sc => sc.confirmable && !sc.confirmed));
     }
-    return (proc.sn_confirms ?? []).some(sc => sc.confirmable && !sc.confirmed);
-  }).length;
-  const elecReadyInTab = tabOrders.filter(o => {
-    const proc = o.processes?.ELEC;
-    if (!proc) return false;
-    if (proc.mixed && proc.partner_confirms) {
-      return proc.partner_confirms.some(pc => pc.sn_confirms.some(sc => sc.confirmable && !sc.confirmed));
+    if (proc.sn_confirms && proc.sn_confirms.length > 0) {
+      return proc.sn_confirms.some(sc => sc.confirmable && !sc.confirmed);
     }
-    return (proc.sn_confirms ?? []).some(sc => sc.confirmable && !sc.confirmed);
-  }).length;
-  const tmConfirmedInTab = tabOrders.filter(o => {
-    const proc = o.processes?.TM;
-    if (!proc) return false;
-    if (proc.mixed && proc.partner_confirms) return proc.partner_confirms.every(pc => pc.all_confirmed);
-    return proc.all_confirmed ?? false;
-  }).length;
-  const tmReadyInTab = tabOrders.filter(o => {
-    const proc = o.processes?.TM;
-    if (!proc) return false;
-    if (proc.mixed && proc.partner_confirms) {
-      return proc.partner_confirms.some(pc => pc.sn_confirms.some(sc => sc.confirmable && !sc.confirmed));
-    }
-    return (proc.sn_confirms ?? []).some(sc => sc.confirmable && !sc.confirmed);
-  }).length;
+    // fallback: 기존 O/N 단위 confirmable
+    return (proc.confirmable ?? false) && !isConfirmedProc(proc);
+  };
+
+  const mechConfirmedInTab = tabOrders.filter(o => isConfirmedProc(o.processes?.MECH)).length;
+  const elecConfirmedInTab = tabOrders.filter(o => isConfirmedProc(o.processes?.ELEC)).length;
+  const mechReadyInTab = tabOrders.filter(o => isReadyProc(o.processes?.MECH)).length;
+  const elecReadyInTab = tabOrders.filter(o => isReadyProc(o.processes?.ELEC)).length;
+  const tmConfirmedInTab = tabOrders.filter(o => isConfirmedProc(o.processes?.TM)).length;
+  const tmReadyInTab = tabOrders.filter(o => isReadyProc(o.processes?.TM)).length;
 
   // 상태 필터 (tabOrders 위에 적용)
   const isDone = (o: typeof orders[number]): boolean => {
-    const mechDone = !o.processes?.MECH || (o.processes.MECH.mixed
-      ? o.processes.MECH.partner_confirms?.every(pc => pc.all_confirmed) ?? true
-      : o.processes.MECH.all_confirmed ?? false);
-    const elecDone = !o.processes?.ELEC || (o.processes.ELEC.mixed
-      ? o.processes.ELEC.partner_confirms?.every(pc => pc.all_confirmed) ?? true
-      : o.processes.ELEC.all_confirmed ?? false);
-    const tmDone = (o.processes?.TM?.total ?? 0) === 0 || (o.processes?.TM?.all_confirmed ?? false);
+    const mechDone = !o.processes?.MECH || isConfirmedProc(o.processes.MECH);
+    const elecDone = !o.processes?.ELEC || isConfirmedProc(o.processes.ELEC);
+    const tmDone = (o.processes?.TM?.total ?? 0) === 0 || isConfirmedProc(o.processes.TM);
     return mechDone && elecDone && tmDone;
   };
   const filteredOrders = tabOrders.filter(o => {
@@ -841,16 +818,7 @@ export default function ProductionPerformancePage() {
                       const isExpanded = expandedOrders.has(order.sales_order);
 
                       // O/N 전체 완료 여부 (3공정 모두 confirmed)
-                      const allConfirmed = (() => {
-                        const mechDone = !order.processes?.MECH || (order.processes.MECH.mixed
-                          ? order.processes.MECH.partner_confirms?.every(pc => pc.all_confirmed) ?? true
-                          : order.processes.MECH.all_confirmed ?? false);
-                        const elecDone = !order.processes?.ELEC || (order.processes.ELEC.mixed
-                          ? order.processes.ELEC.partner_confirms?.every(pc => pc.all_confirmed) ?? true
-                          : order.processes.ELEC.all_confirmed ?? false);
-                        const tmDone = (order.processes?.TM?.total ?? 0) === 0 || (order.processes?.TM?.all_confirmed ?? false);
-                        return mechDone && elecDone && tmDone;
-                      })();
+                      const allConfirmed = isDone(order);
 
                       return (
                         <tbody key={order.sales_order}>
