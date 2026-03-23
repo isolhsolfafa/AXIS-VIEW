@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-23 (v1.12.0 — Sprint 15 #36-C TM 가압검사 옵션 UI)
+> 마지막 업데이트: 2026-03-24 (v1.13.0 — Sprint 16 S/N별 실적확인 + End 필터)
 > 이 파일은 보류/재검토/계획/아이디어를 한 곳에서 관리합니다.
 > 완료된 항목은 PROGRESS.md로 이동합니다.
 
@@ -36,6 +36,7 @@
 | TASK-24 | 생산실적 공정 그룹 탭 분리 | ✅ 완료 | v1.10.0 Sprint 13 — 기구·전장 / TM 탭 + tabOrders 필터 + KPI/테이블/일괄확인 탭별 분기 + vitest 17 tests |
 | TASK-25 | #36-C TM 가압검사 옵션 UI | 🔄 FE 완료 | v1.12.0 Sprint 15 — ConfirmSettingsPanel TM 그룹 박스 UI 완료. OPS BE migration 대기 |
 | TASK-26 | 혼재 O/N partner별 실적확인 UI | ✅ 완료 | v1.11.0 Sprint 14 — ProcessCell 혼재 분기 + partner별 버튼 + 일괄확인 혼재 제외 |
+| TASK-27 | S/N별 실적확인 UI + End 필터 | ✅ 완료 | v1.13.0 Sprint 16 — SNConfirm 타입, SNConfirmButton, ProcessCell 5단 분기, End 날짜 필터, 28 tests |
 
 ---
 
@@ -187,3 +188,4 @@
 | v1.10.0 | Sprint 13 — 공정 그룹 탭 분리 (기구·전장 / TM) + vitest 테스트 환경 | ✅ 완료 |
 | v1.11.0 | Sprint 14 — 혼재 O/N partner별 실적확인 UI + 일괄확인 혼재 제외 | ✅ 완료 |
 | v1.12.0 | Sprint 15 — #36-C TM 가압검사 옵션 UI (ConfirmSettingsPanel TM 그룹 박스) | 🔄 FE 완료 |
+| v1.13.0 | Sprint 16 — S/N별 실적확인 UI + TM 혼재 제거 + End 필터 + SNConfirmButton | ✅ 완료 |

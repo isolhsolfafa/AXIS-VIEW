@@ -6395,122 +6395,6 @@ const mechReadyInTab = tabOrders.filter(o => {
 
 ---
 
-## #36-C FE: ConfirmSettingsPanel — TM 그룹 박스 UI
-
-> **선행**: OPS Sprint 37-A 완료 (`tm_pressure_test_required` admin_settings 키 + progress/알람 분기)
-
-### Task 7: `AdminSettingsResponse` 타입 추가
-
-**파일**: `app/src/api/adminSettings.ts`
-
-```typescript
-export interface AdminSettingsResponse {
-  confirm_mech_enabled: boolean;
-  confirm_elec_enabled: boolean;
-  confirm_tm_enabled: boolean;
-  tm_pressure_test_required: boolean;   // ← NEW
-  confirm_pi_enabled: boolean;
-  confirm_qi_enabled: boolean;
-  confirm_si_enabled: boolean;
-  confirm_checklist_required: boolean;
-  [key: string]: unknown;
-}
-```
-
-### Task 8: ConfirmSettingsPanel — TM 그룹 박스 UI
-
-**파일**: `app/src/pages/production/ProductionPerformancePage.tsx`
-
-TOGGLES 배열을 3개로 분리 + TM 그룹 박스 렌더링:
-
-```tsx
-const PROCESS_TOGGLES = [
-  { key: 'confirm_mech_enabled', label: '기구 (MECH)' },
-  { key: 'confirm_elec_enabled', label: '전장 (ELEC)' },
-];
-
-const TM_GROUP = {
-  header: 'Tank Module',
-  items: [
-    {
-      key: 'confirm_tm_enabled',
-      label: 'TM 실적확인',
-      category: '실적처리: Tank Module',
-    },
-    {
-      key: 'tm_pressure_test_required',
-      label: '가압검사 포함',
-      category: 'Progress / 알람 trigger',
-      parent: 'confirm_tm_enabled',
-      description: 'ON: 가압검사 완료까지 반영 / OFF: 탱크모듈만',
-    },
-  ],
-};
-
-const REMAINING_TOGGLES = [
-  { key: 'confirm_pi_enabled', label: 'PI' },
-  { key: 'confirm_qi_enabled', label: 'QI' },
-  { key: 'confirm_si_enabled', label: 'SI' },
-];
-```
-
-**와이어프레임**:
-```
-┌─ 실적확인 설정 ──────────────── ✕ ─┐
-│                                      │
-│ 공정별 실적확인                      │
-│  기구 (MECH)              [toggle]   │
-│  전장 (ELEC)              [toggle]   │
-│                                      │
-│  Tank Module               ← 그룹 헤더
-│  ┌───────────────────────────────┐   │
-│  │ * 실적처리: Tank Module       │   │
-│  │   (TM 실적확인)    [toggle]   │   │  ← confirm_tm_enabled
-│  │                               │   │
-│  │ * Progress / 알람 trigger     │   │
-│  │   가압검사 포함     [toggle]   │   │  ← tm_pressure_test_required
-│  │   ON : 가압검사 완료까지      │   │
-│  │        progress·알람에 반영    │   │
-│  │   OFF: 탱크모듈만으로 완료    │   │
-│  └───────────────────────────────┘   │
-│                                      │
-│  PI                       [toggle]   │
-│  QI                       [toggle]   │
-│  SI                       [toggle]   │
-│ ──────────────────────────────────── │
-│  체크리스트 필수           [toggle]   │
-│  자주검사 완료 시에만 실적확인 가능  │
-└──────────────────────────────────────┘
-```
-
-**UI 동작 규칙**:
-
-| 조건 | 동작 |
-|------|------|
-| `confirm_tm_enabled = true` | TM 실적확인 + 가압검사 토글 활성 |
-| `confirm_tm_enabled = false` | 가압검사 토글 disabled + opacity: 0.5 |
-| `tm_pressure_test_required = true` | progress에 가압검사 포함 (기본) |
-| `tm_pressure_test_required = false` | progress에 탱크모듈만 반영 |
-
-TM 그룹 박스 스타일: `border: 1px solid var(--gx-mist)`, `borderRadius: 6px`, `background: var(--gx-snow)`, 그룹 헤더 `color: var(--gx-graphite)`
-
-### Task 9: 테스트 + 빌드 (#36-C)
-
-- [ ] `utils/productionFilters.test.ts` — `isProcessEnabled`에 `tm_pressure_test_required` 케이스 추가
-- [ ] TM 그룹 렌더링 — parent disabled 상태 검증
-- [ ] `npm run build` 통과
-- [ ] `npm run test` regression 통과
-
-### 체크리스트 (#36-C FE)
-
-- [ ] `AdminSettingsResponse` 타입에 `tm_pressure_test_required` 추가
-- [ ] ConfirmSettingsPanel — TM 그룹 박스 UI (PROCESS_TOGGLES / TM_GROUP / REMAINING_TOGGLES)
-- [ ] parent 의존성 — `confirm_tm_enabled=false` 시 가압검사 토글 disabled
-- [ ] 테스트 추가 + regression 통과
-- [ ] 빌드 통과
-
----
-
 ## 규칙 — Sprint 13
 - `types/production.ts`의 `ProcessStatus`에 `mixed`, `partner_confirms` 필드 이미 추가됨 — 타입 중복 선언 금지
 - `types/production.ts`의 `ConfirmRequest`에 `partner` 필드 이미 추가됨 — 타입 중복 선언 금지
@@ -6691,10 +6575,10 @@ TM 그룹 박스 렌더링: `border: 1px solid var(--gx-mist)`, `borderRadius: 6
 
 ## 체크리스트
 
-**OPS BE**:
-- [ ] `admin_settings` migration — `tm_pressure_test_required` 키 추가
-- [ ] `production.py` — settings 기반 TM task 필터링 분기
-- [ ] 알람 핸들러 — settings 기반 트리거 분기
+**OPS BE** (→ OPS Sprint 37-A로 이관):
+- [ ] `admin_settings` migration 031 — `tm_pressure_test_required` 키 추가
+- [ ] `production.py` — `_get_confirm_settings()` WHERE 확장 + progress 분기
+- [ ] `task_service.py` — 알람 핸들러 TANK_MODULE 완료 분기 + `_is_tm_pressure_test_required()` 헬퍼
 
 **VIEW FE**:
 - [x] `AdminSettingsResponse` 타입 추가
@@ -6725,4 +6609,545 @@ TM 그룹 박스 렌더링: `border: 1px solid var(--gx-mist)`, `borderRadius: 6
 - ⚠️ Sprint 13에서 추출한 `utils/productionFilters.ts` 기존 함수 시그니처 변경 금지
 - ⚠️ 테스트에서 실제 API 호출 금지 (mock only — DB/BE 무영향)
 - ⚠️ `.env` 파일 절대 커밋 금지
+- 완료 시 DESIGN_FIX_SPRINT.md 체크리스트 업데이트
+
+---
+
+# Sprint 16 (VIEW): S/N별 실적확인 UI + TM 혼재 제거 + 탭별 End 필터 (#38) (2026-03-24) ✅ 완료
+
+> **참조**: OPS_API_REQUESTS.md #38, AXIS-OPS AGENT_TEAM_LAUNCH.md Sprint 37-B
+> **선행**: OPS BE Sprint 37-B 완료 (S/N별 confirm API + sn_confirms 응답 + end 날짜)
+> **대상**: `ProductionPerformancePage.tsx`, `types/production.ts`, `utils/productionFilters.ts`
+
+## 배경
+
+1. **TM 혼재 제거**: BE에서 `_PROC_PARTNER_COL`에서 `'TM'` 삭제 → TM은 `partner_confirms` 없음, `sn_confirms` 배열로 변경
+2. **S/N별 실적확인**: 모든 공정(MECH/ELEC/TM)에서 S/N 단위 확인. O/N 내 S/N 완료 시점이 다를 수 있으므로 개별 확인 버튼 필요. 전체 완료 시 일괄확인.
+3. **탭별 End 필터**: 기구전장 탭은 `mech_end`/`elec_end`, TM 탭은 `module_end` 기준으로 해당 주간에 속하는 O/N만 표시
+
+## BE API 응답 변경점 (Sprint 37-B)
+
+**processes 구조 변경**:
+
+```
+# MECH/ELEC 혼재
+processes.MECH = {
+  total, completed, pct, mixed: true,
+  partner_confirms: [
+    { partner: 'TMS', sn_confirms: [
+        { serial_number, total, completed, pct, confirmable, confirmed, confirmed_at, confirm_id },
+      ], all_confirmable, all_confirmed },
+    { partner: 'FNI', sn_confirms: [...], all_confirmable, all_confirmed },
+  ]
+}
+
+# MECH/ELEC 비혼재
+processes.MECH = {
+  total, completed, pct, mixed: false,
+  sn_confirms: [
+    { serial_number, total, completed, pct, confirmable, confirmed, confirmed_at, confirm_id },
+  ], all_confirmable, all_confirmed
+}
+
+# TM (partner 혼재 없음)
+processes.TM = {
+  total, completed, pct, mixed: false,
+  sn_confirms: [...], all_confirmable, all_confirmed
+}
+
+# PI/QI/SI — 기존 O/N 단위 유지
+processes.PI = { total, completed, pct, confirmable, confirmed, ... }
+```
+
+**sns_detail 변경**:
+```
+sns: [
+  { serial_number, mech_partner, elec_partner,
+    mech_end, elec_end, module_end,
+    progress: { MECH: {...}, ELEC: {...}, TM: {...} }
+  }
+]
+```
+
+**confirm API 요청 변경**:
+```
+POST /confirm { sales_order, process_type, partner?, serial_numbers: [...], confirmed_week, confirmed_month }
+```
+
+**cancel API 변경**: 요청 형태 동일 (`DELETE /confirm/:id`), confirm_id가 이제 S/N 단위이므로 1건당 1개 S/N 취소. 응답에 `serial_number` 추가됨.
+```
+DELETE /confirm/:id → 응답: { message, id, sales_order, process_type, partner?, serial_number }
+```
+
+---
+
+## Task 1: 타입 변경 (`types/production.ts`)
+
+### SNConfirm 인터페이스 추가
+
+```typescript
+export interface SNConfirm {
+  serial_number: string;
+  total: number;
+  completed: number;
+  pct: number;
+  confirmable: boolean;
+  confirmed: boolean;
+  confirmed_at: string | null;
+  confirm_id: number | null;
+}
+```
+
+### PartnerConfirm 변경
+
+> ⚠️ Breaking Change: Sprint 14에서 사용하던 기존 필드(`sn_count`, `confirmable`, `confirmed` 등)를 제거합니다. Sprint 14 ✅ 완료 확인됨. ProcessCell 혼재 경로에서 기존 `pc.confirmable`, `pc.confirmed` 참조를 `pc.sn_confirms` 기반으로 모두 교체해야 합니다.
+
+```typescript
+export interface PartnerConfirm {
+  partner: string;
+  sn_confirms: SNConfirm[];      // ← NEW (기존 sn_count, confirmable, confirmed 대체)
+  all_confirmable: boolean;       // ← NEW
+  all_confirmed: boolean;         // ← NEW
+  // ❌ 제거: sn_count, total, completed, confirmable, confirmed, confirmed_at, confirm_id
+}
+```
+
+**마이그레이션 영향 범위** (Sprint 14 기존 코드):
+- `ProcessCell` line 286~314: `pc.confirmable`, `pc.confirmed`, `pc.sn_count`, `pc.partner` 참조 → `pc.sn_confirms` 순회로 교체
+- `productionFilters.ts` line 59~68: `pc.confirmable && !pc.confirmed` → `pc.sn_confirms.some(sc => sc.confirmable && !sc.confirmed)`
+
+### ProcessStatus 변경
+
+```typescript
+export interface ProcessStatus {
+  ready: number;
+  total: number;
+  completed?: number;
+  pct?: number;
+  checklist_ready?: number;
+  confirmable?: boolean;           // PI/QI/SI용 유지
+  confirmed?: boolean;             // PI/QI/SI용 유지
+  confirmed_at?: string | null;
+  confirmed_by?: string | null;
+  confirm_id?: number | null;
+  mixed?: boolean;
+  partner_confirms?: PartnerConfirm[] | null;
+  sn_confirms?: SNConfirm[] | null;            // ← NEW
+  all_confirmable?: boolean;                   // ← NEW
+  all_confirmed?: boolean;                     // ← NEW
+}
+```
+
+### SNDetail 변경
+
+```typescript
+export interface SNDetail {
+  serial_number: string;
+  mech_partner: string;
+  elec_partner: string;
+  mech_end?: string | null;        // ← NEW
+  elec_end?: string | null;        // ← NEW
+  module_end?: string | null;      // ← NEW
+  progress: SNProgress;
+  checklist: SNChecklist;
+}
+```
+
+### ConfirmRequest 변경
+
+```typescript
+export interface ConfirmRequest {
+  sales_order: string;
+  process_type: 'MECH' | 'ELEC' | 'TM';
+  partner?: string | null;
+  serial_numbers: string[];         // ← NEW (필수)
+  confirmed_week: string;
+  confirmed_month: string;
+}
+```
+
+### ConfirmResponse 변경
+
+> ⚠️ Breaking Change: 기존 `{ success, confirm_id, sales_order, process_type, confirmed_week, sn_count, confirmed_at }` → 완전 교체. `useConfirmProduction` mutation 성공 콜백에서 `data.confirm_id`, `data.sn_count` 참조가 있으면 교체 필요.
+
+```typescript
+export interface ConfirmResponse {
+  message: string;
+  confirmed: Array<{ id: number; serial_number: string; confirmed_at: string; }>;
+  count: number;
+  // ❌ 제거: confirm_id, sales_order, process_type, confirmed_week, sn_count, confirmed_at (최상위)
+}
+```
+
+**영향 범위**:
+- `useConfirmProduction` mutation onSuccess 콜백 — `data.confirm_id` → `data.confirmed[0].id` 등으로 변경
+- queryClient invalidation 로직은 변경 불필요 (기존 캐시 무효화)
+
+### CancelConfirmResponse 변경
+
+```typescript
+export interface CancelConfirmResponse {
+  success: boolean;
+  deleted_id: number;
+  sales_order: string;
+  process_type: string;
+  confirmed_week: string;
+  partner?: string | null;
+  serial_number?: string | null;   // ← NEW (S/N별 취소 시 반환)
+}
+```
+
+---
+
+## Task 2: ProcessCell — S/N별 버튼 렌더링
+
+### 와이어프레임
+
+```
+혼재 O/N:                             비혼재 O/N:
+┌──────────────────────────────┐     ┌──────────────────────┐
+│ 6/12           혼재           │     │ 5/5                   │
+│ ┌──────────────────────────┐ │     │  SN001  ✅ 확인       │
+│ │ TMS                      │ │     │  SN002  ✅ 확인       │
+│ │  SN001  ✅ 확인          │ │     │  SN003  [실적확인]    │
+│ │  SN002  [실적확인]       │ │     │  [일괄확인 (3건)]     │
+│ │  [일괄확인]              │ │     └──────────────────────┘
+│ ├──────────────────────────┤ │
+│ │ FNI                      │ │
+│ │  SN003  대기             │ │
+│ │  SN004  [실적확인]       │ │
+│ └──────────────────────────┘ │
+└──────────────────────────────┘
+```
+
+### ProcessCell props 변경 (onConfirm 시그니처 Breaking Change)
+
+기존 (line 215): `onConfirm: (partner?: string) => void`
+변경: `onConfirm: (serialNumbers: string[], partner?: string) => void`
+
+```typescript
+onConfirm: (serialNumbers: string[], partner?: string) => void;   // ← 시그니처 변경
+onBatchConfirm: (serialNumbers: string[], partner?: string) => void;  // NEW
+```
+
+**마이그레이션 영향 범위** (기존 onConfirm 호출부):
+- `ProcessCell` 내부 line 300: `onConfirm(pc.partner)` → `onConfirm([sn.serial_number], pc.partner)` 또는 `onConfirm(confirmableSNs, pc.partner)`
+- `ProcessCell` 내부 line 344: `onConfirm()` → `onConfirm([sn.serial_number])` 또는 `onConfirm(confirmableSNs)`
+- 외부 호출부 line 773: `onConfirm={(partner) => handleConfirm(order.sales_order, 'MECH', partner)}` → `onConfirm={(sns, partner) => handleConfirm(order.sales_order, 'MECH', sns, partner)}`
+- 외부 호출부 line 783: ELEC 동일 패턴
+- 외부 호출부 line 797: TM 동일 패턴
+
+### 렌더링 분기
+
+1. `total === 0` → N/A
+2. `!enabled` → "확인 비활성"
+3. `isMixed && partner_confirms` → partner > S/N별 (혼재)
+4. `sn_confirms` → S/N별 (비혼재 + TM)
+5. `confirmable` → 단일 버튼 (PI/QI/SI)
+
+### SNConfirmButton 공통 컴포넌트 추출
+
+혼재/비혼재/TM에서 재사용하는 S/N 1개 확인 버튼.
+
+---
+
+## Task 3: handleConfirm / handleBatchConfirm — serial_numbers 전달
+
+개별: `serial_numbers: [해당SN]`
+일괄: `serial_numbers: [완료된 전체 SN]`
+
+### 일괄확인 3가지 레벨
+
+**레벨 1: ProcessCell 내부 일괄 (partner별 또는 비혼재 O/N)**
+- 혼재 MECH: TMS partner 그룹 내 `all_confirmable=true` → "TMS 일괄확인" 버튼
+  - `onBatchConfirm(tmsConfirmableSNs, 'TMS')`
+- 비혼재 MECH + TM: `all_confirmable=true` → "일괄확인 (N건)" 버튼
+  - `onBatchConfirm(allConfirmableSNs)`
+- 혼재 시 partner별 일괄과 개별이 공존 가능 (TMS 전체 완료 → TMS 일괄, FNI 일부 완료 → FNI 개별)
+
+**레벨 2: Toolbar 일괄 (탭 헤더 "기구 일괄확인 (N건)" 버튼)**
+- 현재: O/N 단위 for loop
+- 변경: O/N별 confirmable S/N을 serial_numbers 배열로 전달
+- 혼재 O/N은 toolbar 일괄에서 제외 유지 (partner별 개별 확인 필요)
+
+```typescript
+const handleBatchConfirm = async (processType: 'MECH' | 'ELEC' | 'TM') => {
+  // 비혼재 + all_confirmable인 O/N만 대상
+  const confirmable = tabOrders.filter(o => {
+    const proc = o.processes[processType];
+    if (!proc) return false;
+    if (proc.mixed && proc.partner_confirms) return false; // 혼재 제외
+    return proc.all_confirmable && !proc.all_confirmed;
+  });
+  if (confirmable.length === 0) return;
+  const labels = { MECH: '기구', ELEC: '전장', TM: 'TM' };
+  if (!window.confirm(`${labels[processType]} 실적확인 ${confirmable.length}건을 일괄 처리하시겠습니까?`)) return;
+  for (const o of confirmable) {
+    const proc = o.processes[processType];
+    const sns = proc.sn_confirms
+      ?.filter(sc => sc.confirmable && !sc.confirmed)
+      .map(sc => sc.serial_number) ?? [];
+    if (sns.length === 0) continue;
+    await confirmMutation.mutateAsync({
+      sales_order: o.sales_order,
+      process_type: processType,
+      serial_numbers: sns,
+      confirmed_week: perfData?.week ?? '',
+      confirmed_month: perfData?.month ?? '',
+    });
+  }
+};
+```
+
+**레벨 3: handleConfirm (개별/ProcessCell 일괄 공통)**
+```typescript
+const handleConfirm = (salesOrder: string, processType: 'MECH' | 'ELEC' | 'TM',
+  serialNumbers: string[], partner?: string) => {
+  confirmMutation.mutate({
+    sales_order: salesOrder,
+    process_type: processType,
+    partner: partner ?? null,
+    serial_numbers: serialNumbers,
+    confirmed_week: perfData?.week ?? '',
+    confirmed_month: perfData?.month ?? '',
+  });
+};
+```
+
+---
+
+## Task 4: 탭별 End 필터 (`productionFilters.ts`)
+
+`filterByProcessTab`에 weekStart/weekEnd 파라미터 추가.
+기구전장: `mech_end`/`elec_end` 기준, TM: `module_end` 기준.
+
+### BE end 날짜 형식
+
+BE `sns_detail`의 `mech_end`, `elec_end`, `module_end`는 **ISO date 문자열** (`'2026-03-24'`). DB `product_info` 컬럼이 `DATE` 타입이므로 BE에서 `.isoformat()` 호출하여 `YYYY-MM-DD` 형식으로 내려줌.
+
+### 주간 범위 파싱 유틸 추가
+
+현재 FE에서 주차 → 날짜 범위 변환이 없으므로 유틸 추가 필요:
+
+```typescript
+// utils/weekRange.ts 또는 productionFilters.ts 내부
+export function getISOWeekRange(weekStr: string, year: number): [string, string] {
+  // ISO 8601: W01은 1월 4일이 포함된 주
+  const weekNum = parseInt(weekStr.replace(/[Ww]/, ''));
+  const jan4 = new Date(year, 0, 4);
+  const dayOfWeek = jan4.getDay() || 7; // 일=7
+  const monday = new Date(jan4);
+  monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNum - 1) * 7);
+  const nextMonday = new Date(monday);
+  nextMonday.setDate(monday.getDate() + 7);
+  // YYYY-MM-DD 형식
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  return [fmt(monday), fmt(nextMonday)];
+}
+```
+
+### filterByProcessTab 호출부 변경
+
+```typescript
+// ProductionPerformancePage.tsx
+const currentYear = perfData?.week
+  ? parseInt(perfData.month?.split('-')[0] ?? String(new Date().getFullYear()))
+  : new Date().getFullYear();
+// activeWeek: 기존 line 384에 useState<string>('') 로 존재
+// perfData.week로 초기화 (line 413)
+const [weekStart, weekEnd] = activeWeek
+  ? getISOWeekRange(activeWeek, currentYear)
+  : ['', ''];
+
+const tabOrders = filterByProcessTab(orders, activeProcessTab, weekStart, weekEnd);
+```
+
+### 비교 로직
+
+end 날짜는 `'2026-03-24'` 형식이므로 문자열 비교 가능 (`>=`, `<`).
+`weekStart <= sn.mech_end < weekEnd` 패턴.
+
+---
+
+## Task 5: KPI + 상태 필터 변경 (`productionFilters.ts`)
+
+### calcTabKpi 변경 — sn_confirms 기반 카운트
+
+기존: `o.confirms` 배열 (O/N 단위 confirm 이력) 기반 → 변경: `proc.sn_confirms` / `proc.partner_confirms` 기반.
+
+**변경 전** (기구전장 mechConfirmed/elecConfirmed):
+```typescript
+// 기존 (line 52~55): O/N 단위 confirms 배열 체크
+mechConfirmed: orders.filter(o =>
+  (o.confirms ?? []).some(c => c.process_type === 'MECH')).length,
+```
+
+**변경 후**:
+```typescript
+// S/N 기반: all_confirmed = 모든 S/N 확인 완료
+mechConfirmed: orders.filter(o => {
+  const proc = o.processes?.MECH;
+  if (!proc) return false;
+  if (proc.mixed && proc.partner_confirms) {
+    return proc.partner_confirms.every(pc => pc.all_confirmed);
+  }
+  return proc.all_confirmed ?? false;
+}).length,
+```
+
+**변경 전** (mechReady/elecReady):
+```typescript
+// 기존 (line 56~63): pc.confirmable 또는 proc.confirmable
+mechReady: orders.filter(o => {
+  const proc = o.processes?.MECH;
+  if (!proc) return false;
+  if (proc.mixed && proc.partner_confirms) {
+    return proc.partner_confirms.some(pc => pc.confirmable && !pc.confirmed);
+  }
+  return proc.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'MECH');
+}).length,
+```
+
+**변경 후**:
+```typescript
+// sn_confirms 기반: 확인 가능하지만 아직 미확인인 S/N이 있는 O/N
+mechReady: orders.filter(o => {
+  const proc = o.processes?.MECH;
+  if (!proc) return false;
+  if (proc.mixed && proc.partner_confirms) {
+    return proc.partner_confirms.some(pc =>
+      pc.sn_confirms.some(sc => sc.confirmable && !sc.confirmed)
+    );
+  }
+  return (proc.sn_confirms ?? []).some(sc => sc.confirmable && !sc.confirmed);
+}).length,
+```
+
+TM 탭 tmConfirmed/tmReady도 동일 패턴 적용 (기존 line 77~86).
+
+### filterByStatus 변경 — all_confirmed 기반
+
+**변경 전** (line 26~33):
+```typescript
+// 기존: o.confirms 배열에서 process_type별 존재 여부 체크
+return orders.filter(o => {
+  const hasAll = (['MECH', 'ELEC'] as const).every(
+    pt => (o.confirms ?? []).some(c => c.process_type === pt)
+  );
+  ...
+});
+```
+
+**변경 후**:
+```typescript
+// all_confirmed 기반 판정
+if (status === 'done') {
+  return orders.filter(o => {
+    const mechDone = !o.processes?.MECH || o.processes.MECH.all_confirmed
+      || (o.processes.MECH.mixed && o.processes.MECH.partner_confirms?.every(pc => pc.all_confirmed));
+    const elecDone = !o.processes?.ELEC || o.processes.ELEC.all_confirmed
+      || (o.processes.ELEC.mixed && o.processes.ELEC.partner_confirms?.every(pc => pc.all_confirmed));
+    const tmDone = (o.processes?.TM?.total ?? 0) === 0 || (o.processes?.TM?.all_confirmed ?? false);
+    return mechDone && elecDone && tmDone;
+  });
+}
+```
+
+---
+
+## Task 6: S/N 상세 행 — end 날짜 표시
+
+S/N expand 영역에 공정별 end 날짜 표시. 탭에 따라 표시 항목이 다름.
+
+### 표시 위치
+
+기존 S/N 상세 행 (expand 시 각 S/N progress 옆)에 end 날짜 추가.
+
+### 표시 로직
+
+```typescript
+// SNDetail의 end 날짜는 'YYYY-MM-DD' | null
+// 표시 형식: 'MM-DD' (예: '03-24')
+const formatEnd = (end: string | null) => end ? end.slice(5) : '—';
+```
+
+**기구전장 탭**: `mech_end`, `elec_end` 표시
+```
+SN001   기구: 03-24   전장: 04-01   MECH 80%  ELEC 60%
+```
+
+**TM 탭**: `module_end` 표시
+```
+SN001   모듈: 03-28   TM 100%
+```
+
+### 기존 코드 위치
+
+S/N expand 영역은 `ProductionPerformancePage.tsx` line 740~770 부근. 현재 `sn.progress` 표시 → 옆에 end 날짜 추가.
+
+---
+
+## Task 7: 테스트 + 빌드
+
+- [x] `productionFilters.test.ts` — end 필터 + sn_confirms 카운트 + all_confirmed 상태 케이스
+- [ ] ProcessCell S/N별 렌더링 수동 검증 (배포 후)
+- [x] `npm run build` + `npm run test` regression (28/28)
+
+---
+
+## 변경 파일
+
+| 파일 | 변경 |
+|------|------|
+| `app/src/types/production.ts` | `SNConfirm` + `PartnerConfirm`/`ProcessStatus`/`SNDetail`/`ConfirmRequest`/`ConfirmResponse` |
+| `app/src/pages/production/ProductionPerformancePage.tsx` | `ProcessCell` S/N별 + `SNConfirmButton` + handleConfirm/handleBatchConfirm + end 날짜 표시 |
+| `app/src/utils/productionFilters.ts` | filterByProcessTab end + calcTabKpi sn_confirms + filterByStatus all_confirmed |
+
+---
+
+## 체크리스트
+
+**FE (완료)**:
+- [x] 타입 변경 (SNConfirm, PartnerConfirm, ProcessStatus, SNDetail, ConfirmRequest, ConfirmResponse)
+- [x] ProcessCell — 혼재: partner > S/N별
+- [x] ProcessCell — 비혼재 + TM: S/N별 + 일괄
+- [x] SNConfirmButton 공통 컴포넌트
+- [x] handleConfirm/handleBatchConfirm serial_numbers
+- [x] productionFilters.ts — end 필터 + KPI + 상태 필터
+- [x] S/N end 날짜 표시
+- [x] 테스트 + regression + 빌드 (28/28 통과)
+
+**검증 (배포 후)**:
+- [ ] 🔴 혼재: partner > S/N별 확인
+- [ ] 🔴 TM: sn_confirms만 (partner_confirms 없음)
+- [ ] 🔴 일괄확인 + 개별확인
+- [ ] 🔴 기구전장 탭: mech_end/elec_end 필터
+- [ ] 🔴 TM 탭: module_end 필터
+- [ ] PI/QI/SI 기존 유지
+- [ ] S/N end 날짜 표시
+
+---
+
+## 규칙 — Sprint 16
+
+- OPS BE Sprint 37-B 완료 후에만 진행
+- `SNConfirmButton` 별도 추출 — 공통 사용
+- `ConfirmRequest.serial_numbers` 필수 — 빈 배열 금지
+- TM: `mixed` 항상 `false` — BE에서 TM partner 혼재 제거됨, FE에서 TM `partner_confirms` 처리 코드 완전 제거 필수
+- PI/QI/SI: S/N별 미적용 — 기존 `confirmable`/`confirmed` O/N 단위 유지
+- `all_confirmable`, `all_confirmed` BE 값 사용 — FE 재계산 금지
+- `PartnerConfirm` Breaking Change — Sprint 14 기존 `pc.confirmable`, `pc.confirmed`, `pc.sn_count` 참조를 `pc.sn_confirms` 기반으로 전면 교체. ProcessCell 혼재 경로 + productionFilters KPI 로직 모두 수정
+- `ConfirmResponse` Breaking Change — `useConfirmProduction` mutation onSuccess 콜백에서 기존 `data.confirm_id`, `data.sn_count` 참조를 `data.confirmed`, `data.count`로 교체
+- `CancelConfirmResponse`에 `serial_number` 추가 — `useCancelConfirm` 콜백 영향 확인
+- end 날짜 비교: BE에서 `YYYY-MM-DD` ISO date 문자열로 내려줌 → 문자열 비교(`>=`, `<`) 사용. `getISOWeekRange()` 유틸로 주간 범위 계산
+- `filterByProcessTab` 시그니처 변경 (weekStart/weekEnd 추가) → 기존 Sprint 13 테스트에서 호출부 업데이트 필요 (regression 방지)
+- 일괄확인 3레벨 구분: ProcessCell 내부(partner별/O/N별), Toolbar(탭 헤더), handleConfirm(공통). 혼재 O/N은 Toolbar 일괄에서 제외
+- G-AXIS Design System 토큰 사용
+- 스프린트 변경 로직의 테스트를 Task에 포함
+- `npm run test` 전체 regression — `filterByProcessTab` 시그니처 변경으로 기존 테스트 깨질 수 있으므로 반드시 업데이트
+- ⚠️ ConfirmSettingsPanel 수정 금지
+- ⚠️ `isProcessEnabled()` 수정 금지
+- ⚠️ 설정 패널, 월마감 뷰 수정 금지
+- ⚠️ `.env` 절대 커밋 금지
+- ⚠️ 테스트에서 실제 API 호출 금지 (mock only)
 - 완료 시 DESIGN_FIX_SPRINT.md 체크리스트 업데이트

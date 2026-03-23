@@ -1,28 +1,51 @@
 // src/utils/productionFilters.test.ts
 import { describe, it, expect } from 'vitest';
-import { filterByProcessTab, filterByStatus, calcTabKpi, isProcessEnabled } from './productionFilters';
+import { filterByProcessTab, filterByStatus, calcTabKpi, isProcessEnabled, getISOWeekRange } from './productionFilters';
 import type { OrderGroup } from '@/types/production';
 
-// mock 데이터
+// mock 데이터 — sn_confirms/all_confirmed 기반
 const mockOrders: OrderGroup[] = [
   {
     sales_order: '6400', model: 'GAIA-L', sn_count: 3,
     sns: [], sn_summary: '6855~6857',
     partner_info: { mech: 'A사', elec: 'B사', mixed: false },
     processes: {
-      MECH: { ready: 3, total: 3, confirmable: true },
-      ELEC: { ready: 3, total: 3, confirmable: true },
-      TM:   { ready: 2, total: 3, confirmable: false },
+      MECH: {
+        ready: 3, total: 3, confirmable: true,
+        all_confirmed: true, all_confirmable: true,
+        sn_confirms: [
+          { serial_number: 'SN6855', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 1 },
+          { serial_number: 'SN6856', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 2 },
+          { serial_number: 'SN6857', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 3 },
+        ],
+      },
+      ELEC: {
+        ready: 3, total: 3, confirmable: true,
+        all_confirmed: false, all_confirmable: true,
+        sn_confirms: [
+          { serial_number: 'SN6855', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: false, confirmed_at: null, confirm_id: null },
+          { serial_number: 'SN6856', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: false, confirmed_at: null, confirm_id: null },
+          { serial_number: 'SN6857', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: false, confirmed_at: null, confirm_id: null },
+        ],
+      },
+      TM: { ready: 2, total: 3, confirmable: false, all_confirmed: false },
     },
-    confirms: [{ id: 1, process_type: 'MECH', confirmed_week: 'W12', confirmed_by: 'admin', confirmed_at: '2026-03-23' }],
+    confirms: [],
   },
   {
     sales_order: '6500', model: 'SWS-JP', sn_count: 2,
     sns: [], sn_summary: '6900~6901',
     partner_info: { mech: 'C사', elec: 'D사', mixed: false },
     processes: {
-      MECH: { ready: 2, total: 2, confirmable: true },
-      ELEC: { ready: 2, total: 2, confirmable: false },
+      MECH: {
+        ready: 2, total: 2, confirmable: true,
+        all_confirmed: false, all_confirmable: true,
+        sn_confirms: [
+          { serial_number: 'SN6900', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: false, confirmed_at: null, confirm_id: null },
+          { serial_number: 'SN6901', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: false, confirmed_at: null, confirm_id: null },
+        ],
+      },
+      ELEC: { ready: 2, total: 2, confirmable: false, all_confirmed: false },
     },
     confirms: [],
   },
@@ -47,6 +70,27 @@ describe('filterByProcessTab', () => {
     }];
     expect(filterByProcessTab(noTmOrders, 'tm')).toHaveLength(0);
   });
+
+  it('end date 범위 필터: mech_elec', () => {
+    const ordersWithEnd: OrderGroup[] = [{
+      ...mockOrders[0],
+      mech_end: '2026-03-23',
+      elec_end: '2026-03-24',
+    }];
+    // weekStart=2026-03-22, weekEnd=2026-03-29 → in range
+    expect(filterByProcessTab(ordersWithEnd, 'mech_elec', '2026-03-22', '2026-03-29')).toHaveLength(1);
+    // weekStart=2026-03-30, weekEnd=2026-04-06 → out of range
+    expect(filterByProcessTab(ordersWithEnd, 'mech_elec', '2026-03-30', '2026-04-06')).toHaveLength(0);
+  });
+
+  it('end date 범위 필터: tm', () => {
+    const ordersWithEnd: OrderGroup[] = [{
+      ...mockOrders[0],
+      module_end: '2026-03-25',
+    }];
+    expect(filterByProcessTab(ordersWithEnd, 'tm', '2026-03-22', '2026-03-29')).toHaveLength(1);
+    expect(filterByProcessTab(ordersWithEnd, 'tm', '2026-03-30', '2026-04-06')).toHaveLength(0);
+  });
 });
 
 describe('filterByStatus', () => {
@@ -59,44 +103,56 @@ describe('filterByStatus', () => {
     expect(result).toHaveLength(2);
   });
 
-  it('done: 전체 확인 완료된 O/N만', () => {
+  it('done: 전체 확인 완료된 O/N만 (all_confirmed 기반)', () => {
     const doneOrders: OrderGroup[] = [{
       ...mockOrders[0],
       processes: {
-        MECH: { ready: 3, total: 3, confirmable: true },
-        ELEC: { ready: 3, total: 3, confirmable: true },
-        TM:   { ready: 3, total: 3, confirmable: true },
+        MECH: { ready: 3, total: 3, confirmable: true, all_confirmed: true },
+        ELEC: { ready: 3, total: 3, confirmable: true, all_confirmed: true },
+        TM:   { ready: 3, total: 3, confirmable: true, all_confirmed: true },
       },
-      confirms: [
-        { id: 1, process_type: 'MECH', confirmed_week: 'W12', confirmed_by: 'admin', confirmed_at: '2026-03-23' },
-        { id: 2, process_type: 'ELEC', confirmed_week: 'W12', confirmed_by: 'admin', confirmed_at: '2026-03-23' },
-        { id: 3, process_type: 'TM', confirmed_week: 'W12', confirmed_by: 'admin', confirmed_at: '2026-03-23' },
-      ],
     }];
     expect(filterByStatus(doneOrders, 'done')).toHaveLength(1);
   });
 
-  it('done: TM 없는 O/N도 MECH+ELEC 완료면 done', () => {
+  it('done: TM 없는 O/N도 MECH+ELEC all_confirmed이면 done', () => {
     const noTmDone: OrderGroup[] = [{
       ...mockOrders[1],
-      confirms: [
-        { id: 1, process_type: 'MECH', confirmed_week: 'W12', confirmed_by: 'admin', confirmed_at: '2026-03-23' },
-        { id: 2, process_type: 'ELEC', confirmed_week: 'W12', confirmed_by: 'admin', confirmed_at: '2026-03-23' },
-      ],
+      processes: {
+        MECH: { ready: 2, total: 2, confirmable: true, all_confirmed: true },
+        ELEC: { ready: 2, total: 2, confirmable: true, all_confirmed: true },
+      },
     }];
     expect(filterByStatus(noTmDone, 'done')).toHaveLength(1);
+  });
+
+  it('done: 혼재 partner_confirms all_confirmed 기반', () => {
+    const mixedDone: OrderGroup[] = [{
+      ...mockOrders[0],
+      processes: {
+        MECH: {
+          ready: 3, total: 3, confirmable: false, mixed: true,
+          partner_confirms: [
+            { partner: 'A', sn_confirms: [], all_confirmable: true, all_confirmed: true },
+            { partner: 'B', sn_confirms: [], all_confirmable: true, all_confirmed: true },
+          ],
+        },
+        ELEC: { ready: 3, total: 3, confirmable: true, all_confirmed: true },
+      },
+    }];
+    expect(filterByStatus(mixedDone, 'done')).toHaveLength(1);
   });
 });
 
 describe('calcTabKpi', () => {
-  it('mech_elec 탭: 기구/전장 확인 카운트', () => {
+  it('mech_elec 탭: 기구/전장 확인 카운트 (all_confirmed 기반)', () => {
     const kpi = calcTabKpi(mockOrders, 'mech_elec') as any;
     expect(kpi.totalON).toBe(2);
     expect(kpi.totalSN).toBe(5);
-    expect(kpi.mechConfirmed).toBe(1);
+    expect(kpi.mechConfirmed).toBe(1); // 6400 MECH all_confirmed=true
     expect(kpi.elecConfirmed).toBe(0);
-    expect(kpi.mechReady).toBe(1); // 6500 MECH confirmable + no confirm
-    expect(kpi.elecReady).toBe(1); // 6400 ELEC confirmable + no confirm
+    expect(kpi.mechReady).toBe(1); // 6500 has sn_confirms with confirmable+!confirmed
+    expect(kpi.elecReady).toBe(1); // 6400 ELEC has sn_confirms with confirmable+!confirmed
   });
 
   it('tm 탭: TM 확인 카운트', () => {
@@ -104,7 +160,7 @@ describe('calcTabKpi', () => {
     const kpi = calcTabKpi(tmOrders, 'tm') as any;
     expect(kpi.totalON).toBe(1);
     expect(kpi.tmConfirmed).toBe(0);
-    expect(kpi.tmReady).toBe(0); // TM confirmable=false
+    expect(kpi.tmReady).toBe(0); // TM has no sn_confirms
   });
 });
 
@@ -118,21 +174,40 @@ describe('calcTabKpi — 혼재 partner_confirms', () => {
         ready: 5, total: 5, confirmable: false,
         mixed: true,
         partner_confirms: [
-          { partner: 'TMS', sn_count: 1, total: 1, completed: 1, confirmable: true, confirmed: false, confirmed_at: null, confirm_id: null },
-          { partner: 'FNI', sn_count: 4, total: 4, completed: 4, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 10 },
+          {
+            partner: 'TMS', all_confirmable: true, all_confirmed: false,
+            sn_confirms: [
+              { serial_number: 'SN6700', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: false, confirmed_at: null, confirm_id: null },
+            ],
+          },
+          {
+            partner: 'FNI', all_confirmable: true, all_confirmed: true,
+            sn_confirms: [
+              { serial_number: 'SN6701', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 10 },
+              { serial_number: 'SN6702', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 11 },
+              { serial_number: 'SN6703', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 12 },
+              { serial_number: 'SN6704', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 13 },
+            ],
+          },
         ],
       },
-      ELEC: { ready: 5, total: 5, confirmable: true },
+      ELEC: {
+        ready: 5, total: 5, confirmable: true,
+        all_confirmed: false,
+        sn_confirms: [
+          { serial_number: 'SN6700', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: false, confirmed_at: null, confirm_id: null },
+        ],
+      },
     },
     confirms: [],
   }];
 
-  it('혼재 MECH: partner 중 하나라도 confirmable+미확인이면 mechReady 카운트', () => {
+  it('혼재 MECH: partner 중 하나라도 sn_confirms에 미확인이면 mechReady 카운트', () => {
     const kpi = calcTabKpi(mixedOrders, 'mech_elec') as any;
-    expect(kpi.mechReady).toBe(1); // TMS confirmable + not confirmed
+    expect(kpi.mechReady).toBe(1); // TMS has sn with confirmable+!confirmed
   });
 
-  it('혼재 MECH: 모든 partner confirmed이면 mechReady=0', () => {
+  it('혼재 MECH: 모든 partner all_confirmed이면 mechReady=0', () => {
     const allConfirmed: OrderGroup[] = [{
       ...mixedOrders[0],
       processes: {
@@ -140,8 +215,18 @@ describe('calcTabKpi — 혼재 partner_confirms', () => {
         MECH: {
           ready: 5, total: 5, confirmable: false, mixed: true,
           partner_confirms: [
-            { partner: 'TMS', sn_count: 1, total: 1, completed: 1, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 11 },
-            { partner: 'FNI', sn_count: 4, total: 4, completed: 4, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 10 },
+            {
+              partner: 'TMS', all_confirmable: true, all_confirmed: true,
+              sn_confirms: [
+                { serial_number: 'SN6700', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 14 },
+              ],
+            },
+            {
+              partner: 'FNI', all_confirmable: true, all_confirmed: true,
+              sn_confirms: [
+                { serial_number: 'SN6701', total: 10, completed: 10, pct: 100, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 10 },
+              ],
+            },
           ],
         },
       },
@@ -150,9 +235,30 @@ describe('calcTabKpi — 혼재 partner_confirms', () => {
     expect(kpi.mechReady).toBe(0);
   });
 
-  it('비혼재: partner_confirms=null이면 기존 로직 사용', () => {
+  it('비혼재: sn_confirms 기반 ready 체크', () => {
     const kpi = calcTabKpi(mockOrders, 'mech_elec') as any;
-    expect(kpi.mechReady).toBe(1); // 6500 MECH confirmable
+    expect(kpi.mechReady).toBe(1); // 6500 MECH has sn_confirms with confirmable
+  });
+});
+
+describe('getISOWeekRange', () => {
+  it('W13 of 2026 returns correct Mon-Mon range', () => {
+    const [start, end] = getISOWeekRange('W13', 2026);
+    expect(start).toBe('2026-03-22');
+    expect(end).toBe('2026-03-29');
+  });
+
+  it('W1 of 2026 returns correct range', () => {
+    const [start, end] = getISOWeekRange('W1', 2026);
+    expect(start).toBe('2025-12-28');
+    expect(end).toBe('2026-01-04');
+  });
+
+  it('range spans exactly 7 days', () => {
+    const [start, end] = getISOWeekRange('W10', 2026);
+    const s = new Date(start);
+    const e = new Date(end);
+    expect(e.getTime() - s.getTime()).toBe(7 * 24 * 60 * 60 * 1000);
   });
 });
 
@@ -178,8 +284,6 @@ describe('isProcessEnabled', () => {
   });
 
   it('tm_pressure_test_required는 isProcessEnabled과 별개 키', () => {
-    // tm_pressure_test_required는 confirm_{pt}_enabled 패턴이 아님
-    // isProcessEnabled는 confirm_{pt}_enabled만 체크하므로 무관
     const settings = { confirm_tm_enabled: true, tm_pressure_test_required: false };
     expect(isProcessEnabled(settings, 'TM')).toBe(true);
   });

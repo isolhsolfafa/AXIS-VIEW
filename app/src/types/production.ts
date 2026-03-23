@@ -25,19 +25,29 @@ export interface SNDetail {
   serial_number: string;
   mech_partner: string;
   elec_partner: string;
+  mech_end?: string | null;
+  elec_end?: string | null;
+  module_end?: string | null;
   progress: SNProgress;
   checklist: SNChecklist;
 }
 
-export interface PartnerConfirm {
-  partner: string;
-  sn_count: number;
+export interface SNConfirm {
+  serial_number: string;
   total: number;
   completed: number;
+  pct: number;
   confirmable: boolean;
   confirmed: boolean;
   confirmed_at: string | null;
   confirm_id: number | null;
+}
+
+export interface PartnerConfirm {
+  partner: string;
+  sn_confirms: SNConfirm[];
+  all_confirmable: boolean;
+  all_confirmed: boolean;
 }
 
 export interface ProcessStatus {
@@ -46,13 +56,16 @@ export interface ProcessStatus {
   completed?: number;
   pct?: number;
   checklist_ready?: number;
-  confirmable: boolean;
+  confirmable?: boolean;
   confirmed?: boolean;
   confirmed_at?: string | null;
   confirmed_by?: string | null;
   confirm_id?: number | null;
   mixed?: boolean;
   partner_confirms?: PartnerConfirm[] | null;
+  sn_confirms?: SNConfirm[] | null;
+  all_confirmable?: boolean;
+  all_confirmed?: boolean;
 }
 
 export interface ConfirmRecord {
@@ -72,7 +85,6 @@ export interface OrderGroup {
   partner_info: { mech: string; elec: string; mixed: boolean };
   processes: Record<string, ProcessStatus>;
   confirms: ConfirmRecord[];
-  // 탭별 필터용 end 날짜 (#35-B)
   mech_end?: string | null;
   elec_end?: string | null;
   module_end?: string | null;
@@ -94,18 +106,15 @@ export interface ConfirmRequest {
   sales_order: string;
   process_type: 'MECH' | 'ELEC' | 'TM';
   partner?: string | null;
+  serial_numbers: string[];
   confirmed_week: string;
   confirmed_month: string;
 }
 
 export interface ConfirmResponse {
-  success: boolean;
-  confirm_id: number;
-  sales_order: string;
-  process_type: string;
-  confirmed_week: string;
-  sn_count: number;
-  confirmed_at: string;
+  message: string;
+  confirmed: Array<{ id: number; serial_number: string; confirmed_at: string }>;
+  count: number;
 }
 
 export interface CancelConfirmResponse {
@@ -115,6 +124,7 @@ export interface CancelConfirmResponse {
   process_type: string;
   confirmed_week: string;
   partner?: string | null;
+  serial_number?: string | null;
 }
 
 export interface ProcessSummary {

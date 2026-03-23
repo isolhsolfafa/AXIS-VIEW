@@ -1,8 +1,33 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-23 (v1.12.0 — #36-C TM 가압검사 옵션 UI)
+> 마지막 업데이트: 2026-03-24 (v1.13.0 — S/N별 실적확인 UI + End 필터)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.13.0: S/N별 실적확인 UI + TM 혼재 제거 + 탭별 End 필터 — ✅ 완료 (2026-03-24)
+
+Sprint 16. S/N 단위 실적확인 전환 + End 날짜 기반 주차 필터링.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| 타입 전면 변경 | `types/production.ts` | `SNConfirm` 추가, `PartnerConfirm` breaking (sn_confirms/all_confirmed), `ProcessStatus` 확장, `ConfirmRequest.serial_numbers`, `ConfirmResponse` 교체 |
+| SNConfirmButton | `ProductionPerformancePage.tsx` | S/N 1개 확인 버튼 공통 컴포넌트 |
+| ProcessCell 재작성 | `ProductionPerformancePage.tsx` | 5단 분기: N/A, disabled, 혼재(partner>SN별), sn_confirms(SN별), fallback(PI/QI/SI) |
+| handleConfirm | `ProductionPerformancePage.tsx` | `serialNumbers: string[]` 파라미터 추가 |
+| handleBatchConfirm | `ProductionPerformancePage.tsx` | sn_confirms 기반 serial_numbers 전달, 혼재 제외 유지 |
+| End 필터 | `productionFilters.ts` | `getISOWeekRange` + `filterByProcessTab` weekStart/weekEnd 파라미터 |
+| KPI/상태필터 | `productionFilters.ts` | all_confirmed/sn_confirms 기반 전환 |
+| S/N end 날짜 | `ProductionPerformancePage.tsx` | expand 영역에 mech_end/elec_end/module_end 표시 |
+| 테스트 | `productionFilters.test.ts` | 전면 재작성 — end 필터, sn_confirms, all_confirmed, getISOWeekRange (28 tests) |
+
+### 빌드/테스트 결과
+
+- `npm run build` 통과
+- `npm run test` 28/28 전체 통과
 
 ---
 
