@@ -48,10 +48,20 @@ function ConfirmSettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 
   if (!open) return null;
 
-  const TOGGLES = [
+  const PROCESS_TOGGLES = [
     { key: 'confirm_mech_enabled', label: '기구 (MECH)' },
     { key: 'confirm_elec_enabled', label: '전장 (ELEC)' },
-    { key: 'confirm_tm_enabled', label: 'Tank Module (TM)' },
+  ];
+
+  const TM_GROUP = {
+    header: 'Tank Module',
+    items: [
+      { key: 'confirm_tm_enabled', label: 'TM 실적확인', category: '실적처리: Tank Module' },
+      { key: 'tm_pressure_test_required', label: '가압검사 포함', category: 'Progress / 알람 trigger', parent: 'confirm_tm_enabled', description: 'ON: 가압검사 완료까지 반영 / OFF: 탱크모듈만' },
+    ],
+  };
+
+  const REMAINING_TOGGLES = [
     { key: 'confirm_pi_enabled', label: 'PI' },
     { key: 'confirm_qi_enabled', label: 'QI' },
     { key: 'confirm_si_enabled', label: 'SI' },
@@ -80,7 +90,74 @@ function ConfirmSettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
         <>
           <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--gx-steel)', marginBottom: '10px', letterSpacing: '0.3px', textTransform: 'uppercase' as const }}>공정별 실적확인</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {TOGGLES.map(t => {
+            {/* MECH, ELEC */}
+            {PROCESS_TOGGLES.map(t => {
+              const value = (settings as Record<string, unknown>)?.[t.key] as boolean ?? false;
+              return (
+                <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 500, color: value ? 'var(--gx-charcoal)' : 'var(--gx-steel)' }}>{t.label}</span>
+                  <button onClick={() => handleToggle(t.key, value)} disabled={updateMutation.isPending} style={{
+                    width: '40px', height: '22px', borderRadius: '11px', border: 'none', cursor: 'pointer', position: 'relative',
+                    background: value ? 'var(--gx-accent)' : 'var(--gx-silver)', transition: 'background 0.2s',
+                    opacity: updateMutation.isPending ? 0.6 : 1,
+                  }}>
+                    <span style={{
+                      position: 'absolute', top: '2px', left: value ? '20px' : '2px',
+                      width: '18px', height: '18px', borderRadius: '50%', background: 'var(--gx-white)',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.15)', transition: 'left 0.2s',
+                    }} />
+                  </button>
+                </div>
+              );
+            })}
+
+            {/* TM 그룹 박스 */}
+            <div style={{
+              margin: '4px 0', padding: '10px',
+              border: '1px solid var(--gx-mist)', borderRadius: '6px',
+              background: 'var(--gx-snow)',
+            }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, marginBottom: '8px', color: 'var(--gx-graphite)' }}>
+                {TM_GROUP.header}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {TM_GROUP.items.map(t => {
+                  const value = (settings as Record<string, unknown>)?.[t.key] as boolean ?? false;
+                  const parentEnabled = t.parent
+                    ? (settings as Record<string, unknown>)?.[t.parent] as boolean ?? false
+                    : true;
+                  const disabled = updateMutation.isPending || !parentEnabled;
+                  return (
+                    <div key={t.key} style={{ opacity: parentEnabled ? 1 : 0.4, transition: 'opacity 0.2s' }}>
+                      <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--gx-silver)', letterSpacing: '0.2px', marginBottom: '3px' }}>{t.category}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <span style={{ fontSize: '12px', fontWeight: 500, color: value && parentEnabled ? 'var(--gx-charcoal)' : 'var(--gx-steel)' }}>{t.label}</span>
+                          {t.description && (
+                            <div style={{ fontSize: '9px', color: 'var(--gx-silver)', marginTop: '1px' }}>{t.description}</div>
+                          )}
+                        </div>
+                        <button onClick={() => handleToggle(t.key, value)} disabled={disabled} style={{
+                          width: '40px', height: '22px', borderRadius: '11px', border: 'none',
+                          cursor: disabled ? 'not-allowed' : 'pointer', position: 'relative',
+                          background: value && parentEnabled ? 'var(--gx-accent)' : 'var(--gx-silver)',
+                          transition: 'background 0.2s', opacity: disabled ? 0.5 : 1,
+                        }}>
+                          <span style={{
+                            position: 'absolute', top: '2px', left: value && parentEnabled ? '20px' : '2px',
+                            width: '18px', height: '18px', borderRadius: '50%', background: 'var(--gx-white)',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.15)', transition: 'left 0.2s',
+                          }} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* PI, QI, SI */}
+            {REMAINING_TOGGLES.map(t => {
               const value = (settings as Record<string, unknown>)?.[t.key] as boolean ?? false;
               return (
                 <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -1,8 +1,35 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-23 (v1.11.0 — 혼재 O/N partner별 실적확인 UI)
+> 마지막 업데이트: 2026-03-23 (v1.12.0 — #36-C TM 가압검사 옵션 UI)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.12.0: #36-C TM 가압검사 옵션 UI — ✅ FE 완료 (2026-03-23)
+
+Sprint 15. ConfirmSettingsPanel에 TM 그룹 박스 구조 추가. `tm_pressure_test_required` 토글로 가압검사 포함 여부 제어.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| 타입 추가 | `api/adminSettings.ts` | `AdminSettingsResponse`에 `tm_pressure_test_required: boolean` 추가 |
+| 설정 패널 개편 | `ProductionPerformancePage.tsx` | TOGGLES → PROCESS_TOGGLES / TM_GROUP / REMAINING_TOGGLES 3분리 |
+| TM 그룹 박스 | `ProductionPerformancePage.tsx` | Tank Module 그룹 박스: 실적처리(TM 실적확인) + Progress/알람(가압검사 포함) |
+| parent 의존성 | `ProductionPerformancePage.tsx` | `confirm_tm_enabled=false` 시 가압검사 토글 disabled + opacity 0.4 |
+| 테스트 추가 | `productionFilters.test.ts` | `tm_pressure_test_required` 관련 2 tests 추가 (총 22 tests) |
+
+### 빌드/테스트 결과
+
+- `npm run build` 통과
+- `npm run test` 22/22 전체 통과
+
+### OPS BE 미완료 (선행 조건)
+
+- `admin_settings` migration 미완료
+- `production.py` progress 분기 미완료
+- 알람 핸들러 분기 미완료
 
 ---
 

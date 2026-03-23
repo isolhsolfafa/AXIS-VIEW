@@ -1,7 +1,7 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.11.0';
+export const APP_VERSION = 'v1.12.0';
 export const BUILD_DATE = '2026-03-23';
 
 // 버전 이력
@@ -22,3 +22,4 @@ export const BUILD_DATE = '2026-03-23';
 // v1.9.0 | 2026-03-20 | Sprint 6~8     | 태스크 진행률 + 카테고리 필터 + 사용자 분석 대시보드 + 생산실적 API 연동
 // v1.10.0| 2026-03-23 | Sprint 13      | 생산실적 공정 그룹 탭 분리 (기구·전장 / TM) + vitest 테스트 환경 구축
 // v1.11.0| 2026-03-23 | Sprint 14      | 혼재 O/N partner별 실적확인 UI + 일괄확인 혼재 제외
+// v1.12.0| 2026-03-23 | Sprint 15      | #36-C TM 가압검사 옵션 UI (ConfirmSettingsPanel TM 그룹 박스)

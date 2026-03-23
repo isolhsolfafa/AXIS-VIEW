@@ -6393,7 +6393,125 @@ const mechReadyInTab = tabOrders.filter(o => {
 - [ ] 일괄 실적확인 — 혼재 O/N 제외 동작
 - [ ] 탭 헤더 카운트 정상
 
-## 규칙 — Sprint 14
+---
+
+## #36-C FE: ConfirmSettingsPanel — TM 그룹 박스 UI
+
+> **선행**: OPS Sprint 37-A 완료 (`tm_pressure_test_required` admin_settings 키 + progress/알람 분기)
+
+### Task 7: `AdminSettingsResponse` 타입 추가
+
+**파일**: `app/src/api/adminSettings.ts`
+
+```typescript
+export interface AdminSettingsResponse {
+  confirm_mech_enabled: boolean;
+  confirm_elec_enabled: boolean;
+  confirm_tm_enabled: boolean;
+  tm_pressure_test_required: boolean;   // ← NEW
+  confirm_pi_enabled: boolean;
+  confirm_qi_enabled: boolean;
+  confirm_si_enabled: boolean;
+  confirm_checklist_required: boolean;
+  [key: string]: unknown;
+}
+```
+
+### Task 8: ConfirmSettingsPanel — TM 그룹 박스 UI
+
+**파일**: `app/src/pages/production/ProductionPerformancePage.tsx`
+
+TOGGLES 배열을 3개로 분리 + TM 그룹 박스 렌더링:
+
+```tsx
+const PROCESS_TOGGLES = [
+  { key: 'confirm_mech_enabled', label: '기구 (MECH)' },
+  { key: 'confirm_elec_enabled', label: '전장 (ELEC)' },
+];
+
+const TM_GROUP = {
+  header: 'Tank Module',
+  items: [
+    {
+      key: 'confirm_tm_enabled',
+      label: 'TM 실적확인',
+      category: '실적처리: Tank Module',
+    },
+    {
+      key: 'tm_pressure_test_required',
+      label: '가압검사 포함',
+      category: 'Progress / 알람 trigger',
+      parent: 'confirm_tm_enabled',
+      description: 'ON: 가압검사 완료까지 반영 / OFF: 탱크모듈만',
+    },
+  ],
+};
+
+const REMAINING_TOGGLES = [
+  { key: 'confirm_pi_enabled', label: 'PI' },
+  { key: 'confirm_qi_enabled', label: 'QI' },
+  { key: 'confirm_si_enabled', label: 'SI' },
+];
+```
+
+**와이어프레임**:
+```
+┌─ 실적확인 설정 ──────────────── ✕ ─┐
+│                                      │
+│ 공정별 실적확인                      │
+│  기구 (MECH)              [toggle]   │
+│  전장 (ELEC)              [toggle]   │
+│                                      │
+│  Tank Module               ← 그룹 헤더
+│  ┌───────────────────────────────┐   │
+│  │ * 실적처리: Tank Module       │   │
+│  │   (TM 실적확인)    [toggle]   │   │  ← confirm_tm_enabled
+│  │                               │   │
+│  │ * Progress / 알람 trigger     │   │
+│  │   가압검사 포함     [toggle]   │   │  ← tm_pressure_test_required
+│  │   ON : 가압검사 완료까지      │   │
+│  │        progress·알람에 반영    │   │
+│  │   OFF: 탱크모듈만으로 완료    │   │
+│  └───────────────────────────────┘   │
+│                                      │
+│  PI                       [toggle]   │
+│  QI                       [toggle]   │
+│  SI                       [toggle]   │
+│ ──────────────────────────────────── │
+│  체크리스트 필수           [toggle]   │
+│  자주검사 완료 시에만 실적확인 가능  │
+└──────────────────────────────────────┘
+```
+
+**UI 동작 규칙**:
+
+| 조건 | 동작 |
+|------|------|
+| `confirm_tm_enabled = true` | TM 실적확인 + 가압검사 토글 활성 |
+| `confirm_tm_enabled = false` | 가압검사 토글 disabled + opacity: 0.5 |
+| `tm_pressure_test_required = true` | progress에 가압검사 포함 (기본) |
+| `tm_pressure_test_required = false` | progress에 탱크모듈만 반영 |
+
+TM 그룹 박스 스타일: `border: 1px solid var(--gx-mist)`, `borderRadius: 6px`, `background: var(--gx-snow)`, 그룹 헤더 `color: var(--gx-graphite)`
+
+### Task 9: 테스트 + 빌드 (#36-C)
+
+- [ ] `utils/productionFilters.test.ts` — `isProcessEnabled`에 `tm_pressure_test_required` 케이스 추가
+- [ ] TM 그룹 렌더링 — parent disabled 상태 검증
+- [ ] `npm run build` 통과
+- [ ] `npm run test` regression 통과
+
+### 체크리스트 (#36-C FE)
+
+- [ ] `AdminSettingsResponse` 타입에 `tm_pressure_test_required` 추가
+- [ ] ConfirmSettingsPanel — TM 그룹 박스 UI (PROCESS_TOGGLES / TM_GROUP / REMAINING_TOGGLES)
+- [ ] parent 의존성 — `confirm_tm_enabled=false` 시 가압검사 토글 disabled
+- [ ] 테스트 추가 + regression 통과
+- [ ] 빌드 통과
+
+---
+
+## 규칙 — Sprint 13
 - `types/production.ts`의 `ProcessStatus`에 `mixed`, `partner_confirms` 필드 이미 추가됨 — 타입 중복 선언 금지
 - `types/production.ts`의 `ConfirmRequest`에 `partner` 필드 이미 추가됨 — 타입 중복 선언 금지
 - `types/production.ts`의 `CancelConfirmResponse`에 `partner` 필드 이미 추가됨 — 타입 중복 선언 금지
@@ -6403,13 +6521,12 @@ const mechReadyInTab = tabOrders.filter(o => {
 - 일괄확인(`handleBatchConfirm`)은 혼재 O/N 제외 — partner별 개별 확인 필요하므로 일괄 대상에서 자동 제외
 - 혼재 ProcessCell 렌더링: partner_confirms 배열 순회 → 각 partner에 개별 버튼/배지 표시
 - G-AXIS Design System 토큰 사용 — `var(--gx-mist)`, `var(--gx-snow)`, `var(--gx-graphite)` 등 (존재하지 않는 토큰 사용 금지)
-- Sprint 13에서 추출한 `utils/productionFilters.ts`에 혼재 관련 함수 추가 시 기존 함수 시그니처 변경 금지
+- TM 그룹 박스 parent 의존성: `confirm_tm_enabled=false` → `tm_pressure_test_required` 토글 disabled + opacity 처리
 - 스프린트에서 변경하는 로직의 테스트를 해당 스프린트 Task에 포함
 - 스프린트 완료 시 `npm run test` 전체 실행 — 기존 테스트 포함 regression
 - 테스트 실패 시 해당 스프린트에서 수정 후 머지
-- ⚠️ BE 코드 수정 금지 — OPS Sprint 37에서 진행. 변경 필요 시 OPS_API_REQUESTS.md로 요청 전달
+- ⚠️ BE 코드 수정 금지 — OPS Sprint 37/37-A에서 진행. 변경 필요 시 OPS_API_REQUESTS.md로 요청 전달
 - ⚠️ `utils/productionFilters.ts`의 기존 함수(`filterByProcessTab`, `filterByStatus`, `calcTabKpi`, `isProcessEnabled`) 시그니처 변경 금지
-- ⚠️ `ConfirmSettingsPanel` 변경 금지 — Sprint 15에서 진행
 - ⚠️ 월마감 뷰 변경 금지
 - ⚠️ 테스트에서 실제 API 호출 금지 (mock only — DB/BE 무영향)
 - ⚠️ `.env` 파일 절대 커밋 금지
@@ -6417,7 +6534,7 @@ const mechReadyInTab = tabOrders.filter(o => {
 
 ---
 
-# Sprint 15 (VIEW + OPS BE): #36-C TM 가압검사 옵션 — ConfirmSettingsPanel + BE 분기 (2026-03-23)
+# Sprint 15 (VIEW + OPS BE): #36-C TM 가압검사 옵션 — ConfirmSettingsPanel + BE 분기 (2026-03-23) ✅ FE 완료
 
 > **참조**: OPS_API_REQUESTS.md #36-C
 > **목적**: 추후 설비 변경 시 코드 배포 없이 admin 설정만으로 가압검사 포함 여부를 제어할 수 있도록 **미리 구현**
@@ -6560,10 +6677,10 @@ TM 그룹 박스 렌더링: `border: 1px solid var(--gx-mist)`, `borderRadius: 6
 
 ## Task 6: 테스트 + 빌드
 
-- [ ] `utils/productionFilters.test.ts` — `isProcessEnabled`에 `tm_pressure_test_required` 케이스 추가
-- [ ] TM 그룹 렌더링 — parent disabled 상태 검증
-- [ ] `npm run build` 통과
-- [ ] `npm run test` regression 통과
+- [x] `utils/productionFilters.test.ts` — `isProcessEnabled`에 `tm_pressure_test_required` 케이스 추가
+- [ ] TM 그룹 렌더링 — parent disabled 상태 검증 (배포 후 실기기)
+- [x] `npm run build` 통과
+- [x] `npm run test` regression 통과 (22/22)
 
 ---
 
@@ -6580,11 +6697,11 @@ TM 그룹 박스 렌더링: `border: 1px solid var(--gx-mist)`, `borderRadius: 6
 - [ ] 알람 핸들러 — settings 기반 트리거 분기
 
 **VIEW FE**:
-- [ ] `AdminSettingsResponse` 타입 추가
-- [ ] ConfirmSettingsPanel — TM 그룹 박스 UI (PROCESS_TOGGLES / TM_GROUP / REMAINING_TOGGLES)
-- [ ] parent 의존성 — `confirm_tm_enabled=false` 시 가압검사 토글 disabled
-- [ ] 테스트 추가 + regression 통과
-- [ ] 빌드 통과
+- [x] `AdminSettingsResponse` 타입 추가
+- [x] ConfirmSettingsPanel — TM 그룹 박스 UI (PROCESS_TOGGLES / TM_GROUP / REMAINING_TOGGLES)
+- [x] parent 의존성 — `confirm_tm_enabled=false` 시 가압검사 토글 disabled
+- [x] 테스트 추가 + regression 통과 (22/22)
+- [x] 빌드 통과
 
 ## 규칙 — Sprint 15
 - `admin_settings` 컬럼은 `setting_key`, `setting_value`, `description` (NOT `key`, `value`) — OPS CLAUDE.md "DB 테이블 정확한 컬럼 명세" 참조

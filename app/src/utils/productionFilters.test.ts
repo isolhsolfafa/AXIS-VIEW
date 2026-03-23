@@ -172,4 +172,15 @@ describe('isProcessEnabled', () => {
   it('키 없음 -> true (default)', () => {
     expect(isProcessEnabled({}, 'ELEC')).toBe(true);
   });
+
+  it('tm_pressure_test_required ON -> true', () => {
+    expect(isProcessEnabled({ tm_pressure_test_required: true }, 'TM_PRESSURE_TEST')).toBe(true);
+  });
+
+  it('tm_pressure_test_required는 isProcessEnabled과 별개 키', () => {
+    // tm_pressure_test_required는 confirm_{pt}_enabled 패턴이 아님
+    // isProcessEnabled는 confirm_{pt}_enabled만 체크하므로 무관
+    const settings = { confirm_tm_enabled: true, tm_pressure_test_required: false };
+    expect(isProcessEnabled(settings, 'TM')).toBe(true);
+  });
 });

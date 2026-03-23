@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-23 (v1.11.0 — Sprint 14 혼재 O/N partner별 실적확인)
+> 마지막 업데이트: 2026-03-23 (v1.12.0 — Sprint 15 #36-C TM 가압검사 옵션 UI)
 > 이 파일은 보류/재검토/계획/아이디어를 한 곳에서 관리합니다.
 > 완료된 항목은 PROGRESS.md로 이동합니다.
 
@@ -34,7 +34,7 @@
 | TASK-22 | 퇴근 미체크 전체/본사/현장 필터 | ✅ 완료 | v1.7.3 — `activeCheckoutTab` state + `work_site` 기반 필터링. FE 단독 구현 |
 | TASK-23 | 생산실적 BE-FE 키 매핑 수정 | 🔄 FE 완료 | v1.7.4 — `process_status`→`processes` 변경. BE TMS→TM 매핑 대기 (OPS_API_REQUESTS #32) |
 | TASK-24 | 생산실적 공정 그룹 탭 분리 | ✅ 완료 | v1.10.0 Sprint 13 — 기구·전장 / TM 탭 + tabOrders 필터 + KPI/테이블/일괄확인 탭별 분기 + vitest 17 tests |
-| TASK-25 | #36-C TM 가압검사 옵션 UI | ⏳ BACKLOG | ConfirmSettingsPanel TM 그룹 박스 UI. OPS BE migration 선행 필요 (설비 변경 확정 시) |
+| TASK-25 | #36-C TM 가압검사 옵션 UI | 🔄 FE 완료 | v1.12.0 Sprint 15 — ConfirmSettingsPanel TM 그룹 박스 UI 완료. OPS BE migration 대기 |
 | TASK-26 | 혼재 O/N partner별 실적확인 UI | ✅ 완료 | v1.11.0 Sprint 14 — ProcessCell 혼재 분기 + partner별 버튼 + 일괄확인 혼재 제외 |
 
 ---
@@ -186,3 +186,4 @@
 | v1.7.4 | 생산실적 BE-FE 키 매핑 (process_status→processes) + BE TMS→TM 대기 | 🔄 FE 완료 |
 | v1.10.0 | Sprint 13 — 공정 그룹 탭 분리 (기구·전장 / TM) + vitest 테스트 환경 | ✅ 완료 |
 | v1.11.0 | Sprint 14 — 혼재 O/N partner별 실적확인 UI + 일괄확인 혼재 제외 | ✅ 완료 |
+| v1.12.0 | Sprint 15 — #36-C TM 가압검사 옵션 UI (ConfirmSettingsPanel TM 그룹 박스) | 🔄 FE 완료 |

@@ -5,6 +5,7 @@ export interface AdminSettingsResponse {
   confirm_mech_enabled: boolean;
   confirm_elec_enabled: boolean;
   confirm_tm_enabled: boolean;
+  tm_pressure_test_required: boolean;
   confirm_pi_enabled: boolean;
   confirm_qi_enabled: boolean;
   confirm_si_enabled: boolean;
