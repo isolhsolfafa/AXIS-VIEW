@@ -59,6 +59,10 @@ export interface OrderGroup {
   partner_info: { mech: string; elec: string; mixed: boolean };
   processes: Record<string, ProcessStatus>;
   confirms: ConfirmRecord[];
+  // 탭별 필터용 end 날짜 (#35-B)
+  mech_end?: string | null;
+  elec_end?: string | null;
+  module_end?: string | null;
 }
 
 export interface PerformanceResponse {

@@ -5545,3 +5545,620 @@ if (processStatus.total === 0) {
 - [ ] O/N 행 — MECH/ELEC/TM 정상 표시
 - [ ] 파트너 표시 — MECH/ELEC 파트너명 정상 렌더링
 - [ ] 실적확인 완료 표시 — confirmed=true인 공정에 체크마크 표시
+
+---
+
+# Sprint 13 (VIEW): 생산실적 공정 그룹 탭 분리 — 기구·전장 / TM (2026-03-23) ✅ 완료
+
+> **참조**: OPS_API_REQUESTS.md #35-B
+> **배경**: end 기준 전환(#35) 시 주당 O/N이 34→45~60건으로 증가 예상.
+> 단일 테이블로는 스크롤 과다 + 일괄확인 페이지 걸침 문제 발생.
+> 공정 그룹별 탭 분리(A안)로 각 탭 O/N 30건 내외로 분산 + 담당자별 집중 뷰 제공.
+
+## 선행 조건
+
+- OPS BE #35 배포 완료 (end OR 조건 + `mech_end`, `elec_end`, `module_end` 필드 포함)
+- Sprint 12 (TM 실적확인 로직 분리) 배포 완료
+
+## 전체 구조
+
+```
+┌──────────────────────────────────────────────────┐
+│  [주간 ○]  [월마감]                              │
+│                                                   │
+│  [W10] [W11] [■ W12] [W13]                       │
+│                                                   │
+│  ┌─────────────┐  ┌─────────────┐                │
+│  │ 기구·전장   │  │ TM(모듈)    │   ← 공정 탭   │
+│  └─────────────┘  └─────────────┘                │
+│                                                   │
+│  ┌─ KPI Cards (탭 기준) ────────────────────────┐│
+│  │ 주간 O/N: 34 │ 기구확인: 20/34 │ 전장: 18/34││  (기구·전장 탭)
+│  │ 주간 O/N: 27 │ TM확인: 15/27   │ 월간누적   ││  (TM 탭)
+│  └──────────────────────────────────────────────┘│
+│                                                   │
+│  ┌─ 테이블 ────────────────────────────────────┐ │
+│  │ 기구·전장 탭: O/N │ 모델 │ S/N │ MECH │ ELEC│ │
+│  │ TM 탭:       O/N │ 모델 │ S/N │ TM          │ │
+│  └──────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────┘
+```
+
+## Task 1: `types/production.ts` — `OrderGroup` 타입에 end 필드 추가
+
+**파일**: `app/src/types/production.ts`
+
+```typescript
+export interface OrderGroup {
+  sales_order: string;
+  model: string;
+  sns: SNDetail[];
+  sn_count: number;
+  sn_summary: string;
+  partner_info: { mech: string; elec: string; mixed: boolean };
+  processes: Record<string, ProcessStatus>;
+  confirms: ConfirmRecord[];
+  // ↓ NEW: 탭별 필터용 end 날짜 (#35-B)
+  mech_end?: string | null;    // 기구 종료일
+  elec_end?: string | null;    // 전장 종료일
+  module_end?: string | null;  // 모듈 종료일 (TM)
+}
+```
+
+**이유**: BE #35 응답에 이미 포함된 end 날짜를 FE 타입으로 선언. 탭별 `orders.filter()` 적용 시 사용.
+
+---
+
+## Task 2: `ProductionPerformancePage.tsx` — 공정 탭 state + 탭 UI 추가
+
+**파일**: `app/src/pages/production/ProductionPerformancePage.tsx`
+
+**변경 1**: state 추가 (L248~252 부근)
+
+```typescript
+const [activeProcessTab, setActiveProcessTab] = useState<'mech_elec' | 'tm'>('mech_elec');
+```
+
+**변경 2**: Toolbar 영역 — 주차 탭과 상태 필터 사이에 공정 탭 삽입
+
+```tsx
+{/* 공정 그룹 탭 */}
+<div style={{ width: '1px', height: '28px', background: 'var(--gx-mist)' }} />
+<div style={{ display: 'flex', background: 'var(--gx-cloud)', borderRadius: '10px', padding: '2px' }}>
+  {([
+    { key: 'mech_elec', label: '기구·전장' },
+    { key: 'tm', label: 'TM(모듈)' },
+  ] as const).map(tab => (
+    <button key={tab.key} onClick={() => setActiveProcessTab(tab.key)} style={{
+      padding: '5px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 500,
+      border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+      background: activeProcessTab === tab.key ? 'var(--gx-white)' : 'transparent',
+      color: activeProcessTab === tab.key ? 'var(--gx-charcoal)' : 'var(--gx-steel)',
+      boxShadow: activeProcessTab === tab.key ? 'var(--shadow-card)' : 'none',
+    }}>{tab.label}</button>
+  ))}
+</div>
+```
+
+**위치**: 주차 탭 `</div>` (L441) 뒤, 상태 필터 `<select>` (L445) 앞
+
+---
+
+## Task 3: `ProductionPerformancePage.tsx` — 탭별 필터 로직
+
+**파일**: `app/src/pages/production/ProductionPerformancePage.tsx`
+
+**변경**: `filteredOrders` 로직 (L296~) 앞에 탭별 사전 필터 추가
+
+```typescript
+// 공정 탭별 O/N 필터
+const tabOrders = orders.filter(o => {
+  if (activeProcessTab === 'mech_elec') {
+    // mech_end 또는 elec_end가 현재 주차에 해당하는 O/N
+    // BE가 이미 해당 주차 데이터만 반환하므로, TM-only O/N 제외
+    return (o.processes?.MECH?.total ?? 0) > 0 || (o.processes?.ELEC?.total ?? 0) > 0;
+  } else {
+    // module_end가 현재 주차에 해당하는 O/N (TM task가 있는 것만)
+    return (o.processes?.TM?.total ?? 0) > 0;
+  }
+});
+
+// 기존 statusFilter는 tabOrders 위에 적용
+const filteredOrders = tabOrders.filter(o => {
+  // ... 기존 statusFilter 로직 유지
+});
+```
+
+**참고**: BE가 `week` 파라미터로 end OR 조건 전체를 반환하므로, FE 필터는 `processes` 존재 여부로 분기. 추후 BE가 `mech_end`/`module_end` 주차 문자열을 반환하면 정확한 주차 매칭으로 변경 가능.
+
+---
+
+## Task 4: `ProductionPerformancePage.tsx` — KPI 카드 탭별 분기
+
+**파일**: `app/src/pages/production/ProductionPerformancePage.tsx`
+
+**변경**: KPI Cards (L377~398) — 탭에 따라 표시 항목 변경
+
+```tsx
+{/* KPI Cards — 탭별 */}
+<div style={{ display: 'grid', gridTemplateColumns: activeProcessTab === 'mech_elec' ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '14px', marginBottom: '20px' }}>
+  {activeProcessTab === 'mech_elec' ? [
+    { label: '주간 O/N', value: `${tabOrders.length}`, sub: `S/N ${tabOrders.reduce((s, o) => s + o.sn_count, 0)}대`, color: 'var(--gx-info)' },
+    { label: '기구 확인', value: `${mechConfirmedInTab}/${tabOrders.length}`, sub: mechReadyInTab > 0 ? `${mechReadyInTab}건 확인 가능` : '대기', color: 'var(--gx-success)' },
+    { label: '전장 확인', value: `${elecConfirmedInTab}/${tabOrders.length}`, sub: elecReadyInTab > 0 ? `${elecReadyInTab}건 확인 가능` : '대기', color: '#3B82F6' },
+    { label: '월간 누적', value: monthlyMechElec, sub: `${perfData?.month ?? ''} 기구+전장`, color: 'var(--gx-warning)' },
+  ] : [
+    { label: '주간 O/N (TM)', value: `${tabOrders.length}`, sub: `GAIA ${tabOrders.length}건`, color: 'var(--gx-info)' },
+    { label: 'TM 확인', value: `${tmConfirmedInTab}/${tabOrders.length}`, sub: tmReadyInTab > 0 ? `${tmReadyInTab}건 확인 가능` : '대기', color: 'var(--gx-accent)' },
+    { label: '월간 누적', value: monthlyTm, sub: `${perfData?.month ?? ''} TM`, color: 'var(--gx-warning)' },
+  ]).map(k => (
+    // ... 기존 KPI 카드 렌더링 동일
+  ))}
+</div>
+```
+
+**KPI 산출 변수**: `tabOrders` 기반으로 재계산 (mechConfirmedInTab, elecConfirmedInTab, tmConfirmedInTab 등)
+
+---
+
+## Task 5: `ProductionPerformancePage.tsx` — 테이블 헤더/칼럼 탭별 표시
+
+**파일**: `app/src/pages/production/ProductionPerformancePage.tsx`
+
+**변경 1**: 테이블 헤더 (L507~517)
+
+```tsx
+<tr style={{ background: 'var(--gx-cloud)' }}>
+  {[
+    '', 'O/N', '모델', 'S/N',
+    ...(activeProcessTab === 'mech_elec'
+      ? ['기구 (MECH)', '전장 (ELEC)']
+      : ['TM']),
+  ].map((h, i) => (
+    <th key={h + i} style={{ /* 기존 스타일 */ }}>{h}</th>
+  ))}
+</tr>
+```
+
+**변경 2**: O/N 행 — ProcessCell 조건부 렌더링 (L560~591)
+
+```tsx
+{/* 기구·전장 탭일 때만 */}
+{activeProcessTab === 'mech_elec' && (
+  <>
+    <ProcessCell processType="MECH" ... />
+    <ProcessCell processType="ELEC" ... />
+  </>
+)}
+{/* TM 탭일 때만 */}
+{activeProcessTab === 'tm' && (
+  <ProcessCell processType="TM" ... />
+)}
+```
+
+**변경 3**: S/N 상세 행 (L610~629) — 동일하게 progress 칼럼 조건부
+
+```tsx
+{activeProcessTab === 'mech_elec' && (
+  <>
+    <td>/* MECH progress */</td>
+    <td>/* ELEC progress */</td>
+  </>
+)}
+{activeProcessTab === 'tm' && (
+  <td>/* TM progress */</td>
+)}
+```
+
+---
+
+## Task 6: `ProductionPerformancePage.tsx` — 일괄확인 버튼 탭별 표시
+
+**파일**: `app/src/pages/production/ProductionPerformancePage.tsx`
+
+**변경**: 일괄확인 버튼 (L454~475) — 탭에 해당하는 공정만 표시
+
+```tsx
+{activeProcessTab === 'mech_elec' && (mechReadyInTab > 0 || elecReadyInTab > 0) && (
+  <>
+    {mechReadyInTab > 0 && <button onClick={() => handleBatchConfirm('MECH')}>기구 일괄확인 ({mechReadyInTab}건)</button>}
+    {elecReadyInTab > 0 && <button onClick={() => handleBatchConfirm('ELEC')}>전장 일괄확인 ({elecReadyInTab}건)</button>}
+  </>
+)}
+{activeProcessTab === 'tm' && tmReadyInTab > 0 && (
+  <button onClick={() => handleBatchConfirm('TM')}>TM 일괄확인 ({tmReadyInTab}건)</button>
+)}
+```
+
+---
+
+## Task 7: 단위 테스트 — 순수 로직 추출 + 테스트 작성
+
+> **방침**: VIEW는 표시 레이어이므로 순수 로직 단위 테스트만 진행.
+> OPS처럼 화이트+그레이 박스는 불필요. mock 데이터 → 함수 output 검증.
+> 스프린트마다 기존 테스트 전체 regression 실행.
+
+**테스트 환경 설정** (최초 1회):
+
+```bash
+cd app && npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom --save-dev
+```
+
+`vite.config.ts`에 test 설정 추가:
+```typescript
+/// <reference types="vitest" />
+export default defineConfig({
+  // ... 기존 설정
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+  },
+});
+```
+
+`app/src/test/setup.ts`:
+```typescript
+import '@testing-library/jest-dom';
+```
+
+---
+
+**7-1. 순수 로직 추출** — `utils/productionFilters.ts` (신규)
+
+현재 `ProductionPerformancePage.tsx` 안에 인라인으로 있는 필터/산출 로직을 순수 함수로 분리:
+
+```typescript
+// app/src/utils/productionFilters.ts
+import type { OrderGroup } from '@/types/production';
+
+/** 공정 탭별 O/N 필터 */
+export function filterByProcessTab(
+  orders: OrderGroup[],
+  tab: 'mech_elec' | 'tm'
+): OrderGroup[] {
+  if (tab === 'mech_elec') {
+    return orders.filter(o =>
+      (o.processes?.MECH?.total ?? 0) > 0 || (o.processes?.ELEC?.total ?? 0) > 0
+    );
+  }
+  return orders.filter(o => (o.processes?.TM?.total ?? 0) > 0);
+}
+
+/** 상태 필터 */
+export function filterByStatus(
+  orders: OrderGroup[],
+  status: 'all' | 'done' | 'pending'
+): OrderGroup[] {
+  if (status === 'all') return orders;
+  if (status === 'done') {
+    return orders.filter(o => {
+      const hasAll = (['MECH', 'ELEC'] as const).every(
+        pt => (o.confirms ?? []).some(c => c.process_type === pt)
+      );
+      const tmDone = (o.processes?.TM?.total ?? 0) === 0
+        || (o.confirms ?? []).some(c => c.process_type === 'TM');
+      return hasAll && tmDone;
+    });
+  }
+  // pending
+  return orders.filter(o => {
+    const hasAll = (['MECH', 'ELEC'] as const).every(
+      pt => (o.confirms ?? []).some(c => c.process_type === pt)
+    );
+    const tmDone = (o.processes?.TM?.total ?? 0) === 0
+      || (o.confirms ?? []).some(c => c.process_type === 'TM');
+    return !(hasAll && tmDone);
+  });
+}
+
+/** KPI 산출 — 탭별 확인 카운트 */
+export function calcTabKpi(orders: OrderGroup[], tab: 'mech_elec' | 'tm') {
+  if (tab === 'mech_elec') {
+    return {
+      totalON: orders.length,
+      totalSN: orders.reduce((s, o) => s + o.sn_count, 0),
+      mechConfirmed: orders.filter(o =>
+        (o.confirms ?? []).some(c => c.process_type === 'MECH')).length,
+      elecConfirmed: orders.filter(o =>
+        (o.confirms ?? []).some(c => c.process_type === 'ELEC')).length,
+      mechReady: orders.filter(o =>
+        o.processes?.MECH?.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'MECH')).length,
+      elecReady: orders.filter(o =>
+        o.processes?.ELEC?.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'ELEC')).length,
+    };
+  }
+  return {
+    totalON: orders.length,
+    totalSN: orders.reduce((s, o) => s + o.sn_count, 0),
+    tmConfirmed: orders.filter(o =>
+      (o.confirms ?? []).some(c => c.process_type === 'TM')).length,
+    tmReady: orders.filter(o =>
+      o.processes?.TM?.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'TM')).length,
+  };
+}
+
+/** 공정 활성화 여부 */
+export function isProcessEnabled(
+  settings: Record<string, unknown> | undefined,
+  processType: string
+): boolean {
+  const key = `confirm_${processType.toLowerCase()}_enabled`;
+  return settings?.[key] !== false;
+}
+```
+
+---
+
+**7-2. 테스트 파일** — `utils/productionFilters.test.ts` (신규)
+
+```typescript
+// app/src/utils/productionFilters.test.ts
+import { describe, it, expect } from 'vitest';
+import { filterByProcessTab, filterByStatus, calcTabKpi, isProcessEnabled } from './productionFilters';
+import type { OrderGroup } from '@/types/production';
+
+// ── mock 데이터 ──
+const mockOrders: OrderGroup[] = [
+  {
+    sales_order: '6400', model: 'GAIA-L', sn_count: 3,
+    sns: [], sn_summary: '6855~6857',
+    partner_info: { mech: 'A사', elec: 'B사', mixed: false },
+    processes: {
+      MECH: { ready: 3, total: 3, confirmable: true },
+      ELEC: { ready: 3, total: 3, confirmable: true },
+      TM:   { ready: 2, total: 3, confirmable: false },
+    },
+    confirms: [{ id: 1, process_type: 'MECH', confirmed_week: 'W12', confirmed_by: 'admin', confirmed_at: '2026-03-23' }],
+  },
+  {
+    sales_order: '6500', model: 'SWS-JP', sn_count: 2,
+    sns: [], sn_summary: '6900~6901',
+    partner_info: { mech: 'C사', elec: 'D사', mixed: false },
+    processes: {
+      MECH: { ready: 2, total: 2, confirmable: true },
+      ELEC: { ready: 2, total: 2, confirmable: false },
+      // TM 없음 (비GAIA)
+    },
+    confirms: [],
+  },
+];
+
+describe('filterByProcessTab', () => {
+  it('mech_elec 탭: MECH 또는 ELEC가 있는 O/N만 반환', () => {
+    const result = filterByProcessTab(mockOrders, 'mech_elec');
+    expect(result).toHaveLength(2);  // 둘 다 MECH/ELEC 있음
+  });
+
+  it('tm 탭: TM task가 있는 O/N만 반환', () => {
+    const result = filterByProcessTab(mockOrders, 'tm');
+    expect(result).toHaveLength(1);  // 6400만 TM 있음
+    expect(result[0].sales_order).toBe('6400');
+  });
+});
+
+describe('filterByStatus', () => {
+  it('all: 전체 반환', () => {
+    expect(filterByStatus(mockOrders, 'all')).toHaveLength(2);
+  });
+
+  it('pending: 미완료 포함 O/N만', () => {
+    const result = filterByStatus(mockOrders, 'pending');
+    expect(result).toHaveLength(2);  // 둘 다 미완료
+  });
+});
+
+describe('calcTabKpi', () => {
+  it('mech_elec 탭: 기구/전장 확인 카운트', () => {
+    const kpi = calcTabKpi(mockOrders, 'mech_elec') as any;
+    expect(kpi.totalON).toBe(2);
+    expect(kpi.mechConfirmed).toBe(1);  // 6400만 MECH 확인됨
+    expect(kpi.elecConfirmed).toBe(0);
+  });
+
+  it('tm 탭: TM 확인 카운트', () => {
+    const tmOrders = filterByProcessTab(mockOrders, 'tm');
+    const kpi = calcTabKpi(tmOrders, 'tm') as any;
+    expect(kpi.totalON).toBe(1);
+    expect(kpi.tmConfirmed).toBe(0);
+  });
+});
+
+describe('isProcessEnabled', () => {
+  it('설정 ON → true', () => {
+    expect(isProcessEnabled({ confirm_mech_enabled: true }, 'MECH')).toBe(true);
+  });
+
+  it('설정 OFF → false', () => {
+    expect(isProcessEnabled({ confirm_tm_enabled: false }, 'TM')).toBe(false);
+  });
+
+  it('설정 없음(undefined) → true (default)', () => {
+    expect(isProcessEnabled(undefined, 'MECH')).toBe(true);
+  });
+});
+```
+
+---
+
+**7-3. 기존 변환 로직 테스트** — `api/production.test.ts` (신규)
+
+`api/production.ts`의 BE→FE 변환 로직(partner_info, confirms, mixed 판정) 테스트.
+API 호출은 mock, 변환 결과만 검증.
+
+**테스트 케이스**:
+
+| # | 테스트 | 검증 |
+|---|--------|------|
+| 1 | partner_info 변환 — BE flat → FE 객체 | `{ mech, elec, mixed }` 정상 생성 |
+| 2 | mixed 판정 — S/N 2대, 기구 협력사 다름 | `mixed: true` |
+| 3 | mixed 판정 — S/N 1대 | `mixed: false` (항상) |
+| 4 | confirms 변환 — processes 내 confirmed → ConfirmRecord[] | 배열 길이 + process_type 일치 |
+
+---
+
+**7-4. `package.json` 스크립트 추가**
+
+```json
+{
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  }
+}
+```
+
+---
+
+## Task 8: 빌드 + Regression 테스트 실행
+
+```bash
+cd app && npm run build && npm run test
+```
+
+- [x] 빌드 에러 없음
+- [x] TS 타입 에러 없음
+- [x] 전체 테스트 통과 (신규 + 기존 regression)
+
+---
+
+## 체크리스트
+
+**코드 수정**:
+- [x] `types/production.ts` — `OrderGroup`에 `mech_end`, `elec_end`, `module_end` 추가
+- [x] `ProductionPerformancePage.tsx` — `activeProcessTab` state 추가
+- [x] `ProductionPerformancePage.tsx` — 공정 탭 UI (주간/월마감 토글과 동일 스타일)
+- [x] `ProductionPerformancePage.tsx` — `tabOrders` 필터 로직
+- [x] `ProductionPerformancePage.tsx` — KPI 카드 탭별 분기
+- [x] `ProductionPerformancePage.tsx` — 테이블 헤더 탭별 칼럼
+- [x] `ProductionPerformancePage.tsx` — ProcessCell 탭별 표시
+- [x] `ProductionPerformancePage.tsx` — S/N 상세 행 탭별 표시
+- [x] `ProductionPerformancePage.tsx` — 일괄확인 버튼 탭별 표시
+
+**테스트**:
+- [x] vitest + jsdom 환경 구성
+- [x] `utils/productionFilters.ts` — 순수 로직 추출
+- [x] `utils/productionFilters.test.ts` — 탭 필터, 상태 필터, KPI 산출, 권한 분기 테스트
+- [x] `api/production.test.ts` — BE→FE 변환 로직 테스트
+- [x] `npm run build` 통과
+- [x] `npm run test` 전체 통과 (regression)
+
+**기능 검증 (배포 후)**:
+- [ ] 기구·전장 탭: MECH/ELEC 칼럼만 표시, TM 숨김
+- [ ] TM 탭: TM 칼럼만 표시, MECH/ELEC 숨김
+- [ ] 탭 전환 시 KPI 카운트가 해당 탭 O/N 수와 일치
+- [ ] 일괄확인 — 현재 탭의 O/N만 대상
+- [ ] 상태 필터(전체/완료/미완료) — 탭 필터 위에 정상 동작
+- [ ] 월마감 뷰 — 탭 영향 없음 (기존 그대로)
+- [ ] 모바일/반응형 — 탭 UI 줄바꿈 정상
+
+## Regression 테스트 규칙 (이후 모든 스프린트 적용)
+
+> 1. 스프린트에서 변경하는 로직의 테스트를 해당 스프린트 Task에 포함
+> 2. 기존 로직은 순수 함수로 추출 → `utils/` 하위에 배치
+> 3. 스프린트 완료 시 `npm run test` 전체 실행 — 기존 테스트 포함 regression
+> 4. 테스트 실패 시 해당 스프린트에서 수정 후 머지
+> 5. BE API 호출은 mock — DB/BE 무영향
+
+## ⚠️ 금지 사항
+
+- BE 코드 수정 금지 (BE는 #35 그대로, FE 필터링 방식)
+- 월마감 뷰 변경 금지
+- 실적확인 로직(confirm/cancel) 변경 금지
+- `api/production.ts` 변환 로직 변경 금지
+- 테스트에서 실제 API 호출 금지 (mock only)
+
+---
+
+# Sprint 12 — TM 실적확인 로직 분리 (OPS BE) (2026-03-23)
+
+> **참조**: OPS_API_REQUESTS.md #36, AGENT_TEAM_LAUNCH.md "TM 실적확인 로직 분리"
+> **배경**: 가압검사(PRESSURE_TEST)가 TMS(협력사) + PI(GST 내부) 2회 중복 수행 중 (공정 안정화).
+> TM 실적확인은 TANK_MODULE만 기준이어야 하나, 기존 코드가 TMS 카테고리 전체를 체크하여 PRESSURE_TEST 미완 시 confirmable=false 발생.
+
+## Task 1: `_calc_sn_progress()` — task_id 레벨 데이터 확장 (#36) ✅ 완료
+
+**파일**: `AXIS-OPS/backend/app/routes/production.py`
+
+**변경**: SQL `GROUP BY serial_number, task_category` → `GROUP BY serial_number, task_category, task_id`
+
+```python
+# 변경 전
+GROUP BY serial_number, task_category
+
+# 변경 후
+GROUP BY serial_number, task_category, task_id
+```
+
+반환 구조 변경:
+```python
+# 변경 전
+{sn: {cat: {total, completed, pct}}}
+
+# 변경 후
+{sn: {cat: {total, completed, pct, tasks: {task_id: {total, completed}}}}}
+```
+
+카테고리 레벨 `total`/`completed`는 Python 합산으로 유지 — `_build_order_item()`의 progress 집계, S/N 상세 배열 등 기존 소비자 코드 변경 불필요.
+
+**이유**: confirmable, 추후 `tm_pressure_test_required` 옵션, 알람 트리거 등에서 task_id별 필터링을 동일 데이터소스로 처리. 별도 쿼리 분리 시 중복·동기화 이슈 발생.
+
+---
+
+## Task 2: `_is_process_confirmable()` — TMS→TANK_MODULE only (#36) ✅ 완료
+
+**파일**: `AXIS-OPS/backend/app/routes/production.py`
+
+**변경**: `_CONFIRM_TASK_FILTER` 매핑 추가 + confirmable 분기
+
+```python
+# 신규 추가
+_CONFIRM_TASK_FILTER: Dict[str, str] = {
+    'TMS': 'TANK_MODULE',  # TMS 실적확인 = TANK_MODULE만
+}
+
+# _is_process_confirmable() 내부 분기
+confirm_task = _CONFIRM_TASK_FILTER.get(process_type)
+if confirm_task:
+    # task_id 레벨 체크 (TMS → TANK_MODULE만)
+    task_data = cat_data.get('tasks', {}).get(confirm_task, {})
+else:
+    # 카테고리 전체 체크 (기존 동작)
+```
+
+**동작 변경**:
+
+| 시나리오 | 변경 전 | 변경 후 |
+|---------|---------|---------|
+| TM: TANK_MODULE ✅ / PRESSURE_TEST ❌ | `confirmable=false` (1<2) | `confirmable=true` (TANK_MODULE 1/1 ✅) |
+| TM: TANK_MODULE ❌ / PRESSURE_TEST ✅ | `confirmable=false` (1<2) | `confirmable=false` (TANK_MODULE 0/1 ❌) |
+| TM: 둘 다 ✅ | `confirmable=true` | `confirmable=true` |
+| MECH/ELEC/PI/QI/SI | 카테고리 전체 체크 | 변경 없음 |
+
+**이유**: 실적확인 = 협력사 실적 정산 근거. TANK_MODULE = 협력사 작업 범위. PRESSURE_TEST = TMS 공정 progress에는 포함되지만 실적 정산과 무관.
+
+---
+
+## Task 3: `_build_order_item()` — future-ready 주석 (#36) ✅ 완료
+
+**파일**: `AXIS-OPS/backend/app/routes/production.py`
+
+**변경**: `tm_pressure_test_required` 옵션 구현 시 progress 집계 분기 위치에 주석 추가
+
+현재 progress는 TMS 카테고리 전체(TANK_MODULE + PRESSURE_TEST) 합산. 추후 `tm_pressure_test_required=false` 시 `tasks` dict에서 TANK_MODULE만 합산하도록 분기 추가 예정.
+
+---
+
+## 체크리스트
+
+**코드 수정 (완료)**:
+- [x] `_calc_sn_progress()` — task_id 레벨 GROUP BY + tasks dict 반환
+- [x] `_CONFIRM_TASK_FILTER` 매핑 추가
+- [x] `_is_process_confirmable()` — TMS→TANK_MODULE 분기
+- [x] `_build_order_item()` — future-ready 주석
+
+**기능 검증 (배포 후)**:
+- [ ] TM `1/2` (TANK_MODULE ✅, PRESSURE_TEST ❌) 상태에서 실적확인 버튼 활성
+- [ ] TM progress `1/2` 정상 표시 (PRESSURE_TEST 포함)
+- [ ] MECH/ELEC/PI/QI/SI confirmable 기존 동작 regression 없음
+- [ ] `confirm_production()` TM 실적확인 정상 처리 (TM→TMS 역매핑 + TANK_MODULE만 체크)

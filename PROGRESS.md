@@ -1,8 +1,34 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-22 (v1.7.4 — 생산실적 BE-FE 키 매핑 수정)
+> 마지막 업데이트: 2026-03-23 (v1.10.0 — 생산실적 공정 그룹 탭 분리)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.10.0: 생산실적 공정 그룹 탭 분리 — 기구·전장 / TM — ✅ 완료 (2026-03-23)
+
+Sprint 13. end 기준 전환 시 O/N 증가에 대비해 공정 그룹별 탭 분리(기구·전장 / TM).
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| 타입 확장 | `types/production.ts` | `OrderGroup`에 `mech_end`, `elec_end`, `module_end` 필드 추가 |
+| 공정 탭 UI | `ProductionPerformancePage.tsx` | `activeProcessTab` state + 기구·전장 / TM(모듈) 탭 버튼 |
+| 탭별 필터 | `ProductionPerformancePage.tsx` | `tabOrders` — MECH/ELEC 또는 TM 기준 O/N 분리 |
+| KPI 분기 | `ProductionPerformancePage.tsx` | 기구·전장 탭: 4열(O/N, 기구, 전장, 월간), TM 탭: 3열(O/N, TM, 월간) |
+| 테이블 칼럼 | `ProductionPerformancePage.tsx` | 헤더/ProcessCell/SN상세 탭별 조건부 렌더링 |
+| 일괄확인 | `ProductionPerformancePage.tsx` | 탭별 일괄확인 버튼 + TM 일괄확인 신규 지원 |
+| 순수 로직 추출 | `utils/productionFilters.ts` | `filterByProcessTab`, `filterByStatus`, `calcTabKpi`, `isProcessEnabled` |
+| 테스트 환경 | `vite.config.ts`, `test/setup.ts` | vitest + jsdom + @testing-library 구성 |
+| 단위 테스트 | `utils/productionFilters.test.ts` | 탭 필터, 상태 필터, KPI 산출, 권한 분기 (13 tests) |
+| API 변환 테스트 | `api/production.test.ts` | partner_info, mixed 판정, confirms 변환 (4 tests) |
+
+### 빌드/테스트 결과
+
+- `npm run build` 통과
+- `npm run test` 17/17 전체 통과
 
 ---
 

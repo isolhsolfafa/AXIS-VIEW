@@ -250,6 +250,7 @@ export default function ProductionPerformancePage() {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<'all' | 'done' | 'pending'>('all');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activeProcessTab, setActiveProcessTab] = useState<'mech_elec' | 'tm'>('mech_elec');
 
   const { user } = useAuth();
   const isAdmin = user?.is_admin === true;
@@ -280,20 +281,28 @@ export default function ProductionPerformancePage() {
     setExpandedOrders(prev => { const n = new Set(prev); if (n.has(on)) n.delete(on); else n.add(on); return n; });
   };
 
-  // KPI 산출
+  // 데이터
   const orders = perfData?.orders ?? [];
-  const summary = perfData?.summary;
-  const totalON = summary?.total_orders ?? orders.length;
-  const totalSN = orders.reduce((s, o) => s + o.sn_count, 0);
-  const mechConfirmed = orders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'MECH')).length;
-  const elecConfirmed = orders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'ELEC')).length;
-  const tmApplicable = orders.filter(o => (o.processes?.TM?.total ?? 0) > 0);
-  const tmConfirmed = orders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'TM')).length;
-  const mechReady = summary?.mech_confirmable ?? 0;
-  const elecReady = summary?.elec_confirmable ?? 0;
 
-  // 필터
-  const filteredOrders = orders.filter(o => {
+  // 공정 탭별 O/N 필터
+  const tabOrders = orders.filter(o => {
+    if (activeProcessTab === 'mech_elec') {
+      return (o.processes?.MECH?.total ?? 0) > 0 || (o.processes?.ELEC?.total ?? 0) > 0;
+    } else {
+      return (o.processes?.TM?.total ?? 0) > 0;
+    }
+  });
+
+  // 탭별 KPI 산출
+  const mechConfirmedInTab = tabOrders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'MECH')).length;
+  const elecConfirmedInTab = tabOrders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'ELEC')).length;
+  const mechReadyInTab = tabOrders.filter(o => o.processes?.MECH?.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'MECH')).length;
+  const elecReadyInTab = tabOrders.filter(o => o.processes?.ELEC?.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'ELEC')).length;
+  const tmConfirmedInTab = tabOrders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'TM')).length;
+  const tmReadyInTab = tabOrders.filter(o => o.processes?.TM?.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'TM')).length;
+
+  // 상태 필터 (tabOrders 위에 적용)
+  const filteredOrders = tabOrders.filter(o => {
     if (statusFilter === 'done') {
       const hasAll = (['MECH', 'ELEC'] as const).every(pt => (o.confirms ?? []).some(c => c.process_type === pt));
       const tmDone = (o.processes?.TM?.total ?? 0) === 0 || (o.confirms ?? []).some(c => c.process_type === 'TM');
@@ -316,13 +325,14 @@ export default function ProductionPerformancePage() {
     });
   };
 
-  const handleBatchConfirm = async (processType: 'MECH' | 'ELEC') => {
-    const confirmable = orders.filter(o =>
-      o.processes[processType].confirmable &&
+  const handleBatchConfirm = async (processType: 'MECH' | 'ELEC' | 'TM') => {
+    const confirmable = tabOrders.filter(o =>
+      o.processes[processType]?.confirmable &&
       !(o.confirms ?? []).some(c => c.process_type === processType)
     );
     if (confirmable.length === 0) return;
-    if (!window.confirm(`${processType === 'MECH' ? '기구' : '전장'} 실적확인 ${confirmable.length}건을 일괄 처리하시겠습니까?`)) return;
+    const labels = { MECH: '기구', ELEC: '전장', TM: 'TM' };
+    if (!window.confirm(`${labels[processType]} 실적확인 ${confirmable.length}건을 일괄 처리하시겠습니까?`)) return;
     for (const o of confirmable) {
       await confirmMutation.mutateAsync({
         sales_order: o.sales_order,
@@ -373,15 +383,18 @@ export default function ProductionPerformancePage() {
 
         {!isLoading && !isError && (
           <>
-            {/* KPI Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '14px', marginBottom: '20px' }}>
-              {[
-                { label: '주간 O/N', value: `${totalON}`, sub: `S/N ${totalSN}대`, color: 'var(--gx-info)' },
-                { label: '기구 확인', value: `${mechConfirmed}/${totalON}`, sub: mechReady > 0 ? `${mechReady}건 확인 가능` : '대기', color: 'var(--gx-success)' },
-                { label: '전장 확인', value: `${elecConfirmed}/${totalON}`, sub: elecReady > 0 ? `${elecReady}건 확인 가능` : '대기', color: '#3B82F6' },
-                { label: 'TM 확인', value: `${tmConfirmed}/${tmApplicable.length}`, sub: `GAIA ${tmApplicable.length}건`, color: 'var(--gx-accent)' },
-                { label: '월간 누적', value: monthlyData?.totals ? `${(monthlyData.totals.mech?.confirmed ?? 0) + (monthlyData.totals.elec?.confirmed ?? 0) + (monthlyData.totals.tm?.confirmed ?? 0)}` : '—', sub: `${perfData?.month ?? ''} 공정 확인`, color: 'var(--gx-warning)' },
-              ].map(k => (
+            {/* KPI Cards — 탭별 */}
+            <div style={{ display: 'grid', gridTemplateColumns: activeProcessTab === 'mech_elec' ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '14px', marginBottom: '20px' }}>
+              {(activeProcessTab === 'mech_elec' ? [
+                { label: '주간 O/N', value: `${tabOrders.length}`, sub: `S/N ${tabOrders.reduce((s, o) => s + o.sn_count, 0)}대`, color: 'var(--gx-info)' },
+                { label: '기구 확인', value: `${mechConfirmedInTab}/${tabOrders.length}`, sub: mechReadyInTab > 0 ? `${mechReadyInTab}건 확인 가능` : '대기', color: 'var(--gx-success)' },
+                { label: '전장 확인', value: `${elecConfirmedInTab}/${tabOrders.length}`, sub: elecReadyInTab > 0 ? `${elecReadyInTab}건 확인 가능` : '대기', color: '#3B82F6' },
+                { label: '월간 누적', value: monthlyData?.totals ? `${(monthlyData.totals.mech?.confirmed ?? 0) + (monthlyData.totals.elec?.confirmed ?? 0)}` : '—', sub: `${perfData?.month ?? ''} 기구·전장`, color: 'var(--gx-warning)' },
+              ] : [
+                { label: '주간 O/N', value: `${tabOrders.length}`, sub: `GAIA ${tabOrders.length}건`, color: 'var(--gx-info)' },
+                { label: 'TM 확인', value: `${tmConfirmedInTab}/${tabOrders.length}`, sub: tmReadyInTab > 0 ? `${tmReadyInTab}건 확인 가능` : '대기', color: 'var(--gx-accent)' },
+                { label: '월간 누적', value: monthlyData?.totals ? `${monthlyData.totals.tm?.confirmed ?? 0}` : '—', sub: `${perfData?.month ?? ''} TM`, color: 'var(--gx-warning)' },
+              ]).map(k => (
                 <div key={k.label} style={{
                   background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
                   padding: '18px 20px', boxShadow: 'var(--shadow-card)',
@@ -440,6 +453,23 @@ export default function ProductionPerformancePage() {
                     ))}
                   </div>
 
+                  {/* 공정 그룹 탭 */}
+                  <div style={{ width: '1px', height: '28px', background: 'var(--gx-mist)' }} />
+                  <div style={{ display: 'flex', background: 'var(--gx-cloud)', borderRadius: '10px', padding: '2px' }}>
+                    {([
+                      { key: 'mech_elec', label: '기구·전장' },
+                      { key: 'tm', label: 'TM(모듈)' },
+                    ] as const).map(tab => (
+                      <button key={tab.key} onClick={() => setActiveProcessTab(tab.key)} style={{
+                        padding: '5px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 500,
+                        border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                        background: activeProcessTab === tab.key ? 'var(--gx-white)' : 'transparent',
+                        color: activeProcessTab === tab.key ? 'var(--gx-charcoal)' : 'var(--gx-steel)',
+                        boxShadow: activeProcessTab === tab.key ? 'var(--shadow-card)' : 'none',
+                      }}>{tab.label}</button>
+                    ))}
+                  </div>
+
                   <div style={{ width: '1px', height: '28px', background: 'var(--gx-mist)' }} />
 
                   <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as typeof statusFilter)} style={{
@@ -451,26 +481,36 @@ export default function ProductionPerformancePage() {
                     <option value="pending">미완료 포함</option>
                   </select>
 
-                  {/* 일괄 확인 */}
-                  {(mechReady > 0 || elecReady > 0) && (
+                  {/* 일괄 확인 — 탭별 */}
+                  {activeProcessTab === 'mech_elec' && (mechReadyInTab > 0 || elecReadyInTab > 0) && (
                     <>
                       <div style={{ width: '1px', height: '28px', background: 'var(--gx-mist)' }} />
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        {mechReady > 0 && (
+                        {mechReadyInTab > 0 && (
                           <button onClick={() => handleBatchConfirm('MECH')} style={{
                             fontSize: '11px', fontWeight: 600, padding: '5px 12px', borderRadius: '10px',
                             background: 'rgba(99,102,241,0.06)', color: 'var(--gx-accent)',
                             border: '1px solid rgba(99,102,241,0.2)', cursor: 'pointer',
-                          }}>기구 일괄확인 ({mechReady}건)</button>
+                          }}>기구 일괄확인 ({mechReadyInTab}건)</button>
                         )}
-                        {elecReady > 0 && (
+                        {elecReadyInTab > 0 && (
                           <button onClick={() => handleBatchConfirm('ELEC')} style={{
                             fontSize: '11px', fontWeight: 600, padding: '5px 12px', borderRadius: '10px',
                             background: 'rgba(59,130,246,0.06)', color: '#3B82F6',
                             border: '1px solid rgba(59,130,246,0.2)', cursor: 'pointer',
-                          }}>전장 일괄확인 ({elecReady}건)</button>
+                          }}>전장 일괄확인 ({elecReadyInTab}건)</button>
                         )}
                       </div>
+                    </>
+                  )}
+                  {activeProcessTab === 'tm' && tmReadyInTab > 0 && (
+                    <>
+                      <div style={{ width: '1px', height: '28px', background: 'var(--gx-mist)' }} />
+                      <button onClick={() => handleBatchConfirm('TM' as any)} style={{
+                        fontSize: '11px', fontWeight: 600, padding: '5px 12px', borderRadius: '10px',
+                        background: 'rgba(99,102,241,0.06)', color: 'var(--gx-accent)',
+                        border: '1px solid rgba(99,102,241,0.2)', cursor: 'pointer',
+                      }}>TM 일괄확인 ({tmReadyInTab}건)</button>
                     </>
                   )}
                 </>
@@ -505,7 +545,11 @@ export default function ProductionPerformancePage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '960px' }}>
                     <thead>
                       <tr style={{ background: 'var(--gx-cloud)' }}>
-                        {['', 'O/N', '모델', 'S/N', '기구 (MECH)', '전장 (ELEC)', 'TM'].map((h, i) => (
+                        {['', 'O/N', '모델', 'S/N',
+                          ...(activeProcessTab === 'mech_elec'
+                            ? ['기구 (MECH)', '전장 (ELEC)']
+                            : ['TM']),
+                        ].map((h, i) => (
                           <th key={h + i} style={{
                             padding: '11px 14px', textAlign: 'left',
                             fontSize: '10px', fontWeight: 600, color: 'var(--gx-steel)',
@@ -556,39 +600,44 @@ export default function ProductionPerformancePage() {
                               </span>
                               <span style={{ fontSize: '10px', color: 'var(--gx-steel)', marginLeft: '5px' }}>({order.sn_count}대)</span>
                             </td>
-                            {/* 기구 */}
-                            <ProcessCell
-                              processType="MECH"
-                              processStatus={(order.processes?.MECH ?? { ready: 0, total: 0, confirmable: false })}
-                              confirms={order.confirms ?? []}
-                              partnerDisplay={(order.partner_info?.mech ?? '—')}
-                              mixed={(order.partner_info?.mixed ?? false)}
-                              onConfirm={() => handleConfirm(order.sales_order, 'MECH')}
-                              confirmPending={confirmMutation.isPending}
-                              enabled={isProcessEnabled('MECH')}
-                            />
-                            {/* 전장 */}
-                            <ProcessCell
-                              processType="ELEC"
-                              processStatus={(order.processes?.ELEC ?? { ready: 0, total: 0, confirmable: false })}
-                              confirms={order.confirms ?? []}
-                              partnerDisplay={(order.partner_info?.elec ?? '—')}
-                              mixed={(order.partner_info?.mixed ?? false)}
-                              onConfirm={() => handleConfirm(order.sales_order, 'ELEC')}
-                              confirmPending={confirmMutation.isPending}
-                              enabled={isProcessEnabled('ELEC')}
-                            />
-                            {/* TM */}
-                            <ProcessCell
-                              processType="TM"
-                              processStatus={(order.processes?.TM ?? { ready: 0, total: 0, confirmable: false })}
-                              confirms={order.confirms ?? []}
-                              partnerDisplay=""
-                              mixed={false}
-                              onConfirm={() => handleConfirm(order.sales_order, 'TM')}
-                              confirmPending={confirmMutation.isPending}
-                              enabled={isProcessEnabled('TM')}
-                            />
+                            {/* 기구·전장 탭일 때 */}
+                            {activeProcessTab === 'mech_elec' && (
+                              <>
+                                <ProcessCell
+                                  processType="MECH"
+                                  processStatus={(order.processes?.MECH ?? { ready: 0, total: 0, confirmable: false })}
+                                  confirms={order.confirms ?? []}
+                                  partnerDisplay={(order.partner_info?.mech ?? '—')}
+                                  mixed={(order.partner_info?.mixed ?? false)}
+                                  onConfirm={() => handleConfirm(order.sales_order, 'MECH')}
+                                  confirmPending={confirmMutation.isPending}
+                                  enabled={isProcessEnabled('MECH')}
+                                />
+                                <ProcessCell
+                                  processType="ELEC"
+                                  processStatus={(order.processes?.ELEC ?? { ready: 0, total: 0, confirmable: false })}
+                                  confirms={order.confirms ?? []}
+                                  partnerDisplay={(order.partner_info?.elec ?? '—')}
+                                  mixed={(order.partner_info?.mixed ?? false)}
+                                  onConfirm={() => handleConfirm(order.sales_order, 'ELEC')}
+                                  confirmPending={confirmMutation.isPending}
+                                  enabled={isProcessEnabled('ELEC')}
+                                />
+                              </>
+                            )}
+                            {/* TM 탭일 때 */}
+                            {activeProcessTab === 'tm' && (
+                              <ProcessCell
+                                processType="TM"
+                                processStatus={(order.processes?.TM ?? { ready: 0, total: 0, confirmable: false })}
+                                confirms={order.confirms ?? []}
+                                partnerDisplay=""
+                                mixed={false}
+                                onConfirm={() => handleConfirm(order.sales_order, 'TM')}
+                                confirmPending={confirmMutation.isPending}
+                                enabled={isProcessEnabled('TM')}
+                              />
+                            )}
                           </tr>
 
                           {/* S/N 상세 */}
@@ -607,26 +656,31 @@ export default function ProductionPerformancePage() {
                               <td style={{ padding: '8px 14px', fontSize: '10px', color: 'var(--gx-steel)' }}>
                                 기구 <strong>{sn.mech_partner}</strong> · 전장 <strong>{sn.elec_partner}</strong>
                               </td>
-                              {/* MECH progress */}
-                              <td style={{ padding: '8px 14px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                  <MiniProgress value={sn.progress?.MECH?.pct ?? 0} total={sn.progress?.MECH?.total ?? 0} />
-                                  {sn.checklist?.MECH?.completed_at && <span style={{ fontSize: '8.5px', color: 'var(--gx-silver)', fontFamily: "'JetBrains Mono', monospace" }}>완료 {sn.checklist.MECH.completed_at.slice(5, 10)}</span>}
-                                </div>
-                              </td>
-                              {/* ELEC progress */}
-                              <td style={{ padding: '8px 14px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                  <MiniProgress value={sn.progress?.ELEC?.pct ?? 0} total={sn.progress?.ELEC?.total ?? 0} />
-                                  {sn.checklist?.ELEC?.completed_at && <span style={{ fontSize: '8.5px', color: 'var(--gx-silver)', fontFamily: "'JetBrains Mono', monospace" }}>완료 {sn.checklist.ELEC.completed_at.slice(5, 10)}</span>}
-                                </div>
-                              </td>
-                              {/* TM progress */}
-                              <td style={{ padding: '8px 14px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                  <MiniProgress value={sn.progress?.TM?.pct ?? 0} total={sn.progress?.TM?.total ?? 0} />
-                                </div>
-                              </td>
+                              {/* 기구·전장 탭 */}
+                              {activeProcessTab === 'mech_elec' && (
+                                <>
+                                  <td style={{ padding: '8px 14px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                      <MiniProgress value={sn.progress?.MECH?.pct ?? 0} total={sn.progress?.MECH?.total ?? 0} />
+                                      {sn.checklist?.MECH?.completed_at && <span style={{ fontSize: '8.5px', color: 'var(--gx-silver)', fontFamily: "'JetBrains Mono', monospace" }}>완료 {sn.checklist.MECH.completed_at.slice(5, 10)}</span>}
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '8px 14px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                      <MiniProgress value={sn.progress?.ELEC?.pct ?? 0} total={sn.progress?.ELEC?.total ?? 0} />
+                                      {sn.checklist?.ELEC?.completed_at && <span style={{ fontSize: '8.5px', color: 'var(--gx-silver)', fontFamily: "'JetBrains Mono', monospace" }}>완료 {sn.checklist.ELEC.completed_at.slice(5, 10)}</span>}
+                                    </div>
+                                  </td>
+                                </>
+                              )}
+                              {/* TM 탭 */}
+                              {activeProcessTab === 'tm' && (
+                                <td style={{ padding: '8px 14px' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                    <MiniProgress value={sn.progress?.TM?.pct ?? 0} total={sn.progress?.TM?.total ?? 0} />
+                                  </div>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
