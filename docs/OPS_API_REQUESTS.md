@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-22 (#33-3 혼재 로직 오류 + 실적확인 버튼 미활성 추가 조사)
+> 마지막 업데이트: 2026-03-23 (#35 생산실적 리스트 기준 변경 검토 + A/B안 정리)
 
 ---
 
@@ -1739,6 +1739,499 @@ sns_progress = _calc_sn_progress(cur, serial_numbers)
 
 ---
 
+### 36. TM progress에 PRESSURE_TEST 포함 — 현재 정상, 추후 옵션 제어 필요
+
+**보고일**: 2026-03-23
+**시급도**: 낮음 — 현재 동작은 정상 (BUG 아님)
+**선행**: #32-B (confirmable 수정 완료)
+
+**확인 결과 (GBWS-6855)**:
+- TM progress = **50%** (`total=2, done=1`) — TANK_MODULE 완료 ✅, PRESSURE_TEST 미완 ❌
+- `confirmable=true` (TANK_MODULE 기준) — 실적확인 버튼 활성 ✅
+
+**현재 동작: BE 수정 완료 (Sprint 12, 2026-03-23)**
+
+| 항목 | 동작 | 상태 |
+|------|------|------|
+| TM progress | `1/2 = 50%` (TANK_MODULE + PRESSURE_TEST 모두 포함) | ✅ 정상 |
+| TM 알람 | 2/2 완료 시 mech_partner 발송 | ✅ 정상 |
+| TM 실적확인 | TANK_MODULE만 → `confirmable=true` | ✅ **BE 수정 완료** |
+| O/N 행 표시 | `1/2` + 실적확인 버튼 활성 | ✅ 의도된 동작 |
+
+**BE 수정 내역 (production.py)**:
+- `_calc_sn_progress()`: `GROUP BY task_category, task_id` → `tasks` dict 포함 반환
+- `_CONFIRM_TASK_FILTER = {'TMS': 'TANK_MODULE'}` 매핑 추가
+- `_is_process_confirmable()`: TMS일 때 `tasks.TANK_MODULE`만 체크 (PRESSURE_TEST 무시)
+
+**설계 근거**: 현재 가압검사는 물리적으로 2회 실시 (TM 1회 + PI 1회). TM의 PRESSURE_TEST는 실제로 수행되는 작업이므로 progress에 포함이 맞음. `1/2 + 실적확인 가능` = "TM 전체는 아직 진행 중이지만, 실적확인(TANK_MODULE 기준)은 가능한 상태"
+
+**O/N 행 `1/2` + 실적확인 버튼 공존이 혼동되지 않는 이유**:
+- 실적확인 = 협력사 실적 정산 근거 (TANK_MODULE = 협력사 작업 범위)
+- PRESSURE_TEST = GST 내부 작업 → 실적 정산과 무관하지만 TM 공정 완료에는 필요
+- 알람도 2/2 완료 후 발송 → progress/알람/실적확인 각각의 기준이 명확히 다름
+
+---
+
+**추후 옵션 제어 (설비 변경 시 — BACKLOG)**:
+
+설비 개선으로 가압검사가 1회만 진행될 때, `tm_pressure_test_required` 옵션 하나로 **progress + 알람 동시 제어**:
+
+| 키 | 타입 | 기본값 |
+|---|------|--------|
+| `tm_pressure_test_required` | boolean | `true` |
+
+| 설정 | TM progress | TM 알람 | TM 실적확인 | 사용 시점 |
+|------|------------|---------|------------|----------|
+| `true` (기본) | **2/2** (TANK_MODULE + PRESSURE_TEST) | 2/2 완료 시 | TANK_MODULE만 | **현재 (가압검사 2회)** |
+| `false` | **1/1** (TANK_MODULE만, PRESSURE_TEST 숨김) | TANK_MODULE 완료 시 | TANK_MODULE만 | **추후 (가압검사 1회 설비)** |
+
+`false` 설정 시 변경 범위:
+
+| 시스템 | 변경 내용 |
+|--------|----------|
+| OPS BE `production.py` | TM progress 집계에서 PRESSURE_TEST 제외 → `total=1` |
+| OPS BE 알람 핸들러 | TANK_MODULE 완료만으로 알람 발송 |
+| OPS BE task UI | PRESSURE_TEST task 비활성 또는 숨김 |
+| VIEW FE | 변경 없음 — `processes.TM.ready/total` 그대로 사용 |
+
+**구현 시점**: 설비 변경 확정 시. 현재는 BACKLOG 등록만.
+
+---
+
+#### #36-B TM PRESSURE_TEST + mech_partner 알람 + progress 통합 연계
+
+**보고일**: 2026-03-23
+**시급도**: 낮음 — 현재 전부 정상. 추후 설비 변경 시 옵션 제어 구현
+**선행**: #36 확인 완료
+
+**현재 연계 구조 (전부 정상 — 변경 불필요)**:
+
+```
+물리적 공정:
+TANK_MODULE → PRESSURE_TEST(1차, TM) → PI 공정(2차, GST 인원)
+                                        └ 가압검사 2회 실시 (품질 안정화)
+
+현재 시스템 동작 (3가지 모두 정상):
+┌ progress:   TM 2/2 (TANK_MODULE + PRESSURE_TEST 포함)  ✅
+├ 알람:       TM 2/2 완료 → mech_partner 알람 발송        ✅
+└ 실적확인:   TANK_MODULE만 → confirmable=true             ✅
+```
+
+**핵심 설계**: progress와 알람은 **같은 기준** (TM 전체 2/2), 실적확인만 **별도 기준** (TANK_MODULE). 이것이 정상.
+
+**추후 옵션 (`tm_pressure_test_required`) — progress + 알람 동시 제어**:
+
+| 설정 | progress | 알람 | 실적확인 | 시점 |
+|------|---------|------|---------|------|
+| `true` (기본) | **2/2** | 2/2 완료 시 | TANK_MODULE만 | **현재** |
+| `false` | **1/1** (PRESSURE_TEST 제외) | TANK_MODULE 완료 시 | TANK_MODULE만 | **추후 (1회 가압검사 설비)** |
+
+`false` 설정 시 변경:
+
+| 시스템 | 변경 내용 |
+|--------|----------|
+| OPS BE `production.py` | TM progress에서 PRESSURE_TEST 제외 → `total=1` |
+| OPS BE 알람 핸들러 | TANK_MODULE 완료만으로 알람 발송 |
+| OPS BE task UI | PRESSURE_TEST task 비활성/숨김 |
+| VIEW FE | 변경 없음 — `processes.TM.ready/total` 그대로 사용 |
+
+---
+
+#### #36-C VIEW 실적확인 설정 UI — `tm_pressure_test_required` 옵션 추가
+
+**보고일**: 2026-03-23
+**시급도**: BACKLOG — 설비 변경 시 구현
+**선행**: #36-B 옵션 설계 확정, OPS BE admin_settings에 키 추가
+
+**현재 ConfirmSettingsPanel 구조** (`ProductionPerformancePage.tsx` L51-128):
+
+```
+┌─ 실적확인 설정 ──────────────── ✕ ─┐
+│                                      │
+│ 공정별 실적확인                      │
+│  기구 (MECH)              [toggle]   │
+│  전장 (ELEC)              [toggle]   │
+│  Tank Module (TM)         [toggle]   │
+│  PI                       [toggle]   │
+│  QI                       [toggle]   │
+│  SI                       [toggle]   │
+│ ──────────────────────────────────── │
+│  체크리스트 필수           [toggle]   │
+│  자주검사 완료 시에만 실적확인 가능  │
+└──────────────────────────────────────┘
+```
+
+**변경 후 설계** (v2 — TM 그룹 구조):
+
+```
+┌─ 실적확인 설정 ──────────────── ✕ ─┐
+│                                      │
+│ 공정별 실적확인                      │
+│  기구 (MECH)              [toggle]   │
+│  전장 (ELEC)              [toggle]   │
+│                                      │
+│  Tank Module               ← 그룹 헤더
+│  ┌───────────────────────────────┐   │
+│  │ * 실적처리: Tank Module       │   │  ← 고정 (default, 항상 활성)
+│  │   (TM 실적확인)    [toggle]   │   │  ← confirm_tm_enabled
+│  │                               │   │
+│  │ * Progress / 알람 trigger     │   │
+│  │   가압검사 포함     [toggle]   │   │  ← tm_pressure_test_required (NEW)
+│  │   ON : 가압검사 완료까지      │   │
+│  │        progress·알람에 반영    │   │
+│  │   OFF: 탱크모듈만으로 완료    │   │
+│  └───────────────────────────────┘   │
+│                                      │
+│  PI                       [toggle]   │
+│  QI                       [toggle]   │
+│  SI                       [toggle]   │
+│ ──────────────────────────────────── │
+│  체크리스트 필수           [toggle]   │
+│  자주검사 완료 시에만 실적확인 가능  │
+└──────────────────────────────────────┘
+```
+
+**UI 동작 규칙**:
+
+| 조건 | 동작 |
+|------|------|
+| TM 그룹 내 `confirm_tm_enabled` | TM 실적확인 ON/OFF — 기존과 동일 |
+| TM 그룹 내 `tm_pressure_test_required` | Progress·알람에 가압검사 포함 여부 |
+| `confirm_tm_enabled = false` | 가압검사 포함 토글도 disabled + 회색 처리 |
+
+**설계 의도**:
+- "실적처리"와 "Progress/알람 trigger"의 기준이 다르다는 것을 그룹 내에서 시각적으로 구분
+- 실적처리 = 항상 Tank Module 기준 (default, 변경 불가)
+- Progress/알람 = 가압검사 포함 여부를 옵션으로 제어
+
+**FE 수정 내용** (`ProductionPerformancePage.tsx`):
+
+```tsx
+// TOGGLES를 일반 토글과 TM 그룹으로 분리
+const PROCESS_TOGGLES = [
+  { key: 'confirm_mech_enabled', label: '기구 (MECH)' },
+  { key: 'confirm_elec_enabled', label: '전장 (ELEC)' },
+];
+
+const TM_GROUP = {
+  header: 'Tank Module',
+  items: [
+    {
+      key: 'confirm_tm_enabled',
+      label: 'TM 실적확인',
+      category: '실적처리: Tank Module',       // 고정 설명
+    },
+    {
+      key: 'tm_pressure_test_required',
+      label: '가압검사 포함',
+      category: 'Progress / 알람 trigger',
+      parent: 'confirm_tm_enabled',            // TM 실적확인 ON일 때만 활성
+      description: 'ON: 가압검사 완료까지 반영 / OFF: 탱크모듈만',
+    },
+  ],
+};
+
+const REMAINING_TOGGLES = [
+  { key: 'confirm_pi_enabled', label: 'PI' },
+  { key: 'confirm_qi_enabled', label: 'QI' },
+  { key: 'confirm_si_enabled', label: 'SI' },
+];
+```
+
+**TM 그룹 렌더링**:
+```tsx
+{/* ── 일반 공정 토글 (MECH, ELEC) ── */}
+{PROCESS_TOGGLES.map(t => renderToggle(t))}
+
+{/* ── TM 그룹 박스 ── */}
+<div style={{
+  margin: '8px 0', padding: '8px',
+  border: '1px solid var(--gx-mist)',
+  borderRadius: '6px', background: 'var(--gx-snow)',
+}}>
+  <div style={{ fontSize: '11px', fontWeight: 600, marginBottom: '6px',
+                color: 'var(--gx-graphite)' }}>
+    {TM_GROUP.header}
+  </div>
+  {TM_GROUP.items.map(t => {
+    const value = (settings as Record<string, unknown>)?.[t.key] as boolean ?? false;
+    const parentEnabled = t.parent
+      ? (settings as Record<string, unknown>)?.[t.parent] as boolean ?? false
+      : true;
+    const disabled = updateMutation.isPending || !parentEnabled;
+
+    return (
+      <div key={t.key} style={{
+        display: 'flex', justifyContent: 'space-between',
+        alignItems: 'center', padding: '3px 0',
+        opacity: parentEnabled ? 1 : 0.4,
+      }}>
+        <div>
+          <div style={{ fontSize: '9px', color: 'var(--gx-silver)' }}>
+            {t.category}
+          </div>
+          <span style={{ fontSize: '12px', fontWeight: 500 }}>
+            {t.label}
+          </span>
+          {t.description && (
+            <div style={{ fontSize: '9px', color: 'var(--gx-silver)', marginTop: '1px' }}>
+              {t.description}
+            </div>
+          )}
+        </div>
+        <button onClick={() => handleToggle(t.key, value)} disabled={disabled} ... />
+      </div>
+    );
+  })}
+</div>
+
+{/* ── 나머지 공정 토글 (PI, QI, SI) ── */}
+{REMAINING_TOGGLES.map(t => renderToggle(t))}
+```
+
+**AdminSettingsResponse 타입 추가** (`api/adminSettings.ts`):
+```typescript
+export interface AdminSettingsResponse {
+  confirm_mech_enabled: boolean;
+  confirm_elec_enabled: boolean;
+  confirm_tm_enabled: boolean;
+  tm_pressure_test_required: boolean;   // ← NEW
+  confirm_pi_enabled: boolean;
+  confirm_qi_enabled: boolean;
+  confirm_si_enabled: boolean;
+  confirm_checklist_required: boolean;
+  [key: string]: unknown;
+}
+```
+
+**BE admin_settings migration**:
+```sql
+INSERT INTO admin_settings (setting_key, setting_value, description)
+VALUES ('tm_pressure_test_required', 'true', 'TM 가압검사 progress/알람 포함 여부')
+ON CONFLICT (setting_key) DO NOTHING;
+```
+
+**구현 순서**:
+1. OPS BE: `admin_settings` 테이블에 `tm_pressure_test_required` 키 추가 (migration)
+2. OPS BE: `production.py` — settings 값에 따라 TM task 필터링 분기
+3. OPS BE: 알람 핸들러 — settings 값에 따라 알람 트리거 분기
+4. VIEW FE: `AdminSettingsResponse` 타입 + ConfirmSettingsPanel UI 추가
+
+**구현 시점**: 설비 변경 확정 시. 현재는 설계만 완료.
+
+---
+
+### 37. 혼재 O/N 실적확인 협력사별 분리
+
+**보고일**: 2026-03-23
+**시급도**: 높음 — 현재 혼재 O/N의 실적확인이 협력사 구분 없이 O/N 단위로 처리됨
+**선행**: #32-B (confirmable 수정), #36 (TM TANK_MODULE only confirmable)
+
+#### 문제
+
+현재 `production_confirm`은 `(sales_order, process_type, confirmed_week)` 단위. 혼재 O/N에서 서로 다른 협력사의 실적이 구분 없이 한 번에 확인됨.
+
+**예시 — O/N 6520 (GAIA-I DUAL, 5대)**:
+
+| S/N | mech_partner | elec_partner |
+|-----|-------------|-------------|
+| GBWS-6855 | TMS | TMS |
+| GBWS-6856~6859 | FNI | C&A |
+
+현재: MECH 실적확인 1개 → TMS(1대) + FNI(4대) 한꺼번에 처리
+필요: TMS(1대), FNI(4대) 각각 별도 실적확인 (완료 날짜가 다름)
+
+#### 설계 원칙
+
+**분리 대상: MECH / ELEC / TM 모두 (혼재 시)**
+
+| 공정 | 분리 기준 | 혼재 O/N | 비혼재 O/N | 비고 |
+|------|----------|---------|----------|------|
+| MECH | `mech_partner` | partner별 버튼 | 버튼 1개 | 모든 모델 공통 |
+| ELEC | `elec_partner` | partner별 버튼 | 버튼 1개 | 모든 모델 공통 |
+| TM | `mech_partner` | partner별 버튼 | 버튼 1개 | has_docking=true만 |
+
+**TM 분리 기준이 `mech_partner`인 이유**: TM 작업은 TMS(M)이 전담하지만, O/N 내 S/N이 서로 다른 mech_partner 그룹에 속하면 TM 완료 일정이 다를 수 있음. mech_partner 그룹 단위로 실적확인을 분리해야 정산 시점이 정확.
+
+**has_docking = false 모델** (DRAGON, SWS, GALLANT): TM 행 자체가 N/A (TMS task 없음). MECH/ELEC만 적용.
+
+#### DB 스키마 변경
+
+**Migration 030: production_confirm에 partner 컬럼 추가**
+
+```sql
+BEGIN;
+
+-- 1. partner 컬럼 추가 (nullable — TM은 partner 불필요)
+ALTER TABLE plan.production_confirm
+    ADD COLUMN IF NOT EXISTS partner VARCHAR(50) DEFAULT NULL;
+
+-- 2. 기존 unique index 교체 (partner 포함)
+DROP INDEX IF EXISTS production_confirm_active_unique;
+
+CREATE UNIQUE INDEX production_confirm_active_unique
+    ON plan.production_confirm(sales_order, process_type, confirmed_week, COALESCE(partner, ''))
+    WHERE deleted_at IS NULL;
+
+-- 3. partner 검색용 인덱스
+CREATE INDEX IF NOT EXISTS idx_production_confirm_partner
+    ON plan.production_confirm(partner)
+    WHERE deleted_at IS NULL;
+
+COMMIT;
+```
+
+**설계 의도**:
+- `partner = NULL` → TM처럼 partner 구분 불필요한 공정 (기존 동작 호환)
+- `partner = 'TMS'` → 해당 협력사 S/N만의 실적확인
+- `COALESCE(partner, '')` → NULL도 unique 제약에 포함 (PostgreSQL NULL ≠ NULL 방지)
+
+#### BE API 변경 (`production.py`)
+
+**1. `confirm_production()` — partner 파라미터 추가**:
+
+```python
+# 요청 Body 변경
+# 기존: { sales_order, process_type, confirmed_week, confirmed_month }
+# 변경: { sales_order, process_type, confirmed_week, confirmed_month, partner? }
+
+partner = data.get('partner')  # nullable — 비혼재 시 None
+
+# S/N 필터: partner가 있으면 해당 partner S/N만
+# MECH, TM → mech_partner 기준 / ELEC → elec_partner 기준
+_PROC_PARTNER_COL = {'MECH': 'mech_partner', 'ELEC': 'elec_partner', 'TM': 'mech_partner'}
+
+if partner and process_type in _PROC_PARTNER_COL:
+    partner_col = _PROC_PARTNER_COL[process_type]
+    cur.execute(f"""
+        SELECT serial_number FROM plan.product_info
+        WHERE sales_order = %s AND {partner_col} = %s
+    """, (sales_order, partner))
+else:
+    cur.execute("""
+        SELECT serial_number FROM plan.product_info
+        WHERE sales_order = %s
+    """, (sales_order,))
+
+# confirmable 체크도 해당 S/N만 대상
+# INSERT에 partner 포함
+```
+
+**2. `_build_order_item()` — MECH/ELEC/TM 혼재 시 partner별 confirmable/confirmed 반환**:
+
+```python
+# MECH/ELEC/TM 혼재 분리 대상. PI/QI/SI는 기존 O/N 단위 유지.
+# partner_col 매핑: MECH, TM → mech_partner / ELEC → elec_partner
+_PROC_PARTNER_COL = {'MECH': 'mech_partner', 'ELEC': 'elec_partner', 'TM': 'mech_partner'}
+
+# 혼재 판정 + partner_confirms 생성 (MECH/ELEC만)
+if proc_key in _PROC_PARTNER_COL:
+    partner_col = _PROC_PARTNER_COL[proc_key]
+    partners = list(set(p.get(partner_col, '') for p in products))
+    is_mixed = len(partners) > 1
+
+    if is_mixed:
+        partner_confirms = []
+        for partner in sorted(partners):
+            p_sns = [p['serial_number'] for p in products if p.get(partner_col) == partner]
+            # partner별 confirmable 판정 + confirmed 조회
+            partner_confirms.append({
+                'partner': partner,
+                'sn_count': len(p_sns),
+                'confirmable': _is_process_confirmable(sns_progress, pt, settings, proc_key, p_sns),
+                'confirmed': ...,  # confirms에서 partner 키로 조회
+            })
+
+processes[proc_key] = {
+    'total': total, 'completed': completed, 'pct': ...,
+    'mixed': is_mixed,
+    'partner_confirms': partner_confirms if is_mixed else None,
+    # 비혼재 또는 TM/PI/QI/SI → 기존 구조
+    'confirmable': _is_process_confirmable(...) if not is_mixed else None,
+    'confirmed': ... if not is_mixed else None,
+}
+```
+
+**O/N 6520 MECH 응답 예시 (혼재)**:
+```json
+{
+  "total": 12, "completed": 0, "pct": 0.0,
+  "mixed": true,
+  "partner_confirms": [
+    {"partner": "FNI", "sn_count": 4, "confirmable": false, "confirmed": false},
+    {"partner": "TMS", "sn_count": 1, "confirmable": false, "confirmed": false}
+  ],
+  "confirmable": null, "confirmed": null
+}
+```
+
+**O/N 6520 TM 응답 (혼재 — mech_partner 기준 분리)**:
+```json
+{
+  "total": 8, "completed": 4, "pct": 50.0,
+  "mixed": true,
+  "partner_confirms": [
+    {"partner": "FNI", "sn_count": 4, "confirmable": false, "confirmed": false},
+    {"partner": "TMS", "sn_count": 1, "confirmable": true, "confirmed": false}
+  ],
+  "confirmable": null, "confirmed": null
+}
+```
+
+**3. `cancel_confirm()` — partner 조건 추가**:
+
+```python
+# DELETE (soft delete) 시 partner 조건 포함
+# partner=NULL인 기존 데이터도 호환
+```
+
+#### FE 변경 (`ProductionPerformancePage.tsx`)
+
+**ProcessCell — MECH/ELEC/TM 혼재 시 partner별 버튼 렌더링**:
+
+```
+비혼재 (공통):                  혼재 (MECH/ELEC/TM 공통):
+┌──────────────────────┐       ┌──────────────────────┐
+│ 6/6  ✅ 실적확인      │       │ 0/12                  │  ← 전체 합산
+│ TMS                   │       │ TMS 혼재              │
+└──────────────────────┘       │ ┌─────────────────┐  │
+                                │ │ TMS (1대) 실적확인│  │
+                                │ │ FNI (4대) 실적확인│  │
+                                │ └─────────────────┘  │
+                                └──────────────────────┘
+```
+
+**confirm API 호출 시**:
+```typescript
+// 혼재 시
+confirmMutation.mutate({
+    sales_order: '6520',
+    process_type: 'MECH',
+    partner: 'TMS',  // ← NEW
+    confirmed_week: 'W12',
+    confirmed_month: '2026-03',
+});
+```
+
+#### 구현 순서
+
+1. DB: Migration 030 실행 (partner 컬럼 + unique index 변경)
+2. BE: `confirm_production()` — partner 파라미터 + S/N 필터 + INSERT 반영
+3. BE: `cancel_confirm()` — partner 조건 추가
+4. BE: `_build_order_item()` — partner별 confirmable/confirmed 반환
+5. BE: `get_performance()` — confirms 조회에 partner 포함
+6. FE: ProcessCell — partner_confirms 렌더링 + confirm API partner 전달
+7. FE: AdminSettingsPanel — 변경 없음 (공정별 on/off는 기존 유지)
+
+#### 하위호환
+
+- 비혼재 O/N: `partner = NULL` → 기존 동작 그대로
+- TM 공정: `partner = NULL` → 항상 O/N 단위 (TMS(M) default)
+- 기존 confirmed 데이터: `partner = NULL`로 유지 — 마이그레이션 불필요
+- FE: `partner_confirms`가 없으면 기존 `confirmable/confirmed` 사용
+
+---
+
 ### 33. VIEW FE — production performance 응답 변환 필요 항목
 
 **보고일**: 2026-03-22
@@ -1955,3 +2448,216 @@ SAP 배치     → NOT_SENT 건 조회 → RFC/BAPI 호출
 ```
 
 **선제 적용 가능 항목**: `production_confirm`에 `sap_status` 컬럼만 먼저 추가 — 기존 로직 영향 없음 (DEFAULT 'NOT_SENT')
+
+---
+
+### 35. 생산실적 리스트 기준 변경 — `mech_start` → 공정 종료일 기준
+
+**보고일**: 2026-03-23
+**시급도**: 높음 — 실적확인 시점과 표시 기준 불일치
+**선행**: DB `module_end` 컬럼 추가 + ETL 적재
+
+**문제**: `GET /api/admin/production/performance` 쿼리가 `mech_start` 기준으로 제품을 필터링. W12에 착수한 O/N이 W13에 완료되면 W13 뷰에서 보이지 않아 실적확인이 불가능.
+
+**변경 내용**:
+
+| 항목 | 변경 전 | 변경 후 |
+|------|--------|--------|
+| DB | `module_end` 컬럼 없음 | `ALTER TABLE ADD COLUMN module_end DATE` + 인덱스 |
+| ETL | `module_end` 미추출 | AQ열 "모듈계획종료일" 추출 + 적재 |
+| BE 쿼리 | `WHERE mech_start >= ? AND mech_start < ?` | `WHERE (mech_end 범위) OR (elec_end 범위) OR (COALESCE(module_end, module_start) 범위)` |
+
+**설계 결정**:
+- **통합 뷰**: 탭 분리 없이 현재 페이지에서 "해당 주차에 어떤 공정이든 완료되는 O/N" 표시
+- **MECH/ELEC end 보통 비슷**: 동일 주차에 표시됨
+- **module_end 7~10일 차이**: MECH/ELEC이 W12 완료, TM이 W13 완료면 양쪽 주차에 모두 표시
+- **PI/QI/SI end 불필요**: 하루 공정, start ≈ end. 실제 완료는 `app_task_details.completed_at` 기준
+- **module_end NULL fallback**: `COALESCE(module_end, module_start)` — ETL 미적재 과도기 대응
+
+**상태**: ✅ BE 코드 수정 완료 (DB ALTER TABLE 수동 실행 필요)
+
+---
+
+#### #35 검토 피드백 (2026-03-23)
+
+**TM 공정 순서 정정**: TM(모듈)은 MECH/ELEC보다 **7~10일 먼저** 완료됨. 문서 예시 수정 필요:
+- 실제: TM W11 완료 → MECH/ELEC W12 완료 (TM이 선행)
+- 문서: "MECH/ELEC W12 완료, TM W13 완료" → 순서 반대
+
+**O/N 카운트 증가 우려**:
+
+end 기준 OR 조건이면, 한 주차에 표시되는 O/N(S/N)이 기존 대비 증가함:
+- 기존 (mech_start 기준): 해당 주에 **착수한** O/N만 표시
+- 변경 (end OR 조건): 해당 주에 **어떤 공정이든 완료되는** O/N 전부 표시
+- 예: TM end W11 + MECH/ELEC end W12인 O/N → W11, W12 **양쪽** 주차 리스트에 포함
+
+한 주차 내 중복은 없음 (SQL DISTINCT). 주차 간 중복은 의도된 동작.
+단, 리스트가 길어지면 페이지네이션 또는 공정별 탭 분류 검토 필요.
+
+**BE 쿼리 재사용 여부 확인 필요 (A안 vs B안)**:
+
+현재 생산실적(`/api/admin/production/performance`)과 생산일정(`/api/admin/factory/monthly-detail`)의 목적:
+
+| 페이지 | API 엔드포인트 | 기준 | 목적 |
+|--------|---------------|------|------|
+| 생산일정 | `GET /api/admin/factory/monthly-detail` | `mech_start` (착수일, 월 기준) | 이번 달 착수하는 O/N 일정 관리 |
+| 생산실적 | `GET /api/admin/production/performance` | 변경: `*_end` (종료일, 주 기준) | 이번 주 완료되는 O/N 실적 확인 |
+
+두 API의 **WHERE 조건이 완전히 다름** → 내부 쿼리 분리 필요:
+
+| 안 | 내용 | 장점 | 단점 |
+|---|------|------|------|
+| **A안**: 공유 쿼리 + `date_basis` 파라미터 | 기존 쿼리에 `date_basis='start'\|'end'` 파라미터 추가, 조건 분기 | 코드 중복 최소화 | 쿼리 복잡도 증가, start/end 조건이 근본적으로 다름 (start는 단일 컬럼, end는 3개 OR) |
+| **B안**: performance 전용 쿼리 분리 | `_get_performance_orders()` 별도 함수 생성, end 기준 WHERE절 독립 구성 | 각 API 쿼리가 명확, 유지보수 용이 | 쿼리 코드 일부 중복 |
+
+**권장: B안** — 생산일정과 생산실적의 WHERE 조건, JOIN, 집계 로직이 이미 상당히 다름. 분리가 깔끔함.
+
+**BE 확인 요청 사항**:
+1. `performance` 엔드포인트가 내부적으로 `factory/monthly-detail` 쿼리를 재사용하는지 여부
+2. 재사용 시 → A안/B안 중 택 1 결정
+3. 독립 쿼리 시 → #35 변경 내용 그대로 적용 (현재 상태)
+
+**FE 영향**: 없음 — `usePerformance(week)` 파라미터만 전달, 필터링은 전부 BE 쿼리 단
+
+---
+
+#### #35-B 페이지 구조 검토 — end 기준 전환 시 O/N 카운트 증가 대응 (2026-03-23)
+
+**배경**: #35 end 기준 OR 조건 전환 시 주차별 O/N 카운트가 기존(mech_start) 대비 증가함. 페이지 분류 또는 구조 변경 필요 여부 검토.
+
+**카운트 증가 시뮬레이션 (예시)**:
+
+| O/N | S/N 수 | TM end | MECH end | ELEC end | 기존(mech_start) | 변경(end OR) |
+|-----|--------|--------|----------|----------|------------------|--------------|
+| 6238 | 3대 | W11 | W12 | W12 | W11 (착수) | W11 + W12 |
+| 6400 | 5대 | W11 | W12 | W12 | W12 (착수) | W11 + W12 |
+| 6500 | 2대 | — (비GAIA) | W12 | W12 | W12 (착수) | W12 |
+
+- 기존 mech_start: W12에 O/N 2건 (6400, 6500)
+- 변경 end OR: W12에 O/N 3건 (6238, 6400, 6500) + W11에도 O/N 2건 (6238, 6400의 TM)
+- **예상 증가율**: 주차당 O/N 수 약 1.3~1.8배 (TM 해당 GAIA 비율에 따라 변동)
+
+**실제 영향도 추정 (2026-03-23 기준)**:
+- **현재 규모**: 주당 O/N **34건**, S/N **100대** (mech_start 기준)
+- **end OR 전환 시**: O/N **45~60건** 예상 (TM end가 7~10일 앞서므로 GAIA 계열 O/N이 2주차에 걸쳐 표시)
+- **스크롤**: O/N 50건 × 행 높이 50px = 2500px → 스크롤 4~6회 → **단일 테이블로는 사용성 저하**
+- **expand 시**: S/N 상세까지 펼치면 체감 길이 2~3배 → 실질적으로 관리 불가
+
+---
+
+**검토한 3가지 접근법**:
+
+**C안: 현행 통합 뷰 유지 + 페이지네이션**
+
+| 항목 | 내용 |
+|------|------|
+| 구조 | 현재 단일 테이블 유지, 페이지네이션 추가 (20건/페이지) |
+| O/N 증가 대응 | 상태 필터(전체/미완료/완료) + 페이지네이션으로 분할 |
+| KPI "주간 O/N" | end OR 조건 기준 DISTINCT O/N 수 → 실적확인 가능 건수와 일치 |
+| TM 확인 | TM 칼럼에서 인라인 확인 (현행 동일) |
+| 장점 | FE 수정 최소, 사용자 학습 비용 없음, 한 화면에서 전체 현황 파악 |
+| 단점 | 50건 이상일 때 페이지 넘기며 확인 → 전체 현황 파악이 어려움, 일괄확인 시 페이지 걸침 문제 |
+| FE 수정 | 페이지네이션 컴포넌트 추가 |
+| BE 수정 | #35 그대로 (FE 클라이언트 페이지네이션) |
+
+**A안: 공정 그룹별 탭 분리 (기구·전장 / TM)**
+
+| 항목 | 내용 |
+|------|------|
+| 구조 | `주간` 뷰 안에 `기구·전장` 탭 / `TM` 탭 추가 |
+| 기구·전장 탭 | mech_end / elec_end 기준 O/N → MECH, ELEC 확인 전용 |
+| TM 탭 | module_end 기준 O/N → TM 확인 전용 |
+| KPI "주간 O/N" | 탭별로 카운트 분리 (기구·전장 N건 / TM M건) |
+| 장점 | 각 탭 O/N 수 적어짐, 공정 담당자별 집중 |
+| 단점 | MECH 확인 + TM 확인을 동시에 봐야 하는 관리자에게 불편 (탭 전환 필요), FE 수정 중간 규모 |
+| FE 수정 | 탭 컴포넌트 추가, `usePerformance` 호출 시 `process_group` 파라미터 추가 필요 |
+| BE 수정 | #35 + `process_group` 필터 파라미터 추가 or 별도 엔드포인트 |
+
+**B안: 하이브리드 KPI (카운트 기준 분리)**
+
+| 항목 | 내용 |
+|------|------|
+| 구조 | 단일 테이블, KPI 카드만 기준 분리 |
+| 리스트 | end OR 조건 전체 O/N 표시 (C안과 동일) |
+| KPI "주간 O/N" | mech_start 기준 카운트 (착수 기준) |
+| KPI "기구/전장 확인" | mech_end/elec_end 기준 확인 가능 건수 |
+| KPI "TM 확인" | module_end 기준 확인 가능 건수 |
+| 장점 | KPI 의미가 명확 (착수 vs 완료) |
+| 단점 | "주간 O/N" 8건인데 리스트에 12건 표시 → 사용자 혼동, KPI와 리스트 기준 불일치 → 질문 유발 |
+| FE 수정 | KPI 카드 로직 변경 (별도 카운트 기준 적용) |
+| BE 수정 | summary에 `start_based_count`, `end_based_count` 이중 카운트 반환 필요 |
+
+---
+
+**권장: A안 (공정 그룹별 탭 분리)**
+
+근거 (O/N 34건, S/N 100대 기준):
+1. **O/N 수 규모가 이미 큼**: 현재 34건 → end 전환 시 45~60건 예상. C안(단일 테이블)으로는 스크롤 과다, 일괄확인 시 페이지 걸침
+2. **TM과 MECH/ELEC의 시점 차이가 큼**: TM이 7~10일 먼저 끝남 → 같은 O/N이 2주에 걸쳐 표시. 탭 분리하면 각 탭에서 **해당 공정 확인 가능한 O/N만** 표시 → 카운트 줄어듦
+3. **실제 업무 흐름에 맞음**: TM 담당자는 TM만, 기구/전장 담당자는 MECH/ELEC만 확인. 통합 뷰에서 모든 칼럼 보는 관리자보다 공정별 담당자가 주 사용자
+4. **탭별 카운트 분리 효과**:
+   - GAIA 비율 80%로 가정 (34건 중 ~27건이 TM 해당)
+   - 기구·전장 탭: mech_end/elec_end 기준 → 주당 ~34건 (현행과 비슷)
+   - TM 탭: module_end 기준 → 주당 ~27건 (TM 해당만)
+   - 통합 대비: 60건 → 각 탭 30건 내외로 분산
+5. **KPI 카드 의미 명확**: 탭 전환 시 KPI도 해당 공정 기준으로 표시 → "주간 O/N" 숫자와 리스트 일치
+
+**A안 구현 상세**:
+
+```
+┌──────────────────────────────────────────────────┐
+│  [주간 ○]  [월마감]                              │
+│                                                   │
+│  [W10] [W11] [■ W12] [W13]                       │
+│                                                   │
+│  ┌─────────────┐  ┌─────────────┐                │
+│  │ 기구·전장   │  │ TM(모듈)    │   ← 공정 탭   │
+│  └─────────────┘  └─────────────┘                │
+│                                                   │
+│  ┌─ KPI Cards (탭 기준) ────────────────────────┐│
+│  │ 주간 O/N: 34 │ 기구확인: 20/34 │ 전장: 18/34││
+│  └──────────────────────────────────────────────┘│
+│                                                   │
+│  ┌─ 테이블 (기구·전장 탭) ──────────────────────┐│
+│  │ O/N  │ 모델 │ S/N │ MECH │ ELEC │ 협력사    ││
+│  │ (TM 칼럼 숨김 — TM 탭에서만 표시)            ││
+│  └──────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────┘
+```
+
+| 탭 | WHERE 조건 | 표시 칼럼 | KPI |
+|---|---|---|---|
+| 기구·전장 | `mech_end IN week OR elec_end IN week` | O/N, 모델, S/N, MECH progress, ELEC progress, 협력사 | 주간 O/N, 기구확인, 전장확인, 월간누적(MECH+ELEC) |
+| TM(모듈) | `COALESCE(module_end, module_start) IN week` | O/N, 모델, S/N, TM progress, TM상세(TANK_MODULE/PRESSURE_TEST) | 주간 O/N(TM), TM확인, 월간누적(TM) |
+
+**BE 수정 (2가지 방식)**:
+
+| 방식 | 설명 |
+|------|------|
+| 파라미터 추가 | `GET /api/admin/production/performance?week=W12&process_group=mech_elec` or `tm` — 기존 엔드포인트에 `process_group` 필터 추가 |
+| FE 필터링 | BE는 end OR 전체 반환 (현행 #35), FE에서 탭별로 `mech_end`/`module_end` 기준 클라이언트 필터 — **BE 수정 불필요** |
+
+**권장: FE 필터링 방식** — BE는 #35 그대로, FE에서 탭 전환 시 `orders.filter()` 적용. 이유:
+- BE 추가 수정 없음 (이미 end OR 데이터를 반환)
+- 탭 전환이 즉각적 (API 재호출 불필요)
+- 일괄확인은 현재 탭에 표시된 O/N만 대상
+
+**FE 수정 범위**:
+
+| # | 파일 | 변경 내용 | 규모 |
+|---|------|----------|------|
+| 1 | `ProductionPerformancePage.tsx` | 공정 탭 UI 추가 (`activeProcessTab: 'mech_elec' \| 'tm'`) | 중 |
+| 2 | `ProductionPerformancePage.tsx` | `filteredOrders` 로직에 탭별 필터 추가 | 소 |
+| 3 | `ProductionPerformancePage.tsx` | KPI 카드 — 탭별 카운트 분기 | 소 |
+| 4 | `ProductionPerformancePage.tsx` | 테이블 헤더 — TM 탭에서는 MECH/ELEC 숨김, 기구·전장 탭에서는 TM 숨김 | 소 |
+| 5 | `types/production.ts` | `OrderGroup`에 `mech_end`, `elec_end`, `module_end` 필드 추가 (BE 응답에서 받기) | 소 |
+
+**BE 응답 필드 추가 요청** (#35 보완):
+- `orders[].mech_end`: 기구 종료일 (이미 `product_info.mech_end` 존재)
+- `orders[].elec_end`: 전장 종료일 (이미 존재)
+- `orders[].module_end`: 모듈 종료일 (#35에서 추가한 컬럼)
+- 목적: FE에서 탭별 필터 적용 시 사용
+
+**C안 대안 (탭 분리 안 할 경우)**: 페이지네이션 20건/페이지 + 미확인 우선 정렬 + expand 기본 off. 가능하지만 전체 현황 파악과 일괄확인에 불편.
+
+**B안 (하이브리드 KPI)**: KPI와 리스트 기준 불일치 문제 → O/N 34건 규모에서는 혼동 심화. 비권장.

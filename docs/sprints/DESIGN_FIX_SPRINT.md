@@ -6162,3 +6162,179 @@ else:
 - [ ] TM progress `1/2` 정상 표시 (PRESSURE_TEST 포함)
 - [ ] MECH/ELEC/PI/QI/SI confirmable 기존 동작 regression 없음
 - [ ] `confirm_production()` TM 실적확인 정상 처리 (TM→TMS 역매핑 + TANK_MODULE만 체크)
+
+---
+
+# BACKLOG: #36-C TM 가압검사 옵션 UI — ConfirmSettingsPanel + OPS BE (설비 변경 확정 시)
+
+> **참조**: OPS_API_REQUESTS.md #36-C
+> **시급도**: BACKLOG — 설비 변경으로 가압검사가 1회로 줄어드는 시점에 구현
+> **선행**: OPS BE `admin_settings` 테이블에 `tm_pressure_test_required` 키 추가 (migration)
+
+## 배경
+
+현재 TM 공정은 TANK_MODULE + PRESSURE_TEST 2개 task가 존재하며, 가압검사는 TMS(협력사) + PI(GST 내부) 2회 수행 중 (공정 안정화).
+추후 설비 변경 시 가압검사가 1회로 줄어들면, `tm_pressure_test_required` 옵션으로 progress/알람 trigger에 가압검사 포함 여부를 제어해야 함.
+
+## 설계 (확정)
+
+**ConfirmSettingsPanel UI** — TM 그룹 박스 구조 (v2):
+
+```
+┌─ 실적확인 설정 ──────────────── ✕ ─┐
+│                                      │
+│ 공정별 실적확인                      │
+│  기구 (MECH)              [toggle]   │
+│  전장 (ELEC)              [toggle]   │
+│                                      │
+│  Tank Module               ← 그룹 헤더
+│  ┌───────────────────────────────┐   │
+│  │ * 실적처리: Tank Module       │   │  ← 고정 (default, 항상 활성)
+│  │   (TM 실적확인)    [toggle]   │   │  ← confirm_tm_enabled
+│  │                               │   │
+│  │ * Progress / 알람 trigger     │   │
+│  │   가압검사 포함     [toggle]   │   │  ← tm_pressure_test_required (NEW)
+│  │   ON : 가압검사 완료까지      │   │
+│  │        progress·알람에 반영    │   │
+│  │   OFF: 탱크모듈만으로 완료    │   │
+│  └───────────────────────────────┘   │
+│                                      │
+│  PI                       [toggle]   │
+│  QI                       [toggle]   │
+│  SI                       [toggle]   │
+│ ──────────────────────────────────── │
+│  체크리스트 필수           [toggle]   │
+│  자주검사 완료 시에만 실적확인 가능  │
+└──────────────────────────────────────┘
+```
+
+**UI 동작 규칙**:
+
+| 조건 | 동작 |
+|------|------|
+| TM 그룹 내 `confirm_tm_enabled` | TM 실적확인 ON/OFF — 기존과 동일 |
+| TM 그룹 내 `tm_pressure_test_required` | Progress·알람에 가압검사 포함 여부 |
+| `confirm_tm_enabled = false` | 가압검사 포함 토글도 disabled + 회색 처리 |
+
+## Task 1 (OPS BE): `admin_settings` migration
+
+```sql
+INSERT INTO admin_settings (setting_key, setting_value, description)
+VALUES ('tm_pressure_test_required', 'true', 'TM 가압검사 progress/알람 포함 여부')
+ON CONFLICT (setting_key) DO NOTHING;
+```
+
+- default `true` (현재 동작 유지 — 가압검사 포함)
+
+---
+
+## Task 2 (OPS BE): `production.py` — settings 기반 TM task 필터링
+
+`_build_order_item()` 내 progress 집계에서 `tm_pressure_test_required=false` 시 TANK_MODULE만 합산.
+`_calc_sn_progress()` 결과의 `tasks` dict에서 분기.
+
+---
+
+## Task 3 (OPS BE): 알람 핸들러 — settings 기반 트리거 분기
+
+현재: TM 2/2 (TANK_MODULE + PRESSURE_TEST 둘 다 완료) → mech_partner 알람.
+변경: `tm_pressure_test_required=false` 시 TANK_MODULE만 완료 → 알람 트리거.
+
+---
+
+## Task 4 (VIEW FE): `AdminSettingsResponse` 타입 추가
+
+**파일**: `app/src/api/adminSettings.ts`
+
+```typescript
+export interface AdminSettingsResponse {
+  confirm_mech_enabled: boolean;
+  confirm_elec_enabled: boolean;
+  confirm_tm_enabled: boolean;
+  tm_pressure_test_required: boolean;   // ← NEW
+  confirm_pi_enabled: boolean;
+  confirm_qi_enabled: boolean;
+  confirm_si_enabled: boolean;
+  confirm_checklist_required: boolean;
+  [key: string]: unknown;
+}
+```
+
+---
+
+## Task 5 (VIEW FE): ConfirmSettingsPanel — TM 그룹 박스 UI
+
+**파일**: `app/src/pages/production/ProductionPerformancePage.tsx`
+
+TOGGLES 배열을 3개로 분리 + TM 그룹 박스 렌더링:
+
+```tsx
+const PROCESS_TOGGLES = [
+  { key: 'confirm_mech_enabled', label: '기구 (MECH)' },
+  { key: 'confirm_elec_enabled', label: '전장 (ELEC)' },
+];
+
+const TM_GROUP = {
+  header: 'Tank Module',
+  items: [
+    {
+      key: 'confirm_tm_enabled',
+      label: 'TM 실적확인',
+      category: '실적처리: Tank Module',
+    },
+    {
+      key: 'tm_pressure_test_required',
+      label: '가압검사 포함',
+      category: 'Progress / 알람 trigger',
+      parent: 'confirm_tm_enabled',
+      description: 'ON: 가압검사 완료까지 반영 / OFF: 탱크모듈만',
+    },
+  ],
+};
+
+const REMAINING_TOGGLES = [
+  { key: 'confirm_pi_enabled', label: 'PI' },
+  { key: 'confirm_qi_enabled', label: 'QI' },
+  { key: 'confirm_si_enabled', label: 'SI' },
+];
+```
+
+TM 그룹 박스 렌더링: `border: 1px solid var(--gx-mist)`, `borderRadius: 6px`, `background: var(--gx-snow)`, 그룹 헤더(`color: var(--gx-graphite)`) + items 반복, parent 의존성 disabled/opacity 처리.
+
+> **참고**: G-AXIS Design System 토큰 사용 — `var(--gx-border)`, `var(--gx-bg-subtle)` 등은 존재하지 않으므로 `var(--gx-mist)`, `var(--gx-snow)`, `var(--gx-graphite)` 등을 사용할 것.
+
+---
+
+## Task 6: 테스트 + 빌드
+
+- [ ] `utils/productionFilters.test.ts` — `isProcessEnabled`에 `tm_pressure_test_required` 케이스 추가
+- [ ] TM 그룹 렌더링 — parent disabled 상태 검증
+- [ ] `npm run build` 통과
+- [ ] `npm run test` regression 통과
+
+---
+
+## 구현 순서
+
+1. OPS BE: Task 1 (migration) → Task 2 (progress 분기) → Task 3 (알람 분기)
+2. VIEW FE: Task 4 (타입) → Task 5 (UI) → Task 6 (테스트)
+
+## 체크리스트
+
+**OPS BE**:
+- [ ] `admin_settings` migration — `tm_pressure_test_required` 키 추가
+- [ ] `production.py` — settings 기반 TM task 필터링 분기
+- [ ] 알람 핸들러 — settings 기반 트리거 분기
+
+**VIEW FE**:
+- [ ] `AdminSettingsResponse` 타입 추가
+- [ ] ConfirmSettingsPanel — TM 그룹 박스 UI (PROCESS_TOGGLES / TM_GROUP / REMAINING_TOGGLES)
+- [ ] parent 의존성 — `confirm_tm_enabled=false` 시 가압검사 토글 disabled
+- [ ] 테스트 추가 + regression 통과
+- [ ] 빌드 통과
+
+## ⚠️ 금지 사항
+
+- 설비 변경 확정 전 구현 금지 (BACKLOG)
+- 실적처리 기준 변경 금지 (항상 TANK_MODULE)
+- 기존 ConfirmSettingsPanel 외 위치에 옵션 추가 금지
