@@ -6363,13 +6363,13 @@ const mechReadyInTab = tabOrders.filter(o => {
 
 ## Task 6: 테스트 + 빌드
 
-- [ ] `npm run build` 통과
-- [ ] `npm run test` regression 통과
-- [ ] ProcessCell 혼재 렌더링 — partner_confirms 배열 순회 + 개별 버튼
-- [ ] ProcessCell 비혼재 — 기존 동작 유지 (partner_confirms=null)
-- [ ] handleConfirm partner 전달 정상
-- [ ] handleBatchConfirm 혼재 제외 정상
-- [ ] 탭 헤더 카운트 혼재 반영
+- [x] `npm run build` 통과
+- [x] `npm run test` regression 통과 (20/20)
+- [x] ProcessCell 혼재 렌더링 — partner_confirms 배열 순회 + 개별 버튼
+- [x] ProcessCell 비혼재 — 기존 동작 유지 (partner_confirms=null)
+- [x] handleConfirm partner 전달 정상
+- [x] handleBatchConfirm 혼재 제외 정상
+- [x] 탭 헤더 카운트 혼재 반영
 
 ---
 
