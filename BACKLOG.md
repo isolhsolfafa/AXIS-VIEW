@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-22 (v1.7.4 — 생산실적 BE-FE 키 매핑 수정)
+> 마지막 업데이트: 2026-03-23 (v1.10.0 — Sprint 13 공정 그룹 탭 분리)
 > 이 파일은 보류/재검토/계획/아이디어를 한 곳에서 관리합니다.
 > 완료된 항목은 PROGRESS.md로 이동합니다.
 
@@ -33,6 +33,8 @@
 | TASK-21 | 차트 주간/월간 탭 로직 | 🔄 FE 완료 | v1.7.3 — 라인 차트 UI 구현. BE trend API 연동 대기 (OPS_API_REQUESTS #29 PENDING) |
 | TASK-22 | 퇴근 미체크 전체/본사/현장 필터 | ✅ 완료 | v1.7.3 — `activeCheckoutTab` state + `work_site` 기반 필터링. FE 단독 구현 |
 | TASK-23 | 생산실적 BE-FE 키 매핑 수정 | 🔄 FE 완료 | v1.7.4 — `process_status`→`processes` 변경. BE TMS→TM 매핑 대기 (OPS_API_REQUESTS #32) |
+| TASK-24 | 생산실적 공정 그룹 탭 분리 | ✅ 완료 | v1.10.0 Sprint 13 — 기구·전장 / TM 탭 + tabOrders 필터 + KPI/테이블/일괄확인 탭별 분기 + vitest 17 tests |
+| TASK-25 | #36-C TM 가압검사 옵션 UI | ⏳ BACKLOG | ConfirmSettingsPanel TM 그룹 박스 UI. OPS BE migration 선행 필요 (설비 변경 확정 시) |
 
 ---
 
@@ -120,6 +122,12 @@
 - **신규 페이지**: 생산실적(O/N 주간확인+월마감), 출하이력(스켈레톤)
 - **리다이렉트**: `/plan` → `/production/plan`
 
+### #36-C: TM 가압검사 옵션 UI — ⏳ BACKLOG (설비 변경 확정 시)
+- **내용**: ConfirmSettingsPanel에 TM 그룹 박스 추가 — `tm_pressure_test_required` 토글
+- **선행**: OPS BE `admin_settings` migration + `production.py` progress 분기 + 알람 핸들러 분기
+- **설계**: DESIGN_FIX_SPRINT.md BACKLOG 섹션 참조
+- **시기**: 설비 변경으로 가압검사 1회 전환 시
+
 ### Phase 6: WebSocket 실시간 업데이트
 - **내용**: 출퇴근 시간대에 실시간 push로 대시보드 자동 갱신
 - **현재**: 설정 메뉴에서 1분/3분/5분 polling 방식
@@ -175,3 +183,4 @@
 | v1.7.0 | 공장 API 실데이터 연동 + 대시보드/생산일정 리팩토링 (OPS Sprint 29) | ✅ 완료 |
 | v1.7.1 | 공장 대시보드 자동 새로고침(10분/근무시간) + 근태 근무지 컬럼 | ✅ 완료 |
 | v1.7.4 | 생산실적 BE-FE 키 매핑 (process_status→processes) + BE TMS→TM 대기 | 🔄 FE 완료 |
+| v1.10.0 | Sprint 13 — 공정 그룹 탭 분리 (기구·전장 / TM) + vitest 테스트 환경 | ✅ 완료 |
