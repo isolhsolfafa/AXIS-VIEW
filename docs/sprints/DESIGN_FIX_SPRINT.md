@@ -6052,21 +6052,23 @@ cd app && npm run build && npm run test
 - [ ] 월마감 뷰 — 탭 영향 없음 (기존 그대로)
 - [ ] 모바일/반응형 — 탭 UI 줄바꿈 정상
 
-## Regression 테스트 규칙 (이후 모든 스프린트 적용)
-
-> 1. 스프린트에서 변경하는 로직의 테스트를 해당 스프린트 Task에 포함
-> 2. 기존 로직은 순수 함수로 추출 → `utils/` 하위에 배치
-> 3. 스프린트 완료 시 `npm run test` 전체 실행 — 기존 테스트 포함 regression
-> 4. 테스트 실패 시 해당 스프린트에서 수정 후 머지
-> 5. BE API 호출은 mock — DB/BE 무영향
-
-## ⚠️ 금지 사항
-
-- BE 코드 수정 금지 (BE는 #35 그대로, FE 필터링 방식)
-- 월마감 뷰 변경 금지
-- 실적확인 로직(confirm/cancel) 변경 금지
-- `api/production.ts` 변환 로직 변경 금지
-- 테스트에서 실제 API 호출 금지 (mock only)
+## 규칙 — Sprint 13
+- G-AXIS Design System 토큰 사용 — `var(--gx-mist)`, `var(--gx-snow)`, `var(--gx-cloud)`, `var(--gx-accent)` 등 (존재하지 않는 토큰 사용 금지)
+- `types/production.ts`의 `OrderGroup` 인터페이스에 `mech_end`, `elec_end`, `module_end` 추가 — BE #35 응답 필드와 정확히 일치시킬 것
+- `tabOrders` 필터는 `processes` 존재 여부로 분기 — BE가 이미 해당 주차 데이터만 반환하므로 FE에서 날짜 파싱 불필요
+- KPI 산출 변수는 반드시 `tabOrders` 기반으로 재계산 — 기존 `orders` 기반 변수와 혼용 금지
+- 순수 로직은 `utils/productionFilters.ts`로 추출 — 페이지 컴포넌트 내 인라인 로직 최소화
+- 스프린트에서 변경하는 로직의 테스트를 해당 스프린트 Task에 포함
+- 스프린트 완료 시 `npm run test` 전체 실행 — 기존 테스트 포함 regression
+- 테스트 실패 시 해당 스프린트에서 수정 후 머지
+- ⚠️ BE 코드 수정 금지 — BE는 #35 그대로, FE 필터링 방식. 변경 필요 시 OPS_API_REQUESTS.md로 요청 전달
+- ⚠️ 월마감 뷰 변경 금지 — 공정 탭은 주간 뷰에만 적용
+- ⚠️ 실적확인 로직(confirm/cancel) 변경 금지 — `handleConfirm`, `handleBatchConfirm` 시그니처만 변경 허용
+- ⚠️ `api/production.ts` 변환 로직 변경 금지 — partner_info, confirms 변환은 Sprint 14에서 진행
+- ⚠️ `ConfirmSettingsPanel` 변경 금지 — Sprint 15에서 진행
+- ⚠️ 테스트에서 실제 API 호출 금지 (mock only — DB/BE 무영향)
+- ⚠️ `.env` 파일 절대 커밋 금지
+- 완료 시 DESIGN_FIX_SPRINT.md 체크리스트 업데이트
 
 ---
 
@@ -6165,11 +6167,262 @@ else:
 
 ---
 
-# BACKLOG: #36-C TM 가압검사 옵션 UI — ConfirmSettingsPanel + OPS BE (설비 변경 확정 시)
+# Sprint 14: 혼재 O/N partner별 실적확인 UI (#37) ✅ 완료
+
+> **참조**: OPS_API_REQUESTS.md #37, AXIS-OPS AGENT_TEAM_LAUNCH.md Sprint 37
+> **선행**: OPS BE Sprint 37 완료 (partner별 confirm API + partner_confirms 응답)
+> **대상**: `ProductionPerformancePage.tsx`, `types/production.ts`
+
+## 배경
+
+혼재 O/N(같은 주문에 MECH/ELEC/TM 협력사가 2개 이상 혼합)에서 실적확인을 partner별로 분리.
+현재 ProcessCell은 O/N 단위 실적확인 버튼 1개 → 혼재 시 partner별 개별 버튼으로 변경.
+
+BE API 응답 변경점:
+- `processes.MECH` 등에 `mixed: boolean`, `partner_confirms: PartnerConfirm[] | null` 추가
+- 비혼재: `mixed=false`, `partner_confirms=null` → 기존 `confirmable/confirmed` 사용
+- 혼재: `mixed=true`, `partner_confirms` 배열 → partner별 `confirmable/confirmed` 개별 관리
+
+## Task 1: 타입 추가 (`types/production.ts`)
+
+```typescript
+export interface PartnerConfirm {
+  partner: string;           // 'TMS', 'FNI' 등
+  sn_count: number;
+  total: number;
+  completed: number;
+  confirmable: boolean;
+  confirmed: boolean;
+  confirmed_at: string | null;
+  confirm_id: number | null;
+}
+
+export interface ProcessStatus {
+  ready: number;
+  total: number;
+  completed?: number;
+  pct?: number;
+  checklist_ready?: number;
+  confirmable: boolean;
+  confirmed?: boolean;
+  confirmed_at?: string | null;
+  confirmed_by?: string | null;
+  confirm_id?: number | null;
+  mixed?: boolean;                          // ← NEW
+  partner_confirms?: PartnerConfirm[] | null; // ← NEW
+}
+
+export interface ConfirmRequest {
+  sales_order: string;
+  process_type: 'MECH' | 'ELEC' | 'TM';
+  partner?: string | null;    // ← NEW (혼재 시 partner 지정)
+  confirmed_week: string;
+  confirmed_month: string;
+}
+
+export interface CancelConfirmResponse {
+  success: boolean;
+  deleted_id: number;
+  sales_order: string;
+  process_type: string;
+  confirmed_week: string;
+  partner?: string | null;    // ← NEW
+}
+```
+
+---
+
+## Task 2: ProcessCell 컴포넌트 수정
+
+현재: `onConfirm: () => void` — O/N 단위 1개 버튼
+변경: 혼재 시 `partner_confirms` 배열 순회하여 partner별 버튼 렌더링
+
+**Props 변경**:
+```typescript
+function ProcessCell({ processType, processStatus, confirms, partnerDisplay, mixed, onConfirm, confirmPending, enabled = true }: {
+  processType: 'MECH' | 'ELEC' | 'TM';
+  processStatus: ProcessStatus;  // ← mixed, partner_confirms 포함
+  confirms: ConfirmRecord[];
+  partnerDisplay: string;
+  mixed: boolean;
+  onConfirm: (partner?: string) => void;  // ← partner 파라미터 추가
+  confirmPending: boolean;
+  enabled?: boolean;
+})
+```
+
+**렌더링 분기**:
+
+```
+비혼재 (기존 유지):                혼재 (partner_confirms 렌더링):
+┌──────────────────────┐          ┌──────────────────────────┐
+│ 6/6  ✅ 확인          │          │ 0/12                      │  ← 전체 합산 (ready/total)
+│ TMS                   │          │ TMS 혼재                  │
+└──────────────────────┘          │ ┌────────────────────┐    │
+                                   │ │ TMS (1대) [실적확인]│    │  ← partner_confirms[0]
+                                   │ │ FNI (4대)  ✅ 확인  │    │  ← partner_confirms[1]
+                                   │ └────────────────────┘    │
+                                   └──────────────────────────┘
+```
+
+**혼재 시 partner별 버튼 로직**:
+- `partner_confirms` 순회
+- 각 partner: `confirmable=true` && `confirmed=false` → 실적확인 버튼 표시
+- 각 partner: `confirmed=true` → ✅ 확인 배지 표시
+- 버튼 클릭 시 `onConfirm(partner.partner)` 호출
+
+---
+
+## Task 3: handleConfirm / handleBatchConfirm 수정
+
+**handleConfirm**:
+```typescript
+const handleConfirm = (salesOrder: string, processType: 'MECH' | 'ELEC' | 'TM', partner?: string) => {
+  confirmMutation.mutate({
+    sales_order: salesOrder,
+    process_type: processType,
+    partner: partner ?? null,   // ← NEW
+    confirmed_week: perfData?.week ?? '',
+    confirmed_month: perfData?.month ?? '',
+  });
+};
+```
+
+**handleBatchConfirm**: 혼재 O/N은 일괄 확인 대상에서 제외 (partner별 개별 확인 필요)
+```typescript
+const handleBatchConfirm = async (processType: 'MECH' | 'ELEC' | 'TM') => {
+  const confirmable = tabOrders.filter(o => {
+    const proc = o.processes[processType];
+    if (!proc) return false;
+    // 혼재 O/N은 일괄 확인 제외 — partner별 개별 확인 필요
+    if (proc.mixed && proc.partner_confirms) return false;
+    return proc.confirmable && !(o.confirms ?? []).some(c => c.process_type === processType);
+  });
+  // ... 기존 로직
+};
+```
+
+---
+
+## Task 4: ProcessCell 호출부 수정 (`<ProcessCell>` props)
+
+**MECH/ELEC** (line 606~625):
+```tsx
+<ProcessCell
+  processType="MECH"
+  processStatus={(order.processes?.MECH ?? { ready: 0, total: 0, confirmable: false })}
+  confirms={order.confirms ?? []}
+  partnerDisplay={(order.partner_info?.mech ?? '—')}
+  mixed={(order.processes?.MECH?.mixed ?? false)}   // ← partner_info.mixed → processes.MECH.mixed
+  onConfirm={(partner) => handleConfirm(order.sales_order, 'MECH', partner)}  // ← partner 전달
+  confirmPending={confirmMutation.isPending}
+  enabled={isProcessEnabled('MECH')}
+/>
+```
+
+**TM** (line 630~639):
+```tsx
+<ProcessCell
+  processType="TM"
+  processStatus={(order.processes?.TM ?? { ready: 0, total: 0, confirmable: false })}
+  confirms={order.confirms ?? []}
+  partnerDisplay=""
+  mixed={(order.processes?.TM?.mixed ?? false)}   // ← BE에서 TM 혼재 판정
+  onConfirm={(partner) => handleConfirm(order.sales_order, 'TM', partner)}  // ← partner 전달
+  confirmPending={confirmMutation.isPending}
+  enabled={isProcessEnabled('TM')}
+/>
+```
+
+주의: `mixed` 값을 `order.partner_info.mixed`가 아닌 `order.processes.{proc}.mixed`에서 가져옴 — BE가 공정별 mixed 판정을 내려줌.
+
+---
+
+## Task 5: 탭 헤더 confirmable 카운트 수정
+
+현재 (line 299~302):
+```typescript
+const mechReadyInTab = tabOrders.filter(o => o.processes?.MECH?.confirmable && ...).length;
+```
+
+혼재 O/N: `confirmable=null` (개별은 `partner_confirms`에 있음) → 카운트 로직 수정 필요
+
+```typescript
+const mechReadyInTab = tabOrders.filter(o => {
+  const proc = o.processes?.MECH;
+  if (!proc) return false;
+  if (proc.mixed && proc.partner_confirms) {
+    // 혼재: partner 중 하나라도 confirmable이면 카운트
+    return proc.partner_confirms.some(pc => pc.confirmable && !pc.confirmed);
+  }
+  return proc.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'MECH');
+}).length;
+```
+
+---
+
+## Task 6: 테스트 + 빌드
+
+- [ ] `npm run build` 통과
+- [ ] `npm run test` regression 통과
+- [ ] ProcessCell 혼재 렌더링 — partner_confirms 배열 순회 + 개별 버튼
+- [ ] ProcessCell 비혼재 — 기존 동작 유지 (partner_confirms=null)
+- [ ] handleConfirm partner 전달 정상
+- [ ] handleBatchConfirm 혼재 제외 정상
+- [ ] 탭 헤더 카운트 혼재 반영
+
+---
+
+## 체크리스트
+
+**FE (완료)**:
+- [x] `types/production.ts` — `PartnerConfirm` 인터페이스 + `ProcessStatus` mixed/partner_confirms 추가
+- [x] `types/production.ts` — `ConfirmRequest` partner 필드 추가
+- [x] `ProcessCell` — 혼재 시 partner별 버튼 렌더링 분기
+- [x] `handleConfirm()` — partner 파라미터 전달
+- [x] `handleBatchConfirm()` — 혼재 O/N 제외
+- [x] `ProcessCell` 호출부 — `mixed` props를 `processes.{proc}.mixed`에서 가져오기
+- [x] 탭 헤더 confirmable 카운트 — 혼재 partner_confirms 반영
+- [x] 테스트 + 빌드 통과
+
+**검증 (배포 후 실기기)**:
+- [ ] 🔴 혼재 O/N(6520 GAIA-I) — MECH에서 TMS/FNI partner별 버튼 개별 표시
+- [ ] 🔴 partner별 실적확인 클릭 → 해당 partner만 confirmed 처리
+- [ ] 🔴 TM 혼재 시 partner별 분리 표시
+- [ ] 비혼재 O/N — 기존 단일 버튼 유지
+- [ ] 일괄 실적확인 — 혼재 O/N 제외 동작
+- [ ] 탭 헤더 카운트 정상
+
+## 규칙 — Sprint 14
+- `types/production.ts`의 `ProcessStatus`에 `mixed`, `partner_confirms` 필드 이미 추가됨 — 타입 중복 선언 금지
+- `types/production.ts`의 `ConfirmRequest`에 `partner` 필드 이미 추가됨 — 타입 중복 선언 금지
+- `types/production.ts`의 `CancelConfirmResponse`에 `partner` 필드 이미 추가됨 — 타입 중복 선언 금지
+- `mixed` 판정은 BE `processes.{proc}.mixed`에서 가져옴 — `order.partner_info.mixed`와 혼동 금지 (partner_info.mixed는 O/N 레벨, processes.mixed는 공정 레벨)
+- `partner_confirms=null`이면 기존 `confirmable/confirmed` 사용 — 하위호환 필수
+- confirm API 호출 시 비혼재는 `partner: null`, 혼재는 `partner: 'TMS'` 등 명시적 전달
+- 일괄확인(`handleBatchConfirm`)은 혼재 O/N 제외 — partner별 개별 확인 필요하므로 일괄 대상에서 자동 제외
+- 혼재 ProcessCell 렌더링: partner_confirms 배열 순회 → 각 partner에 개별 버튼/배지 표시
+- G-AXIS Design System 토큰 사용 — `var(--gx-mist)`, `var(--gx-snow)`, `var(--gx-graphite)` 등 (존재하지 않는 토큰 사용 금지)
+- Sprint 13에서 추출한 `utils/productionFilters.ts`에 혼재 관련 함수 추가 시 기존 함수 시그니처 변경 금지
+- 스프린트에서 변경하는 로직의 테스트를 해당 스프린트 Task에 포함
+- 스프린트 완료 시 `npm run test` 전체 실행 — 기존 테스트 포함 regression
+- 테스트 실패 시 해당 스프린트에서 수정 후 머지
+- ⚠️ BE 코드 수정 금지 — OPS Sprint 37에서 진행. 변경 필요 시 OPS_API_REQUESTS.md로 요청 전달
+- ⚠️ `utils/productionFilters.ts`의 기존 함수(`filterByProcessTab`, `filterByStatus`, `calcTabKpi`, `isProcessEnabled`) 시그니처 변경 금지
+- ⚠️ `ConfirmSettingsPanel` 변경 금지 — Sprint 15에서 진행
+- ⚠️ 월마감 뷰 변경 금지
+- ⚠️ 테스트에서 실제 API 호출 금지 (mock only — DB/BE 무영향)
+- ⚠️ `.env` 파일 절대 커밋 금지
+- 완료 시 DESIGN_FIX_SPRINT.md 체크리스트 업데이트
+
+---
+
+# Sprint 15 (VIEW + OPS BE): #36-C TM 가압검사 옵션 — ConfirmSettingsPanel + BE 분기 (2026-03-23)
 
 > **참조**: OPS_API_REQUESTS.md #36-C
-> **시급도**: BACKLOG — 설비 변경으로 가압검사가 1회로 줄어드는 시점에 구현
+> **목적**: 추후 설비 변경 시 코드 배포 없이 admin 설정만으로 가압검사 포함 여부를 제어할 수 있도록 **미리 구현**
 > **선행**: OPS BE `admin_settings` 테이블에 `tm_pressure_test_required` 키 추가 (migration)
+> **default**: `true` (현재 동작 유지 — 가압검사 포함). 설비 변경 시 admin이 `false`로 토글 → 배포 불필요
 
 ## 배경
 
@@ -6333,8 +6586,26 @@ TM 그룹 박스 렌더링: `border: 1px solid var(--gx-mist)`, `borderRadius: 6
 - [ ] 테스트 추가 + regression 통과
 - [ ] 빌드 통과
 
-## ⚠️ 금지 사항
-
-- 설비 변경 확정 전 구현 금지 (BACKLOG)
-- 실적처리 기준 변경 금지 (항상 TANK_MODULE)
-- 기존 ConfirmSettingsPanel 외 위치에 옵션 추가 금지
+## 규칙 — Sprint 15
+- `admin_settings` 컬럼은 `setting_key`, `setting_value`, `description` (NOT `key`, `value`) — OPS CLAUDE.md "DB 테이블 정확한 컬럼 명세" 참조
+- OPS BE migration: `INSERT INTO admin_settings (setting_key, setting_value) VALUES ('tm_pressure_test_required', 'true')` — default `true` = 현재 동작 유지
+- `tm_pressure_test_required` 옵션은 progress 산출 + 알람 트리거 **두 가지를 동시에** 제어하는 단일 boolean
+- 실적처리 기준은 항상 TANK_MODULE — `tm_pressure_test_required` 옵션과 무관하게 confirmable = TANK_MODULE only
+- ConfirmSettingsPanel에서 TOGGLES 배열을 `PROCESS_TOGGLES` / `TM_GROUP` / `REMAINING_TOGGLES` 3개로 분리
+- TM 그룹 박스 내 `tm_pressure_test_required` 토글은 `confirm_tm_enabled`가 parent — parent OFF 시 disabled + opacity 0.4
+- G-AXIS Design System 토큰 사용 — `var(--gx-mist)`, `var(--gx-snow)`, `var(--gx-graphite)` 등 (존재하지 않는 토큰 사용 금지)
+- `AdminSettingsResponse` 타입에 `tm_pressure_test_required: boolean` 추가
+- BE에서 `tm_pressure_test_required=false` 시: `_build_order_item()` progress 집계를 TANK_MODULE만 합산, 알람 트리거를 TANK_MODULE만 체크
+- 스프린트에서 변경하는 로직의 테스트를 해당 스프린트 Task에 포함
+- 스프린트 완료 시 `npm run test` 전체 실행 — 기존 테스트 포함 regression
+- 테스트 실패 시 해당 스프린트에서 수정 후 머지
+- ⚠️ `_calc_sn_progress()` 수정 금지 — Sprint 12(#36)에서 task_id 레벨로 확장 완료
+- ⚠️ `_is_process_confirmable()` 수정 금지 — Sprint 12(#36)에서 TANK_MODULE only 분기 완료
+- ⚠️ `_CONFIRM_TASK_FILTER` 수정 금지
+- ⚠️ 실적처리 기준 변경 금지 (항상 TANK_MODULE — 옵션과 무관)
+- ⚠️ 기존 ConfirmSettingsPanel 외 위치에 옵션 추가 금지
+- ⚠️ default 값 `true` 변경 금지 (현재 동작 유지가 기본)
+- ⚠️ Sprint 13에서 추출한 `utils/productionFilters.ts` 기존 함수 시그니처 변경 금지
+- ⚠️ 테스트에서 실제 API 호출 금지 (mock only — DB/BE 무영향)
+- ⚠️ `.env` 파일 절대 커밋 금지
+- 완료 시 DESIGN_FIX_SPRINT.md 체크리스트 업데이트

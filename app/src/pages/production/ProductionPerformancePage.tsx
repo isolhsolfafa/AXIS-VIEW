@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Layout from '@/components/layout/Layout';
 import { usePerformance, useMonthlySummary, useConfirmProduction, useCancelConfirm } from '@/hooks/useProduction';
-import type { ConfirmRecord } from '@/types/production';
+import type { ConfirmRecord, ProcessStatus } from '@/types/production';
 import { useAuth } from '@/store/authStore';
 import { useAdminSettings, useUpdateAdminSettings } from '@/hooks/useAdminSettings';
 
@@ -131,23 +131,23 @@ function ConfirmSettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 /* ─── ProcessCell — 공정별 인라인 확인 셀 ──────────── */
 function ProcessCell({ processType, processStatus, confirms, partnerDisplay, mixed, onConfirm, confirmPending, enabled = true }: {
   processType: 'MECH' | 'ELEC' | 'TM';
-  processStatus: { ready: number; total: number; confirmable: boolean };
+  processStatus: ProcessStatus;
   confirms: ConfirmRecord[];
   partnerDisplay: string;
   mixed: boolean;
-  onConfirm: () => void;
+  onConfirm: (partner?: string) => void;
   confirmPending: boolean;
   enabled?: boolean;
 }) {
   const confirm = confirms.find(c => c.process_type === processType);
   const allDone = processStatus.ready === processStatus.total && processStatus.total > 0;
+  const isMixed = processStatus.mixed && processStatus.partner_confirms;
 
   if (processStatus.total === 0) {
     return (
       <td style={{ padding: '12px 14px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <span style={{ fontSize: '11px', color: 'var(--gx-silver)', fontStyle: 'italic' }}>N/A</span>
-          {/* N/A 상태에서도 협력사 + 혼재 마크 표시 */}
           {partnerDisplay && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
               <span style={{ fontSize: '10px', color: 'var(--gx-steel)' }}>{partnerDisplay}</span>
@@ -179,10 +179,72 @@ function ProcessCell({ processType, processStatus, confirms, partnerDisplay, mix
     );
   }
 
+  // 혼재 O/N — partner별 개별 버튼 렌더링
+  if (isMixed && processStatus.partner_confirms) {
+    return (
+      <td style={{ padding: '12px 14px', minWidth: '160px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {/* 전체 합산 카운트 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '13px', fontWeight: 700,
+              color: allDone ? 'var(--gx-success)' : 'var(--gx-accent)',
+            }}>
+              {processStatus.ready}/{processStatus.total}
+            </span>
+            {partnerDisplay && (
+              <span style={{
+                fontSize: '7.5px', fontWeight: 700, padding: '1px 4px', borderRadius: '3px',
+                background: 'rgba(245,158,11,0.1)', color: 'var(--gx-warning)',
+              }}>혼재</span>
+            )}
+          </div>
+          {/* partner별 확인 버튼 */}
+          <div style={{
+            display: 'flex', flexDirection: 'column', gap: '4px',
+            padding: '6px 8px', borderRadius: '6px',
+            background: 'var(--gx-snow)', border: '1px solid var(--gx-mist)',
+          }}>
+            {processStatus.partner_confirms.map(pc => (
+              <div key={pc.partner} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--gx-graphite)' }}>{pc.partner}</span>
+                  <span style={{ fontSize: '9px', color: 'var(--gx-steel)', fontFamily: "'JetBrains Mono', monospace" }}>({pc.sn_count}대)</span>
+                </div>
+                {pc.confirmed ? (
+                  <span style={{
+                    fontSize: '8px', fontWeight: 600, padding: '1px 6px', borderRadius: '6px',
+                    background: 'rgba(16,185,129,0.08)', color: 'var(--gx-success)',
+                    display: 'inline-flex', alignItems: 'center', gap: '2px',
+                  }}>&#10003; 확인</span>
+                ) : pc.confirmable ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onConfirm(pc.partner); }}
+                    disabled={confirmPending}
+                    style={{
+                      fontSize: '8px', fontWeight: 600, padding: '2px 8px', borderRadius: '6px',
+                      background: 'var(--gx-accent)', color: '#fff',
+                      border: 'none', cursor: confirmPending ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 1px 3px rgba(99,102,241,0.3)',
+                      opacity: confirmPending ? 0.6 : 1,
+                    }}
+                  >확인</button>
+                ) : (
+                  <span style={{ fontSize: '8px', color: 'var(--gx-silver)' }}>대기</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </td>
+    );
+  }
+
+  // 비혼재 — 기존 단일 버튼
   return (
     <td style={{ padding: '12px 14px', minWidth: '140px' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        {/* 완료 카운트 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{
             fontFamily: "'JetBrains Mono', monospace",
@@ -192,7 +254,6 @@ function ProcessCell({ processType, processStatus, confirms, partnerDisplay, mix
             {processStatus.ready}/{processStatus.total}
           </span>
 
-          {/* 확인 버튼/상태 */}
           {confirm ? (
             <span style={{
               fontSize: '9px', fontWeight: 600, padding: '2px 8px', borderRadius: '8px',
@@ -219,7 +280,6 @@ function ProcessCell({ processType, processStatus, confirms, partnerDisplay, mix
           ) : null}
         </div>
 
-        {/* 협력사 */}
         {partnerDisplay && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
             <span style={{ fontSize: '10px', color: 'var(--gx-steel)' }}>{partnerDisplay}</span>
@@ -232,7 +292,6 @@ function ProcessCell({ processType, processStatus, confirms, partnerDisplay, mix
           </div>
         )}
 
-        {/* 확인 이력 */}
         {confirm && (
           <span style={{ fontSize: '8.5px', color: 'var(--gx-silver)', fontFamily: "'JetBrains Mono', monospace" }}>
             {confirm.confirmed_by} · {confirm.confirmed_at?.slice(5, 16)}
@@ -296,10 +355,31 @@ export default function ProductionPerformancePage() {
   // 탭별 KPI 산출
   const mechConfirmedInTab = tabOrders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'MECH')).length;
   const elecConfirmedInTab = tabOrders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'ELEC')).length;
-  const mechReadyInTab = tabOrders.filter(o => o.processes?.MECH?.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'MECH')).length;
-  const elecReadyInTab = tabOrders.filter(o => o.processes?.ELEC?.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'ELEC')).length;
+  const mechReadyInTab = tabOrders.filter(o => {
+    const proc = o.processes?.MECH;
+    if (!proc) return false;
+    if (proc.mixed && proc.partner_confirms) {
+      return proc.partner_confirms.some(pc => pc.confirmable && !pc.confirmed);
+    }
+    return proc.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'MECH');
+  }).length;
+  const elecReadyInTab = tabOrders.filter(o => {
+    const proc = o.processes?.ELEC;
+    if (!proc) return false;
+    if (proc.mixed && proc.partner_confirms) {
+      return proc.partner_confirms.some(pc => pc.confirmable && !pc.confirmed);
+    }
+    return proc.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'ELEC');
+  }).length;
   const tmConfirmedInTab = tabOrders.filter(o => (o.confirms ?? []).some(c => c.process_type === 'TM')).length;
-  const tmReadyInTab = tabOrders.filter(o => o.processes?.TM?.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'TM')).length;
+  const tmReadyInTab = tabOrders.filter(o => {
+    const proc = o.processes?.TM;
+    if (!proc) return false;
+    if (proc.mixed && proc.partner_confirms) {
+      return proc.partner_confirms.some(pc => pc.confirmable && !pc.confirmed);
+    }
+    return proc.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'TM');
+  }).length;
 
   // 상태 필터 (tabOrders 위에 적용)
   const filteredOrders = tabOrders.filter(o => {
@@ -316,20 +396,24 @@ export default function ProductionPerformancePage() {
     return true;
   });
 
-  const handleConfirm = (salesOrder: string, processType: 'MECH' | 'ELEC' | 'TM') => {
+  const handleConfirm = (salesOrder: string, processType: 'MECH' | 'ELEC' | 'TM', partner?: string) => {
     confirmMutation.mutate({
       sales_order: salesOrder,
       process_type: processType,
+      partner: partner ?? null,
       confirmed_week: perfData?.week ?? '',
       confirmed_month: perfData?.month ?? '',
     });
   };
 
   const handleBatchConfirm = async (processType: 'MECH' | 'ELEC' | 'TM') => {
-    const confirmable = tabOrders.filter(o =>
-      o.processes[processType]?.confirmable &&
-      !(o.confirms ?? []).some(c => c.process_type === processType)
-    );
+    const confirmable = tabOrders.filter(o => {
+      const proc = o.processes[processType];
+      if (!proc) return false;
+      // 혼재 O/N은 일괄 확인 제외 — partner별 개별 확인 필요
+      if (proc.mixed && proc.partner_confirms) return false;
+      return proc.confirmable && !(o.confirms ?? []).some(c => c.process_type === processType);
+    });
     if (confirmable.length === 0) return;
     const labels = { MECH: '기구', ELEC: '전장', TM: 'TM' };
     if (!window.confirm(`${labels[processType]} 실적확인 ${confirmable.length}건을 일괄 처리하시겠습니까?`)) return;
@@ -608,8 +692,8 @@ export default function ProductionPerformancePage() {
                                   processStatus={(order.processes?.MECH ?? { ready: 0, total: 0, confirmable: false })}
                                   confirms={order.confirms ?? []}
                                   partnerDisplay={(order.partner_info?.mech ?? '—')}
-                                  mixed={(order.partner_info?.mixed ?? false)}
-                                  onConfirm={() => handleConfirm(order.sales_order, 'MECH')}
+                                  mixed={(order.processes?.MECH?.mixed ?? order.partner_info?.mixed ?? false)}
+                                  onConfirm={(partner) => handleConfirm(order.sales_order, 'MECH', partner)}
                                   confirmPending={confirmMutation.isPending}
                                   enabled={isProcessEnabled('MECH')}
                                 />
@@ -618,8 +702,8 @@ export default function ProductionPerformancePage() {
                                   processStatus={(order.processes?.ELEC ?? { ready: 0, total: 0, confirmable: false })}
                                   confirms={order.confirms ?? []}
                                   partnerDisplay={(order.partner_info?.elec ?? '—')}
-                                  mixed={(order.partner_info?.mixed ?? false)}
-                                  onConfirm={() => handleConfirm(order.sales_order, 'ELEC')}
+                                  mixed={(order.processes?.ELEC?.mixed ?? order.partner_info?.mixed ?? false)}
+                                  onConfirm={(partner) => handleConfirm(order.sales_order, 'ELEC', partner)}
                                   confirmPending={confirmMutation.isPending}
                                   enabled={isProcessEnabled('ELEC')}
                                 />
@@ -632,8 +716,8 @@ export default function ProductionPerformancePage() {
                                 processStatus={(order.processes?.TM ?? { ready: 0, total: 0, confirmable: false })}
                                 confirms={order.confirms ?? []}
                                 partnerDisplay=""
-                                mixed={false}
-                                onConfirm={() => handleConfirm(order.sales_order, 'TM')}
+                                mixed={(order.processes?.TM?.mixed ?? false)}
+                                onConfirm={(partner) => handleConfirm(order.sales_order, 'TM', partner)}
                                 confirmPending={confirmMutation.isPending}
                                 enabled={isProcessEnabled('TM')}
                               />

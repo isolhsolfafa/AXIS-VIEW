@@ -29,6 +29,17 @@ export interface SNDetail {
   checklist: SNChecklist;
 }
 
+export interface PartnerConfirm {
+  partner: string;
+  sn_count: number;
+  total: number;
+  completed: number;
+  confirmable: boolean;
+  confirmed: boolean;
+  confirmed_at: string | null;
+  confirm_id: number | null;
+}
+
 export interface ProcessStatus {
   ready: number;
   total: number;
@@ -40,6 +51,8 @@ export interface ProcessStatus {
   confirmed_at?: string | null;
   confirmed_by?: string | null;
   confirm_id?: number | null;
+  mixed?: boolean;
+  partner_confirms?: PartnerConfirm[] | null;
 }
 
 export interface ConfirmRecord {
@@ -80,6 +93,7 @@ export interface PerformanceResponse {
 export interface ConfirmRequest {
   sales_order: string;
   process_type: 'MECH' | 'ELEC' | 'TM';
+  partner?: string | null;
   confirmed_week: string;
   confirmed_month: string;
 }
@@ -100,6 +114,7 @@ export interface CancelConfirmResponse {
   sales_order: string;
   process_type: string;
   confirmed_week: string;
+  partner?: string | null;
 }
 
 export interface ProcessSummary {

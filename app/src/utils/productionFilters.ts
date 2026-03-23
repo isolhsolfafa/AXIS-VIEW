@@ -53,10 +53,22 @@ export function calcTabKpi(orders: OrderGroup[], tab: 'mech_elec' | 'tm') {
         (o.confirms ?? []).some(c => c.process_type === 'MECH')).length,
       elecConfirmed: orders.filter(o =>
         (o.confirms ?? []).some(c => c.process_type === 'ELEC')).length,
-      mechReady: orders.filter(o =>
-        o.processes?.MECH?.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'MECH')).length,
-      elecReady: orders.filter(o =>
-        o.processes?.ELEC?.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'ELEC')).length,
+      mechReady: orders.filter(o => {
+        const proc = o.processes?.MECH;
+        if (!proc) return false;
+        if (proc.mixed && proc.partner_confirms) {
+          return proc.partner_confirms.some(pc => pc.confirmable && !pc.confirmed);
+        }
+        return proc.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'MECH');
+      }).length,
+      elecReady: orders.filter(o => {
+        const proc = o.processes?.ELEC;
+        if (!proc) return false;
+        if (proc.mixed && proc.partner_confirms) {
+          return proc.partner_confirms.some(pc => pc.confirmable && !pc.confirmed);
+        }
+        return proc.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'ELEC');
+      }).length,
     };
   }
   return {
@@ -64,8 +76,14 @@ export function calcTabKpi(orders: OrderGroup[], tab: 'mech_elec' | 'tm') {
     totalSN: orders.reduce((s, o) => s + o.sn_count, 0),
     tmConfirmed: orders.filter(o =>
       (o.confirms ?? []).some(c => c.process_type === 'TM')).length,
-    tmReady: orders.filter(o =>
-      o.processes?.TM?.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'TM')).length,
+    tmReady: orders.filter(o => {
+      const proc = o.processes?.TM;
+      if (!proc) return false;
+      if (proc.mixed && proc.partner_confirms) {
+        return proc.partner_confirms.some(pc => pc.confirmable && !pc.confirmed);
+      }
+      return proc.confirmable && !(o.confirms ?? []).some(c => c.process_type === 'TM');
+    }).length,
   };
 }
 

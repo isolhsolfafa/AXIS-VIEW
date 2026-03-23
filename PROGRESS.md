@@ -1,8 +1,32 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-23 (v1.10.0 — 생산실적 공정 그룹 탭 분리)
+> 마지막 업데이트: 2026-03-23 (v1.11.0 — 혼재 O/N partner별 실적확인 UI)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.11.0: 혼재 O/N partner별 실적확인 UI — ✅ 완료 (2026-03-23)
+
+Sprint 14. 혼재 O/N(같은 주문에 협력사가 2개 이상)에서 partner별 개별 실적확인 버튼 분리.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| 타입 추가 | `types/production.ts` | `PartnerConfirm` 인터페이스, `ProcessStatus`에 `mixed`/`partner_confirms` 추가 |
+| ConfirmRequest 확장 | `types/production.ts` | `partner?: string \| null` 필드 추가 |
+| ProcessCell 혼재 분기 | `ProductionPerformancePage.tsx` | 혼재 시 partner별 확인 버튼 박스 렌더링, 비혼재는 기존 유지 |
+| handleConfirm | `ProductionPerformancePage.tsx` | `partner` 파라미터 추가, confirm API에 전달 |
+| handleBatchConfirm | `ProductionPerformancePage.tsx` | 혼재 O/N 일괄 확인 대상에서 제외 |
+| ProcessCell 호출부 | `ProductionPerformancePage.tsx` | `mixed`를 `processes.{proc}.mixed`에서 참조 |
+| KPI 카운트 | `ProductionPerformancePage.tsx`, `productionFilters.ts` | 혼재 partner_confirms 기반 confirmable 카운트 |
+| 테스트 추가 | `productionFilters.test.ts` | 혼재 partner_confirms KPI 카운트 3 tests 추가 (총 20 tests) |
+
+### 빌드/테스트 결과
+
+- `npm run build` 통과
+- `npm run test` 20/20 전체 통과
 
 ---
 

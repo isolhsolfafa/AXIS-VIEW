@@ -108,6 +108,54 @@ describe('calcTabKpi', () => {
   });
 });
 
+describe('calcTabKpi — 혼재 partner_confirms', () => {
+  const mixedOrders: OrderGroup[] = [{
+    sales_order: '6520', model: 'GAIA-I', sn_count: 5,
+    sns: [], sn_summary: '6700~6704',
+    partner_info: { mech: 'TMS', elec: 'P&S', mixed: true },
+    processes: {
+      MECH: {
+        ready: 5, total: 5, confirmable: false,
+        mixed: true,
+        partner_confirms: [
+          { partner: 'TMS', sn_count: 1, total: 1, completed: 1, confirmable: true, confirmed: false, confirmed_at: null, confirm_id: null },
+          { partner: 'FNI', sn_count: 4, total: 4, completed: 4, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 10 },
+        ],
+      },
+      ELEC: { ready: 5, total: 5, confirmable: true },
+    },
+    confirms: [],
+  }];
+
+  it('혼재 MECH: partner 중 하나라도 confirmable+미확인이면 mechReady 카운트', () => {
+    const kpi = calcTabKpi(mixedOrders, 'mech_elec') as any;
+    expect(kpi.mechReady).toBe(1); // TMS confirmable + not confirmed
+  });
+
+  it('혼재 MECH: 모든 partner confirmed이면 mechReady=0', () => {
+    const allConfirmed: OrderGroup[] = [{
+      ...mixedOrders[0],
+      processes: {
+        ...mixedOrders[0].processes,
+        MECH: {
+          ready: 5, total: 5, confirmable: false, mixed: true,
+          partner_confirms: [
+            { partner: 'TMS', sn_count: 1, total: 1, completed: 1, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 11 },
+            { partner: 'FNI', sn_count: 4, total: 4, completed: 4, confirmable: true, confirmed: true, confirmed_at: '2026-03-23', confirm_id: 10 },
+          ],
+        },
+      },
+    }];
+    const kpi = calcTabKpi(allConfirmed, 'mech_elec') as any;
+    expect(kpi.mechReady).toBe(0);
+  });
+
+  it('비혼재: partner_confirms=null이면 기존 로직 사용', () => {
+    const kpi = calcTabKpi(mockOrders, 'mech_elec') as any;
+    expect(kpi.mechReady).toBe(1); // 6500 MECH confirmable
+  });
+});
+
 describe('isProcessEnabled', () => {
   it('설정 ON -> true', () => {
     expect(isProcessEnabled({ confirm_mech_enabled: true }, 'MECH')).toBe(true);
