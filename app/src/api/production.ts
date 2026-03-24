@@ -47,7 +47,12 @@ export async function getPerformance(week?: string, month?: string): Promise<Per
       }
     }
 
-    return { ...order, partner_info: partnerInfo, confirms };
+    // O/N 레벨 end 집계 (max) — 테이블 표시/정렬용
+    const mechEndMax = sns.map((s: any) => s.mech_end).filter(Boolean).sort().pop() ?? null;
+    const elecEndMax = sns.map((s: any) => s.elec_end).filter(Boolean).sort().pop() ?? null;
+    const moduleEndMax = sns.map((s: any) => s.module_end).filter(Boolean).sort().pop() ?? null;
+
+    return { ...order, partner_info: partnerInfo, confirms, mech_end: mechEndMax, elec_end: elecEndMax, module_end: moduleEndMax };
   });
 
   return data;

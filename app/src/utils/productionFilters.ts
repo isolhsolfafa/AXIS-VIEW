@@ -16,7 +16,7 @@ export function getISOWeekRange(weekStr: string, year: number): [string, string]
   return [fmt(monday), fmt(nextMonday)];
 }
 
-/** 공정 탭별 O/N 필터 */
+/** 공정 탭별 O/N 필터 — end 날짜는 sns[] 순회 */
 export function filterByProcessTab(
   orders: OrderGroup[],
   tab: 'mech_elec' | 'tm',
@@ -27,19 +27,30 @@ export function filterByProcessTab(
     if (tab === 'mech_elec') {
       const hasMechElec = (o.processes?.MECH?.total ?? 0) > 0 || (o.processes?.ELEC?.total ?? 0) > 0;
       if (!hasMechElec) return false;
-      // end 필드가 하나라도 있을 때만 범위 필터 적용
-      if (weekStart && weekEnd && (o.mech_end || o.elec_end)) {
-        const mechInRange = o.mech_end && o.mech_end >= weekStart && o.mech_end < weekEnd;
-        const elecInRange = o.elec_end && o.elec_end >= weekStart && o.elec_end < weekEnd;
-        if (!mechInRange && !elecInRange) return false;
+      // sns[] 순회 — any SN의 end가 주간 범위에 있으면 통과
+      if (weekStart && weekEnd && o.sns?.length > 0) {
+        const hasAnyEnd = o.sns.some(sn => sn.mech_end || sn.elec_end);
+        if (hasAnyEnd) {
+          const anyInRange = o.sns.some(sn => {
+            const mechOk = sn.mech_end && sn.mech_end >= weekStart && sn.mech_end < weekEnd;
+            const elecOk = sn.elec_end && sn.elec_end >= weekStart && sn.elec_end < weekEnd;
+            return mechOk || elecOk;
+          });
+          if (!anyInRange) return false;
+        }
       }
       return true;
     } else {
       const hasTM = (o.processes?.TM?.total ?? 0) > 0;
       if (!hasTM) return false;
-      // module_end가 있을 때만 범위 필터 적용
-      if (weekStart && weekEnd && o.module_end) {
-        if (o.module_end < weekStart || o.module_end >= weekEnd) return false;
+      if (weekStart && weekEnd && o.sns?.length > 0) {
+        const hasAnyEnd = o.sns.some(sn => sn.module_end);
+        if (hasAnyEnd) {
+          const anyInRange = o.sns.some(sn =>
+            sn.module_end && sn.module_end >= weekStart && sn.module_end < weekEnd
+          );
+          if (!anyInRange) return false;
+        }
       }
       return true;
     }
@@ -66,22 +77,22 @@ function isProcReady(proc: OrderGroup['processes'][string] | undefined): boolean
   return (proc.confirmable ?? false) && !isProcConfirmed(proc);
 }
 
+/** O/N 전체 완료 판정 — 테이블 행 배경색 등에 사용 */
+export function isOrderDone(o: OrderGroup): boolean {
+  const mechDone = !o.processes?.MECH || isProcConfirmed(o.processes.MECH);
+  const elecDone = !o.processes?.ELEC || isProcConfirmed(o.processes.ELEC);
+  const tmDone = (o.processes?.TM?.total ?? 0) === 0 || isProcConfirmed(o.processes.TM);
+  return mechDone && elecDone && tmDone;
+}
+
 /** 상태 필터 */
 export function filterByStatus(
   orders: OrderGroup[],
   status: 'all' | 'done' | 'pending'
 ): OrderGroup[] {
   if (status === 'all') return orders;
-
-  const isDone = (o: OrderGroup): boolean => {
-    const mechDone = !o.processes?.MECH || isProcConfirmed(o.processes.MECH);
-    const elecDone = !o.processes?.ELEC || isProcConfirmed(o.processes.ELEC);
-    const tmDone = (o.processes?.TM?.total ?? 0) === 0 || isProcConfirmed(o.processes.TM);
-    return mechDone && elecDone && tmDone;
-  };
-
-  if (status === 'done') return orders.filter(isDone);
-  return orders.filter(o => !isDone(o));
+  if (status === 'done') return orders.filter(isOrderDone);
+  return orders.filter(o => !isOrderDone(o));
 }
 
 /** KPI 산출 — 탭별 확인 카운트 */

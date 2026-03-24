@@ -1,8 +1,30 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-24 (v1.13.0 — S/N별 실적확인 UI + End 필터)
+> 마지막 업데이트: 2026-03-24 (v1.13.1 — Sprint 17 HOTFIX end 필터 + 중복 정리)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.13.1: HOTFIX — End 필터 버그 + 중복 정리 + 쿼리 안정화 — ✅ 완료 (2026-03-24)
+
+Sprint 17. 새로고침 시 카운트 깜빡임 + end 필터 참조 오류 수정.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| End 필터 수정 | `productionFilters.ts` | `o.mech_end` (O/N 레벨) → `o.sns.some(sn => sn.mech_end)` (SN 순회) |
+| inline 중복 제거 | `ProductionPerformancePage.tsx` | getISOWeekRange, tabOrders, KPI, isDone → utils import (~75줄 → 4줄) |
+| O/N end 집계 | `api/production.ts` | BE→FE 변환에서 sns end max 집계 (표시/정렬용) |
+| 쿼리 안정화 | `useProduction.ts` | `placeholderData: keepPreviousData` — queryKey 전환 깜빡임 방지 |
+| isOrderDone export | `productionFilters.ts` | 테이블 행 배경색 판정용 공개 함수 |
+| 테스트 | `productionFilters.test.ts` | sns 기반 end 필터 4건 추가 (총 30 tests) |
+
+### 빌드/테스트 결과
+
+- `npm run build` 통과
+- `npm run test` 30/30 전체 통과
 
 ---
 

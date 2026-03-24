@@ -7151,3 +7151,296 @@ S/N expand 영역은 `ProductionPerformancePage.tsx` line 740~770 부근. 현재
 - ⚠️ `.env` 절대 커밋 금지
 - ⚠️ 테스트에서 실제 API 호출 금지 (mock only)
 - 완료 시 DESIGN_FIX_SPRINT.md 체크리스트 업데이트
+
+---
+
+# Sprint 17 (VIEW HOTFIX): End 필터 버그 수정 + 중복 정리 + 쿼리 안정화 (2026-03-24) ✅ 완료
+
+> **유형**: HOTFIX — Sprint 13 end 필터 구현 버그 + 코드 품질
+> **선행**: Sprint 13 완료 (이미 완료), Sprint 16 구현 전 적용 권장
+> **대상**: `ProductionPerformancePage.tsx`, `productionFilters.ts`, `api/production.ts`, `hooks/useProduction.ts`
+
+## 배경
+
+**증상**: 새로고침 시 카운트 1개 잠깐 보이다가 0으로 변경됨.
+
+**원인 2가지**:
+
+1. **End 필터 참조 오류**: `filterByProcessTab`과 Page inline 필터 모두 `o.mech_end` (O/N 레벨)를 참조하지만, BE는 `sns[]` 내부에만 end 날짜를 제공 → `o.mech_end`가 항상 `undefined` → end 필터 조건 자체가 건너뛰어짐
+2. **Double API Call**: `activeWeek = ''` → `usePerformance(undefined)` 호출 → 응답 후 `setActiveWeek('W13')` → `usePerformance('W13')` = 새 queryKey → 캐시 미스 → 데이터 사라짐 → 두 번째 응답 도착 시 복원 (깜빡임)
+
+**부수 발견**: Page에 utils와 동일한 로직이 inline으로 4건 중복 존재.
+
+---
+
+## Task 1: `productionFilters.ts` — End 필터를 `o.sns[]` 기반으로 수정
+
+### 변경 이유
+
+O/N 레벨에 end 날짜가 없으므로 `o.sns[]`에서 직접 확인해야 합니다. 또한 `max(end)` 집계 방식은 부정확합니다 — O/N에 SN 3대(end: W13, W14, W15)가 있을 때 `max = W15`로 하면 W13 조회 시 이 O/N이 누락됩니다. 올바른 로직은 **"any SN이 해당 주 범위에 end date가 있으면 O/N 표시"** 입니다.
+
+### 변경 전 (line 26~46)
+
+```typescript
+return orders.filter(o => {
+  if (tab === 'mech_elec') {
+    const hasMechElec = (o.processes?.MECH?.total ?? 0) > 0 || (o.processes?.ELEC?.total ?? 0) > 0;
+    if (!hasMechElec) return false;
+    // ❌ o.mech_end → O/N 레벨에 없음 → 항상 undefined
+    if (weekStart && weekEnd && (o.mech_end || o.elec_end)) {
+      const mechInRange = o.mech_end && o.mech_end >= weekStart && o.mech_end < weekEnd;
+      const elecInRange = o.elec_end && o.elec_end >= weekStart && o.elec_end < weekEnd;
+      if (!mechInRange && !elecInRange) return false;
+    }
+    return true;
+  } else {
+    const hasTM = (o.processes?.TM?.total ?? 0) > 0;
+    if (!hasTM) return false;
+    // ❌ o.module_end → 동일 문제
+    if (weekStart && weekEnd && o.module_end) {
+      if (o.module_end < weekStart || o.module_end >= weekEnd) return false;
+    }
+    return true;
+  }
+});
+```
+
+### 변경 후
+
+```typescript
+return orders.filter(o => {
+  if (tab === 'mech_elec') {
+    const hasMechElec = (o.processes?.MECH?.total ?? 0) > 0 || (o.processes?.ELEC?.total ?? 0) > 0;
+    if (!hasMechElec) return false;
+    // ✅ sns[] 순회 — any SN의 mech_end 또는 elec_end가 주간 범위에 있으면 통과
+    if (weekStart && weekEnd && o.sns?.length > 0) {
+      const hasAnyEnd = o.sns.some(sn => sn.mech_end || sn.elec_end);
+      if (hasAnyEnd) {
+        const anyInRange = o.sns.some(sn => {
+          const mechOk = sn.mech_end && sn.mech_end >= weekStart && sn.mech_end < weekEnd;
+          const elecOk = sn.elec_end && sn.elec_end >= weekStart && sn.elec_end < weekEnd;
+          return mechOk || elecOk;
+        });
+        if (!anyInRange) return false;
+      }
+      // end 데이터 자체가 없는 경우 → 필터 건너뜀 (기존 동작 유지)
+    }
+    return true;
+  } else {
+    const hasTM = (o.processes?.TM?.total ?? 0) > 0;
+    if (!hasTM) return false;
+    // ✅ sns[] 순회 — any SN의 module_end가 주간 범위에 있으면 통과
+    if (weekStart && weekEnd && o.sns?.length > 0) {
+      const hasAnyEnd = o.sns.some(sn => sn.module_end);
+      if (hasAnyEnd) {
+        const anyInRange = o.sns.some(sn =>
+          sn.module_end && sn.module_end >= weekStart && sn.module_end < weekEnd
+        );
+        if (!anyInRange) return false;
+      }
+    }
+    return true;
+  }
+});
+```
+
+**핵심**: `o.mech_end` → `o.sns.some(sn => sn.mech_end in range)`. end 데이터가 아예 없는 O/N은 기존처럼 필터 건너뜀.
+
+---
+
+## Task 2: `ProductionPerformancePage.tsx` — 중복 코드 정리 (utils import로 교체)
+
+### 2-1. inline `getISOWeekRange` 제거 (line 485~495)
+
+```typescript
+// ❌ 제거 (page 내부 중복 정의)
+const getISOWeekRange = (weekStr: string, year: number): [string, string] => { ... };
+```
+
+```typescript
+// ✅ 교체: utils에서 import
+import { getISOWeekRange, filterByProcessTab, filterByStatus, calcTabKpi } from '@/utils/productionFilters';
+```
+
+### 2-2. inline `tabOrders` 필터 교체 (line 500~521)
+
+```typescript
+// ❌ 제거 (inline 필터 — utils와 동일 로직)
+const tabOrders = orders.filter(o => { ... });
+```
+
+```typescript
+// ✅ 교체
+const tabOrders = filterByProcessTab(orders, activeProcessTab, weekStart, weekEnd);
+```
+
+### 2-3. inline `isConfirmedProc` / `isReadyProc` + KPI 교체 (line 524~547)
+
+```typescript
+// ❌ 제거 (utils의 isProcConfirmed, isProcReady와 동일)
+const isConfirmedProc = (proc: ...) => { ... };
+const isReadyProc = (proc: ...) => { ... };
+const mechConfirmedInTab = tabOrders.filter(...).length;
+// ...
+```
+
+```typescript
+// ✅ 교체
+const kpi = calcTabKpi(tabOrders, activeProcessTab);
+// kpi.mechConfirmed, kpi.mechReady, kpi.tmConfirmed 등 사용
+```
+
+**마이그레이션 영향 범위**:
+- KPI 카드 렌더링 (line 620~680 부근): `mechConfirmedInTab` → `kpi.mechConfirmed` 등 변수명 교체
+- 기존 6개 변수 (`mechConfirmedInTab`, `elecConfirmedInTab`, `mechReadyInTab`, `elecReadyInTab`, `tmConfirmedInTab`, `tmReadyInTab`) → `kpi` 객체 속성으로 통합
+
+### 2-4. inline `isDone` / `filteredOrders` 교체 (line 550~560)
+
+```typescript
+// ❌ 제거
+const isDone = (o: ...) => { ... };
+const filteredOrders = tabOrders.filter(o => { ... });
+```
+
+```typescript
+// ✅ 교체
+const filteredOrders = filterByStatus(tabOrders, statusFilter);
+```
+
+### 정리 결과
+
+line 485~560 영역 (~75줄)의 로직이 utils import + 호출 4줄로 압축됨:
+```typescript
+const [weekStart, weekEnd] = activeWeek ? getISOWeekRange(activeWeek, currentYear) : ['', ''];
+const tabOrders = filterByProcessTab(orders, activeProcessTab, weekStart, weekEnd);
+const kpi = calcTabKpi(tabOrders, activeProcessTab);
+const filteredOrders = filterByStatus(tabOrders, statusFilter);
+```
+
+---
+
+## Task 3: `api/production.ts` — O/N 레벨 end 집계 (테이블 표시용)
+
+`getPerformance` BE→FE 변환 (line 20~51)에서 sns end 날짜를 O/N 레벨로 집계합니다. 이는 **필터용이 아닌 테이블 표시/정렬용**입니다 (Sprint 16 Task 6에서 O/N 행에 end 날짜 표시 시 사용).
+
+### 추가 위치: line 50 (`return` 직전)
+
+```typescript
+// O/N 레벨 end 집계 (max) — 테이블 표시/정렬용. 필터에 사용하지 않음.
+const mechEndMax = sns
+  .map((s: any) => s.mech_end).filter(Boolean)
+  .sort().pop() ?? null;
+const elecEndMax = sns
+  .map((s: any) => s.elec_end).filter(Boolean)
+  .sort().pop() ?? null;
+const moduleEndMax = sns
+  .map((s: any) => s.module_end).filter(Boolean)
+  .sort().pop() ?? null;
+
+return {
+  ...order,
+  partner_info: partnerInfo,
+  confirms,
+  mech_end: mechEndMax,
+  elec_end: elecEndMax,
+  module_end: moduleEndMax,
+};
+```
+
+**주의**: 이 값은 필터에 사용하지 않음. 필터는 Task 1의 `o.sns[]` 순회 사용. `OrderGroup.mech_end` 등은 "해당 O/N의 가장 늦은 end date"로 테이블 정렬/표시에만 활용.
+
+---
+
+## Task 4: `hooks/useProduction.ts` — queryKey 전환 깜빡임 방지
+
+### 변경 전 (line 8~15)
+
+```typescript
+export function usePerformance(week?: string, month?: string) {
+  return useQuery({
+    queryKey: ['production', 'performance', week, month],
+    queryFn: () => getPerformance(week, month),
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+```
+
+### 변경 후
+
+```typescript
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+
+export function usePerformance(week?: string, month?: string) {
+  return useQuery({
+    queryKey: ['production', 'performance', week, month],
+    queryFn: () => getPerformance(week, month),
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,  // ← 추가: queryKey 전환 시 이전 데이터 유지
+  });
+}
+```
+
+**효과**: `activeWeek`가 `''` → `'W13'`으로 변경될 때 queryKey가 바뀌지만, 새 데이터가 도착할 때까지 이전 데이터를 표시 → 깜빡임 제거.
+
+**TanStack Query 버전 확인**: v5 = `placeholderData: keepPreviousData`, v4 = `keepPreviousData: true`.
+
+---
+
+## Task 5: 테스트 + regression + 빌드
+
+- [x] `productionFilters.test.ts` — end 필터 sns 기반 케이스 4건 추가 (30 tests)
+- [x] 기존 테스트 호출부 확인 — `filterByProcessTab` 시그니처 변경 없음
+- [x] `npm run test` 전체 regression (30/30)
+- [x] `npm run build` 빌드 확인
+
+---
+
+## 변경 파일
+
+| 파일 | 변경 |
+|------|------|
+| `app/src/utils/productionFilters.ts` | `filterByProcessTab` end 필터 → `o.sns[]` 순회 |
+| `app/src/pages/production/ProductionPerformancePage.tsx` | inline 중복 4건 제거 → utils import (~75줄 → 4줄) |
+| `app/src/api/production.ts` | BE→FE 변환에 O/N 레벨 end 집계 (max) |
+| `app/src/hooks/useProduction.ts` | `placeholderData: keepPreviousData` 추가 |
+
+---
+
+## 체크리스트
+
+**FE (완료)**:
+- [x] `filterByProcessTab` — `o.mech_end` → `o.sns.some()` 수정
+- [x] Page inline `getISOWeekRange` 제거 → utils import
+- [x] Page inline `tabOrders` 제거 → `filterByProcessTab()` 사용
+- [x] Page inline `isConfirmedProc`/`isReadyProc`/KPI → `calcTabKpi()` 사용
+- [x] Page inline `isDone`/`filteredOrders` → `filterByStatus()` + `isOrderDone()` 사용
+- [x] `api/production.ts` — O/N 레벨 end 집계 (mech_end_max 등)
+- [x] `usePerformance` — `placeholderData: keepPreviousData`
+- [x] 테스트 + regression + 빌드 (30/30)
+
+**검증 (배포 후)**:
+- [ ] 🔴 새로고침 시 카운트 깜빡임 없음
+- [ ] 🔴 기구전장 탭: mech_end/elec_end 기준 주간 필터 정상
+- [ ] 🔴 TM 탭: module_end 기준 주간 필터 정상
+- [ ] 🔴 SN 3대 (end: W13, W14, W15) O/N → W13 조회 시 표시됨
+- [ ] 🔴 주차 변경 시 데이터 깜빡임 없음
+
+---
+
+## 규칙 — Sprint 17
+
+- **End 필터는 `o.sns[]` 순회** — `o.mech_end` (O/N 레벨) 사용 금지. "any SN이 해당 주에 end 있으면 O/N 표시" 로직
+- **O/N 레벨 end (max)는 표시/정렬용** — 필터에 사용하지 않음
+- `productionFilters.ts` utils가 **단일 진실 소스(SSOT)** — Page에 동일 로직 inline 금지. `filterByProcessTab`, `filterByStatus`, `calcTabKpi`, `isProcConfirmed`, `isProcReady`, `getISOWeekRange` 모두 utils에서 import
+- `placeholderData: keepPreviousData` — queryKey 전환 시 이전 데이터 유지. `isPlaceholderData` 플래그로 로딩 표시 가능
+- TanStack Query 버전 확인 후 적용 (v5: `placeholderData: keepPreviousData`, v4: `keepPreviousData: true`)
+- `filterByProcessTab` 시그니처 변경 없음 — weekStart/weekEnd는 이미 optional
+- G-AXIS Design System 토큰 사용
+- ⚠️ ConfirmSettingsPanel 수정 금지
+- ⚠️ `isProcessEnabled()` 수정 금지
+- ⚠️ 설정 패널, 월마감 뷰 수정 금지
+- ⚠️ `.env` 절대 커밋 금지
+- ⚠️ 테스트에서 실제 API 호출 금지 (mock only — DB/BE 무영향)
+- 완료 시 DESIGN_FIX_SPRINT.md 체크리스트 업데이트

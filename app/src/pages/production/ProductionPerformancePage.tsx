@@ -8,6 +8,7 @@ import { useState, useEffect, useRef } from 'react';
 import Layout from '@/components/layout/Layout';
 import { usePerformance, useMonthlySummary, useConfirmProduction, useCancelConfirm } from '@/hooks/useProduction';
 import type { ProcessStatus } from '@/types/production';
+import { getISOWeekRange, filterByProcessTab, filterByStatus, calcTabKpi, isOrderDone } from '@/utils/productionFilters';
 import { useAuth } from '@/store/authStore';
 import { useAdminSettings, useUpdateAdminSettings } from '@/hooks/useAdminSettings';
 
@@ -478,86 +479,16 @@ export default function ProductionPerformancePage() {
   // 데이터
   const orders = perfData?.orders ?? [];
 
-  // 주차 범위 계산 (end date 필터용)
+  // 주차 범위 + 탭 필터 + KPI + 상태 필터 (utils import)
   const currentYear = perfData?.month
     ? parseInt(perfData.month.split('-')[0])
     : new Date().getFullYear();
-  const getISOWeekRange = (weekStr: string, year: number): [string, string] => {
-    const weekNum = parseInt(weekStr.replace(/[Ww]/, ''));
-    const jan4 = new Date(year, 0, 4);
-    const dayOfWeek = jan4.getDay() || 7;
-    const monday = new Date(jan4);
-    monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNum - 1) * 7);
-    const nextMonday = new Date(monday);
-    nextMonday.setDate(monday.getDate() + 7);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    return [fmt(monday), fmt(nextMonday)];
-  };
   const [weekStart, weekEnd] = activeWeek
     ? getISOWeekRange(activeWeek, currentYear)
     : ['', ''];
-
-  // 공정 탭별 O/N 필터 (end date 범위 포함 — end 필드가 없으면 필터 건너뜀)
-  const tabOrders = orders.filter(o => {
-    if (activeProcessTab === 'mech_elec') {
-      const hasMechElec = (o.processes?.MECH?.total ?? 0) > 0 || (o.processes?.ELEC?.total ?? 0) > 0;
-      if (!hasMechElec) return false;
-      // end 필드가 하나라도 있을 때만 범위 필터 적용
-      if (weekStart && weekEnd && (o.mech_end || o.elec_end)) {
-        const mechInRange = o.mech_end && o.mech_end >= weekStart && o.mech_end < weekEnd;
-        const elecInRange = o.elec_end && o.elec_end >= weekStart && o.elec_end < weekEnd;
-        if (!mechInRange && !elecInRange) return false;
-      }
-      return true;
-    } else {
-      const hasTM = (o.processes?.TM?.total ?? 0) > 0;
-      if (!hasTM) return false;
-      // module_end가 있을 때만 범위 필터 적용
-      if (weekStart && weekEnd && o.module_end) {
-        if (o.module_end < weekStart || o.module_end >= weekEnd) return false;
-      }
-      return true;
-    }
-  });
-
-  // 탭별 KPI 산출 (sn_confirms가 없으면 기존 confirmable/confirmed fallback)
-  const isConfirmedProc = (proc: typeof orders[0]['processes'][string] | undefined): boolean => {
-    if (!proc) return false;
-    if (proc.mixed && proc.partner_confirms) return proc.partner_confirms.every(pc => pc.all_confirmed);
-    if (proc.all_confirmed !== undefined) return proc.all_confirmed;
-    return proc.confirmed ?? false;
-  };
-  const isReadyProc = (proc: typeof orders[0]['processes'][string] | undefined): boolean => {
-    if (!proc) return false;
-    if (proc.mixed && proc.partner_confirms) {
-      return proc.partner_confirms.some(pc => pc.sn_confirms.some(sc => sc.confirmable && !sc.confirmed));
-    }
-    if (proc.sn_confirms && proc.sn_confirms.length > 0) {
-      return proc.sn_confirms.some(sc => sc.confirmable && !sc.confirmed);
-    }
-    // fallback: 기존 O/N 단위 confirmable
-    return (proc.confirmable ?? false) && !isConfirmedProc(proc);
-  };
-
-  const mechConfirmedInTab = tabOrders.filter(o => isConfirmedProc(o.processes?.MECH)).length;
-  const elecConfirmedInTab = tabOrders.filter(o => isConfirmedProc(o.processes?.ELEC)).length;
-  const mechReadyInTab = tabOrders.filter(o => isReadyProc(o.processes?.MECH)).length;
-  const elecReadyInTab = tabOrders.filter(o => isReadyProc(o.processes?.ELEC)).length;
-  const tmConfirmedInTab = tabOrders.filter(o => isConfirmedProc(o.processes?.TM)).length;
-  const tmReadyInTab = tabOrders.filter(o => isReadyProc(o.processes?.TM)).length;
-
-  // 상태 필터 (tabOrders 위에 적용)
-  const isDone = (o: typeof orders[number]): boolean => {
-    const mechDone = !o.processes?.MECH || isConfirmedProc(o.processes.MECH);
-    const elecDone = !o.processes?.ELEC || isConfirmedProc(o.processes.ELEC);
-    const tmDone = (o.processes?.TM?.total ?? 0) === 0 || isConfirmedProc(o.processes.TM);
-    return mechDone && elecDone && tmDone;
-  };
-  const filteredOrders = tabOrders.filter(o => {
-    if (statusFilter === 'done') return isDone(o);
-    if (statusFilter === 'pending') return !isDone(o);
-    return true;
-  });
+  const tabOrders = filterByProcessTab(orders, activeProcessTab, weekStart, weekEnd);
+  const kpi = calcTabKpi(tabOrders, activeProcessTab) as any;
+  const filteredOrders = filterByStatus(tabOrders, statusFilter);
 
   const handleConfirm = (salesOrder: string, processType: 'MECH' | 'ELEC' | 'TM', serialNumbers: string[], partner?: string) => {
     confirmMutation.mutate({
@@ -641,12 +572,12 @@ export default function ProductionPerformancePage() {
             <div style={{ display: 'grid', gridTemplateColumns: activeProcessTab === 'mech_elec' ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '14px', marginBottom: '20px' }}>
               {(activeProcessTab === 'mech_elec' ? [
                 { label: '주간 O/N', value: `${tabOrders.length}`, sub: `S/N ${tabOrders.reduce((s, o) => s + o.sn_count, 0)}대`, color: 'var(--gx-info)' },
-                { label: '기구 확인', value: `${mechConfirmedInTab}/${tabOrders.length}`, sub: mechReadyInTab > 0 ? `${mechReadyInTab}건 확인 가능` : '대기', color: 'var(--gx-success)' },
-                { label: '전장 확인', value: `${elecConfirmedInTab}/${tabOrders.length}`, sub: elecReadyInTab > 0 ? `${elecReadyInTab}건 확인 가능` : '대기', color: '#3B82F6' },
+                { label: '기구 확인', value: `${kpi.mechConfirmed}/${tabOrders.length}`, sub: kpi.mechReady > 0 ? `${kpi.mechReady}건 확인 가능` : '대기', color: 'var(--gx-success)' },
+                { label: '전장 확인', value: `${kpi.elecConfirmed}/${tabOrders.length}`, sub: kpi.elecReady > 0 ? `${kpi.elecReady}건 확인 가능` : '대기', color: '#3B82F6' },
                 { label: '월간 누적', value: monthlyData?.totals ? `${(monthlyData.totals.mech?.confirmed ?? 0) + (monthlyData.totals.elec?.confirmed ?? 0)}` : '—', sub: `${perfData?.month ?? ''} 기구·전장`, color: 'var(--gx-warning)' },
               ] : [
                 { label: '주간 O/N', value: `${tabOrders.length}`, sub: `GAIA ${tabOrders.length}건`, color: 'var(--gx-info)' },
-                { label: 'TM 확인', value: `${tmConfirmedInTab}/${tabOrders.length}`, sub: tmReadyInTab > 0 ? `${tmReadyInTab}건 확인 가능` : '대기', color: 'var(--gx-accent)' },
+                { label: 'TM 확인', value: `${kpi.tmConfirmed}/${tabOrders.length}`, sub: kpi.tmReady > 0 ? `${kpi.tmReady}건 확인 가능` : '대기', color: 'var(--gx-accent)' },
                 { label: '월간 누적', value: monthlyData?.totals ? `${monthlyData.totals.tm?.confirmed ?? 0}` : '—', sub: `${perfData?.month ?? ''} TM`, color: 'var(--gx-warning)' },
               ]).map(k => (
                 <div key={k.label} style={{
@@ -736,35 +667,35 @@ export default function ProductionPerformancePage() {
                   </select>
 
                   {/* 일괄 확인 — 탭별 */}
-                  {activeProcessTab === 'mech_elec' && (mechReadyInTab > 0 || elecReadyInTab > 0) && (
+                  {activeProcessTab === 'mech_elec' && (kpi.mechReady > 0 || kpi.elecReady > 0) && (
                     <>
                       <div style={{ width: '1px', height: '28px', background: 'var(--gx-mist)' }} />
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        {mechReadyInTab > 0 && (
+                        {kpi.mechReady > 0 && (
                           <button onClick={() => handleBatchConfirm('MECH')} style={{
                             fontSize: '11px', fontWeight: 600, padding: '5px 12px', borderRadius: '10px',
                             background: 'rgba(99,102,241,0.06)', color: 'var(--gx-accent)',
                             border: '1px solid rgba(99,102,241,0.2)', cursor: 'pointer',
-                          }}>기구 일괄확인 ({mechReadyInTab}건)</button>
+                          }}>기구 일괄확인 ({kpi.mechReady}건)</button>
                         )}
-                        {elecReadyInTab > 0 && (
+                        {kpi.elecReady > 0 && (
                           <button onClick={() => handleBatchConfirm('ELEC')} style={{
                             fontSize: '11px', fontWeight: 600, padding: '5px 12px', borderRadius: '10px',
                             background: 'rgba(59,130,246,0.06)', color: '#3B82F6',
                             border: '1px solid rgba(59,130,246,0.2)', cursor: 'pointer',
-                          }}>전장 일괄확인 ({elecReadyInTab}건)</button>
+                          }}>전장 일괄확인 ({kpi.elecReady}건)</button>
                         )}
                       </div>
                     </>
                   )}
-                  {activeProcessTab === 'tm' && tmReadyInTab > 0 && (
+                  {activeProcessTab === 'tm' && kpi.tmReady > 0 && (
                     <>
                       <div style={{ width: '1px', height: '28px', background: 'var(--gx-mist)' }} />
                       <button onClick={() => handleBatchConfirm('TM')} style={{
                         fontSize: '11px', fontWeight: 600, padding: '5px 12px', borderRadius: '10px',
                         background: 'rgba(99,102,241,0.06)', color: 'var(--gx-accent)',
                         border: '1px solid rgba(99,102,241,0.2)', cursor: 'pointer',
-                      }}>TM 일괄확인 ({tmReadyInTab}건)</button>
+                      }}>TM 일괄확인 ({kpi.tmReady}건)</button>
                     </>
                   )}
                 </>
@@ -818,7 +749,7 @@ export default function ProductionPerformancePage() {
                       const isExpanded = expandedOrders.has(order.sales_order);
 
                       // O/N 전체 완료 여부 (3공정 모두 confirmed)
-                      const allConfirmed = isDone(order);
+                      const allConfirmed = isOrderDone(order);
 
                       return (
                         <tbody key={order.sales_order}>

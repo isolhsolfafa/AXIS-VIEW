@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-24 (v1.13.0 — Sprint 16 S/N별 실적확인 + End 필터)
+> 마지막 업데이트: 2026-03-24 (v1.13.1 — Sprint 17 HOTFIX end 필터 + 중복 정리)
 > 이 파일은 보류/재검토/계획/아이디어를 한 곳에서 관리합니다.
 > 완료된 항목은 PROGRESS.md로 이동합니다.
 
@@ -189,3 +189,4 @@
 | v1.11.0 | Sprint 14 — 혼재 O/N partner별 실적확인 UI + 일괄확인 혼재 제외 | ✅ 완료 |
 | v1.12.0 | Sprint 15 — #36-C TM 가압검사 옵션 UI (ConfirmSettingsPanel TM 그룹 박스) | 🔄 FE 완료 |
 | v1.13.0 | Sprint 16 — S/N별 실적확인 UI + TM 혼재 제거 + End 필터 + SNConfirmButton | ✅ 완료 |
+| v1.13.1 | Sprint 17 — HOTFIX: end 필터 sns 순회 + inline 중복 제거 + keepPreviousData | ✅ 완료 |

@@ -1,7 +1,7 @@
 // src/hooks/useProduction.ts
 // 생산실적 TanStack Query 훅
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { getPerformance, confirmProduction, cancelConfirm, getMonthlySummary } from '@/api/production';
 import type { ConfirmRequest } from '@/types/production';
 
@@ -11,6 +11,7 @@ export function usePerformance(week?: string, month?: string) {
     queryFn: () => getPerformance(week, month),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 

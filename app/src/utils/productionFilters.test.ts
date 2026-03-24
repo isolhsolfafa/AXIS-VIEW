@@ -71,25 +71,51 @@ describe('filterByProcessTab', () => {
     expect(filterByProcessTab(noTmOrders, 'tm')).toHaveLength(0);
   });
 
-  it('end date 범위 필터: mech_elec', () => {
+  it('end date 범위 필터: mech_elec (sns 기반)', () => {
     const ordersWithEnd: OrderGroup[] = [{
       ...mockOrders[0],
-      mech_end: '2026-03-23',
-      elec_end: '2026-03-24',
+      sns: [
+        { serial_number: 'SN1', mech_partner: 'A', elec_partner: 'B', mech_end: '2026-03-23', elec_end: '2026-03-24', progress: {}, checklist: { MECH: { completed: false, completed_at: null }, ELEC: { completed: false, completed_at: null } } },
+      ],
     }];
-    // weekStart=2026-03-22, weekEnd=2026-03-29 → in range
+    // in range
     expect(filterByProcessTab(ordersWithEnd, 'mech_elec', '2026-03-22', '2026-03-29')).toHaveLength(1);
-    // weekStart=2026-03-30, weekEnd=2026-04-06 → out of range
+    // out of range
     expect(filterByProcessTab(ordersWithEnd, 'mech_elec', '2026-03-30', '2026-04-06')).toHaveLength(0);
   });
 
-  it('end date 범위 필터: tm', () => {
+  it('end date 범위 필터: tm (sns 기반)', () => {
     const ordersWithEnd: OrderGroup[] = [{
       ...mockOrders[0],
-      module_end: '2026-03-25',
+      sns: [
+        { serial_number: 'SN1', mech_partner: 'A', elec_partner: 'B', module_end: '2026-03-25', progress: {}, checklist: { MECH: { completed: false, completed_at: null }, ELEC: { completed: false, completed_at: null } } },
+      ],
     }];
     expect(filterByProcessTab(ordersWithEnd, 'tm', '2026-03-22', '2026-03-29')).toHaveLength(1);
     expect(filterByProcessTab(ordersWithEnd, 'tm', '2026-03-30', '2026-04-06')).toHaveLength(0);
+  });
+
+  it('end 데이터 없는 SN → 필터 건너뜀 (전체 표시)', () => {
+    // sns가 있지만 end 필드가 없음
+    const ordersNoEnd: OrderGroup[] = [{
+      ...mockOrders[0],
+      sns: [
+        { serial_number: 'SN1', mech_partner: 'A', elec_partner: 'B', progress: {}, checklist: { MECH: { completed: false, completed_at: null }, ELEC: { completed: false, completed_at: null } } },
+      ],
+    }];
+    expect(filterByProcessTab(ordersNoEnd, 'mech_elec', '2026-03-22', '2026-03-29')).toHaveLength(1);
+  });
+
+  it('SN 2대 (W13 + W14) → W13 조회 시 표시', () => {
+    const ordersMultiSN: OrderGroup[] = [{
+      ...mockOrders[0],
+      sns: [
+        { serial_number: 'SN1', mech_partner: 'A', elec_partner: 'B', mech_end: '2026-03-23', progress: {}, checklist: { MECH: { completed: false, completed_at: null }, ELEC: { completed: false, completed_at: null } } },
+        { serial_number: 'SN2', mech_partner: 'A', elec_partner: 'B', mech_end: '2026-03-30', progress: {}, checklist: { MECH: { completed: false, completed_at: null }, ELEC: { completed: false, completed_at: null } } },
+      ],
+    }];
+    // W13 (03-22~03-29): SN1의 mech_end가 범위 내 → 표시
+    expect(filterByProcessTab(ordersMultiSN, 'mech_elec', '2026-03-22', '2026-03-29')).toHaveLength(1);
   });
 });
 

@@ -1,8 +1,8 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.13.0';
-export const BUILD_DATE = '2026-03-23';
+export const APP_VERSION = 'v1.13.1';
+export const BUILD_DATE = '2026-03-24';
 
 // 버전 이력
 // v1.0.0 | 2026-03-06 | Sprint 1~3     | 초기 릴리스 (로그인, 출퇴근 대시보드, 실 API 연동)
@@ -24,3 +24,4 @@ export const BUILD_DATE = '2026-03-23';
 // v1.11.0| 2026-03-23 | Sprint 14      | 혼재 O/N partner별 실적확인 UI + 일괄확인 혼재 제외
 // v1.12.0| 2026-03-23 | Sprint 15      | #36-C TM 가압검사 옵션 UI (ConfirmSettingsPanel TM 그룹 박스)
 // v1.13.0| 2026-03-24 | Sprint 16      | S/N별 실적확인 UI + TM 혼재 제거 + 탭별 End 필터 + SNConfirmButton
+// v1.13.1| 2026-03-24 | Sprint 17      | HOTFIX: end 필터 sns 순회 + inline 중복 제거 + keepPreviousData
