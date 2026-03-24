@@ -7444,3 +7444,26 @@ export function usePerformance(week?: string, month?: string) {
 - ⚠️ `.env` 절대 커밋 금지
 - ⚠️ 테스트에서 실제 API 호출 금지 (mock only — DB/BE 무영향)
 - 완료 시 DESIGN_FIX_SPRINT.md 체크리스트 업데이트
+
+---
+
+# CORE-ETL Sprint 3-A (VIEW FE): finishing_plan_end 변경이력 추적 UI 추가 (2026-03-24) ✅ 완료
+
+> **유형**: ETL 추적 필드 확장 — BE(step2_load.py) TRACKED_FIELDS에 `finishing_plan_end` 추가에 따른 VIEW FE 반영
+> **대상**: `EtlChangeLogPage.tsx`
+
+## 배경
+
+ETL 변경 추적 대상에 `finishing_plan_end`(마무리계획종료일) 필드가 7번째로 추가됨 (CORE-ETL Sprint 3-A).
+VIEW 변경이력 페이지에서 마무리계획종료일 변경도 확인 가능하게 FE 반영.
+
+## 변경 내역 (`EtlChangeLogPage.tsx`)
+
+| 위치 | 변경 |
+|------|------|
+| `FIELD_CONFIG` | `finishing_plan_end: { label: '마무리계획', color: '#14B8A6', bg: '#F0FDFA' }` 추가 (Teal) |
+| `DATE_FIELDS` | `finishing_plan_end` 추가 → 날짜 diff (+Nd/-Nd) 표시 |
+| `buildWeeklyChart` | `마무리계획` 카운트 추가 |
+| `kpiCards` | 배열에 `finishing_plan_end` 추가 → KPI 카드 7개 |
+| 그리드 | `repeat(6, 1fr)` → `repeat(7, 1fr)` |
+| 차트 Bar | `마무리계획` Bar 추가 (스택 최상단, 라운드 코너) |

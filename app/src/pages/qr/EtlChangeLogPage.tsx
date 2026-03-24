@@ -17,10 +17,11 @@ const FIELD_CONFIG: Record<string, { label: string; color: string; bg: string }>
   pi_start:       { label: '가압시작', color: '#EC4899', bg: '#FDF2F8' },
   mech_partner:   { label: '기구외주', color: '#10B981', bg: '#ECFDF5' },
   elec_partner:   { label: '전장외주', color: '#8B5CF6', bg: '#F5F3FF' },
-  sales_order:    { label: '판매오더', color: '#EF4444', bg: '#FEF2F2' },
+  sales_order:         { label: '판매오더',     color: '#EF4444', bg: '#FEF2F2' },
+  finishing_plan_end:  { label: '마무리계획',   color: '#14B8A6', bg: '#F0FDFA' },
 };
 
-const DATE_FIELDS = new Set(['ship_plan_date', 'mech_start', 'pi_start']);
+const DATE_FIELDS = new Set(['ship_plan_date', 'mech_start', 'pi_start', 'finishing_plan_end']);
 
 const PERIOD_OPTIONS = [
   { value: 1, label: '오늘' },
@@ -53,12 +54,13 @@ function buildWeeklyChart(changes: ChangeLogEntry[]) {
     const ws = new Date(d);
     ws.setDate(d.getDate() - d.getDay() + 1);
     const key = `${ws.getMonth() + 1}/${ws.getDate()}`;
-    if (!weeks[key]) weeks[key] = { 출하예정: 0, 기구시작: 0, 가압시작: 0, 협력사: 0, 판매오더: 0 };
+    if (!weeks[key]) weeks[key] = { 출하예정: 0, 기구시작: 0, 가압시작: 0, 협력사: 0, 판매오더: 0, 마무리계획: 0 };
     if (c.field_name === 'ship_plan_date') weeks[key]['출하예정']++;
     else if (c.field_name === 'mech_start') weeks[key]['기구시작']++;
     else if (c.field_name === 'pi_start') weeks[key]['가압시작']++;
     else if (c.field_name === 'mech_partner' || c.field_name === 'elec_partner') weeks[key]['협력사']++;
     else if (c.field_name === 'sales_order') weeks[key]['판매오더']++;
+    else if (c.field_name === 'finishing_plan_end') weeks[key]['마무리계획']++;
   }
   return Object.entries(weeks)
     .map(([week, counts]) => ({ week, ...counts }))
@@ -108,7 +110,7 @@ export default function EtlChangeLogPage() {
   // KPI 카드 데이터 (summary 활용)
   const kpiCards = [
     { key: 'all', label: '전체 변경', count: summary.total_changes, color: '#1E293B', bg: '#1E293B' },
-    ...['ship_plan_date', 'mech_start', 'pi_start', 'mech_partner', 'elec_partner'].map((k) => ({
+    ...['ship_plan_date', 'mech_start', 'pi_start', 'mech_partner', 'elec_partner', 'finishing_plan_end'].map((k) => ({
       key: k,
       label: FIELD_CONFIG[k].label,
       count: summary.by_field[k] || 0,
@@ -175,7 +177,7 @@ export default function EtlChangeLogPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(6, 1fr)',
+            gridTemplateColumns: 'repeat(7, 1fr)',
             gap: '12px',
             marginBottom: '20px',
           }}
@@ -495,7 +497,8 @@ export default function EtlChangeLogPage() {
                 <Bar dataKey="기구시작" stackId="a" fill="#F59E0B" />
                 <Bar dataKey="가압시작" stackId="a" fill="#EC4899" />
                 <Bar dataKey="협력사" stackId="a" fill="#10B981" />
-                <Bar dataKey="판매오더" stackId="a" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="판매오더" stackId="a" fill="#EF4444" />
+                <Bar dataKey="마무리계획" stackId="a" fill="#14B8A6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
