@@ -7091,7 +7091,7 @@ S/N expand 영역은 `ProductionPerformancePage.tsx` line 740~770 부근. 현재
 
 - [x] `productionFilters.test.ts` — end 필터 + sn_confirms 카운트 + all_confirmed 상태 케이스
 - [ ] ProcessCell S/N별 렌더링 수동 검증 (배포 후)
-- [x] `npm run build` + `npm run test` regression (28/28)
+- [x] `npm run build` + `npm run test` regression (30/30, Sprint 17 hotfix 포함)
 
 ---
 
@@ -7115,7 +7115,7 @@ S/N expand 영역은 `ProductionPerformancePage.tsx` line 740~770 부근. 현재
 - [x] handleConfirm/handleBatchConfirm serial_numbers
 - [x] productionFilters.ts — end 필터 + KPI + 상태 필터
 - [x] S/N end 날짜 표시
-- [x] 테스트 + regression + 빌드 (28/28 통과)
+- [x] 테스트 + regression + 빌드 (30/30 통과, Sprint 17 hotfix 포함)
 
 **검증 (배포 후)**:
 - [ ] 🔴 혼재: partner > S/N별 확인
