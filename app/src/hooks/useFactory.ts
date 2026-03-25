@@ -7,7 +7,9 @@ import {
   type MonthlyDetailParams, type WeeklyKpiParams,
 } from '@/api/factory';
 
-export function useMonthlyDetail(params: MonthlyDetailParams & { refetchInterval?: number | false } = {}) {
+type RefetchInterval = number | false | (() => number | false);
+
+export function useMonthlyDetail(params: MonthlyDetailParams & { refetchInterval?: RefetchInterval } = {}) {
   const { refetchInterval, ...apiParams } = params;
   return useQuery({
     queryKey: ['factory', 'monthly-detail', apiParams],
@@ -17,7 +19,7 @@ export function useMonthlyDetail(params: MonthlyDetailParams & { refetchInterval
   });
 }
 
-export function useWeeklyKpi(params: WeeklyKpiParams & { refetchInterval?: number | false } = {}) {
+export function useWeeklyKpi(params: WeeklyKpiParams & { refetchInterval?: RefetchInterval } = {}) {
   const { refetchInterval, ...apiParams } = params;
   return useQuery({
     queryKey: ['factory', 'weekly-kpi', apiParams],

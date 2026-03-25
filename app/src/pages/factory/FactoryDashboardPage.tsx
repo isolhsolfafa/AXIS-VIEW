@@ -55,12 +55,14 @@ function statusOf(pct: number) {
 }
 
 export default function FactoryDashboardPage() {
-  // 근무시간(08~20시)에만 10분 자동 새로고침
-  const hour = new Date().getHours();
-  const isWorkHours = hour >= 8 && hour < 20;
-  const REFRESH_INTERVAL = isWorkHours ? 10 * 60 * 1000 : false; // 10분 or 비활성
-  const { data: kpi, isLoading: kpiLoading, dataUpdatedAt: kpiUpdatedAt, isFetching: kpiFetching, refetch: refetchKpi } = useWeeklyKpi({ refetchInterval: REFRESH_INTERVAL });
-  const { data: monthly, isLoading: monthlyLoading, refetch: refetchMonthly } = useMonthlyDetail({ per_page: 500, date_field: 'mech_start', refetchInterval: REFRESH_INTERVAL });
+  // 근무시간(08~20시) 30분 자동 새로고침, 야간 비활성
+  // 함수형 → 매 interval마다 현재 시각 재평가 (대형모니터 장시간 운용 대응)
+  const autoRefreshInterval = () => {
+    const h = new Date().getHours();
+    return (h >= 8 && h < 20) ? 30 * 60 * 1000 : false;
+  };
+  const { data: kpi, isLoading: kpiLoading, dataUpdatedAt: kpiUpdatedAt, isFetching: kpiFetching, refetch: refetchKpi } = useWeeklyKpi({ refetchInterval: autoRefreshInterval });
+  const { data: monthly, isLoading: monthlyLoading, refetch: refetchMonthly } = useMonthlyDetail({ per_page: 500, date_field: 'mech_start', refetchInterval: autoRefreshInterval });
   const { data: etlData, refetch: refetchEtl } = useEtlChanges({ days: 7, limit: 10 });
 
   const handleRefreshAll = () => { refetchKpi(); refetchMonthly(); refetchEtl(); };
