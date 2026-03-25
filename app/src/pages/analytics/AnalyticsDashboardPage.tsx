@@ -245,7 +245,7 @@ export default function AnalyticsDashboardPage() {
                       <td style={{ padding: '10px 14px', color: 'var(--gx-slate)' }}>{w.role}</td>
                       <td style={{ padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: 'var(--gx-charcoal)' }}>{w.total_requests ?? 0}</td>
                       <td style={{ padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", color: 'var(--gx-slate)' }}>
-                        {(w.usage_minutes ?? 0) >= 60 ? `${Math.floor((w.usage_minutes ?? 0) / 60)}h ${(w.usage_minutes ?? 0) % 60}m` : `${w.usage_minutes ?? 0}m`}
+                        {(w.usage_minutes ?? 0) >= 60 ? `${Math.floor((w.usage_minutes ?? 0) / 60)}시간 ${Math.floor((w.usage_minutes ?? 0) % 60)}분` : `${Math.floor(w.usage_minutes ?? 0)}분`}
                       </td>
                     </tr>
                   ))}
