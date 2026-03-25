@@ -1,0 +1,134 @@
+// src/components/sn-status/SNDetailPanel.tsx
+// S/N 상세 사이드 패널 — Sprint 18
+
+import type { SNProduct, SNTaskDetail } from '@/types/snStatus';
+import { PROCESS_ORDER, PROCESS_LABEL } from './constants';
+import ProcessStepCard from './ProcessStepCard';
+
+interface SNDetailPanelProps {
+  serialNumber: string;
+  product: SNProduct;
+  tasks: SNTaskDetail[];
+  isLoading: boolean;
+  onClose: () => void;
+}
+
+export default function SNDetailPanel({ serialNumber, product, tasks, isLoading, onClose }: SNDetailPanelProps) {
+  const completedCount = PROCESS_ORDER.filter(cat => {
+    const catData = product.categories[cat];
+    return catData && catData.percent === 100;
+  }).length;
+  const totalCount = PROCESS_ORDER.filter(cat => product.categories[cat] != null).length;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        right: 0,
+        width: '480px',
+        height: '100vh',
+        background: 'var(--gx-white)',
+        borderLeft: '1px solid var(--gx-mist)',
+        boxShadow: '-8px 0 24px rgba(0,0,0,0.08)',
+        zIndex: 200,
+        display: 'flex',
+        flexDirection: 'column',
+        animation: 'slideInRight 0.2s ease',
+      }}
+    >
+      {/* 헤더 */}
+      <div
+        style={{
+          padding: '20px 24px',
+          borderBottom: '1px solid var(--gx-mist)',
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '13px',
+              color: 'var(--gx-accent)',
+              fontWeight: 500,
+              padding: '4px 0',
+            }}
+          >
+            ← S/N 목록
+          </button>
+          <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)', fontFamily: "'JetBrains Mono', monospace" }}>
+            {serialNumber}
+          </span>
+        </div>
+
+        <div style={{ fontSize: '13px', color: 'var(--gx-slate)', display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+          <span style={{ fontWeight: 600, color: 'var(--gx-charcoal)' }}>{product.model}</span>
+          <span>·</span>
+          <span>{product.customer}</span>
+          {product.ship_plan_date && (
+            <>
+              <span>·</span>
+              <span>출하: {product.ship_plan_date}</span>
+            </>
+          )}
+        </div>
+
+        {/* Progress */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>Progress</span>
+            <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: product.all_completed ? 'var(--gx-success)' : 'var(--gx-charcoal)' }}>
+              {product.overall_percent}% ({completedCount}/{totalCount} 공정)
+            </span>
+          </div>
+          <div style={{ height: '6px', borderRadius: '3px', background: 'var(--gx-cloud)', overflow: 'hidden' }}>
+            <div
+              style={{
+                height: '100%',
+                width: `${product.overall_percent}%`,
+                borderRadius: '3px',
+                background: product.all_completed ? 'var(--gx-success)' : 'var(--gx-accent)',
+                transition: 'width 0.3s ease',
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 공정 리스트 */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {isLoading ? (
+          // 스켈레톤
+          Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                background: 'var(--gx-cloud)',
+                borderRadius: 'var(--radius-gx-md, 10px)',
+                height: '64px',
+                animation: 'pulse 1.5s ease-in-out infinite',
+              }}
+            />
+          ))
+        ) : (
+          PROCESS_ORDER.map((cat) => {
+            // categories에 해당 key가 없으면 스킵
+            if (product.categories[cat] == null) return null;
+            const task = tasks.find(t => t.task_category === cat) ?? null;
+            return (
+              <ProcessStepCard
+                key={cat}
+                task={task}
+                displayLabel={PROCESS_LABEL[cat] ?? cat}
+              />
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}

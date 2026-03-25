@@ -14,6 +14,7 @@ import FactoryDashboardPage from '@/pages/factory/FactoryDashboardPage';
 import ProductionPlanPage from '@/pages/plan/ProductionPlanPage';
 import ProductionPerformancePage from '@/pages/production/ProductionPerformancePage';
 import ShipmentHistoryPage from '@/pages/production/ShipmentHistoryPage';
+import SNStatusPage from '@/pages/production/SNStatusPage';
 import DefectAnalysisPage from '@/pages/defect/DefectAnalysisPage';
 import CtAnalysisPage from '@/pages/ct/CtAnalysisPage';
 import PermissionsPage from '@/pages/admin/PermissionsPage';
@@ -104,6 +105,14 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['admin', 'manager', 'gst']}>
               <ProductionPlanPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/production/status"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'gst']}>
+              <SNStatusPage />
             </ProtectedRoute>
           }
         />

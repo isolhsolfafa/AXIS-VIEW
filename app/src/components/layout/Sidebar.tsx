@@ -129,6 +129,7 @@ const navGroups: NavGroup[] = [
         roles: ['admin', 'manager', 'gst'],
         children: [
           { label: '생산일정', to: '/production/plan' },
+          { label: '생산현황', to: '/production/status' },
           { label: '생산실적', to: '/production/performance', preparing: true },
           { label: '출하이력', to: '/production/shipment', preparing: true },
         ],
