@@ -68,28 +68,32 @@ export default function SNStatusPage() {
 
   return (
     <Layout title="S/N 작업 현황" lastUpdated={lastUpdated}>
-      {/* 새로고침 버튼 */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+      {/* 새로고침 */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+        <span style={{
+          fontSize: '10px', color: 'var(--gx-silver)',
+          fontFamily: "'JetBrains Mono', monospace",
+        }}>
+          {dataUpdatedAt ? `동기화 ${new Date(dataUpdatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}` : '—'}
+        </span>
         <button
           onClick={() => refetch()}
           disabled={isFetching}
           style={{
-            background: 'var(--gx-white)',
-            border: '1px solid var(--gx-mist)',
-            borderRadius: 'var(--radius-gx-md, 10px)',
-            padding: '8px 16px',
-            fontSize: '13px',
-            fontWeight: 500,
-            color: isFetching ? 'var(--gx-silver)' : 'var(--gx-slate)',
-            cursor: isFetching ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            transition: 'all 0.15s ease',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '28px', height: '28px', borderRadius: '8px',
+            border: '1px solid var(--gx-mist)', background: 'var(--gx-white)',
+            cursor: isFetching ? 'default' : 'pointer',
+            transition: 'all 0.15s',
+            opacity: isFetching ? 0.5 : 1,
           }}
+          title="새로고침"
         >
-          <span style={{ display: 'inline-block', transition: 'transform 0.3s', transform: isFetching ? 'rotate(180deg)' : 'none' }}>🔄</span>
-          새로고침
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gx-slate)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ animation: isFetching ? 'spin 1s linear infinite' : 'none' }}>
+            <path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+            <path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+          </svg>
         </button>
       </div>
 
@@ -185,6 +189,7 @@ export default function SNStatusPage() {
           onClose={() => setSelectedSN(null)}
         />
       )}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </Layout>
   );
 }
