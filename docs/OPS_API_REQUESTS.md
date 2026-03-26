@@ -1794,7 +1794,7 @@ sns_progress = _calc_sn_progress(cur, serial_numbers)
 | OPS BE task UI | PRESSURE_TEST task 비활성 또는 숨김 |
 | VIEW FE | 변경 없음 — `processes.TM.ready/total` 그대로 사용 |
 
-**구현 시점**: 설비 변경 확정 시. 현재는 BACKLOG 등록만.
+**구현 시점**: 미리 구현 (설비 변경 시 admin 토글만으로 제어 — 배포 불필요)
 
 ---
 
@@ -1840,8 +1840,9 @@ TANK_MODULE → PRESSURE_TEST(1차, TM) → PI 공정(2차, GST 인원)
 #### #36-C VIEW 실적확인 설정 UI — `tm_pressure_test_required` 옵션 추가
 
 **보고일**: 2026-03-23
-**시급도**: BACKLOG — 설비 변경 시 구현
+**시급도**: 구현 대상 — 추후 설비 변경 시 코드 배포 없이 admin 토글만으로 제어하기 위해 미리 구현
 **선행**: #36-B 옵션 설계 확정, OPS BE admin_settings에 키 추가
+**default**: `true` (현재 동작 유지 — 가압검사 포함). 설비 변경 시 admin이 `false`로 전환
 
 **현재 ConfirmSettingsPanel 구조** (`ProductionPerformancePage.tsx` L51-128):
 
@@ -2017,7 +2018,7 @@ ON CONFLICT (setting_key) DO NOTHING;
 3. OPS BE: 알람 핸들러 — settings 값에 따라 알람 트리거 분기
 4. VIEW FE: `AdminSettingsResponse` 타입 + ConfirmSettingsPanel UI 추가
 
-**구현 시점**: 설비 변경 확정 시. 현재는 설계만 완료.
+**구현 시점**: 미리 구현 (default `true` = 현재 동작. 설비 변경 시 admin이 `false`로 전환 — 배포 불필요)
 
 ---
 
@@ -2661,3 +2662,225 @@ end 기준 OR 조건이면, 한 주차에 표시되는 O/N(S/N)이 기존 대비
 **C안 대안 (탭 분리 안 할 경우)**: 페이지네이션 20건/페이지 + 미확인 우선 정렬 + expand 기본 off. 가능하지만 전체 현황 파악과 일괄확인에 불편.
 
 **B안 (하이브리드 KPI)**: KPI와 리스트 기준 불일치 문제 → O/N 34건 규모에서는 혼동 심화. 비권장.
+
+---
+
+#### #38 BUG — TM `partner_confirms`에 기구 파트너(FNI) 혼입 (2026-03-23)
+
+**보고일**: 2026-03-23
+**시급도**: 높음 — TM 실적확인 시 잘못된 파트너 기준으로 분리됨
+**발견**: VIEW 생산실적 페이지 TM(모듈) 탭, O/N 6520
+
+**현상**:
+
+TM(모듈) 탭에서 O/N 6520의 TM 칼럼에:
+```
+4/8
+FNI (4대) [확인]
+TMS (1대) [확인]
+```
+
+S/N 상세:
+| S/N | 기구 파트너 | 전장 파트너 | TM progress |
+|-----|-----------|-----------|-------------|
+| GBWS-6855 | TMS | TMS | 50% |
+| GBWS-6856 | FNI | C&A | 50% |
+| GBWS-6857 | FNI | C&A | N/A |
+| GBWS-6858 | FNI | C&A | N/A |
+| GBWS-6859 | FNI | C&A | N/A |
+
+**원인**:
+
+BE `_build_partner_confirms()`에서 TM 공정의 `partner_confirms`를 생성할 때 **`mech_partner`** 기준으로 S/N을 그룹핑하고 있음.
+
+하지만 TM(탱크모듈)은 기구 협력사와 무관한 별도 공정:
+- TM task(TANK_MODULE, PRESSURE_TEST)는 TMS 카테고리
+- 기구 파트너가 FNI든 TMS든 TM 작업 자체는 동일
+- FNI는 기구/전장 협력사이지 TM 협력사가 아님
+
+**올바른 동작**:
+
+TM 공정의 `partner_confirms`는:
+- **TM에 해당하는 task가 있는 S/N 전체**를 단일 그룹으로 처리 (mixed=false)
+- 또는 TM task 자체의 파트너 기준으로 분리 (현재 TMS 단일이므로 mixed=false)
+- `mech_partner` 기준 분리 적용 금지
+
+**수정 위치**: OPS BE `production.py` — `_build_partner_confirms()` 또는 mixed 판정 로직
+
+**수정 방향**:
+```python
+# TM 공정은 mech_partner가 아닌 task_category(TMS) 기준
+# 현재 TM task는 모두 TMS 카테고리 → mixed=false, partner_confirms=null
+if process_type == 'TM':
+    # TM은 partner 분리 불필요 — 기존 confirmable/confirmed 사용
+    mixed = False
+    partner_confirms = None
+```
+
+---
+
+#### #39 검증 요청 — TM 탭 O/N 카운트 기준 확인 (`module_end`) (2026-03-23)
+
+**보고일**: 2026-03-23
+**시급도**: 중간 — Sprint 13(#35-B) 공정 탭 분리 정합성 검증
+**참조**: #35-B A안 (공정 그룹별 탭 분리)
+
+**검증 필요 사항**:
+
+현재 TM(모듈) 탭에 표시되는 O/N이 `module_end` 기준으로 정확히 필터되고 있는지 확인 필요.
+
+**확인 포인트**:
+
+| # | 검증 항목 | 확인 방법 |
+|---|----------|----------|
+| 1 | TM 탭 O/N 카운트 | `module_end`가 해당 주차에 속하는 O/N만 표시되는지 |
+| 2 | 기구·전장 탭 O/N 카운트 | `mech_end` 또는 `elec_end`가 해당 주차에 속하는 O/N만 표시되는지 |
+| 3 | 두 탭 합산 vs 전체 | 탭별 O/N이 겹치는 경우 (같은 O/N이 양쪽 탭에 표시) 정상인지 |
+| 4 | 비GAIA O/N (TM 없음) | TM 탭에 표시되지 않는지 (예: SWS 모델) |
+| 5 | GAIA O/N (TM 있음) | TM 탭에 정상 표시되는지 |
+
+**현재 스크린샷 기준 (W13)**:
+
+기구·전장 탭: O/N 3건 (6520, 6526, 6623)
+TM 탭: O/N 2건 (6520, 6526) — 6623(SWS-I)은 TM 없으므로 미표시
+
+→ 6623이 TM 탭에서 제외된 것은 정상. 단, `module_end` 기준 필터인지 `processes.TM.total > 0` 기준 필터인지 확인 필요.
+
+**BE 확인 요청**:
+- `orders[].module_end` 값이 응답에 포함되고 있는지
+- `module_end`가 NULL인 O/N이 TM 탭에서 어떻게 처리되는지 (비GAIA = module_end NULL → TM 탭 미표시 정상)
+- W13에서 `module_end`가 W12인 O/N이 있다면 TM 탭에 표시 여부 (end 기준 cross-week 검증)
+
+---
+
+## Sprint 18 사전 검토 — S/N 작업 현황 카드뷰 (2026-03-25)
+
+> Sprint 18 설계 문서 검토 후 발견된 BE 확인/요청 사항 정리
+
+#### #40 확인 요청 — `GET /tasks/<serial_number>?all=true` API 존재 여부 (2026-03-25) — PENDING
+
+**시급도**: 🔴 높음 — Sprint 18 전체 전제조건
+**참조**: Sprint 18 Task 2 (S/N 상세 패널)
+
+**현황**:
+
+Sprint 18 설계에서 S/N 상세 패널의 핵심 데이터소스로 `GET /tasks/<serial_number>?all=true`를 명시함.
+현재 AXIS-VIEW FE 코드에 이 API 호출 함수가 없고, 기존 연동 이력 없음.
+
+**확인 필요 사항**:
+
+| # | 항목 | 설명 |
+|---|------|------|
+| 1 | 엔드포인트 존재 여부 | `GET /tasks/<serial_number>` 또는 유사 경로가 OPS BE에 구현되어 있는지 |
+| 2 | `?all=true` 파라미터 | 전체 공정 task를 한번에 반환하는 파라미터가 지원되는지 |
+| 3 | `workers[]` 응답 구조 | 각 task에 `workers[]` 배열이 포함되는지 (worker_name, started_at, completed_at, duration_minutes, status) |
+| 4 | 동시작업 지원 | 동일 task에 복수 작업자가 있을 때 `workers[]`에 모두 포함되는지 |
+
+**API가 없을 경우**:
+
+Sprint 18 문서의 "OPS BE 변경 없음" 전제가 무효화됨. 아래 엔드포인트 신규 개발 또는 기존 API 확장 필요:
+
+```
+GET /api/admin/tasks/<serial_number>?all=true
+
+응답 예시:
+{
+  "serial_number": "GBWS-6408",
+  "tasks": [
+    {
+      "task_category": "MECH",
+      "status": "completed",
+      "workers": [
+        {
+          "worker_id": 42,
+          "worker_name": "김태영",
+          "started_at": "2026-03-25T09:00:12+09:00",
+          "completed_at": "2026-03-25T10:32:45+09:00",
+          "duration_minutes": 92,
+          "status": "completed"
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+#### #41 확인 요청 — `GET /performance` S/N 레벨 공정별 progress 데이터 범위 (2026-03-25) — PENDING
+
+**시급도**: 🟡 중간 — Sprint 18 Task 1 카드 progress 표시
+**참조**: Sprint 18 Task 1 (S/N 카드 리스트)
+
+**현황**:
+
+Sprint 18 카드에 "4/7 공정 완료" 형태의 progress를 표시하려면 S/N 단위로 각 공정(MECH/ELEC/TM/PI/QI/SI)의 완료 여부를 판단해야 함.
+
+현재 `GET /performance` 응답 구조:
+- `orders[].processes` → O/N 레벨 공정 progress (S/N 레벨 아님)
+- `orders[].sns[]` → S/N 리스트 (각 S/N에 공정별 progress 포함 여부 불확실)
+- `orders[].sn_confirms[]` → S/N별 confirm 현황 (공정 내 task 완료율, 전체 공정 완료 수 아님)
+
+**확인 필요 사항**:
+
+| # | 항목 | 설명 |
+|---|------|------|
+| 1 | `sns[].progress` 필드 | 각 S/N에 `progress: Record<string, { total, completed, pct }>` 형태가 있는지 |
+| 2 | 없다면 대안 | S/N별 공정 완료 여부를 FE에서 어떤 필드로 판단할 수 있는지 |
+| 3 | 주간 필터 없이 호출 | `GET /performance` (week 파라미터 없이) 호출 시 전체 데이터 반환 범위 (전체? 최근 N건?) |
+
+**FE 판단 근거**:
+
+S/N 카드 progress = `sns[].progress[process].pct === 100`인 공정 수 / 해당 S/N에 존재하는 전체 공정 수.
+이 필드가 BE 응답에 없으면 카드뷰에서 공정 완료 수를 표시할 수 없음.
+
+---
+
+#### #42 확인 요청 — VIEW 권한 체계 `role=pm` 유효성 (2026-03-25) — PENDING
+
+**시급도**: 🟡 중간 — Sprint 18 권한 분기
+**참조**: Sprint 18 권한 표
+
+**현황**:
+
+Sprint 18 설계 문서에 `role = pm (GST 인원)` 권한이 명시되어 있으나, 현재 VIEW `App.tsx`의 `ProtectedRoute`에서 사용하는 role은 `admin`, `manager`, `gst` 3종뿐. `pm`이라는 role이 존재하지 않음.
+
+**확인 필요 사항**:
+
+| # | 항목 | 설명 |
+|---|------|------|
+| 1 | `pm` role 존재 여부 | OPS BE JWT에 `role = pm`이 실제로 존재하는지 |
+| 2 | 매핑 관계 | `pm`이 기존 `manager` 또는 `gst`에 해당하는지 |
+| 3 | 협력사 작업자 role | 협력사 사용자의 role 값이 무엇인지 (S/N 필터링에 사용) |
+
+**FE 대응 방향**:
+
+`pm`이 없으면 Sprint 18 문서의 권한 표를 아래처럼 수정:
+
+| 권한 | 조회 범위 |
+|------|----------|
+| admin, manager | 전체 S/N |
+| gst | 전체 S/N |
+| 협력사 (role=?) | 소속 협력사 S/N만 |
+
+---
+
+#### #43 설계 메모 — S/N 상세 패널 N+1 호출 문제 (2026-03-25)
+
+**시급도**: 🟢 참고 — 성능 최적화
+**참조**: Sprint 18 Task 1 카드 표시 항목
+
+**현황**:
+
+Sprint 18 카드에 "최근 작업자명 + 마지막 태깅 시간"을 표시하도록 설계되어 있는데, 이 데이터는 `GET /tasks/<sn>?all=true`에서만 제공됨. 카드 리스트 로딩 시 S/N 50개면 50번 API 호출 발생 (N+1 문제).
+
+**방향 B 채택** (2026-03-25):
+
+| 방향 | 설명 | BE 작업 | 채택 |
+|------|------|---------|------|
+| A. 카드에서 작업자 제거 | 카드는 `performance` API만 사용, 작업자 정보는 상세 패널 클릭 시에만 조회 | 없음 | — |
+| **B. performance API 확장** | **`sns[]`에 `last_worker`, `last_activity_at` summary 필드 추가** | **BE 수정 필요** | **✅ 채택** |
+
+**채택 근거**: 현장 관리자(mech, elec in_manager)가 카드 리스트에서 작업자의 실제 태깅 여부를 바로 확인해야 하는 니즈 존재. 장기적으로 작업자별 공정시간 집계 → APS integration까지 고려하면 performance API에 작업자 데이터를 붙이는 방향이 기반 일관성 유지에 유리.
+
+**OPS BE 작업**: Sprint 38 (AGENT_TEAM_LAUNCH.md) — `_build_order_item()`에서 `work_start_log` + `work_completion_log` 서브쿼리로 S/N별 최근 활동 조회, `sns[]`에 필드 추가.
