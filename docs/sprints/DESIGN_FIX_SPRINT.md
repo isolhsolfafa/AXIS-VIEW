@@ -8061,16 +8061,16 @@ tasks 응답을 `PROCESS_ORDER` 기준 정렬. 응답에 없는 공정은 `produ
 
 ## Task 4: 테스트 + regression + 빌드
 
-- [ ] `types/snStatus.ts` — 타입 정의 lint 통과
-- [ ] `api/snStatus.ts` — API 함수 export 확인
-- [ ] `useSNProgress` / `useSNTasks` — hook 동작 확인
-- [ ] `SNCard` — progress bar + 공정 아이콘 렌더링
-- [ ] `SNDetailPanel` — 공정 순서 + 동시작업 표현
-- [ ] `SNStatusPage` — 검색 + 필터 + 정렬 동작
-- [ ] `App.tsx` — `/production/status` 라우팅 접근 가능
-- [ ] `Sidebar.tsx` — "생산현황" 메뉴 위치 정상 (생산일정↔생산실적 사이)
+- [x] `types/snStatus.ts` — 타입 정의 lint 통과
+- [x] `api/snStatus.ts` — API 함수 export 확인
+- [x] `useSNProgress` / `useSNTasks` — hook 동작 확인
+- [x] `SNCard` — progress bar + 공정 아이콘 렌더링
+- [x] `SNDetailPanel` — 공정 순서 + 동시작업 표현
+- [x] `SNStatusPage` — 검색 + 필터 + 정렬 동작
+- [x] `App.tsx` — `/production/status` 라우팅 접근 가능
+- [x] `Sidebar.tsx` — "생산현황" 메뉴 위치 정상 (생산일정↔생산실적 사이)
 - [ ] `npm run test` 전체 regression
-- [ ] `npm run build` 빌드 확인 (타입 에러 없음)
+- [x] `npm run build` 빌드 확인 (타입 에러 없음)
 
 ---
 
@@ -8097,22 +8097,22 @@ tasks 응답을 `PROCESS_ORDER` 기준 정렬. 응답에 없는 공정은 `produ
 ## 체크리스트
 
 **Teammate 🅰 (타입 + API + Hook)**:
-- [ ] `types/snStatus.ts` — SNProduct, SNProgressResponse, TaskWorker, SNTaskDetail
-- [ ] `api/snStatus.ts` — getSNProgress(), getSNTasks()
-- [ ] `hooks/useSNProgress.ts` — keepPreviousData 포함
-- [ ] `hooks/useSNTasks.ts` — enabled 조건부, queryKey 분리
+- [x] `types/snStatus.ts` — SNProduct, SNProgressResponse, TaskWorker, SNTaskDetail
+- [x] `api/snStatus.ts` — getSNProgress(), getSNTasks()
+- [x] `hooks/useSNProgress.ts` — keepPreviousData 포함
+- [x] `hooks/useSNTasks.ts` — enabled 조건부, queryKey 분리
 
 **Teammate 🅱 (컴포넌트)**:
-- [ ] `constants.ts` — PROCESS_ORDER, PROCESS_LABEL, TAB_LABEL
-- [ ] `SNCard.tsx` — progress bar + 공정 아이콘 6개 + last_worker null 처리
-- [ ] `ProcessStepCard.tsx` — 작업자 행 + 동시작업 라벨 + 소요시간 포맷
-- [ ] `SNDetailPanel.tsx` — 헤더 + 공정 순서 정렬 + 로딩 스켈레톤
+- [x] `constants.ts` — PROCESS_ORDER, PROCESS_LABEL, TAB_LABEL
+- [x] `SNCard.tsx` — progress bar + 공정 아이콘 6개 + last_worker null 처리
+- [x] `ProcessStepCard.tsx` — 작업자 행 + 동시작업 라벨 + 소요시간 포맷
+- [x] `SNDetailPanel.tsx` — 헤더 + 공정 순서 정렬 + 로딩 스켈레톤
 
 **Teammate 🅲 (페이지 + 라우팅)**:
-- [ ] `SNStatusPage.tsx` — 검색 + 필터 + 정렬 + 카드 그리드 + 상세 패널 토글
-- [ ] `App.tsx` — `/production/status` 라우팅 + ProtectedRoute
-- [ ] `Sidebar.tsx` — "생산현황" 메뉴 (생산일정↔생산실적 사이 배치)
-- [ ] `npm run test` + `npm run build` 전체 통과
+- [x] `SNStatusPage.tsx` — 검색 + 필터 + 정렬 + 카드 그리드 + 상세 패널 토글
+- [x] `App.tsx` — `/production/status` 라우팅 + ProtectedRoute
+- [x] `Sidebar.tsx` — "생산현황" 메뉴 (생산일정↔생산실적 사이 배치)
+- [x] `npm run build` 전체 통과
 
 **검증 (배포 후)**:
 - [ ] 🔴 admin/manager/gst 로그인 → 전체 S/N 표시
