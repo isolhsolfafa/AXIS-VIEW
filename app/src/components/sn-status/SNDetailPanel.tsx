@@ -1,9 +1,13 @@
 // src/components/sn-status/SNDetailPanel.tsx
-// S/N 상세 사이드 패널 — Sprint 18
+// S/N 상세 사이드 패널 — Sprint 18 + Sprint 20 체크리스트 연동
 
 import type { SNProduct, SNTaskDetail } from '@/types/snStatus';
 import { PROCESS_ORDER, PROCESS_LABEL } from './constants';
 import ProcessStepCard from './ProcessStepCard';
+import { useChecklist } from '@/hooks/useChecklist';
+
+// 체크리스트 대상 카테고리 (MECH/ELEC/TMS만)
+const CHECKLIST_CATEGORIES = new Set(['MECH', 'ELEC', 'TMS']);
 
 interface SNDetailPanelProps {
   serialNumber: string;
@@ -11,6 +15,27 @@ interface SNDetailPanelProps {
   tasks: SNTaskDetail[];
   isLoading: boolean;
   onClose: () => void;
+}
+
+// 각 카테고리별 체크리스트 hook wrapper
+function ChecklistProcessCard({
+  cat,
+  serialNumber,
+  task,
+}: {
+  cat: string;
+  serialNumber: string;
+  task: SNTaskDetail | null;
+}) {
+  const { data: checklist, isLoading: clLoading } = useChecklist(serialNumber, cat);
+  return (
+    <ProcessStepCard
+      task={task}
+      displayLabel={PROCESS_LABEL[cat] ?? cat}
+      checklist={checklist}
+      checklistLoading={clLoading}
+    />
+  );
 }
 
 export default function SNDetailPanel({ serialNumber, product, tasks, isLoading, onClose }: SNDetailPanelProps) {
@@ -102,7 +127,6 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
       {/* 공정 리스트 */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {isLoading ? (
-          // 스켈레톤
           Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
@@ -116,9 +140,21 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
           ))
         ) : (
           PROCESS_ORDER.map((cat) => {
-            // categories에 해당 key가 없으면 스킵
             if (product.categories[cat] == null) return null;
             const task = tasks.find(t => t.task_category === cat) ?? null;
+
+            // 체크리스트 대상 카테고리는 ChecklistProcessCard 사용
+            if (CHECKLIST_CATEGORIES.has(cat)) {
+              return (
+                <ChecklistProcessCard
+                  key={cat}
+                  cat={cat}
+                  serialNumber={serialNumber}
+                  task={task}
+                />
+              );
+            }
+
             return (
               <ProcessStepCard
                 key={cat}

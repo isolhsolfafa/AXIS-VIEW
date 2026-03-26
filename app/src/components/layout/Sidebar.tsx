@@ -80,6 +80,12 @@ const ChatIcon = () => (
   </svg>
 );
 
+const ChecklistIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+    <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2H6zm1 4a1 1 0 000 2h.01a1 1 0 000-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zM7 10a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3zM7 14a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd"/>
+  </svg>
+);
+
 const ShieldIcon = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
     <path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd"/>
@@ -129,7 +135,7 @@ const navGroups: NavGroup[] = [
         roles: ['admin', 'manager', 'gst'],
         children: [
           { label: '생산일정', to: '/production/plan' },
-          { label: '생산현황', to: '/production/status' },
+          { label: '생산현황', to: '/production/status', preparing: true },
           { label: '생산실적', to: '/production/performance', preparing: true },
           { label: '출하이력', to: '/production/shipment', preparing: true },
         ],
@@ -149,6 +155,7 @@ const navGroups: NavGroup[] = [
           { label: '변경 이력', to: '/qr/changes' },
         ],
       },
+      { label: '체크리스트 관리', icon: <ChecklistIcon />, to: '/checklist', roles: ['admin', 'manager', 'gst'] },
       { label: '권한 관리', icon: <ShieldIcon />, to: '/admin/permissions', roles: ['admin', 'manager'] },
     ],
   },

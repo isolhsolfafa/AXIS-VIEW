@@ -1,11 +1,14 @@
 // src/components/sn-status/ProcessStepCard.tsx
-// 공정별 상세 카드 — Sprint 18
+// 공정별 상세 카드 — Sprint 18 + Sprint 20 체크리스트 확장
 
 import type { SNTaskDetail } from '@/types/snStatus';
+import type { ChecklistStatusResponse } from '@/types/checklist';
 
 interface ProcessStepCardProps {
   task: SNTaskDetail | null;
   displayLabel: string;
+  checklist?: ChecklistStatusResponse | null;
+  checklistLoading?: boolean;
 }
 
 function formatTime(isoStr: string | null): string {
@@ -37,11 +40,12 @@ const STATUS_CONFIG = {
   waiting: { label: '○', color: 'var(--gx-silver)', bg: 'var(--gx-cloud)' },
 };
 
-export default function ProcessStepCard({ task, displayLabel }: ProcessStepCardProps) {
+export default function ProcessStepCard({ task, displayLabel, checklist, checklistLoading }: ProcessStepCardProps) {
   const status = taskStatus(task);
   const cfg = STATUS_CONFIG[status];
   const workers = task?.workers ?? [];
   const isMultiWorker = workers.length >= 2;
+  const hasChecklist = checklist && checklist.summary.total_check > 0;
 
   return (
     <div
@@ -54,7 +58,7 @@ export default function ProcessStepCard({ task, displayLabel }: ProcessStepCardP
       }}
     >
       {/* 헤더: 공정명 + 상태 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: workers.length > 0 ? '10px' : '0' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: workers.length > 0 || hasChecklist ? '10px' : '0' }}>
         <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
           {displayLabel}
         </span>
@@ -73,47 +77,108 @@ export default function ProcessStepCard({ task, displayLabel }: ProcessStepCardP
       </div>
 
       {/* 작업자 목록 */}
-      {workers.length === 0 && status === 'waiting' && (
+      {workers.length === 0 && status === 'waiting' && !hasChecklist && (
         <div style={{ fontSize: '12px', color: 'var(--gx-silver)' }}>대기중</div>
       )}
-      {workers.map((w, i) => (
-        <div
-          key={`${w.worker_id}-${i}`}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '6px 0',
-            borderTop: i > 0 ? '1px solid var(--gx-cloud)' : 'none',
-            fontSize: '12px',
-          }}
-        >
-          <span style={{ color: 'var(--gx-slate)', fontWeight: 500, minWidth: '56px' }}>
-            👤 {w.worker_name}
-          </span>
-          <span style={{ color: 'var(--gx-steel)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>
-            {formatTime(w.started_at)} → {w.completed_at ? formatTime(w.completed_at) : '진행중'}
-          </span>
-          <span style={{ color: 'var(--gx-steel)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', marginLeft: 'auto' }}>
-            {formatDuration(w.duration_minutes)}
-          </span>
-          {isMultiWorker && i === 0 && (
-            <span
+      {workers.length > 0 && (
+        <div style={{ marginBottom: hasChecklist ? '10px' : '0' }}>
+          {workers.map((w, i) => (
+            <div
+              key={`${w.worker_id}-${i}`}
               style={{
-                fontSize: '9px',
-                fontWeight: 600,
-                padding: '1px 6px',
-                borderRadius: '8px',
-                background: 'var(--gx-info-bg, rgba(59,130,246,0.08))',
-                color: 'var(--gx-info)',
-                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 0',
+                borderTop: i > 0 ? '1px solid var(--gx-cloud)' : 'none',
+                fontSize: '12px',
               }}
             >
-              동시작업
-            </span>
-          )}
+              <span style={{ color: 'var(--gx-slate)', fontWeight: 500, minWidth: '56px' }}>
+                👤 {w.worker_name}
+              </span>
+              <span style={{ color: 'var(--gx-steel)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>
+                {formatTime(w.started_at)} → {w.completed_at ? formatTime(w.completed_at) : '진행중'}
+              </span>
+              <span style={{ color: 'var(--gx-steel)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', marginLeft: 'auto' }}>
+                {formatDuration(w.duration_minutes)}
+              </span>
+              {isMultiWorker && i === 0 && (
+                <span
+                  style={{
+                    fontSize: '9px',
+                    fontWeight: 600,
+                    padding: '1px 6px',
+                    borderRadius: '8px',
+                    background: 'var(--gx-info-bg, rgba(59,130,246,0.08))',
+                    color: 'var(--gx-info)',
+                    flexShrink: 0,
+                  }}
+                >
+                  동시작업
+                </span>
+              )}
+            </div>
+          ))}
         </div>
-      ))}
+      )}
+
+      {/* 체크리스트 섹션 — Sprint 20 */}
+      {checklistLoading && (
+        <div style={{
+          padding: '8px 0', fontSize: '11px', color: 'var(--gx-steel)',
+          borderTop: workers.length > 0 ? '1px solid var(--gx-cloud)' : 'none',
+        }}>
+          체크리스트 로딩 중...
+        </div>
+      )}
+      {hasChecklist && (
+        <div style={{
+          borderTop: workers.length > 0 ? '1px solid var(--gx-cloud)' : 'none',
+          paddingTop: '10px',
+        }}>
+          {/* 요약 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
+              ✅ 체크리스트
+            </span>
+            <span style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: checklist.summary.percent === 100 ? 'var(--gx-success)' : 'var(--gx-slate)' }}>
+              {checklist.summary.completed} / {checklist.summary.total_check} 완료
+            </span>
+          </div>
+
+          {/* 프로그레스 바 */}
+          <div style={{ height: '5px', borderRadius: '3px', background: 'var(--gx-cloud)', overflow: 'hidden', marginBottom: '8px' }}>
+            <div style={{
+              height: '100%', width: `${checklist.summary.percent}%`, borderRadius: '3px',
+              background: checklist.summary.percent === 100 ? 'var(--gx-success)' : 'var(--gx-accent)',
+              transition: 'width 0.3s ease',
+            }} />
+          </div>
+
+          {/* 미완료 항목 */}
+          {checklist.summary.percent < 100 && (() => {
+            const incomplete = checklist.items.filter(i => i.item_type === 'CHECK' && !i.record);
+            if (incomplete.length === 0) return null;
+            return (
+              <div style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>
+                <div style={{ marginBottom: '4px', fontWeight: 500 }}>미완료 항목:</div>
+                {incomplete.slice(0, 5).map(i => (
+                  <div key={i.master_id} style={{ padding: '2px 0', display: 'flex', gap: '4px' }}>
+                    <span style={{ color: 'var(--gx-silver)' }}>○</span>
+                    <span>{i.inspection_group} — {i.item_name}</span>
+                  </div>
+                ))}
+                {incomplete.length > 5 && (
+                  <div style={{ padding: '2px 0', color: 'var(--gx-silver)' }}>
+                    외 {incomplete.length - 5}개 항목
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }

@@ -17,6 +17,7 @@ import ShipmentHistoryPage from '@/pages/production/ShipmentHistoryPage';
 import SNStatusPage from '@/pages/production/SNStatusPage';
 import DefectAnalysisPage from '@/pages/defect/DefectAnalysisPage';
 import CtAnalysisPage from '@/pages/ct/CtAnalysisPage';
+import ChecklistManagePage from '@/pages/checklist/ChecklistManagePage';
 import PermissionsPage from '@/pages/admin/PermissionsPage';
 import AnalyticsDashboardPage from '@/pages/analytics/AnalyticsDashboardPage';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
@@ -96,6 +97,15 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['admin', 'manager', 'gst']}>
               <EtlChangeLogPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* ── 체크리스트 관리 ── */}
+        <Route
+          path="/checklist"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'gst']}>
+              <ChecklistManagePage />
             </ProtectedRoute>
           }
         />
