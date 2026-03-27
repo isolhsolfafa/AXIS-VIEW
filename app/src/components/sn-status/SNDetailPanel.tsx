@@ -143,45 +143,37 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
             if (product.categories[cat] == null) return null;
             const catTasks = tasks.filter(t => t.task_category === cat);
 
-            if (catTasks.length === 0) {
-              if (CHECKLIST_CATEGORIES.has(cat)) {
-                return (
-                  <ChecklistProcessCard
-                    key={cat}
-                    cat={cat}
-                    serialNumber={serialNumber}
-                    task={null}
-                  />
-                );
-              }
+            // 같은 카테고리의 모든 task workers를 병합하여 1개 카드로 렌더링
+            const mergedTask: SNTaskDetail | null = catTasks.length > 0
+              ? {
+                  id: catTasks[0].id,
+                  task_name: catTasks[0].task_name,
+                  task_category: cat,
+                  workers: catTasks.flatMap(t => t.workers),
+                  my_status: catTasks.some(t => t.my_status === 'in_progress') ? 'in_progress'
+                    : catTasks.some(t => t.my_status === 'completed') ? 'completed'
+                    : 'not_started',
+                }
+              : null;
+
+            if (CHECKLIST_CATEGORIES.has(cat)) {
               return (
-                <ProcessStepCard
+                <ChecklistProcessCard
                   key={cat}
-                  task={null}
-                  displayLabel={PROCESS_LABEL[cat] ?? cat}
+                  cat={cat}
+                  serialNumber={serialNumber}
+                  task={mergedTask}
                 />
               );
             }
 
-            return catTasks.map((task) => {
-              if (CHECKLIST_CATEGORIES.has(cat)) {
-                return (
-                  <ChecklistProcessCard
-                    key={`${cat}-${task.id}`}
-                    cat={cat}
-                    serialNumber={serialNumber}
-                    task={task}
-                  />
-                );
-              }
-              return (
-                <ProcessStepCard
-                  key={`${cat}-${task.id}`}
-                  task={task}
-                  displayLabel={task.task_name || PROCESS_LABEL[cat] || cat}
-                />
-              );
-            });
+            return (
+              <ProcessStepCard
+                key={cat}
+                task={mergedTask}
+                displayLabel={PROCESS_LABEL[cat] ?? cat}
+              />
+            );
           })
         )}
       </div>
