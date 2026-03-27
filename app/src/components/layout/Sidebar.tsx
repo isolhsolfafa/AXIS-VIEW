@@ -157,6 +157,7 @@ const navGroups: NavGroup[] = [
       },
       { label: '체크리스트 관리', icon: <ChecklistIcon />, to: '/checklist', roles: ['admin', 'manager', 'gst'] },
       { label: '권한 관리', icon: <ShieldIcon />, to: '/admin/permissions', roles: ['admin', 'manager'] },
+      { label: '비활성 사용자', icon: <ShieldIcon />, to: '/admin/inactive', roles: ['admin'] },
     ],
   },
   {

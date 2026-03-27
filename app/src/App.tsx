@@ -19,6 +19,7 @@ import DefectAnalysisPage from '@/pages/defect/DefectAnalysisPage';
 import CtAnalysisPage from '@/pages/ct/CtAnalysisPage';
 import ChecklistManagePage from '@/pages/checklist/ChecklistManagePage';
 import PermissionsPage from '@/pages/admin/PermissionsPage';
+import InactiveWorkersPage from '@/pages/admin/InactiveWorkersPage';
 import AnalyticsDashboardPage from '@/pages/analytics/AnalyticsDashboardPage';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
@@ -188,6 +189,16 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['admin', 'manager']}>
               <PermissionsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ── 비활성 사용자 관리 (admin only) ── */}
+        <Route
+          path="/admin/inactive"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <InactiveWorkersPage />
             </ProtectedRoute>
           }
         />
