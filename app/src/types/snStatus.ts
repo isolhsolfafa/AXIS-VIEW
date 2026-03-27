@@ -34,6 +34,8 @@ export interface TaskWorker {
 }
 
 export interface SNTaskDetail {
+  id: number;
+  task_name: string;
   task_category: string;
   workers: TaskWorker[];
   my_status: string;

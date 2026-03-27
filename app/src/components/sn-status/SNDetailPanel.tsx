@@ -141,27 +141,47 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
         ) : (
           PROCESS_ORDER.map((cat) => {
             if (product.categories[cat] == null) return null;
-            const task = tasks.find(t => t.task_category === cat) ?? null;
+            const catTasks = tasks.filter(t => t.task_category === cat);
 
-            // 체크리스트 대상 카테고리는 ChecklistProcessCard 사용
-            if (CHECKLIST_CATEGORIES.has(cat)) {
+            if (catTasks.length === 0) {
+              if (CHECKLIST_CATEGORIES.has(cat)) {
+                return (
+                  <ChecklistProcessCard
+                    key={cat}
+                    cat={cat}
+                    serialNumber={serialNumber}
+                    task={null}
+                  />
+                );
+              }
               return (
-                <ChecklistProcessCard
+                <ProcessStepCard
                   key={cat}
-                  cat={cat}
-                  serialNumber={serialNumber}
-                  task={task}
+                  task={null}
+                  displayLabel={PROCESS_LABEL[cat] ?? cat}
                 />
               );
             }
 
-            return (
-              <ProcessStepCard
-                key={cat}
-                task={task}
-                displayLabel={PROCESS_LABEL[cat] ?? cat}
-              />
-            );
+            return catTasks.map((task) => {
+              if (CHECKLIST_CATEGORIES.has(cat)) {
+                return (
+                  <ChecklistProcessCard
+                    key={`${cat}-${task.id}`}
+                    cat={cat}
+                    serialNumber={serialNumber}
+                    task={task}
+                  />
+                );
+              }
+              return (
+                <ProcessStepCard
+                  key={`${cat}-${task.id}`}
+                  task={task}
+                  displayLabel={task.task_name || PROCESS_LABEL[cat] || cat}
+                />
+              );
+            });
           })
         )}
       </div>
