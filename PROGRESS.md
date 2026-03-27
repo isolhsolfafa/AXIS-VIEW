@@ -1,8 +1,28 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-24 (v1.13.1 — Sprint 17 HOTFIX end 필터 + 중복 정리)
+> 마지막 업데이트: 2026-03-27 (v1.15.1 — Sprint 18-B S/N 상세뷰 UX 개선)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.15.1: Sprint 18-B — S/N 상세뷰 UX 개선 + API 경로 수정 — ✅ 완료 (2026-03-27)
+
+Sprint 18-B. 상세뷰 작업자 정렬 + 체크리스트 토글 + 카드뷰 task 이름 표시 + getSNTasks API 경로 수정.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| #44 API 경로 수정 | `api/snStatus.ts` | `/tasks/{sn}` → `/api/app/tasks/{sn}` prefix 누락 수정 + 목업 fallback 제거 (60줄→4줄) |
+| #1 작업자 정렬 반전 | `ProcessStepCard.tsx` | `[...workers].reverse()` — 최근 작업자 맨 위 + 동시작업 배지 위치 수정 |
+| #2 체크리스트 토글 | `ProcessStepCard.tsx` | `checklistOpen` state + 기본 접힘 + 미니 프로그레스바 + 클릭 펼침 |
+| #3 task 이름 표시 | `snStatus.ts` + `SNCard.tsx` | `last_task_name`/`last_task_category` 타입 추가 + 카드에 "작업자 · task명" 표시 (Sprint 38-B BE 연동) |
+
+### 빌드 결과
+
+- `tsc --noEmit` 통과
+- `npm run build` 통과
 
 ---
 

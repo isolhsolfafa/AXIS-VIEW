@@ -2884,3 +2884,154 @@ Sprint 18 카드에 "최근 작업자명 + 마지막 태깅 시간"을 표시하
 **채택 근거**: 현장 관리자(mech, elec in_manager)가 카드 리스트에서 작업자의 실제 태깅 여부를 바로 확인해야 하는 니즈 존재. 장기적으로 작업자별 공정시간 집계 → APS integration까지 고려하면 performance API에 작업자 데이터를 붙이는 방향이 기반 일관성 유지에 유리.
 
 **OPS BE 작업**: Sprint 38 (AGENT_TEAM_LAUNCH.md) — `_build_order_item()`에서 `work_start_log` + `work_completion_log` 서브쿼리로 S/N별 최근 활동 조회, `sns[]`에 필드 추가.
+
+---
+
+### #44 S/N 상세뷰 API 경로 수정 + 목업 제거 — ✅ DONE (2026-03-27)
+
+**시급도**: 🔴 즉시 — 실 데이터 연결 차단 중
+**참조**: Sprint 18 Task A-3, Sprint 38 ✅ 완료
+
+#### 문제
+
+`getSNTasks()` (src/api/snStatus.ts 라인 16)의 API 경로에 `/api/app` prefix가 누락됨.
+
+| 구분 | 현재 (VIEW 호출) | OPS BE 실제 엔드포인트 |
+|------|-----------------|---------------------|
+| 경로 | `/tasks/{sn}?all=true` | `/api/app/tasks/{sn}?all=true` |
+| 결과 | 404 → catch → `getMockTasks()` fallback | — |
+
+`getSNProgress()` (라인 9)는 `/api/app/product/progress`로 올바르게 호출하고 있으므로, `getSNTasks()`의 경로만 일관되게 맞추면 됨.
+
+#### BE 응답 형식 검증 완료
+
+OPS BE `work.py`의 `GET /api/app/tasks/<sn>?all=true`는 이미 `workers[]` + `my_status` 포함해서 응답함 (Sprint 15 BUG-12에서 구현됨, Sprint 38이 아님).
+
+| VIEW 기대 필드 (SNTaskDetail) | OPS BE 실제 응답 | 일치 |
+|------|------|------|
+| `task_category` | ✅ 있음 | 일치 |
+| `workers[]` | ✅ 있음 | 일치 |
+| `workers[].worker_id` | ✅ 있음 | 일치 |
+| `workers[].worker_name` | ✅ 있음 | 일치 |
+| `workers[].started_at` | ✅ 있음 | 일치 |
+| `workers[].completed_at` | ✅ 있음 | 일치 |
+| `workers[].duration_minutes` | ✅ 있음 | 일치 |
+| `workers[].status` | ✅ 있음 (`'completed'` / `'in_progress'` / `'not_started'`) | 일치 |
+| `my_status` | ✅ 있음 | 일치 |
+
+BE 응답에 추가 필드(id, serial_number, qr_doc_id 등)도 포함되지만, VIEW TypeScript 타입에서 자동 무시됨.
+
+#### VIEW FE 수정 사항 (src/api/snStatus.ts 1개 파일)
+
+**수정 1 — API 경로 (라인 16)**:
+
+```typescript
+// 현재
+`/tasks/${serialNumber}?all=true`
+
+// 수정
+`/api/app/tasks/${serialNumber}?all=true`
+```
+
+**수정 2 — 목업 fallback 제거 + 함수 간소화 (라인 13~73)**:
+
+```typescript
+// 현재 (try-catch + getMockTasks fallback)
+export async function getSNTasks(serialNumber: string): Promise<SNTaskDetail[]> {
+  try {
+    const { data } = await apiClient.get<SNTaskDetail[]>(
+      `/tasks/${serialNumber}?all=true`,
+    );
+    if (Array.isArray(data) && data.length > 0 && 'workers' in data[0]) {
+      return data;
+    }
+  } catch {
+    // API 미구현 → 목업 fallback
+  }
+  return getMockTasks();
+}
+
+// ── 목업 데이터 (Sprint 38 BE 구현 후 제거) ──
+function getMockTasks(): SNTaskDetail[] { ... }
+
+// 수정 후
+export async function getSNTasks(serialNumber: string): Promise<SNTaskDetail[]> {
+  const { data } = await apiClient.get<SNTaskDetail[]>(
+    `/api/app/tasks/${serialNumber}?all=true`,
+  );
+  return Array.isArray(data) ? data : [];
+}
+```
+
+- `getMockTasks()` 함수 전체 삭제 (라인 28~73)
+- 파일 상단 주석에서 `Sprint 38 BE 미구현` 표현 제거
+
+**수정 3 — 파일 상단 주석 (라인 1~3)**:
+
+```typescript
+// 현재
+// src/api/snStatus.ts
+// S/N 작업 현황 API — Sprint 18
+// getSNTasks: 실 API 호출 → 실패 시 목업 fallback (Sprint 38 BE 미구현)
+
+// 수정
+// src/api/snStatus.ts
+// S/N 작업 현황 API — Sprint 18
+```
+
+#### 검증
+
+- 상세뷰에서 S/N 클릭 → 실제 작업자 이력(worker_name, started_at, duration_minutes)이 표시되는지 확인
+- 태깅 이력 없는 S/N → `workers: []` 빈 배열 정상 표시
+- `getMockTasks` 함수가 완전히 제거되었는지 확인
+- BE 코드 수정 없음 (OPS Sprint 38 이미 완료)
+
+---
+
+### #45 카드뷰 last_worker에 task 이름 추가 — PENDING (2026-03-27)
+
+**시급도**: 🟡 중간 — 기능 동작에는 문제 없음, UX 개선
+**참조**: Sprint 18-B 이슈 3 (DESIGN_FIX_SPRINT.md)
+
+**엔드포인트**: `GET /api/app/product/progress` (기존)
+
+**요청 내용**: `products[]` 응답에 `last_task_name`, `last_task_category` 필드 추가
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `last_task_name` | string \| null | 마지막 태깅 작업의 task 이름 (예: "캐비넷 조립") |
+| `last_task_category` | string \| null | 마지막 태깅 작업의 카테고리 (예: "MECH") |
+
+**BE 수정 위치**: `progress_service.py` — Step 5 last_activity 서브쿼리
+
+`work_start_log`에 `task_name`, `task_category` 컬럼이 이미 존재하므로 서브쿼리 SELECT에 추가만 하면 됨:
+
+```sql
+-- 현재 (Step 5 서브쿼리)
+SELECT DISTINCT ON (combined.serial_number)
+       combined.serial_number,
+       w.name AS last_worker,
+       combined.activity_at AS last_activity_at
+
+-- 수정: 2개 컬럼 추가
+SELECT DISTINCT ON (combined.serial_number)
+       combined.serial_number,
+       w.name AS last_worker,
+       combined.activity_at AS last_activity_at,
+       combined.task_name AS last_task_name,
+       combined.task_category AS last_task_category
+```
+
+UNION ALL 양쪽 SELECT에도 `task_name`, `task_category` 추가:
+- `work_start_log` — 이미 `task_name`, `task_category` 있음
+- `work_completion_log` — `task_name` 없으면 `work_start_log` JOIN 또는 NULL fallback
+
+products 배열에 필드 추가 (Step 6):
+```python
+p['last_task_name'] = activity['last_task_name'] if activity else None
+p['last_task_category'] = activity['last_task_category'] if activity else None
+```
+
+**FE 사용 예시**: 기본 카드뷰에서 "김태영 · 캐비넷 조립 03-27 09:30" 표시
+
+**FE 현황**: BE 배포 후 `SNCard.tsx` + `types/snStatus.ts` 필드 추가 예정
