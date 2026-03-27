@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-03-28 | 버전: v1.16.0
+> 최종 갱신: 2026-03-28 | 버전: v1.16.1
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -80,7 +80,7 @@ AXIS-VIEW/
 │   │   ├── api/              API 클라이언트 14개
 │   │   ├── hooks/            TanStack Query 훅 14개
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.16.0 (2026-03-28)
+│   │   ├── version.ts        v1.16.1 (2026-03-28)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
@@ -173,7 +173,7 @@ VITE_USE_MOCK=false
 
 ---
 
-## 페이지 구성 (19개, v1.16.0 기준)
+## 페이지 구성 (19개, v1.16.1 기준)
 
 ### 사이드바 메뉴 구조
 
@@ -216,7 +216,7 @@ CT 분석            /ct                            [admin, gst] (preparing)
 | snStatus.ts | getSNProgress | `/api/app/product/progress` |
 | attendance.ts | getAttendance, getSummary, getTrend | `/api/admin/hr/attendance/*` |
 | analytics.ts | getSummary, getWorkerAnalytics, getEndpoint, getHourly | `/api/admin/analytics/*` |
-| workers.ts | getWorkers, toggleManager, getInactiveWorkers, getDeactivatedWorkers, updateWorkerStatus | `/api/admin/workers/*`, `/api/admin/inactive-workers`, `/api/admin/deactivated-workers`, `/api/admin/worker-status` |
+| workers.ts | getWorkers, toggleManager, getInactiveWorkers, getDeactivatedWorkers, updateWorkerStatus, requestDeactivation | `/api/admin/workers/*`, `/api/admin/inactive-workers`, `/api/admin/deactivated-workers`, `/api/admin/worker-status`, `/work/request-deactivation` |
 | qr.ts | getQrList | `/api/admin/qr/*` |
 | etl.ts | getEtlChanges | `/api/admin/etl/*` |
 | notices.ts | getNotices | `/api/notices` |
@@ -225,7 +225,7 @@ CT 분석            /ct                            [admin, gst] (preparing)
 
 ---
 
-## 훅 (17개 — TanStack Query 기반)
+## 훅 (18개 — TanStack Query 기반)
 
 | 훅 | 용도 | staleTime |
 |----|------|-----------|
@@ -239,6 +239,7 @@ CT 분석            /ct                            [admin, gst] (preparing)
 | useInactiveWorkers | 30일 미로그인 사용자 목록 | 1분 |
 | useDeactivatedWorkers | 비활성화된 사용자 목록 | 1분 |
 | useWorkerStatus | 비활성화/재활성화 mutation | — |
+| useRequestDeactivation | Manager → 자사 소속 비활성화 요청 mutation | — |
 | useQr | QR 레지스트리 목록 | 5분 |
 | useEtlChanges | ETL 변경 이력 | 5분 |
 | useNotices | 공지사항 | 5분 |
@@ -369,6 +370,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | 20 | 체크리스트 관리 + 생산현황 연동 | ✅ 완료 |
 | 21 | 반응형 레이아웃 (태블릿 우선) | 대기 |
 | 40-C | 비활성 사용자 관리 (VIEW 연동) | ✅ 완료 |
+| 40-C+ | Manager 비활성화 요청 기능 | ✅ 완료 |
 
 ---
 

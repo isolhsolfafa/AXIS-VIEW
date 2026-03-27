@@ -1,8 +1,27 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-28 (v1.16.0 — 비활성 사용자 관리 + Sprint 18-C)
+> 마지막 업데이트: 2026-03-28 (v1.16.1 — Manager 비활성화 요청 기능)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.16.1: Manager 비활성화 요청 기능 — ✅ 완료 (2026-03-28)
+
+Sprint 40-C+. 협력사 is_manager가 자사 소속 사용자 비활성화 요청 → admin 앱 알림 + 이메일 발송.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| API | `api/workers.ts` | `requestDeactivation()` — `POST /work/request-deactivation` |
+| Hook | `hooks/useWorkers.ts` | `useRequestDeactivation` mutation |
+| 페이지 | `PermissionsPage.tsx` | manager에게 자사 소속 사용자 "비활성화 요청" 버튼 표시 + 사유 입력 |
+
+### 빌드 결과
+
+- `tsc --noEmit` 통과
+- `npm run build` 통과
 
 ---
 

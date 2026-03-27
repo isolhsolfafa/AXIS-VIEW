@@ -1,7 +1,7 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.16.0';
+export const APP_VERSION = 'v1.16.1';
 export const BUILD_DATE = '2026-03-28';
 
 // 버전 이력
@@ -31,3 +31,4 @@ export const BUILD_DATE = '2026-03-28';
 // v1.15.2| 2026-03-27 | Sprint 18-B+   | 생산현황 공정 탭 제거 + 협력사 권한 필터 + 준비중 태그 제거
 // v1.15.3| 2026-03-27 | Sprint 18-C    | 상세뷰 다중 task 병합 렌더링 + task_name 표시
 // v1.16.0| 2026-03-28 | Sprint 40-C    | 비활성 사용자 관리 페이지 (30일 미로그인 + 비활성화/재활성화)
+// v1.16.1| 2026-03-28 | Sprint 40-C+   | Manager 비활성화 요청 기능 (권한 관리 → 자사 소속 비활성화 요청 + admin 알림)
