@@ -3034,4 +3034,57 @@ p['last_task_category'] = activity['last_task_category'] if activity else None
 
 **FE 사용 예시**: 기본 카드뷰에서 "김태영 · 캐비넷 조립 03-27 09:30" 표시
 
-**FE 현황**: BE 배포 후 `SNCard.tsx` + `types/snStatus.ts` 필드 추가 예정
+**FE 현황**: ✅ BE Sprint 38-B 배포 완료 → FE v1.15.1에서 연결 완료
+
+---
+
+### #46 상세뷰 workers 누락 — task_id 매핑 불일치 — PENDING (2026-03-27)
+
+**시급도**: 🔴 즉시 — 상세뷰에 실제 작업자가 표시되지 않음
+**참조**: Sprint 18-B 이슈 1 후속
+
+#### 증상
+
+GBWS-6905 S/N 예시:
+- **카드뷰** (`/api/app/product/progress`): "박새벽 · 배선 포설 03-26 16:02" 정상 표시
+- **상세뷰** (`/api/app/tasks/GBWS-6905?all=true`): ELEC에 "test-C&A 08:11 → 13:14"만 표시, **박새벽 없음**
+
+#### 원인 분석
+
+두 API의 workers 조회 경로가 다름:
+
+| API | 조회 기준 | 쿼리 |
+|-----|----------|------|
+| `product/progress` (카드뷰) | `serial_number` 기준 | `work_start_log` UNION `work_completion_log` WHERE `serial_number = ANY(%s)` → 최신 1건 |
+| `tasks/{sn}?all=true` (상세뷰) | `task_id` 기준 | `work_start_log` WHERE `task_id = ANY(%s)` → `app_task_details`에 등록된 task만 |
+
+**불일치 원인**: 박새벽이 작업한 "배선 포설"의 `work_start_log.task_id`가 `app_task_details` 테이블의 ELEC task `id`와 매핑되지 않음.
+
+가능한 시나리오:
+1. `app_task_details`에 "배선 포설" task가 seed 안 됨 (task seeding 누락)
+2. 박새벽이 다른 `task_id`로 태깅함 (QR 기반 task 할당 시 다른 레코드 참조)
+3. ELEC 카테고리에 여러 세부 task가 있는데, 일부만 `app_task_details`에 등록됨
+
+#### 확인 필요 사항
+
+```sql
+-- 1) GBWS-6905의 ELEC app_task_details 레코드 확인
+SELECT id, task_name, task_category, serial_number
+FROM app_task_details
+WHERE serial_number = 'GBWS-6905' AND task_category = 'ELEC';
+
+-- 2) 박새벽의 work_start_log에서 task_id 확인
+SELECT wsl.task_id, wsl.serial_number, wsl.task_name, wsl.task_category,
+       wsl.worker_id, w.name, wsl.started_at
+FROM work_start_log wsl
+JOIN workers w ON w.id = wsl.worker_id
+WHERE wsl.serial_number = 'GBWS-6905' AND w.name = '박새벽';
+
+-- 3) 위 두 결과의 task_id가 일치하는지 비교
+```
+
+#### BE 수정 방향 (확인 후 결정)
+
+- **task seeding 누락인 경우**: `task_seed.py`에서 해당 task 추가
+- **task_id 매핑 불일치인 경우**: `work.py` 라인 397의 workers 쿼리를 `task_id` 대신 `serial_number + task_category` 기준으로 변경 검토
+- **VIEW FE 변경 없음** — BE 데이터 정합성 이슈
