@@ -98,6 +98,11 @@ export default function ProcessStepCard({ task, displayLabel, checklist, checkli
             >
               <span style={{ color: 'var(--gx-slate)', fontWeight: 500, minWidth: '56px' }}>
                 👤 {w.worker_name}
+                {w.task_name && (
+                  <span style={{ color: 'var(--gx-silver)', fontWeight: 400, fontSize: '10px', marginLeft: '4px' }}>
+                    {w.task_name}
+                  </span>
+                )}
               </span>
               <span style={{ color: 'var(--gx-steel)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>
                 {formatTime(w.started_at)} → {w.completed_at ? formatTime(w.completed_at) : '진행중'}

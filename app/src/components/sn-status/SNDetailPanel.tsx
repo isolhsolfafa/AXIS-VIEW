@@ -149,7 +149,9 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
                   id: catTasks[0].id,
                   task_name: catTasks[0].task_name,
                   task_category: cat,
-                  workers: catTasks.flatMap(t => t.workers),
+                  workers: catTasks.flatMap(t =>
+                    t.workers.map(w => ({ ...w, task_name: t.task_name }))
+                  ),
                   my_status: catTasks.some(t => t.my_status === 'in_progress') ? 'in_progress'
                     : catTasks.some(t => t.my_status === 'completed') ? 'completed'
                     : 'not_started',
