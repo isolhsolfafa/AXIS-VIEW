@@ -1,8 +1,37 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-27 (v1.15.1 — Sprint 18-B S/N 상세뷰 UX 개선)
+> 마지막 업데이트: 2026-03-27 (v1.15.2 — 생산현황 공정 탭 제거 + 권한 필터)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.15.2: 생산현황 공정 탭 제거 + 협력사 권한 필터 — ✅ 완료 (2026-03-27)
+
+Sprint 18-B+. 불필요한 공정별 분류 탭 제거, 협력사 manager 권한 분리, 준비중 태그 정리.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| 공정 탭 제거 | `SNStatusPage.tsx` | 전체/MECH/ELEC/TM/PI/QI/SI 7개 탭 삭제, constants import 제거 |
+| 레이아웃 정리 | `SNStatusPage.tsx` | 검색바 + 동기화 시간 + 새로고침 버튼 한 줄 배치 |
+| 협력사 권한 필터 | `SNStatusPage.tsx` | `COMPANY_CATEGORIES` 매핑 — 협력사 is_manager는 자사 공정 S/N만 표시 |
+| 준비중 태그 제거 | `Sidebar.tsx` | 생산현황 메뉴 `preparing: true` 제거 |
+
+### 권한 로직
+
+| 사용자 | 표시 범위 |
+|--------|----------|
+| admin / GST | 전체 S/N |
+| FNI, BAT | MECH 공정 S/N |
+| TMS(M) | MECH + TMS 공정 S/N |
+| TMS(E), P&S, C&A | ELEC 공정 S/N |
+
+### 빌드 결과
+
+- `tsc --noEmit` 통과
+- `npm run build` 통과
 
 ---
 

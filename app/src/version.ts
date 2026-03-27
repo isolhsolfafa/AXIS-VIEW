@@ -1,7 +1,7 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.15.1';
+export const APP_VERSION = 'v1.15.2';
 export const BUILD_DATE = '2026-03-27';
 
 // 버전 이력
@@ -28,3 +28,4 @@ export const BUILD_DATE = '2026-03-27';
 // v1.14.0| 2026-03-25 | Sprint 18      | S/N 작업 현황 카드뷰 (생산현황 페이지 + 상세 패널)
 // v1.15.0| 2026-03-26 | Sprint 20      | 체크리스트 관리 목업 + 생산현황 체크리스트 연동
 // v1.15.1| 2026-03-27 | Sprint 18-B    | S/N 상세뷰 UX 개선 (작업자 정렬 반전 + 체크리스트 토글 + task 이름 표시 + API 경로 수정)
+// v1.15.2| 2026-03-27 | Sprint 18-B+   | 생산현황 공정 탭 제거 + 협력사 권한 필터 + 준비중 태그 제거
