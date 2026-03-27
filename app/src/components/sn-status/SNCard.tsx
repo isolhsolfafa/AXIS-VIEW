@@ -28,7 +28,7 @@ function formatActivityTime(isoStr: string | null): string {
 }
 
 export default function SNCard({ product, isSelected, onClick }: SNCardProps) {
-  const { serial_number, model, overall_percent, categories, all_completed, all_completed_at, last_worker, last_activity_at } = product;
+  const { serial_number, model, overall_percent, categories, all_completed, all_completed_at, last_worker, last_activity_at, last_task_name } = product;
 
   return (
     <div
@@ -105,7 +105,7 @@ export default function SNCard({ product, isSelected, onClick }: SNCardProps) {
           </span>
         ) : last_worker ? (
           <span>
-            {last_worker} {last_activity_at ? formatActivityTime(last_activity_at) : ''}
+            {last_worker}{last_task_name ? ` · ${last_task_name}` : ''} {last_activity_at ? formatActivityTime(last_activity_at) : ''}
           </span>
         ) : null}
       </div>

@@ -1,6 +1,7 @@
 // src/components/sn-status/ProcessStepCard.tsx
 // 공정별 상세 카드 — Sprint 18 + Sprint 20 체크리스트 확장
 
+import { useState } from 'react';
 import type { SNTaskDetail } from '@/types/snStatus';
 import type { ChecklistStatusResponse } from '@/types/checklist';
 
@@ -46,6 +47,7 @@ export default function ProcessStepCard({ task, displayLabel, checklist, checkli
   const workers = task?.workers ?? [];
   const isMultiWorker = workers.length >= 2;
   const hasChecklist = checklist && checklist.summary.total_check > 0;
+  const [checklistOpen, setChecklistOpen] = useState(false);
 
   return (
     <div
@@ -82,7 +84,7 @@ export default function ProcessStepCard({ task, displayLabel, checklist, checkli
       )}
       {workers.length > 0 && (
         <div style={{ marginBottom: hasChecklist ? '10px' : '0' }}>
-          {workers.map((w, i) => (
+          {[...workers].reverse().map((w, i) => (
             <div
               key={`${w.worker_id}-${i}`}
               style={{
@@ -103,7 +105,7 @@ export default function ProcessStepCard({ task, displayLabel, checklist, checkli
               <span style={{ color: 'var(--gx-steel)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', marginLeft: 'auto' }}>
                 {formatDuration(w.duration_minutes)}
               </span>
-              {isMultiWorker && i === 0 && (
+              {isMultiWorker && i === workers.length - 1 && (
                 <span
                   style={{
                     fontSize: '9px',
@@ -137,46 +139,66 @@ export default function ProcessStepCard({ task, displayLabel, checklist, checkli
           borderTop: workers.length > 0 ? '1px solid var(--gx-cloud)' : 'none',
           paddingTop: '10px',
         }}>
-          {/* 요약 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+          {/* 요약 — 클릭 시 상세 토글 */}
+          <div
+            onClick={() => setChecklistOpen(!checklistOpen)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              marginBottom: checklistOpen ? '6px' : '0',
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
             <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
-              ✅ 체크리스트
+              {checklistOpen ? '▼' : '▶'} 체크리스트
             </span>
             <span style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: checklist.summary.percent === 100 ? 'var(--gx-success)' : 'var(--gx-slate)' }}>
               {checklist.summary.completed} / {checklist.summary.total_check} 완료
             </span>
-          </div>
-
-          {/* 프로그레스 바 */}
-          <div style={{ height: '5px', borderRadius: '3px', background: 'var(--gx-cloud)', overflow: 'hidden', marginBottom: '8px' }}>
-            <div style={{
-              height: '100%', width: `${checklist.summary.percent}%`, borderRadius: '3px',
-              background: checklist.summary.percent === 100 ? 'var(--gx-success)' : 'var(--gx-accent)',
-              transition: 'width 0.3s ease',
-            }} />
-          </div>
-
-          {/* 미완료 항목 */}
-          {checklist.summary.percent < 100 && (() => {
-            const incomplete = checklist.items.filter(i => i.item_type === 'CHECK' && !i.record);
-            if (incomplete.length === 0) return null;
-            return (
-              <div style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>
-                <div style={{ marginBottom: '4px', fontWeight: 500 }}>미완료 항목:</div>
-                {incomplete.slice(0, 5).map(i => (
-                  <div key={i.master_id} style={{ padding: '2px 0', display: 'flex', gap: '4px' }}>
-                    <span style={{ color: 'var(--gx-silver)' }}>○</span>
-                    <span>{i.inspection_group} — {i.item_name}</span>
-                  </div>
-                ))}
-                {incomplete.length > 5 && (
-                  <div style={{ padding: '2px 0', color: 'var(--gx-silver)' }}>
-                    외 {incomplete.length - 5}개 항목
-                  </div>
-                )}
+            {!checklistOpen && (
+              <div style={{ flex: 1, height: '4px', borderRadius: '2px', background: 'var(--gx-cloud)', overflow: 'hidden', marginLeft: '4px' }}>
+                <div style={{
+                  height: '100%', width: `${checklist.summary.percent}%`, borderRadius: '2px',
+                  background: checklist.summary.percent === 100 ? 'var(--gx-success)' : 'var(--gx-accent)',
+                }} />
               </div>
-            );
-          })()}
+            )}
+          </div>
+
+          {checklistOpen && (
+            <>
+              {/* 프로그레스 바 */}
+              <div style={{ height: '5px', borderRadius: '3px', background: 'var(--gx-cloud)', overflow: 'hidden', marginBottom: '8px' }}>
+                <div style={{
+                  height: '100%', width: `${checklist.summary.percent}%`, borderRadius: '3px',
+                  background: checklist.summary.percent === 100 ? 'var(--gx-success)' : 'var(--gx-accent)',
+                  transition: 'width 0.3s ease',
+                }} />
+              </div>
+
+              {/* 미완료 항목 */}
+              {checklist.summary.percent < 100 && (() => {
+                const incomplete = checklist.items.filter(i => i.item_type === 'CHECK' && !i.record);
+                if (incomplete.length === 0) return null;
+                return (
+                  <div style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>
+                    <div style={{ marginBottom: '4px', fontWeight: 500 }}>미완료 항목:</div>
+                    {incomplete.slice(0, 5).map(i => (
+                      <div key={i.master_id} style={{ padding: '2px 0', display: 'flex', gap: '4px' }}>
+                        <span style={{ color: 'var(--gx-silver)' }}>○</span>
+                        <span>{i.inspection_group} — {i.item_name}</span>
+                      </div>
+                    ))}
+                    {incomplete.length > 5 && (
+                      <div style={{ padding: '2px 0', color: 'var(--gx-silver)' }}>
+                        외 {incomplete.length - 5}개 항목
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </>
+          )}
         </div>
       )}
     </div>

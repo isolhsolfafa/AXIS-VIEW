@@ -12,8 +12,10 @@ export interface SNProduct {
   overall_percent: number;
   categories: Record<string, { total: number; done: number; percent: number }>;
   my_category: string | null;
-  last_worker: string | null;       // Sprint 38 이후
-  last_activity_at: string | null;  // Sprint 38 이후
+  last_worker: string | null;         // Sprint 38 이후
+  last_activity_at: string | null;    // Sprint 38 이후
+  last_task_name: string | null;      // Sprint 38-B 이후
+  last_task_category: string | null;  // Sprint 38-B 이후
 }
 
 export interface SNProgressResponse {
