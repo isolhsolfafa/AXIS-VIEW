@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getWorkers, toggleManager,
   getInactiveWorkers, getDeactivatedWorkers, updateWorkerStatus,
+  requestDeactivation,
 } from '@/api/workers';
 import type { WorkersParams } from '@/api/workers';
 
@@ -52,6 +53,18 @@ export function useWorkerStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inactive-workers'] });
       queryClient.invalidateQueries({ queryKey: ['deactivated-workers'] });
+      queryClient.invalidateQueries({ queryKey: ['workers'] });
+    },
+  });
+}
+
+// Sprint 40-C: Manager → 비활성화 요청 (admin 알림/이메일 발송)
+export function useRequestDeactivation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workerId, reason }: { workerId: number; reason: string }) =>
+      requestDeactivation(workerId, reason),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workers'] });
     },
   });

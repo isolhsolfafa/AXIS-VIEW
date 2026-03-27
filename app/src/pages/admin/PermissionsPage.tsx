@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react';
 import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/store/authStore';
-import { useWorkers, useToggleManager } from '@/hooks/useWorkers';
+import { useWorkers, useToggleManager, useRequestDeactivation } from '@/hooks/useWorkers';
 import { toast } from 'sonner';
 
 /* ── 회사별 색상 ─────────────────────────────────────── */
@@ -56,6 +56,7 @@ export default function PermissionsPage() {
     showAll ? undefined : { is_manager: true }
   );
   const toggleMutation = useToggleManager();
+  const deactivateMutation = useRequestDeactivation();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCompany, setFilterCompany] = useState('');
@@ -275,7 +276,7 @@ export default function PermissionsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr style={{ background: 'var(--gx-cloud)', borderBottom: '1px solid var(--gx-mist)' }}>
-                {['이름', '이메일', '회사', '역할', '상태', 'Manager'].map((h) => (
+                {['이름', '이메일', '회사', '역할', '상태', 'Manager', ''].map((h) => (
                   <th
                     key={h}
                     style={{
@@ -295,7 +296,7 @@ export default function PermissionsPage() {
               {isLoading && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     style={{
                       padding: '40px 16px',
                       textAlign: 'center',
@@ -451,13 +452,40 @@ export default function PermissionsPage() {
                           </button>
                         )}
                       </td>
+                      <td style={{ padding: '10px 16px' }}>
+                        {!isAdmin && !isCurrentUser && currentUser?.is_manager && w.company === currentUser.company && (
+                          <button
+                            onClick={() => {
+                              const reason = prompt(`${w.name} 비활성화 사유를 입력하세요:`);
+                              if (reason === null) return;
+                              deactivateMutation.mutate(
+                                { workerId: w.id, reason: reason || '' },
+                                {
+                                  onSuccess: () => toast.success(`${w.name} — 비활성화 요청 완료 (admin 승인 대기)`),
+                                  onError: () => toast.error('비활성화 요청에 실패했습니다'),
+                                }
+                              );
+                            }}
+                            disabled={deactivateMutation.isPending}
+                            style={{
+                              fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '6px',
+                              border: 'none', cursor: 'pointer',
+                              background: 'var(--gx-danger-bg)', color: 'var(--gx-danger)',
+                              opacity: deactivateMutation.isPending ? 0.5 : 1,
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            비활성화 요청
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
               {!isLoading && filtered.length === 0 && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     style={{
                       padding: '40px 16px',
                       textAlign: 'center',

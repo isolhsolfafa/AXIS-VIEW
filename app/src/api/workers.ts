@@ -85,3 +85,15 @@ export async function updateWorkerStatus(
   );
   return data;
 }
+
+// Sprint 40-C: Manager → 자사 소속 사용자 비활성화 요청
+export async function requestDeactivation(
+  workerId: number,
+  reason: string
+): Promise<{ message: string; worker_id: number }> {
+  const { data } = await apiClient.post<{ message: string; worker_id: number }>(
+    '/work/request-deactivation',
+    { worker_id: workerId, reason },
+  );
+  return data;
+}
