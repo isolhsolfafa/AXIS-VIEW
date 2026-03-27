@@ -1,8 +1,48 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-27 (v1.15.2 — 생산현황 공정 탭 제거 + 권한 필터)
+> 마지막 업데이트: 2026-03-28 (v1.16.0 — 비활성 사용자 관리 + Sprint 18-C)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.16.0: 비활성 사용자 관리 페이지 — ✅ 완료 (2026-03-28)
+
+Sprint 40-C VIEW 연동. 30일 미로그인 사용자 조회 + 비활성화/재활성화.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| API 연동 | `api/workers.ts` | inactive-workers, deactivated-workers, worker-status 3개 API |
+| Hooks | `hooks/useWorkers.ts` | `useInactiveWorkers`, `useDeactivatedWorkers`, `useWorkerStatus` |
+| 페이지 | `pages/admin/InactiveWorkersPage.tsx` | 신규 — 2탭(미로그인/비활성화) + KPI + 검색 + 테이블 |
+| 라우트 | `App.tsx` | `/admin/inactive` (admin only) |
+| 사이드바 | `Sidebar.tsx` | Management 그룹에 "비활성 사용자" 메뉴 추가 |
+
+### 빌드 결과
+
+- `tsc --noEmit` 통과
+- `npm run build` 통과
+
+---
+
+## v1.15.3: Sprint 18-C — 상세뷰 다중 task 병합 + task_name 표시 — ✅ 완료 (2026-03-27)
+
+Sprint 18-C. 같은 카테고리 다중 task를 1개 카드로 병합 렌더링 + 작업자별 task_name 표시.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| 타입 확장 | `types/snStatus.ts` | `SNTaskDetail`에 id, task_name 추가 + `TaskWorker`에 task_name 옵션 |
+| 병합 렌더링 | `SNDetailPanel.tsx` | `find()` → `filter()` + `flatMap(workers)` — 카테고리당 1개 카드 |
+| task_name 표시 | `ProcessStepCard.tsx` | 작업자명 옆에 task_name 연한색 표시 |
+
+### 빌드 결과
+
+- `tsc --noEmit` 통과
+- `npm run build` 통과
 
 ---
 
