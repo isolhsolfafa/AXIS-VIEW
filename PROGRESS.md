@@ -1,8 +1,50 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-03-28 (v1.16.1 — Manager 비활성화 요청 기능)
+> 마지막 업데이트: 2026-03-29 (v1.17.0 — Sprint 21 반응형 레이아웃)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.17.0: Sprint 21 — 반응형 레이아웃 (태블릿 우선) — ✅ 완료 (2026-03-29)
+
+Sprint 21. 사이드바 접기 + KPI/차트 반응형 + 모바일 오버레이.
+
+### Phase B — 사이드바 접기
+
+| 항목 | 파일 | 변경 |
+|------|------|------|
+| CSS 변수 | `index.css` | `--sidebar-collapsed-width: 64px` 추가 |
+| 상태 관리 | `Layout.tsx` | `collapsed/isMobile/mobileOpen` state + matchMedia 리스너 + localStorage 동기화 |
+| 접기 모드 | `Sidebar.tsx` | 64px 아이콘 모드 + 토글 버튼(ChevronLeft/Right) + children 클릭시 펼침 전환 |
+| 모바일 | `Sidebar.tsx` | 768px 이하 숨김 + 오버레이(딤 배경 + 슬라이드 인) |
+| 햄버거 | `Header.tsx` | 모바일 햄버거 버튼 (768px 이하) |
+
+### Phase C — KPI/차트 반응형
+
+| 항목 | 파일 수 | 변경 |
+|------|---------|------|
+| media query | `index.css` | 1200px→1024px→768px 순서 + `kpi-grid-7`, `stage-grid` 신규 |
+| kpi-grid | 11개소 | 데스크톱 원본 유지 + 태블릿 2열 + 모바일 1열 |
+| chart-grid | 7개소 | 1200px 이하 1열 스택 |
+| bottom-grid | 2개소 | 1200px 이하 1열 스택 |
+| stage-grid | 1개소 | ProductionPlanPage 동적 그리드 |
+| kpi-grid-7 | 1개소 | EtlChangeLogPage 7열→3열→2열 |
+| SNDetailPanel | 1개소 | `maxWidth: '100vw'` 태블릿 넘침 방지 |
+
+### 브레이크포인트 동작
+
+| 너비 | 사이드바 | KPI 그리드 | 차트 그리드 |
+|------|---------|-----------|-----------|
+| >1024px | 펼침 260px (토글 가능) | 원본 열 수 | 원본 비율 |
+| 768~1024px | 접힘 64px (아이콘) | 2열 | 1열 스택 |
+| <768px | 숨김 + 오버레이 | 1열 | 1열 스택 |
+
+### 빌드/테스트 결과
+
+- `tsc --noEmit` 통과
+- `npm run build` 통과
+- 19개 파일 수정 (코어 5 + 페이지 14)
 
 ---
 

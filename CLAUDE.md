@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-03-28 | 버전: v1.16.1
+> 최종 갱신: 2026-03-29 | 버전: v1.17.0
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -80,7 +80,7 @@ AXIS-VIEW/
 │   │   ├── api/              API 클라이언트 14개
 │   │   ├── hooks/            TanStack Query 훅 14개
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.16.1 (2026-03-28)
+│   │   ├── version.ts        v1.17.0 (2026-03-29)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
@@ -173,7 +173,7 @@ VITE_USE_MOCK=false
 
 ---
 
-## 페이지 구성 (19개, v1.16.1 기준)
+## 페이지 구성 (19개, v1.17.0 기준)
 
 ### 사이드바 메뉴 구조
 
@@ -286,10 +286,11 @@ CT 분석            /ct                            [admin, gst] (preparing)
 
 ### 레이아웃 토큰
 ```
-사이드바: 260px (--sidebar-width), 고정 좌측
+사이드바: 260px (--sidebar-width), 접힘 64px (--sidebar-collapsed-width), 고정 좌측
 헤더: 64px (--header-height), sticky 상단
-메인: margin-left 260px, padding 28px 32px, maxWidth 1440px
+메인: margin-left 동적(펼침/접힘), padding 28px 32px, maxWidth 1440px
 배경: Cloud (#F3F4F7)
+반응형: 1024px 이하 자동 접힘, 768px 이하 숨김+오버레이
 ```
 
 ### 폰트
@@ -368,7 +369,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | 18-C | 다중 task 병합 렌더링 + task_name 표시 | ✅ 완료 |
 | 19 | HOTFIX: 공장 대시보드 자동 새로고침 | ✅ 완료 |
 | 20 | 체크리스트 관리 + 생산현황 연동 | ✅ 완료 |
-| 21 | 반응형 레이아웃 (태블릿 우선) | 대기 |
+| 21 | 반응형 레이아웃 (태블릿 우선) | ✅ 완료 |
 | 40-C | 비활성 사용자 관리 (VIEW 연동) | ✅ 완료 |
 | 40-C+ | Manager 비활성화 요청 기능 | ✅ 완료 |
 
@@ -376,9 +377,9 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 
 ## 향후 방향
 
-### 단기 — 반응형 + 체크리스트
-- Sprint 21: 태블릿 반응형 (사이드바 접기 + KPI/차트 반응형)
-- Sprint 20: 체크리스트 관리 페이지 완성
+### 단기 — Phase D 모바일 + 체크리스트 완성
+- Sprint 21 Phase D: 모바일 하단 탭 네비게이션 (선택적)
+- Sprint 20: 체크리스트 관리 BE 연동 (현재 목업)
 
 ### 중기 — 사내서버 마이그레이션
 - Railway/Netlify → 사내서버 전환
