@@ -25,6 +25,8 @@ interface HeaderProps {
   lastUpdated?: Date | null;
   selectedDate?: string;
   onDateChange?: (date: string) => void;
+  isMobile?: boolean;
+  onMenuClick?: () => void;
 }
 
 export default function Header({
@@ -32,6 +34,8 @@ export default function Header({
   lastUpdated: _lastUpdated,
   selectedDate,
   onDateChange,
+  isMobile,
+  onMenuClick,
 }: HeaderProps) {
   const [now, setNow] = useState(new Date());
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -116,8 +120,22 @@ export default function Header({
         zIndex: 50,
       }}
     >
-      {/* 좌측: 페이지 제목 + 브레드크럼 */}
+      {/* 좌측: 햄버거(모바일) + 페이지 제목 + 브레드크럼 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        {isMobile && (
+          <button
+            onClick={onMenuClick}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              padding: '8px', marginRight: '-8px',
+              color: 'var(--gx-charcoal)', display: 'flex',
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M3 5h14M3 10h14M3 15h14"/>
+            </svg>
+          </button>
+        )}
         <div>
           <div
             style={{

@@ -94,7 +94,7 @@ export default function InactiveWorkersPage() {
         </div>
 
         {/* KPI 카드 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+        <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
           {[
             { label: '미로그인 (30일+)', value: inactiveData?.count ?? 0, color: 'var(--gx-warning)' },
             { label: '비활성화됨', value: deactivatedData?.count ?? 0, color: 'var(--gx-danger)' },

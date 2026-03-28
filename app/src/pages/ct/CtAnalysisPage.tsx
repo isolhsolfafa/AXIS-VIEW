@@ -194,7 +194,7 @@ export default function CtAnalysisPage() {
         </div>
 
         {/* Process Summary Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
           {PROCESS_CARDS.map(p => (
             <div
               key={p.name}

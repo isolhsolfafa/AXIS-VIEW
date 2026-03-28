@@ -86,7 +86,7 @@ export default function PartnerDashboardPage() {
         <PrepareBanner />
 
         {/* KPI Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
           {SAMPLE_KPI.map(k => (
             <div key={k.label} style={{
               background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
@@ -122,7 +122,7 @@ export default function PartnerDashboardPage() {
         </div>
 
         {/* Row 2: 작업기록 누락 히트맵 + 출퇴근 */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '24px' }}>
+        <div className="chart-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '24px' }}>
           {/* 작업기록 누락 히트맵 */}
           <div style={{ background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px 0' }}>
@@ -192,7 +192,7 @@ export default function PartnerDashboardPage() {
             </div>
             <div style={{ padding: '20px 24px 24px' }}>
               {/* 3 stat boxes */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+              <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px' }}>
                 {[
                   { label: '출근', count: 42, color: '#059669', bg: 'rgba(16,185,129,0.08)' },
                   { label: '지각', count: 3, color: '#D97706', bg: 'rgba(245,158,11,0.08)' },
@@ -226,7 +226,7 @@ export default function PartnerDashboardPage() {
         </div>
 
         {/* Row 3: 주간 누락률 추이 + 불량 요약 (blurred) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div className="bottom-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           {/* 주간 누락률 추이 */}
           <div style={{ background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px 0' }}>

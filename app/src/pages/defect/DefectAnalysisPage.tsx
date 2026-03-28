@@ -165,7 +165,7 @@ export default function DefectAnalysisPage() {
         </div>
 
         {/* KPI Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
           {SAMPLE_KPI.map(k => {
             const ic = ICON_BG[k.variant];
             return (
@@ -201,7 +201,7 @@ export default function DefectAnalysisPage() {
         </div>
 
         {/* Charts: Donut + Ranking */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+        <div className="chart-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
           {/* Donut Chart */}
           <div style={{
             background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
@@ -403,7 +403,7 @@ export default function DefectAnalysisPage() {
         </div>
 
         {/* Vendor Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
           {VENDORS.map(v => (
             <div
               key={v.name}

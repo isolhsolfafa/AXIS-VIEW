@@ -195,7 +195,7 @@ export default function PartnerEvaluationPage() {
         <EvalTable title="전장 협력사 평가" subtitle="2026년 3월 · 전장은 기구보다 엄격한 기준" data={ELEC_DATA} />
 
         {/* 주차별 누락률 상세 */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '8px' }}>
+        <div className="chart-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '8px' }}>
           <WeeklyNanTable title="기구 — 주차별 누락률 (%)" data={MECH_NAN} />
           <WeeklyNanTable title="전장 — 주차별 누락률 (%)" data={ELEC_NAN} />
         </div>

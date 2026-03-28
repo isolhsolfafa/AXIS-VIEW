@@ -175,6 +175,7 @@ export default function EtlChangeLogPage() {
 
         {/* KPI 카드 */}
         <div
+          className="kpi-grid-7"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(7, 1fr)',

@@ -170,6 +170,7 @@
   --gx-info: #3B82F6;
   --gx-info-bg: rgba(59, 130, 246, 0.08);
   --sidebar-width: 260px;
+  --sidebar-collapsed-width: 64px;
   --header-height: 64px;
   --radius-gx-sm: 6px;
   --radius-gx-md: 10px;
@@ -223,13 +224,32 @@ body {
   background: var(--gx-accent);
 }
 
+/* ── 신규 기본 클래스 ── */
+.kpi-grid-7 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; }
+.stage-grid { display: grid; gap: 8px; }
+
+/* ── 소형 데스크톱 / 태블릿 가로 (1200px) ── */
 @media (max-width: 1200px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
   .chart-grid { grid-template-columns: 1fr !important; }
   .company-grid { grid-template-columns: repeat(2, 1fr) !important; }
   .bottom-grid { grid-template-columns: 1fr !important; }
+  .kpi-grid-7 { grid-template-columns: repeat(3, 1fr) !important; }
+  .stage-grid { grid-template-columns: repeat(2, 1fr) !important; }
 }
+
+/* ── 태블릿 (1024px) ── */
+@media (max-width: 1024px) {
+  .kpi-grid-7 { grid-template-columns: repeat(4, 1fr) !important; }
+  .stage-grid { grid-template-columns: repeat(3, 1fr) !important; }
+  .main-content { padding: 20px 16px !important; }
+}
+
+/* ── 모바일 (768px) ── */
 @media (max-width: 768px) {
   .kpi-grid { grid-template-columns: 1fr !important; }
   .company-grid { grid-template-columns: 1fr !important; }
+  .kpi-grid-7 { grid-template-columns: repeat(2, 1fr) !important; }
+  .stage-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .main-content { padding: 16px 12px !important; }
 }

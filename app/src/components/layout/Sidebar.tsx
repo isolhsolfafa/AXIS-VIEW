@@ -1,5 +1,5 @@
 // src/components/layout/Sidebar.tsx
-// 좌측 사이드바 (260px) — G-AXIS 디자인 시스템 완전 적용
+// 좌측 사이드바 — G-AXIS 디자인 시스템 + Sprint 21 반응형 (접기/모바일)
 
 import { useState, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
@@ -7,6 +7,14 @@ import { useAuth } from '@/store/authStore';
 import { useEtlChanges } from '@/hooks/useEtlChanges';
 import { APP_VERSION } from '@/version';
 import logoImage from '@/assets/images/g-axis-2.png';
+
+interface SidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+  isMobile: boolean;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
+}
 
 interface SubNavItem {
   label: string;
@@ -191,7 +199,14 @@ const ChevronIcon = ({ open }: { open: boolean }) => (
   </svg>
 );
 
-export default function Sidebar() {
+const CollapseToggleIcon = ({ collapsed }: { collapsed: boolean }) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
+    style={{ transition: 'transform 0.2s', transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+    <path d="M10 3L5 8l5 5" />
+  </svg>
+);
+
+export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onMobileClose }: SidebarProps) {
   const { user, logout } = useAuth();
   const location = useLocation();
 
@@ -209,7 +224,6 @@ export default function Sidebar() {
   }, [etlData]);
 
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(() => {
-    // 현재 경로에 해당하는 하위 메뉴 자동 펼침
     const initial = new Set<string>();
     if (location.pathname.startsWith('/qr')) initial.add('QR 관리');
     if (location.pathname.startsWith('/partner')) initial.add('협력사 관리');
@@ -259,16 +273,32 @@ export default function Sidebar() {
     });
   };
 
+  // collapsed + children 클릭 → 펼침 전환
+  const handleParentClick = (item: NavItem) => {
+    if (collapsed && item.children) {
+      onToggle();
+      setExpandedMenus((prev) => {
+        const next = new Set(prev);
+        next.add(item.label);
+        return next;
+      });
+      return;
+    }
+    toggleMenu(item.label);
+  };
+
   const initials = user?.name
     ? user.name.length >= 2
       ? user.name.slice(-2)
       : user.name.charAt(0)
     : 'DK';
 
-  return (
+  const sidebarW = isMobile ? '260px' : collapsed ? 'var(--sidebar-collapsed-width)' : 'var(--sidebar-width)';
+
+  const sidebarContent = (
     <aside
       style={{
-        width: 'var(--sidebar-width)',
+        width: sidebarW,
         height: '100vh',
         position: 'fixed',
         left: 0,
@@ -278,6 +308,8 @@ export default function Sidebar() {
         display: 'flex',
         flexDirection: 'column',
         zIndex: 100,
+        transition: 'width 0.2s ease',
+        overflow: 'hidden',
       }}
     >
       {/* 브랜드 영역 */}
@@ -286,7 +318,7 @@ export default function Sidebar() {
           height: 'var(--header-height)',
           display: 'flex',
           alignItems: 'center',
-          padding: '0 20px',
+          padding: collapsed && !isMobile ? '0 12px' : '0 20px',
           gap: '14px',
           borderBottom: '1px solid var(--gx-mist)',
           flexShrink: 0,
@@ -294,13 +326,14 @@ export default function Sidebar() {
       >
         <div
           style={{
-            width: '54px',
+            width: collapsed && !isMobile ? '36px' : '54px',
             height: '40px',
             flexShrink: 0,
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            transition: 'width 0.2s ease',
           }}
         >
           <img
@@ -314,229 +347,135 @@ export default function Sidebar() {
             }}
           />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-          <span
-            style={{
-              fontSize: '17px',
-              fontWeight: 300,
-              letterSpacing: '5px',
-              color: 'var(--gx-charcoal)',
-              lineHeight: 1,
-            }}
-          >
-            AXIS-VIEW
-          </span>
-          <span
-            style={{
-              fontSize: '8px',
-              fontWeight: 400,
-              letterSpacing: '0.5px',
-              color: 'var(--gx-steel)',
-              lineHeight: 1.2,
-            }}
-          >
-            Manufacturing Execution Platform
-          </span>
-        </div>
+        {(!collapsed || isMobile) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: '17px', fontWeight: 300, letterSpacing: '5px', color: 'var(--gx-charcoal)', lineHeight: 1 }}>
+              AXIS-VIEW
+            </span>
+            <span style={{ fontSize: '8px', fontWeight: 400, letterSpacing: '0.5px', color: 'var(--gx-steel)', lineHeight: 1.2 }}>
+              Manufacturing Execution Platform
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 네비게이션 */}
       <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
         {dynamicNavGroups.map((group) => (
-          <div key={group.title} style={{ padding: '20px 16px 8px' }}>
-            <div
-              style={{
-                fontSize: '10px',
-                fontWeight: 600,
-                letterSpacing: '1.5px',
-                textTransform: 'uppercase',
-                color: 'var(--gx-steel)',
-                padding: '0 8px',
-                marginBottom: '8px',
-              }}
-            >
-              {group.title}
-            </div>
+          <div key={group.title} style={{ padding: collapsed && !isMobile ? '20px 8px 8px' : '20px 16px 8px' }}>
+            {(!collapsed || isMobile) && (
+              <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--gx-steel)', padding: '0 8px', marginBottom: '8px' }}>
+                {group.title}
+              </div>
+            )}
             {group.items.map((item) => {
+              const isCollapsedIcon = collapsed && !isMobile;
+
               // 완전 비활성 (자물쇠)
               if (item.disabled) {
                 return (
                   <div
                     key={item.label}
+                    title={isCollapsedIcon ? item.label : undefined}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '10px 12px',
-                      borderRadius: 'var(--radius-gx-md)',
-                      color: 'var(--gx-slate)',
-                      fontSize: '13.5px',
-                      fontWeight: 500,
-                      opacity: 0.5,
-                      cursor: 'not-allowed',
+                      display: 'flex', alignItems: 'center', justifyContent: isCollapsedIcon ? 'center' : 'flex-start',
+                      gap: '12px', padding: isCollapsedIcon ? '10px 0' : '10px 12px',
+                      borderRadius: 'var(--radius-gx-md)', color: 'var(--gx-slate)',
+                      fontSize: '13.5px', fontWeight: 500, opacity: 0.5, cursor: 'not-allowed',
                     }}
                   >
                     <span style={{ opacity: 0.6, flexShrink: 0, display: 'flex' }}>{item.icon}</span>
-                    <span style={{ flex: 1 }}>{item.label}</span>
-                    <span style={{ color: 'var(--gx-steel)', flexShrink: 0 }}>
-                      <LockIcon />
-                    </span>
+                    {!isCollapsedIcon && <span style={{ flex: 1 }}>{item.label}</span>}
+                    {!isCollapsedIcon && <span style={{ color: 'var(--gx-steel)', flexShrink: 0 }}><LockIcon /></span>}
                   </div>
                 );
               }
 
-              // 준비중 (클릭 가능하지만 비활성 톤 + "준비중" 뱃지)
+              // 준비중
               if (item.preparing) {
                 return (
                   <NavLink
                     key={item.label}
                     to={item.to || '/'}
+                    title={isCollapsedIcon ? item.label : undefined}
+                    onClick={isMobile ? onMobileClose : undefined}
                     style={({ isActive }) => ({
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '10px 12px',
+                      display: 'flex', alignItems: 'center', justifyContent: isCollapsedIcon ? 'center' : 'flex-start',
+                      gap: '12px', padding: isCollapsedIcon ? '10px 0' : '10px 12px',
                       borderRadius: 'var(--radius-gx-md)',
                       color: isActive ? 'var(--gx-slate)' : 'var(--gx-slate)',
                       background: isActive ? 'var(--gx-cloud)' : 'transparent',
-                      fontSize: '13.5px',
-                      fontWeight: 500,
-                      opacity: 0.5,
-                      textDecoration: 'none',
-                      transition: 'all 0.15s ease',
+                      fontSize: '13.5px', fontWeight: 500, opacity: 0.5,
+                      textDecoration: 'none', transition: 'all 0.15s ease',
                     })}
                   >
                     <span style={{ opacity: 0.6, flexShrink: 0, display: 'flex' }}>{item.icon}</span>
-                    <span style={{ flex: 1 }}>{item.label}</span>
-                    <span
-                      style={{
-                        fontSize: '9px',
-                        fontWeight: 600,
-                        padding: '2px 7px',
-                        borderRadius: '10px',
-                        background: 'var(--gx-warning-bg)',
-                        color: 'var(--gx-warning)',
-                        flexShrink: 0,
-                      }}
-                    >
-                      준비중
-                    </span>
+                    {!isCollapsedIcon && <span style={{ flex: 1 }}>{item.label}</span>}
+                    {!isCollapsedIcon && (
+                      <span style={{ fontSize: '9px', fontWeight: 600, padding: '2px 7px', borderRadius: '10px', background: 'var(--gx-warning-bg)', color: 'var(--gx-warning)', flexShrink: 0 }}>
+                        준비중
+                      </span>
+                    )}
                   </NavLink>
                 );
               }
 
-              // 하위 메뉴가 있는 항목 (펼침/접힘)
+              // 하위 메뉴가 있는 항목
               if (item.children && item.children.length > 0) {
                 const isExpanded = expandedMenus.has(item.label);
                 const isChildActive = item.children.some((c) => location.pathname === c.to);
 
                 return (
                   <div key={item.label}>
-                    {/* 부모 메뉴 (클릭 시 토글) */}
                     <button
-                      onClick={() => toggleMenu(item.label)}
+                      onClick={() => handleParentClick(item)}
+                      title={isCollapsedIcon ? item.label : undefined}
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        padding: '10px 12px',
+                        display: 'flex', alignItems: 'center', justifyContent: isCollapsedIcon ? 'center' : 'flex-start',
+                        gap: '12px', padding: isCollapsedIcon ? '10px 0' : '10px 12px',
                         borderRadius: 'var(--radius-gx-md)',
                         color: isChildActive ? 'var(--gx-accent)' : 'var(--gx-slate)',
-                        background: 'transparent',
-                        fontSize: '13.5px',
-                        fontWeight: 500,
-                        textDecoration: 'none',
-                        transition: 'all 0.15s ease',
-                        width: '100%',
-                        border: 'none',
-                        cursor: 'pointer',
-                        textAlign: 'left',
+                        background: 'transparent', fontSize: '13.5px', fontWeight: 500,
+                        textDecoration: 'none', transition: 'all 0.15s ease',
+                        width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left',
                       }}
                     >
-                      <span
-                        style={{
-                          opacity: isChildActive ? 1 : 0.6,
-                          flexShrink: 0,
-                          display: 'flex',
-                        }}
-                      >
-                        {item.icon}
-                      </span>
-                      <span style={{ flex: 1 }}>{item.label}</span>
-                      <span style={{ color: 'var(--gx-steel)', flexShrink: 0, display: 'flex' }}>
-                        <ChevronIcon open={isExpanded} />
-                      </span>
+                      <span style={{ opacity: isChildActive ? 1 : 0.6, flexShrink: 0, display: 'flex' }}>{item.icon}</span>
+                      {!isCollapsedIcon && <span style={{ flex: 1 }}>{item.label}</span>}
+                      {!isCollapsedIcon && (
+                        <span style={{ color: 'var(--gx-steel)', flexShrink: 0, display: 'flex' }}>
+                          <ChevronIcon open={isExpanded} />
+                        </span>
+                      )}
                     </button>
 
-                    {/* 하위 메뉴 목록 */}
-                    {isExpanded && (
+                    {isExpanded && !isCollapsedIcon && (
                       <div style={{ paddingLeft: '20px', marginTop: '2px' }}>
                         {item.children.map((child) => (
                           <NavLink
                             key={child.to}
                             to={child.to}
                             end={child.to === '/qr' || child.to === '/partner' || child.to === '/production/plan'}
+                            onClick={isMobile ? onMobileClose : undefined}
                             style={({ isActive }) => ({
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              padding: '7px 12px',
-                              borderRadius: 'var(--radius-gx-md)',
+                              display: 'flex', alignItems: 'center', gap: '8px',
+                              padding: '7px 12px', borderRadius: 'var(--radius-gx-md)',
                               color: isActive ? 'var(--gx-accent)' : 'var(--gx-steel)',
                               background: isActive ? 'var(--gx-accent-soft)' : 'transparent',
-                              fontSize: '12.5px',
-                              fontWeight: isActive ? 500 : 400,
-                              textDecoration: 'none',
-                              transition: 'all 0.15s ease',
+                              fontSize: '12.5px', fontWeight: isActive ? 500 : 400,
+                              textDecoration: 'none', transition: 'all 0.15s ease',
                               opacity: child.preparing ? 0.5 : 1,
                             })}
                           >
-                            <span
-                              style={{
-                                width: '4px',
-                                height: '4px',
-                                borderRadius: '50%',
-                                background: 'currentColor',
-                                flexShrink: 0,
-                                opacity: 0.5,
-                              }}
-                            />
+                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'currentColor', flexShrink: 0, opacity: 0.5 }} />
                             <span>{child.label}</span>
                             {child.badge != null && child.badge > 0 && (
-                              <span
-                                style={{
-                                  fontSize: '10px',
-                                  fontWeight: 700,
-                                  minWidth: '18px',
-                                  height: '18px',
-                                  borderRadius: '9px',
-                                  background: 'var(--gx-danger, #EF4444)',
-                                  color: '#fff',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  padding: '0 4px',
-                                  flexShrink: 0,
-                                  marginLeft: 'auto',
-                                  lineHeight: 1,
-                                }}
-                              >
+                              <span style={{ fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '9px', background: 'var(--gx-danger, #EF4444)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', flexShrink: 0, marginLeft: 'auto', lineHeight: 1 }}>
                                 {child.badge}
                               </span>
                             )}
                             {child.preparing && (
-                              <span
-                                style={{
-                                  fontSize: '9px',
-                                  fontWeight: 600,
-                                  padding: '1px 6px',
-                                  borderRadius: '10px',
-                                  background: 'var(--gx-warning-bg)',
-                                  color: 'var(--gx-warning)',
-                                  flexShrink: 0,
-                                  marginLeft: 'auto',
-                                }}
-                              >
+                              <span style={{ fontSize: '9px', fontWeight: 600, padding: '1px 6px', borderRadius: '10px', background: 'var(--gx-warning-bg)', color: 'var(--gx-warning)', flexShrink: 0, marginLeft: 'auto' }}>
                                 준비중
                               </span>
                             )}
@@ -548,39 +487,28 @@ export default function Sidebar() {
                 );
               }
 
-              // 일반 활성 메뉴 (children 없음)
+              // 일반 활성 메뉴
               return (
                 <NavLink
                   key={item.label}
                   to={item.to || '/'}
+                  title={isCollapsedIcon ? item.label : undefined}
+                  onClick={isMobile ? onMobileClose : undefined}
                   style={({ isActive }) => ({
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '10px 12px',
+                    display: 'flex', alignItems: 'center', justifyContent: isCollapsedIcon ? 'center' : 'flex-start',
+                    gap: '12px', padding: isCollapsedIcon ? '10px 0' : '10px 12px',
                     borderRadius: 'var(--radius-gx-md)',
                     color: isActive ? 'var(--gx-accent)' : 'var(--gx-slate)',
                     background: isActive ? 'var(--gx-accent-soft)' : 'transparent',
-                    fontSize: '13.5px',
-                    fontWeight: 500,
-                    textDecoration: 'none',
-                    transition: 'all 0.15s ease',
-                    position: 'relative',
+                    fontSize: '13.5px', fontWeight: 500, textDecoration: 'none',
+                    transition: 'all 0.15s ease', position: 'relative',
                   })}
                   className={({ isActive }) => isActive ? 'nav-item-active' : ''}
                 >
                   {({ isActive }) => (
                     <>
-                      <span
-                        style={{
-                          opacity: isActive ? 1 : 0.6,
-                          flexShrink: 0,
-                          display: 'flex',
-                        }}
-                      >
-                        {item.icon}
-                      </span>
-                      <span style={{ flex: 1 }}>{item.label}</span>
+                      <span style={{ opacity: isActive ? 1 : 0.6, flexShrink: 0, display: 'flex' }}>{item.icon}</span>
+                      {!isCollapsedIcon && <span style={{ flex: 1 }}>{item.label}</span>}
                     </>
                   )}
                 </NavLink>
@@ -591,110 +519,85 @@ export default function Sidebar() {
       </nav>
 
       {/* 사용자 카드 */}
-      <div
-        style={{
-          marginTop: 'auto',
-          padding: '16px',
-          borderTop: '1px solid var(--gx-mist)',
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '10px 12px',
-            borderRadius: 'var(--radius-gx-md)',
-            cursor: 'pointer',
-            transition: 'background 0.15s',
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLDivElement).style.background = 'var(--gx-cloud)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLDivElement).style.background = 'transparent';
-          }}
-        >
-          <div
-            style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--gx-accent), #818CF8)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontWeight: 600,
-              fontSize: '13px',
-              flexShrink: 0,
-            }}
-          >
-            {initials}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: '13px',
-                fontWeight: 600,
-                color: 'var(--gx-charcoal)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {user?.name || '관리자'}
+      <div style={{ marginTop: 'auto', padding: collapsed && !isMobile ? '8px' : '16px', borderTop: '1px solid var(--gx-mist)', flexShrink: 0 }}>
+        {collapsed && !isMobile ? (
+          // 접힌 상태: 아바타만
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--gx-accent), #818CF8)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 600, fontSize: '13px' }}>
+              {initials}
             </div>
-            <div
-              style={{
-                fontSize: '11px',
-                color: 'var(--gx-steel)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {user?.company || 'GST'} · {user?.role || 'ADMIN'}
-            </div>
+            <button onClick={logout} title="로그아웃" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gx-steel)', display: 'flex', padding: '4px' }}>
+              <LogOutIcon />
+            </button>
           </div>
-          <button
-            onClick={logout}
-            title="로그아웃"
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--gx-steel)',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '4px',
-              borderRadius: '6px',
-              transition: 'color 0.15s',
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.color = 'var(--gx-danger)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.color = 'var(--gx-steel)';
-            }}
-          >
-            <LogOutIcon />
-          </button>
-        </div>
-        <div
-          style={{
-            textAlign: 'center',
-            marginTop: '8px',
-            fontSize: '10px',
-            color: 'var(--gx-silver)',
-            fontFamily: "'JetBrains Mono', monospace",
-            letterSpacing: '0.5px',
-          }}
-        >
-          {APP_VERSION}
-        </div>
+        ) : (
+          // 펼친 상태: 전체 카드
+          <>
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: 'var(--radius-gx-md)', cursor: 'pointer', transition: 'background 0.15s' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--gx-cloud)'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+            >
+              <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--gx-accent), #818CF8)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 600, fontSize: '13px', flexShrink: 0 }}>
+                {initials}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gx-charcoal)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user?.name || '관리자'}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--gx-steel)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user?.company || 'GST'} · {user?.role || 'ADMIN'}
+                </div>
+              </div>
+              <button
+                onClick={logout}
+                title="로그아웃"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gx-steel)', display: 'flex', alignItems: 'center', padding: '4px', borderRadius: '6px', transition: 'color 0.15s' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--gx-danger)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--gx-steel)'; }}
+              >
+                <LogOutIcon />
+              </button>
+            </div>
+            <div style={{ textAlign: 'center', marginTop: '8px', fontSize: '10px', color: 'var(--gx-silver)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.5px' }}>
+              {APP_VERSION}
+            </div>
+          </>
+        )}
       </div>
+
+      {/* 토글 버튼 (모바일이 아닌 경우만) */}
+      {!isMobile && (
+        <button
+          onClick={onToggle}
+          style={{
+            position: 'absolute', top: '50%', right: '-12px', transform: 'translateY(-50%)',
+            width: '24px', height: '24px', borderRadius: '50%',
+            background: 'var(--gx-white)', border: '1px solid var(--gx-mist)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            zIndex: 101, color: 'var(--gx-steel)',
+          }}
+        >
+          <CollapseToggleIcon collapsed={collapsed} />
+        </button>
+      )}
     </aside>
   );
+
+  // 모바일: 오버레이 + 슬라이드 인
+  if (isMobile) {
+    if (!mobileOpen) return null;
+    return (
+      <>
+        <div
+          onClick={onMobileClose}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 99, transition: 'opacity 0.2s' }}
+        />
+        {sidebarContent}
+      </>
+    );
+  }
+
+  return sidebarContent;
 }

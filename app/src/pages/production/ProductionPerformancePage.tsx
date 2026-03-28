@@ -569,7 +569,7 @@ export default function ProductionPerformancePage() {
         {!isLoading && !isError && (
           <>
             {/* KPI Cards — 탭별 */}
-            <div style={{ display: 'grid', gridTemplateColumns: activeProcessTab === 'mech_elec' ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '14px', marginBottom: '20px' }}>
+            <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: activeProcessTab === 'mech_elec' ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '14px', marginBottom: '20px' }}>
               {(activeProcessTab === 'mech_elec' ? [
                 { label: '주간 O/N', value: `${tabOrders.length}`, sub: `S/N ${tabOrders.reduce((s, o) => s + o.sn_count, 0)}대`, color: 'var(--gx-info)' },
                 { label: '기구 확인', value: `${kpi.mechConfirmed}/${tabOrders.length}`, sub: kpi.mechReady > 0 ? `${kpi.mechReady}건 확인 가능` : '대기', color: 'var(--gx-success)' },

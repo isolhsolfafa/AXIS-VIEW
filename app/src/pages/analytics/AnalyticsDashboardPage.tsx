@@ -140,7 +140,7 @@ export default function AnalyticsDashboardPage() {
         </div>
 
         {/* KPI 카드 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
           <KpiCard
             label="접속자 수"
             value={summaryLoading ? '—' : `${summary?.unique_users ?? 0}명`}
@@ -198,7 +198,7 @@ export default function AnalyticsDashboardPage() {
         </div>
 
         {/* 2열 그리드: 사용자별 테이블 + 기능별 바 차트 */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+        <div className="chart-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
           {/* 사용자별 테이블 */}
           <div style={{
             background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',

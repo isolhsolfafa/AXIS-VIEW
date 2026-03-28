@@ -394,7 +394,7 @@ export default function QrManagementPage() {
         </div>
 
         {/* KPI 카드 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
           <KpiCard label="전체 QR" value={stats.total} color="var(--gx-accent)" sub="등록된 전체 QR 코드" />
           <KpiCard label="진행 중" value={stats.active} color="#22c55e" sub="Active" />
           <KpiCard label="출하완료" value={stats.shipped ?? 0} color="#2563eb" sub="Shipped" />

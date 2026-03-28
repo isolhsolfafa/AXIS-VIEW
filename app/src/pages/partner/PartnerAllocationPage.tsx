@@ -112,7 +112,7 @@ export default function PartnerAllocationPage() {
         </div>
 
         {/* 시뮬레이션 */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+        <div className="chart-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
           <SimCard title="기구 물량할당 시뮬레이션" subtitle="5월 예상 총 물량: 120대" data={MECH_SIM} />
           <SimCard title="전장 물량할당 시뮬레이션" subtitle="5월 예상 총 물량: 80대" data={ELEC_SIM} />
         </div>

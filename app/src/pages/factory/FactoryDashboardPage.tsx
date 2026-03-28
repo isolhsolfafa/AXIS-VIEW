@@ -238,7 +238,7 @@ export default function FactoryDashboardPage() {
         </div>
 
         {/* KPI Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
               <div key={i} style={{
@@ -263,7 +263,7 @@ export default function FactoryDashboardPage() {
         </div>
 
         {/* Chart + Stage */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '24px' }}>
+        <div className="chart-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '24px' }}>
           {/* Bar Chart */}
           <div style={{
             background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
@@ -480,7 +480,7 @@ export default function FactoryDashboardPage() {
         </div>
 
         {/* Bottom Grid: 파이프라인 + 월간 생산 지표 */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div className="bottom-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           {/* 최근 활동 피드 */}
           <div style={{
             background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',

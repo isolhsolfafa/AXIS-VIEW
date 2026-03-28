@@ -141,6 +141,7 @@ export default function PermissionsPage() {
 
         {/* KPI 카드 */}
         <div
+          className="kpi-grid"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',

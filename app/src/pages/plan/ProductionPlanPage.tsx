@@ -380,7 +380,7 @@ export default function ProductionPlanPage() {
           </div>
 
           {/* 하단: 공정 파이프라인 (circle 스타일 + 클릭 필터) */}
-          <div style={{
+          <div className="stage-grid" style={{
             display: 'grid', gridTemplateColumns: `repeat(${STAGE_FILTERS.length}, 1fr)`,
             padding: '20px 24px 24px', position: 'relative',
             borderTop: '1px solid var(--gx-cloud)',

@@ -49,7 +49,7 @@ export default function ShipmentHistoryPage() {
         <PrepareBanner />
 
         {/* KPI */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
           {[
             { label: '3월 출하 완료', value: `${shipped}건`, color: 'var(--gx-success)' },
             { label: '출하 예정', value: `${planned}건`, color: 'var(--gx-info)' },
