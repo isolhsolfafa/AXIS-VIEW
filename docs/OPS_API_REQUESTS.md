@@ -3235,6 +3235,34 @@ ProcessStepCard에서 `[...workers].reverse()` → 단순 배열 역순 (시간 
 
 ---
 
+### #50 request-deactivation API 경로 오류 — url_prefix 누락 — ✅ DONE (2026-03-30)
+
+**시급도**: 🔴 즉시 — Manager 비활성화 요청 기능 완전 불가
+**참조**: VIEW `api/workers.ts`, OPS `routes/work.py`
+
+#### 증상
+
+권한관리 페이지에서 Manager가 비활성화 요청 시:
+- preflight OPTIONS → 404
+- POST → CORS 에러 (`No 'Access-Control-Allow-Origin' header`)
+
+#### 원인
+
+work_bp의 `url_prefix="/api/app"`를 VIEW FE API 경로에 누락:
+- **BE 실제 경로**: `/api/app/work/request-deactivation`
+- **FE 호출 경로**: `/work/request-deactivation` ← prefix 누락
+
+404 → CORS 헤더 미포함 → preflight 실패 → CORS 에러로 이어짐
+
+#### 수정
+
+`workers.ts`: `'/work/request-deactivation'` → `'/api/app/work/request-deactivation'`
+
+**VIEW 수정**: workers.ts 경로 1개소
+**BE 수정**: 없음
+
+---
+
 ### #48 BUG — reactivate-task TMS 권한 체크: mech_partner 미반영 — PENDING (2026-03-30)
 
 **시급도**: 🔴 높음 — Manager 재활성화 기능 차단됨

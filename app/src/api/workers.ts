@@ -92,7 +92,7 @@ export async function requestDeactivation(
   reason: string
 ): Promise<{ message: string; worker_id: number }> {
   const { data } = await apiClient.post<{ message: string; worker_id: number }>(
-    '/work/request-deactivation',
+    '/api/app/work/request-deactivation',
     { worker_id: workerId, reason },
   );
   return data;
