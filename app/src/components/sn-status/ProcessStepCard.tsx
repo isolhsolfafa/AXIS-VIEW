@@ -114,6 +114,11 @@ export default function ProcessStepCard({ task, displayLabel, categoryPercent, c
       {workers.length > 0 && (
         <div style={{ marginBottom: hasChecklist ? '10px' : '0' }}>
           {[...workers].sort((a, b) => {
+            // 1차: task_name 그룹핑 (알파벳순)
+            const nameA = a.task_name ?? '';
+            const nameB = b.task_name ?? '';
+            if (nameA !== nameB) return nameA.localeCompare(nameB);
+            // 2차: 같은 task 내에서 최신순
             const ta = a.started_at ? new Date(a.started_at).getTime() : 0;
             const tb = b.started_at ? new Date(b.started_at).getTime() : 0;
             return tb - ta;
