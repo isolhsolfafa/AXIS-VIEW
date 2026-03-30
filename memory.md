@@ -87,7 +87,8 @@ if (task.workers.some(w => w.status === 'completed')) return 'completed';
 ### ADR-V007: 사이드바 토글 버튼 가시성 개선 (2026-03-30)
 - **맥락**: 반응형 UI 업데이트 후 사이드바 접기/펼기 버튼(24x24, 반투명)이 잘 보이지 않음
 - **결정**: 28x28 확대 + 그림자 강화 + hover 시 accent 색상 전환
-- **변경**: Sidebar.tsx 토글 버튼 — `right: -14px`, `boxShadow` 강화, hover 시 `background: accent + color: white`
+- **변경 v1**: 크기/그림자 강화 (사이드바 경계 오른쪽 돌출 방식)
+- **변경 v2**: 경계선에 걸려서 가려지는 문제 → 사이드바 내부 하단으로 이동 (full-width 버튼, 펼침 시 "사이드바 접기" 텍스트 표시, 접힘 시 아이콘만)
 
 ---
 

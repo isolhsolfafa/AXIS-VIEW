@@ -566,34 +566,34 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
         )}
       </div>
 
-      {/* 토글 버튼 (모바일이 아닌 경우만) */}
+      {/* 토글 버튼 — 사이드바 내부 하단 (모바일이 아닌 경우만) */}
       {!isMobile && (
         <button
           onClick={onToggle}
           className="sidebar-toggle-btn"
           style={{
-            position: 'absolute', top: '50%', right: '-14px', transform: 'translateY(-50%)',
-            width: '28px', height: '28px', borderRadius: '50%',
-            background: 'var(--gx-white)', border: '1.5px solid var(--gx-mist)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
-            zIndex: 101, color: 'var(--gx-slate)',
+            gap: '6px',
+            width: '100%',
+            padding: '10px 0',
+            background: 'transparent',
+            border: 'none', borderTop: '1px solid var(--gx-mist)',
+            cursor: 'pointer', color: 'var(--gx-steel)',
+            fontSize: '11px', fontWeight: 500,
             transition: 'all 0.15s ease',
+            flexShrink: 0,
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = 'var(--gx-accent)';
-            (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-            (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--gx-accent)';
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(99,102,241,0.3)';
+            (e.currentTarget as HTMLButtonElement).style.background = 'var(--gx-cloud)';
+            (e.currentTarget as HTMLButtonElement).style.color = 'var(--gx-accent)';
           }}
           onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = 'var(--gx-white)';
-            (e.currentTarget as HTMLButtonElement).style.color = 'var(--gx-slate)';
-            (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--gx-mist)';
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 6px rgba(0,0,0,0.12)';
+            (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+            (e.currentTarget as HTMLButtonElement).style.color = 'var(--gx-steel)';
           }}
         >
           <CollapseToggleIcon collapsed={collapsed} />
+          {(!collapsed) && <span>사이드바 접기</span>}
         </button>
       )}
     </aside>
