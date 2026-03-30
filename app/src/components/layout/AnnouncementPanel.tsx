@@ -1,5 +1,5 @@
 // src/components/layout/AnnouncementPanel.tsx
-// 공지사항 드롭다운 패널 — GET /api/notices API 연동
+// 공지사항 드롭다운 패널 — 최신(pinned) + 월별 그룹 표시
 
 import { useState, useEffect, useRef } from 'react';
 import { useNotices } from '@/hooks/useNotices';
@@ -43,7 +43,166 @@ function formatRelativeDate(isoStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-/* ── 컴포넌트 ──────────────────────────────────────── */
+function getMonthKey(isoStr: string): string {
+  const d = new Date(isoStr);
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+}
+
+/* ── 공지 그룹화: pinned(최신) + 월별 ─────────────────── */
+function groupAnnouncements(list: Announcement[]): { pinned: Announcement[]; monthly: { label: string; items: Announcement[] }[] } {
+  const pinned = list.filter(a => a.is_pinned);
+  const rest = list.filter(a => !a.is_pinned);
+
+  const monthMap = new Map<string, Announcement[]>();
+  for (const a of rest) {
+    const key = getMonthKey(a.created_at);
+    if (!monthMap.has(key)) monthMap.set(key, []);
+    monthMap.get(key)!.push(a);
+  }
+
+  const monthly = [...monthMap.entries()].map(([label, items]) => ({ label, items }));
+  return { pinned, monthly };
+}
+
+/* ── 공지 아이템 렌더링 ────────────────────────────── */
+function AnnouncementItem({
+  a,
+  isRead,
+  isExpanded,
+  onExpand,
+}: {
+  a: Announcement;
+  isRead: boolean;
+  isExpanded: boolean;
+  onExpand: (id: number) => void;
+}) {
+  const priorityCfg = a.is_pinned ? PRIORITY_CONFIG.pinned : PRIORITY_CONFIG.normal;
+
+  return (
+    <div
+      onClick={() => onExpand(a.id)}
+      style={{
+        padding: '14px 20px',
+        borderBottom: '1px solid var(--gx-mist)',
+        cursor: 'pointer',
+        background: isRead ? 'var(--gx-white)' : 'var(--gx-cloud, #F8FAFC)',
+        transition: 'background 0.15s',
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLDivElement).style.background = 'var(--gx-cloud, #F8FAFC)';
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.background = isRead
+          ? 'var(--gx-white)'
+          : 'var(--gx-cloud, #F8FAFC)';
+      }}
+    >
+      {/* 제목 행 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+        {!isRead && (
+          <span
+            style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: 'var(--gx-accent, #3B82F6)',
+              flexShrink: 0,
+            }}
+          />
+        )}
+        {a.is_pinned && (
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 600,
+              padding: '1px 6px',
+              borderRadius: '4px',
+              background: priorityCfg.bg,
+              color: priorityCfg.color,
+              flexShrink: 0,
+            }}
+          >
+            {priorityCfg.label}
+          </span>
+        )}
+        <span
+          style={{
+            fontSize: '13px',
+            fontWeight: isRead ? 400 : 600,
+            color: 'var(--gx-charcoal)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            flex: 1,
+          }}
+        >
+          {a.title}
+        </span>
+      </div>
+
+      {/* 메타 정보 */}
+      <div
+        style={{
+          fontSize: '11px',
+          color: 'var(--gx-steel)',
+          marginLeft: isRead ? 0 : '14px',
+          display: 'flex',
+          gap: '4px',
+        }}
+      >
+        <span>{a.author_name}</span>
+        <span>·</span>
+        <span>{formatRelativeDate(a.created_at)}</span>
+        {a.version && (
+          <>
+            <span>·</span>
+            <span>{a.version}</span>
+          </>
+        )}
+      </div>
+
+      {/* 내용 (확장 시) */}
+      {isExpanded && (
+        <div
+          style={{
+            marginTop: '10px',
+            padding: '12px',
+            background: 'var(--gx-snow, #F1F5F9)',
+            borderRadius: '8px',
+            fontSize: '13px',
+            lineHeight: '1.6',
+            color: 'var(--gx-graphite)',
+            marginLeft: isRead ? 0 : '14px',
+            whiteSpace: 'pre-wrap',
+          }}
+        >
+          {a.content}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── 월별 섹션 헤더 ────────────────────────────────── */
+function MonthHeader({ label }: { label: string }) {
+  return (
+    <div
+      style={{
+        padding: '10px 20px 6px',
+        fontSize: '11px',
+        fontWeight: 600,
+        color: 'var(--gx-steel)',
+        background: 'var(--gx-snow, #FAFBFD)',
+        borderBottom: '1px solid var(--gx-mist)',
+        letterSpacing: '0.3px',
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+/* ── 메인 컴포넌트 ─────────────────────────────────── */
 interface AnnouncementPanelProps {
   open: boolean;
   onClose: () => void;
@@ -55,7 +214,7 @@ export default function AnnouncementPanel({ open, onClose }: AnnouncementPanelPr
   const panelRef = useRef<HTMLDivElement>(null);
 
   // API 호출
-  const { data, isLoading } = useNotices({ limit: 20 });
+  const { data, isLoading } = useNotices({ limit: 50 });
   const announcements: Announcement[] = data?.notices ?? [];
 
   // 외부 클릭 시 닫기
@@ -76,6 +235,7 @@ export default function AnnouncementPanel({ open, onClose }: AnnouncementPanelPr
   if (!open) return null;
 
   const unreadCount = announcements.filter((a) => !readIds.has(a.id)).length;
+  const { pinned, monthly } = groupAnnouncements(announcements);
 
   function handleExpand(id: number) {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -185,116 +345,34 @@ export default function AnnouncementPanel({ open, onClose }: AnnouncementPanelPr
             등록된 공지사항이 없습니다
           </div>
         ) : (
-          announcements.map((a) => {
-            const isRead = readIds.has(a.id);
-            const isExpanded = expandedId === a.id;
-            const priorityCfg = a.is_pinned ? PRIORITY_CONFIG.pinned : PRIORITY_CONFIG.normal;
-
-            return (
-              <div
+          <>
+            {/* 고정(최신) 공지 */}
+            {pinned.length > 0 && pinned.map((a) => (
+              <AnnouncementItem
                 key={a.id}
-                onClick={() => handleExpand(a.id)}
-                style={{
-                  padding: '14px 20px',
-                  borderBottom: '1px solid var(--gx-mist)',
-                  cursor: 'pointer',
-                  background: isRead ? 'var(--gx-white)' : 'var(--gx-cloud, #F8FAFC)',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.background = 'var(--gx-cloud, #F8FAFC)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.background = isRead
-                    ? 'var(--gx-white)'
-                    : 'var(--gx-cloud, #F8FAFC)';
-                }}
-              >
-                {/* 제목 행 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  {!isRead && (
-                    <span
-                      style={{
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        background: 'var(--gx-accent, #3B82F6)',
-                        flexShrink: 0,
-                      }}
-                    />
-                  )}
-                  {a.is_pinned && (
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        padding: '1px 6px',
-                        borderRadius: '4px',
-                        background: priorityCfg.bg,
-                        color: priorityCfg.color,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {priorityCfg.label}
-                    </span>
-                  )}
-                  <span
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: isRead ? 400 : 600,
-                      color: 'var(--gx-charcoal)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      flex: 1,
-                    }}
-                  >
-                    {a.title}
-                  </span>
-                </div>
+                a={a}
+                isRead={readIds.has(a.id)}
+                isExpanded={expandedId === a.id}
+                onExpand={handleExpand}
+              />
+            ))}
 
-                {/* 메타 정보 */}
-                <div
-                  style={{
-                    fontSize: '11px',
-                    color: 'var(--gx-steel)',
-                    marginLeft: isRead ? 0 : '14px',
-                    display: 'flex',
-                    gap: '4px',
-                  }}
-                >
-                  <span>{a.author_name}</span>
-                  <span>·</span>
-                  <span>{formatRelativeDate(a.created_at)}</span>
-                  {a.version && (
-                    <>
-                      <span>·</span>
-                      <span>{a.version}</span>
-                    </>
-                  )}
-                </div>
-
-                {/* 내용 (확장 시) */}
-                {isExpanded && (
-                  <div
-                    style={{
-                      marginTop: '10px',
-                      padding: '12px',
-                      background: 'var(--gx-snow, #F1F5F9)',
-                      borderRadius: '8px',
-                      fontSize: '13px',
-                      lineHeight: '1.6',
-                      color: 'var(--gx-graphite)',
-                      marginLeft: isRead ? 0 : '14px',
-                      whiteSpace: 'pre-wrap',
-                    }}
-                  >
-                    {a.content}
-                  </div>
-                )}
+            {/* 월별 그룹 */}
+            {monthly.map(({ label, items }) => (
+              <div key={label}>
+                <MonthHeader label={label} />
+                {items.map((a) => (
+                  <AnnouncementItem
+                    key={a.id}
+                    a={a}
+                    isRead={readIds.has(a.id)}
+                    isExpanded={expandedId === a.id}
+                    onExpand={handleExpand}
+                  />
+                ))}
               </div>
-            );
-          })
+            ))}
+          </>
         )}
       </div>
     </div>
