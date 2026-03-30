@@ -113,7 +113,11 @@ export default function ProcessStepCard({ task, displayLabel, categoryPercent, c
       )}
       {workers.length > 0 && (
         <div style={{ marginBottom: hasChecklist ? '10px' : '0' }}>
-          {[...workers].reverse().map((w, i) => (
+          {[...workers].sort((a, b) => {
+            const ta = a.started_at ? new Date(a.started_at).getTime() : 0;
+            const tb = b.started_at ? new Date(b.started_at).getTime() : 0;
+            return tb - ta;
+          }).map((w, i) => (
             <div
               key={`${w.worker_id}-${i}`}
               style={{

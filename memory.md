@@ -61,7 +61,17 @@ if (task.workers.some(w => w.status === 'completed')) return 'completed';
 - `some()` 검사 → true → "완료" 오판정
 - 한편 `categories[ELEC] = { total: 5, done: 3, percent: 60 }` → SNCard는 60%로 정확 표시
 
-**수정 방향**: Sprint 22에서 `categoryPercent` prop 기반으로 통일 (ADR-V004 참조)
+**수정 방향**: Sprint 22에서 `categoryPercent` prop 기반으로 통일 (ADR-V004 참조) — ✅ 수정 완료
+
+### BUG-V3: ProcessStepCard workers 정렬 깨짐 (2026-03-30 발견)
+
+**현상**: 동일 공정에 여러 task가 있을 때(MECH Waste Gas LINE 1/2 등) 작업자 목록 시간순 깨짐
+
+**근본 원인**:
+- SNDetailPanel L148~155: `catTasks.flatMap(t => t.workers)` → task 순서대로 이어붙임
+- ProcessStepCard L116: `[...workers].reverse()` → 단순 배열 역순, 시간 기반 아님
+
+**수정**: `reverse()` → `sort((a, b) => tb - ta)` (started_at 내림차순) — ✅ 즉시 수정 완료
 
 ---
 

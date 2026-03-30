@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-30 (#47 QR 스캐너 명판 인식 불량)
+> 마지막 업데이트: 2026-03-30 (#48 reactivate-task TMS 권한 체크 버그)
 
 ---
 
@@ -3208,4 +3208,95 @@ ALLOWED_FIELDS = ['elec_partner', 'finishing_plan_end', 'mech_partner', 'mech_st
 ```
 
 **VIEW 수정**: 없음 — FE는 이미 `finishing_plan_end` 사용 중
-**BE 수정**: 허용 필드 목록에 `finishing_plan_end` 추가 (1줄)
+**BE 수정**: 허용 필드 목록에 `finishing_plan_end` 추가 (1줄) — ✅ DONE (2026-03-30)
+
+---
+
+### #49 ProcessStepCard workers 정렬 — started_at 내림차순 — ✅ DONE (2026-03-30)
+
+**시급도**: 🟡 중간 — 다중 task 병합 시 작업자 목록 시간순 깨짐
+**참조**: VIEW `ProcessStepCard.tsx`
+
+#### 증상
+
+동일 카테고리에 여러 task가 있을 때 (예: MECH의 Waste Gas LINE 1, LINE 2) 작업자 목록이 시간순으로 정렬되지 않고 뒤섞여 표시됨.
+
+#### 원인
+
+SNDetailPanel에서 `catTasks.flatMap(t => t.workers)` 로 병합 → task 순서대로 이어붙임.
+ProcessStepCard에서 `[...workers].reverse()` → 단순 배열 역순 (시간 기반 아님).
+
+#### 수정
+
+`ProcessStepCard.tsx`: `reverse()` → `sort()` 변경 (started_at 내림차순, 최신 먼저)
+
+**VIEW 수정**: ProcessStepCard.tsx 1개소
+**BE 수정**: 없음
+
+---
+
+### #48 BUG — reactivate-task TMS 권한 체크: mech_partner 미반영 — PENDING (2026-03-30)
+
+**시급도**: 🔴 높음 — Manager 재활성화 기능 차단됨
+**참조**: Sprint 23 (VIEW), Sprint 41 (OPS)
+
+#### 증상
+
+- test1@naver.com (company=`TMS(M)`, is_manager=true) 로그인
+- DOC_TEST-333 (TMS 담당 제품) S/N 상세 → 완료 작업 재활성화 클릭
+- 403 응답: `{"error": "FORBIDDEN", "message": "자사 제품이 아닙니다."}`
+- Admin 계정에서는 동일 S/N 재활성화 정상 동작
+
+#### 원인
+
+`work.py` L246-269 `reactivate_task_route()` 권한 체크:
+
+```python
+if category == 'MECH' and company.upper() in mech_partner.upper():
+    allowed = True
+elif category in ('ELEC',) and company.upper() in elec_partner.upper():
+    allowed = True
+elif category == 'TMS' and company.upper() in module_outsourcing.upper():
+    allowed = True
+```
+
+TMS 카테고리일 때 `module_outsourcing`만 체크. 하지만 Dragon 등 일부 모델은 `mech_partner`가 TMS task까지 담당함 (예: `TMS(M)`이 MECH + TMS 전부 수행).
+
+`module_outsourcing` 필드가 비어있거나 다른 값이면 `TMS(M)` Manager가 자사 TMS task를 재활성화할 수 없음.
+
+#### VIEW FE 필터와의 불일치
+
+VIEW `SNStatusPage.tsx` L14-21:
+```typescript
+const COMPANY_CATEGORIES: Record<string, string[]> = {
+  'TMS(M)': ['MECH', 'TMS'],  // ← TMS(M)은 MECH+TMS 모두 볼 수 있음
+};
+```
+
+FE에서는 `TMS(M)` 사용자에게 TMS task가 있는 S/N을 정상 표시하고, 재활성화 버튼도 보여주지만, BE 권한 체크에서 차단됨.
+
+#### 수정 요청
+
+**파일**: `backend/app/routes/work.py` L264
+
+```python
+# 현재 (버그)
+elif category == 'TMS' and company and company.upper() in module_outsourcing.upper():
+    allowed = True
+
+# 수정: mech_partner도 체크 (TMS(M)이 MECH+TMS 담당하는 모델 대응)
+elif category == 'TMS' and company and (
+    company.upper() in module_outsourcing.upper() or
+    company.upper() in mech_partner.upper()
+):
+    allowed = True
+```
+
+#### 검증
+
+1. test1@naver.com (TMS(M) Manager) → DOC_TEST-333 TMS task 재활성화 → 200 성공
+2. Admin → 동일 동작 정상 (회귀 확인)
+3. 다른 협력사 Manager (FNI 등) → TMS task 재활성화 시도 → 403 정상 차단
+
+**VIEW 수정**: 없음
+**BE 수정**: `work.py` L264 — TMS 권한 체크에 `mech_partner` OR 조건 추가 (1줄)
