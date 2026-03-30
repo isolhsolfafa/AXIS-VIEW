@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-03-29 | 버전: v1.17.0
+> 최종 갱신: 2026-03-30 | 버전: v1.17.1
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -53,6 +53,8 @@ AXIS-OPS BE(Railway → 사내서버 마이그레이션 예정)의 API와 JWT를
 ```
 AXIS-VIEW/
 ├── CLAUDE.md                 ← 이 파일 (에이전트 필독)
+├── handoff.md                ← 세션 인계용 (현재 상태, 대기 Sprint)
+├── memory.md                 ← 누적 의사결정, 버그 분석, 아키텍처 판단
 ├── app/                      ← React 프로젝트
 │   ├── package.json
 │   ├── src/
@@ -329,7 +331,9 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 
 | 문서 | 용도 | 우선순위 |
 |------|------|---------|
-| `docs/sprints/DESIGN_FIX_SPRINT.md` | Sprint 1~21 메인 스프린트 문서 | 필수 |
+| `handoff.md` | 세션 인계 (현재 상태, 대기 Sprint, 미해결 버그) | 매 세션 시작 시 |
+| `memory.md` | 누적 의사결정(ADR), 버그 분석, 아키텍처 판단 | 맥락 필요 시 |
+| `docs/sprints/DESIGN_FIX_SPRINT.md` | Sprint 1~22 메인 스프린트 문서 | 필수 |
 | `docs/OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#46) | 필수 |
 | `docs/APS_LITE_PLAN.md` | APS Lite 차세대 기획 | 참조 |
 | `docs/AXIS_VIEW_ROADMAP.md` | 전체 로드맵 | 참조 |
@@ -370,6 +374,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | 19 | HOTFIX: 공장 대시보드 자동 새로고침 | ✅ 완료 |
 | 20 | 체크리스트 관리 + 생산현황 연동 | ✅ 완료 |
 | 21 | 반응형 레이아웃 (태블릿 우선) | ✅ 완료 |
+| 22 | 공정 완료 판정 버그 수정 (categories 기준 통일) | ✅ 완료 |
 | 40-C | 비활성 사용자 관리 (VIEW 연동) | ✅ 완료 |
 | 40-C+ | Manager 비활성화 요청 기능 | ✅ 완료 |
 

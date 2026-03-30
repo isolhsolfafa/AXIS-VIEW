@@ -1,8 +1,8 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.17.0';
-export const BUILD_DATE = '2026-03-29';
+export const APP_VERSION = 'v1.17.1';
+export const BUILD_DATE = '2026-03-30';
 
 // 버전 이력
 // v1.0.0 | 2026-03-06 | Sprint 1~3     | 초기 릴리스 (로그인, 출퇴근 대시보드, 실 API 연동)
@@ -33,3 +33,4 @@ export const BUILD_DATE = '2026-03-29';
 // v1.16.0| 2026-03-28 | Sprint 40-C    | 비활성 사용자 관리 페이지 (30일 미로그인 + 비활성화/재활성화)
 // v1.16.1| 2026-03-28 | Sprint 40-C+   | Manager 비활성화 요청 기능 (권한 관리 → 자사 소속 비활성화 요청 + admin 알림)
 // v1.17.0| 2026-03-29 | Sprint 21      | 반응형 레이아웃 (사이드바 접기 + KPI/차트 media query + 모바일 오버레이)
+// v1.17.1| 2026-03-30 | Sprint 22      | 공정 완료 판정 버그 수정 (categories 기준 통일)

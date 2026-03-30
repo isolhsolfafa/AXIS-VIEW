@@ -8,6 +8,7 @@ import type { ChecklistStatusResponse } from '@/types/checklist';
 interface ProcessStepCardProps {
   task: SNTaskDetail | null;
   displayLabel: string;
+  categoryPercent?: number;              // categories[cat].percent — 공정 완료 기준
   checklist?: ChecklistStatusResponse | null;
   checklistLoading?: boolean;
 }
@@ -28,10 +29,20 @@ function formatDuration(minutes: number | null): string {
   return `${minutes}m`;
 }
 
-function taskStatus(task: SNTaskDetail | null): 'completed' | 'in_progress' | 'waiting' {
+function taskStatus(
+  task: SNTaskDetail | null,
+  categoryPercent?: number,
+): 'completed' | 'in_progress' | 'waiting' {
+  // 1순위: categories 데이터 기준 (BE 집계, SNCard와 동일 기준)
+  if (categoryPercent != null) {
+    if (categoryPercent === 100) return 'completed';
+    if (categoryPercent > 0) return 'in_progress';
+    return 'waiting';
+  }
+  // 2순위: fallback — categories 없는 edge case
   if (!task || task.workers.length === 0) return 'waiting';
-  if (task.workers.some(w => w.status === 'completed')) return 'completed';
-  if (task.workers.some(w => w.status === 'in_progress')) return 'in_progress';
+  if (task.workers.every(w => w.status === 'completed')) return 'completed';
+  if (task.workers.some(w => w.status === 'in_progress' || w.status === 'completed')) return 'in_progress';
   return 'waiting';
 }
 
@@ -41,8 +52,8 @@ const STATUS_CONFIG = {
   waiting: { label: '○', color: 'var(--gx-silver)', bg: 'var(--gx-cloud)' },
 };
 
-export default function ProcessStepCard({ task, displayLabel, checklist, checklistLoading }: ProcessStepCardProps) {
-  const status = taskStatus(task);
+export default function ProcessStepCard({ task, displayLabel, categoryPercent, checklist, checklistLoading }: ProcessStepCardProps) {
+  const status = taskStatus(task, categoryPercent);
   const cfg = STATUS_CONFIG[status];
   const workers = task?.workers ?? [];
   const isMultiWorker = workers.length >= 2;

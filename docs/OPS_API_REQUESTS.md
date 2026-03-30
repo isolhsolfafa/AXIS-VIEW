@@ -3083,8 +3083,15 @@ WHERE wsl.serial_number = 'GBWS-6905' AND w.name = '박새벽';
 -- 3) 위 두 결과의 task_id가 일치하는지 비교
 ```
 
-#### BE 수정 방향 (확인 후 결정)
+#### 원인 확정 (2026-03-27) — ✅ BE 정상, VIEW FE 렌더링 버그
 
-- **task seeding 누락인 경우**: `task_seed.py`에서 해당 task 추가
-- **task_id 매핑 불일치인 경우**: `work.py` 라인 397의 workers 쿼리를 `task_id` 대신 `serial_number + task_category` 기준으로 변경 검토
-- **VIEW FE 변경 없음** — BE 데이터 정합성 이슈
+**진단 결과**: OPS BE API (`GET /api/app/tasks/GBWS-6905?all=true`) 응답에 ELEC task 복수 건 (PANEL_WORK, IF_2 등) + 각 workers 배열 정상 반환 확인됨.
+
+**실제 원인**: `SNDetailPanel.tsx` 라인 144:
+```typescript
+const task = tasks.find(t => t.task_category === cat) ?? null;
+```
+`Array.find()`가 같은 카테고리의 **첫 번째 task만** 반환 → 나머지 task (IF_2 등) 누락.
+
+**수정 방향**: `find()` → `filter()` — VIEW FE만 수정. BE 수정 불필요.
+**참조**: `AXIS-VIEW/docs/sprints/DESIGN_FIX_SPRINT.md` Sprint 18-C 이슈 1

@@ -1,7 +1,23 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.7.1 (2026-03-16)
+> 최신 버전: v1.17.1 (2026-03-30)
+
+---
+
+## v1.17.1 — 2026-03-30
+
+**버그 수정 — 공정 완료 판정 기준 통일 (Sprint 22)**
+
+### 생산현황 — ProcessStepCard
+- **수정**: `taskStatus()` 판정을 `workers.some()` → `categories[cat].percent` 기준으로 변경
+- SNCard와 동일한 `categories` 기준으로 완료/진행중/대기중 판정 통일
+- 작업자 1명만 완료해도 전체 공정이 '완료'로 표시되던 버그 해소
+- fallback 로직도 `some()` → `every()`로 강화
+
+### 수정 파일
+- `ProcessStepCard.tsx` — `categoryPercent` prop 추가 + `taskStatus()` 로직 변경
+- `SNDetailPanel.tsx` — `ChecklistProcessCard` + 일반 카드에 `categoryPercent` 전달
 
 ---
 

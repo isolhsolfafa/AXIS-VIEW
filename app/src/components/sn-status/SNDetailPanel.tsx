@@ -22,16 +22,19 @@ function ChecklistProcessCard({
   cat,
   serialNumber,
   task,
+  categoryPercent,
 }: {
   cat: string;
   serialNumber: string;
   task: SNTaskDetail | null;
+  categoryPercent?: number;
 }) {
   const { data: checklist, isLoading: clLoading } = useChecklist(serialNumber, cat);
   return (
     <ProcessStepCard
       task={task}
       displayLabel={PROCESS_LABEL[cat] ?? cat}
+      categoryPercent={categoryPercent}
       checklist={checklist}
       checklistLoading={clLoading}
     />
@@ -166,6 +169,7 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
                   cat={cat}
                   serialNumber={serialNumber}
                   task={mergedTask}
+                  categoryPercent={product.categories[cat]?.percent}
                 />
               );
             }
@@ -175,6 +179,7 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
                 key={cat}
                 task={mergedTask}
                 displayLabel={PROCESS_LABEL[cat] ?? cat}
+                categoryPercent={product.categories[cat]?.percent}
               />
             );
           })
