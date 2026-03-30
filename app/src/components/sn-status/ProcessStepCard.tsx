@@ -2,8 +2,11 @@
 // 공정별 상세 카드 — Sprint 18 + Sprint 20 체크리스트 확장
 
 import { useState } from 'react';
+import { RotateCcw } from 'lucide-react';
+import { toast } from 'sonner';
 import type { SNTaskDetail } from '@/types/snStatus';
 import type { ChecklistStatusResponse } from '@/types/checklist';
+import { useTaskReactivate } from '@/hooks/useTaskReactivate';
 
 interface ProcessStepCardProps {
   task: SNTaskDetail | null;
@@ -11,6 +14,7 @@ interface ProcessStepCardProps {
   categoryPercent?: number;              // categories[cat].percent — 공정 완료 기준
   checklist?: ChecklistStatusResponse | null;
   checklistLoading?: boolean;
+  canReactivate?: boolean;               // Sprint 23: 재활성화 버튼 표시 여부
 }
 
 function formatTime(isoStr: string | null): string {
@@ -52,13 +56,29 @@ const STATUS_CONFIG = {
   waiting: { label: '○', color: 'var(--gx-silver)', bg: 'var(--gx-cloud)' },
 };
 
-export default function ProcessStepCard({ task, displayLabel, categoryPercent, checklist, checklistLoading }: ProcessStepCardProps) {
+export default function ProcessStepCard({ task, displayLabel, categoryPercent, checklist, checklistLoading, canReactivate }: ProcessStepCardProps) {
   const status = taskStatus(task, categoryPercent);
   const cfg = STATUS_CONFIG[status];
   const workers = task?.workers ?? [];
   const isMultiWorker = workers.length >= 2;
   const hasChecklist = checklist && checklist.summary.total_check > 0;
   const [checklistOpen, setChecklistOpen] = useState(false);
+  const reactivate = useTaskReactivate();
+
+  function handleReactivate(taskDetailId: number) {
+    if (!confirm('이 작업을 재활성화하시겠습니까?\n실적확인이 취소됩니다.')) return;
+    reactivate.mutate(taskDetailId, {
+      onSuccess: (res) => {
+        const count = res.data.confirms_invalidated;
+        toast.success(`작업이 재활성화되었습니다.${count > 0 ? ` (실적확인 ${count}건 취소)` : ''}`);
+      },
+      onError: (err: any) => {
+        const status = err?.response?.status;
+        if (status === 403) toast.error('권한이 없습니다.');
+        else toast.error(err?.response?.data?.message || '재활성화에 실패했습니다.');
+      },
+    });
+  }
 
   return (
     <div
@@ -121,6 +141,27 @@ export default function ProcessStepCard({ task, displayLabel, categoryPercent, c
               <span style={{ color: 'var(--gx-steel)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', marginLeft: 'auto' }}>
                 {formatDuration(w.duration_minutes)}
               </span>
+              {w.completed_at && canReactivate && w.task_detail_id && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleReactivate(w.task_detail_id!); }}
+                  disabled={reactivate.isPending}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: reactivate.isPending ? 'not-allowed' : 'pointer',
+                    padding: '2px',
+                    color: 'var(--gx-silver)',
+                    transition: 'color 0.15s',
+                    flexShrink: 0,
+                    opacity: reactivate.isPending ? 0.4 : 1,
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--gx-warning)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--gx-silver)'; }}
+                  title="작업 재활성화"
+                >
+                  <RotateCcw size={13} />
+                </button>
+              )}
               {isMultiWorker && i === workers.length - 1 && (
                 <span
                   style={{

@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-03-30 | 버전: v1.17.1
+> 최종 갱신: 2026-03-30 | 버전: v1.18.0
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -82,7 +82,7 @@ AXIS-VIEW/
 │   │   ├── api/              API 클라이언트 14개
 │   │   ├── hooks/            TanStack Query 훅 14개
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.17.1 (2026-03-30)
+│   │   ├── version.ts        v1.18.0 (2026-03-30)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
@@ -175,7 +175,7 @@ VITE_USE_MOCK=false
 
 ---
 
-## 페이지 구성 (19개, v1.17.1 기준)
+## 페이지 구성 (19개, v1.18.0 기준)
 
 ### 사이드바 메뉴 구조
 
@@ -248,6 +248,7 @@ CT 분석            /ct                            [admin, gst] (preparing)
 | useChecklist | 체크리스트 레코드 | 5분 |
 | useChecklistMaster | 체크리스트 마스터 CRUD | 5분 |
 | useAdminSettings | 관리 설정 | 5분 |
+| useTaskReactivate | Task 재활성화 mutation (완료 작업 되돌리기) | — |
 | useSettings | 로컬 UI 설정 (테마 등) | — |
 
 ---
@@ -375,6 +376,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | 20 | 체크리스트 관리 + 생산현황 연동 | ✅ 완료 |
 | 21 | 반응형 레이아웃 (태블릿 우선) | ✅ 완료 |
 | 22 | 공정 완료 판정 버그 수정 (categories 기준 통일) | ✅ 완료 |
+| 23 | Task 재활성화 UI (생산현황 S/N 디테일) | ✅ 완료 |
 | 40-C | 비활성 사용자 관리 (VIEW 연동) | ✅ 완료 |
 | 40-C+ | Manager 비활성화 요청 기능 | ✅ 완료 |
 

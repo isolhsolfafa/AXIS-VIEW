@@ -171,6 +171,7 @@ export default function SNStatusPage() {
           tasks={tasks ?? []}
           isLoading={tasksLoading}
           onClose={() => setSelectedSN(null)}
+          canReactivate={user?.is_admin || user?.is_manager || false}
         />
       )}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>

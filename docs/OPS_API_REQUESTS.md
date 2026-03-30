@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-23 (#35 생산실적 리스트 기준 변경 검토 + A/B안 정리)
+> 마지막 업데이트: 2026-03-30 (#47 QR 스캐너 명판 인식 불량)
 
 ---
 
@@ -3095,3 +3095,117 @@ const task = tasks.find(t => t.task_category === cat) ?? null;
 
 **수정 방향**: `find()` → `filter()` — VIEW FE만 수정. BE 수정 불필요.
 **참조**: `AXIS-VIEW/docs/sprints/DESIGN_FIX_SPRINT.md` Sprint 18-C 이슈 1
+
+---
+
+### #47 QR 스캐너 명판 인식 불량 — qrbox 크기 + 카메라 해상도 검토 — PENDING (2026-03-30)
+
+**시급도**: 🟡 중간 — 명판 QR 인식 불가, 폰 기본 카메라에서는 정상 인식
+**참조**: OPS `frontend/lib/services/qr_scanner_web.dart`
+
+#### 증상
+
+- **폰 기본 카메라**: 명판 QR(DOC_) 정상 인식
+- **AXIS-OPS 앱 스캐너**: 동일 명판 QR 인식 불가
+
+#### 원인 분석
+
+앱 QR 스캐너(`html5-qrcode` 라이브러리) 설정이 명판 QR에 최적화되지 않음:
+
+| 설정 | 현재값 | 문제 |
+|------|--------|------|
+| `qrbox` | 160px | 인식 영역이 160x160px로 작음 — 명판 QR이 이 영역 안에 충분히 크게 잡히지 않으면 인식 실패 |
+| `fps` | 10 | 적절 |
+| 컨테이너 | 정사각형 강제 (CSS `aspect-ratio: 1/1`) | 카메라 비율 crop으로 유효 해상도 저하 가능 |
+
+폰 기본 카메라는 전체 화면을 스캔 영역으로 사용하기 때문에 인식되지만, 앱은 160x160px 박스 안에 QR이 완전히 들어와야 인식 가능.
+
+#### 검토 필요 사항
+
+| # | 항목 | 설명 |
+|---|------|------|
+| 1 | `qrbox` 확대 테스트 | `qr_scanner_web.dart:380` — `qrbox: 160` → `250` 으로 변경 후 인식률 확인 |
+| 2 | 카메라 해상도 | `html5-qrcode` config에 `videoConstraints` 추가 — `width: { ideal: 1280 }`, `height: { ideal: 720 }` 로 카메라 해상도 상향 |
+| 3 | 명판 반사 대비 | 금속 명판 반사로 카메라 노출 과다 시 QR 인식 실패 — `advanced: [{ torch: false }]` 등 플래시 제어 |
+| 4 | 에러 정정 레벨 | 명판 QR 생성 시 에러 정정 Level H (30%) 적용 여부 확인 |
+
+#### 수정 위치
+
+**OPS FE 수정** (`qr_scanner_web.dart:376-381`):
+
+```dart
+// 현재
+window.__qrScanConfig = {
+  fps: 10,
+  qrbox: 160
+};
+
+// 수정안 1: qrbox 확대
+window.__qrScanConfig = {
+  fps: 10,
+  qrbox: 250
+};
+
+// 수정안 2: qrbox + 카메라 해상도
+window.__qrScanConfig = {
+  fps: 10,
+  qrbox: 250,
+  videoConstraints: {
+    facingMode: "environment",
+    width: { ideal: 1280 },
+    height: { ideal: 720 }
+  }
+};
+```
+
+#### 검증 방법
+
+1. `qrbox: 250` 변경 후 명판 QR 인식 테스트
+2. 기존 종이 QR도 정상 인식 확인 (회귀)
+3. 다양한 거리(10cm, 20cm, 30cm)에서 인식률 비교
+
+**VIEW 수정**: 없음 — OPS FE 전용
+**BE 수정**: 없음
+
+---
+
+### #48 ETL 변경이력 field 필터 — `finishing_plan_end` 미허용 — PENDING (2026-03-30)
+
+**시급도**: 🔴 즉시 — VIEW 변경이력 페이지에서 마무리계획 카드 클릭 시 400 에러 발생
+**참조**: VIEW `EtlChangeLogPage.tsx`, OPS BE `/api/admin/etl/changes`
+
+#### 증상
+
+VIEW 변경이력 페이지에서 마무리계획 KPI 카드(건수 정상 표시)를 클릭하면:
+```
+GET /api/admin/etl/changes?field=finishing_plan_end
+→ 400 INVALID_FIELD
+→ {"error": "INVALID_FIELD", "message": "허용된 필드: elec_partner, mech_partner, mech_start, pi_start, sales_order, ship_plan_date"}
+```
+
+#### 원인
+
+OPS BE의 ETL changes API에서 `field` 파라미터 허용 목록에 `finishing_plan_end`가 포함되지 않음.
+
+| 구분 | 필드 목록 |
+|------|----------|
+| **BE 허용** | `elec_partner, mech_partner, mech_start, pi_start, sales_order, ship_plan_date` (6개) |
+| **FE 사용** | 위 6개 + `finishing_plan_end` (7개) |
+| **불일치** | `finishing_plan_end` — FE에서 KPI 카드로 표시하고 필터에 사용하지만 BE에서 미허용 |
+
+#### 요청 사항
+
+OPS BE ETL changes API의 field 허용 목록에 `finishing_plan_end` 추가.
+
+ETL 데이터에 `finishing_plan_end` 변경 이력은 이미 존재 (카드 건수가 표시되고 있음).
+필터 쿼리에서 해당 필드를 허용만 해주면 됨.
+
+```python
+# 예상 위치: OPS BE etl 관련 route 또는 service
+ALLOWED_FIELDS = ['elec_partner', 'mech_partner', 'mech_start', 'pi_start', 'sales_order', 'ship_plan_date']
+# 추가 필요:
+ALLOWED_FIELDS = ['elec_partner', 'finishing_plan_end', 'mech_partner', 'mech_start', 'pi_start', 'sales_order', 'ship_plan_date']
+```
+
+**VIEW 수정**: 없음 — FE는 이미 `finishing_plan_end` 사용 중
+**BE 수정**: 허용 필드 목록에 `finishing_plan_end` 추가 (1줄)

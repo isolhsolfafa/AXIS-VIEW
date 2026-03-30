@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.17.1 (2026-03-30)
+> 최신 버전: v1.18.0 (2026-03-30)
 
 ---
 
@@ -14,7 +14,7 @@
 
 ### 제목 형식
 ```
-🖥️ AXIS-VIEW v{버전}
+🖥️ VIEW v{버전} 업데이트 안내
 ```
 
 ### 본문 형식 — 플레인 텍스트 + 이모지 섹션 (마크다운 사용 금지)
@@ -36,7 +36,9 @@
 3. 항목은 ` - ` (공백+하이픈+공백) 들여쓰기
 4. 현장 작업자가 앱에서 바로 읽기 편한 수준으로 작성
 5. 기술 용어 최소화 — 사용자 관점에서 "무엇이 바뀌었는지" 중심
-6. `is_pinned: true` 로 상단 고정
+6. **상단 고정(pin) 관리**: 신규 VIEW 공지를 `is_pinned: true`로 등록하고, 기존 VIEW 공지의 pin은 해제 (`is_pinned: false`)
+   - 항상 최신 VIEW 공지 1개만 상단 고정 유지
+   - OPS 공지의 pin 상태는 건드리지 않음
 
 ### 자주 쓰는 섹션 이모지
 ```
@@ -48,7 +50,7 @@
 
 ### 예시 (v1.17.1)
 ```
-제목: 🖥️ AXIS-VIEW v1.17.1 업데이트 안내
+제목: 🖥️ VIEW v1.17.1 업데이트 안내
 
 본문:
 🖥️ v1.17.1 업데이트 안내
@@ -68,6 +70,25 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.18.0 — 2026-03-30
+
+**신규 기능 — Task 재활성화 UI (Sprint 23)**
+
+### 생산현황 — S/N 디테일 패널
+- 완료된 작업자 행 우측에 재활성화 버튼 추가 (RotateCcw 아이콘)
+- Manager/Admin 권한 사용자에게만 표시
+- 클릭 시 확인 다이얼로그 → BE 재활성화 API 호출
+- 성공 시 실적확인 자동 취소 + S/N progress 즉시 갱신
+
+### 수정 파일
+- `ProcessStepCard.tsx` — 재활성화 버튼 + useTaskReactivate 훅 연동
+- `SNDetailPanel.tsx` — canReactivate prop 전달 + task_detail_id 병합 주입
+- `SNStatusPage.tsx` — canReactivate 권한 판단 전달
+- `useTaskReactivate.ts` — 신규 mutation 훅
+- `types/snStatus.ts` — TaskWorker에 task_detail_id 필드 추가
 
 ---
 

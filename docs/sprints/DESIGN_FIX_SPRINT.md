@@ -9699,3 +9699,185 @@ categories[cat].percent를 ProcessStepCard에 prop으로 전달하여 SNCard와 
 - BE 변경 없음
 - npm run build 실패 시 즉시 수정
 ```
+
+---
+
+# Sprint 23: Task 재활성화 UI — 생산현황 S/N 디테일 (VIEW FE)
+
+> 등록일: 2026-03-30
+> 선행: OPS Sprint 41 (BE reactivate-task API 완료 후)
+> 난이도: 낮음
+> BE 변경: 없음 — OPS BE API 이미 구현 (`POST /api/app/work/reactivate-task`)
+> 상태: ✅ 완료 (2026-03-30)
+
+## 배경
+
+OPS Sprint 41에서 "작업 릴레이 + Manager 재활성화" BE를 구현.
+재활성화 버튼을 APP(Flutter)이 아닌 **VIEW(React) 생산현황 S/N 디테일**에 배치.
+
+이유:
+- Manager/PM이 실적 확인하는 화면에서 "실수 취소"가 자연스러움
+- S/N 디테일 패널에 이미 공정별 작업자, 완료 시간이 표시 → 대상 특정 용이
+- APP에 넣으면 현장 작업자가 실수로 누를 리스크 있음
+
+## 현재 코드 구조 (확인 완료)
+
+```
+API Client: src/api/client.ts
+  - import: apiClient (axios instance)
+  - baseURL: VITE_API_BASE_URL || 'http://localhost:5000'
+  - 모든 API 경로에 /api prefix 필요
+
+권한 접근: src/store/authStore.ts
+  - useAuth() 훅 → { user, isAuthenticated, login, logout }
+  - user.is_admin, user.is_manager 사용 가능
+  - localStorage key: axis_view_user
+
+타입 정의: src/types/snStatus.ts
+  - TaskWorker: { worker_id, worker_name, started_at, completed_at, duration_minutes, status, task_name? }
+  - ⚠️ task_detail_id 필드 없음 → BE 응답에 추가 필요 (OPS Sprint 41 보완)
+  - completed_at은 TaskWorker 레벨에 존재 (SNTaskDetail 레벨 아님)
+
+컴포넌트 계층:
+  SNStatusPage (useAuth로 user 접근)
+    → SNDetailPanel (tasks 병합 + ProcessStepCard 렌더링)
+      → ProcessStepCard (worker 행 렌더링, w.completed_at 체크)
+```
+
+## 수정 파일 (4개)
+
+```
+1. src/components/sn-status/SNDetailPanel.tsx     (수정 — workers 병합 시 task_detail_id: t.id 주입 + canReactivate prop 전달)
+2. src/components/sn-status/ProcessStepCard.tsx   (수정 — worker 행에 재활성화 버튼, canReactivate prop 수신)
+3. src/hooks/useTaskReactivate.ts                 (신규 — reactivate API 호출 훅)
+4. src/types/snStatus.ts                          (수정 — TaskWorker에 task_detail_id 추가)
+```
+
+## 선행 작업 — BE 수정 불필요
+
+`GET /api/app/tasks/<sn>?all=true` 응답의 각 task 객체 `id` 필드가 `app_task_details.id` (= task_detail_id).
+즉 **BE 응답에 이미 존재**하며, SNDetailPanel에서 workers 병합 시 `t.id`를 주입하면 됨.
+
+```typescript
+// SNDetailPanel.tsx — 기존 병합 로직 (L153-154)
+workers: catTasks.flatMap(t =>
+  t.workers.map(w => ({ ...w, task_name: t.task_name }))
+),
+
+// ↓ 수정: task_detail_id 주입 추가
+workers: catTasks.flatMap(t =>
+  t.workers.map(w => ({ ...w, task_name: t.task_name, task_detail_id: t.id }))
+),
+```
+
+## 기능 설계
+
+### 표시 조건
+- ProcessStepCard 내 **완료된 worker 행** (`w.completed_at` 존재) 옆에 재활성화 아이콘 표시
+- **권한**: `user.is_manager === true` 또는 `user.is_admin === true` 일 때만 표시
+- 일반 작업자에게는 버튼 비표시
+- 미완료 worker 행에는 표시 안 함
+
+### 버튼 위치
+- ProcessStepCard 확장 시 → worker 행 목록 → **각 worker 행의 완료 시간 우측**에 작은 아이콘
+- 아이콘: `RotateCcw` (lucide-react) 또는 `Undo2`
+- 색상: `text-gray-400 hover:text-orange-500` (비활성→주의색)
+
+### 권한 전달 방식
+```
+SNStatusPage: const { user } = useAuth();
+  const canReactivate = user?.is_admin || user?.is_manager || false;
+  → SNDetailPanel: canReactivate={canReactivate}
+    → ProcessStepCard: canReactivate prop (boolean 1개)
+```
+
+### 클릭 동작
+1. 확인 다이얼로그: "이 작업을 재활성화하시겠습니까? 실적확인이 취소됩니다."
+2. 확인 시 `POST /api/app/work/reactivate-task` 호출 (`{ task_detail_id: w.task_detail_id }`)
+3. 성공 시:
+   - 해당 S/N progress 데이터 refetch (invalidateQueries)
+   - 토스트: "작업이 재활성화되었습니다. (실적확인 N건 취소)"
+4. 실패 시:
+   - 403 → 토스트: "권한이 없습니다."
+   - 기타 → 토스트: 에러 메시지 표시
+
+### useTaskReactivate.ts
+
+```typescript
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import apiClient from '@/api/client';
+
+interface ReactivateResponse {
+  message: string;
+  task_id: number;
+  serial_number: string;
+  task_category: string;
+  confirms_invalidated: number;
+}
+
+export function useTaskReactivate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (taskDetailId: number) =>
+      apiClient.post<ReactivateResponse>('/api/app/work/reactivate-task', {
+        task_detail_id: taskDetailId,
+      }),
+    onSuccess: () => {
+      // S/N progress + tasks 쿼리 무효화
+      queryClient.invalidateQueries({ queryKey: ['sn', 'progress'] });
+      queryClient.invalidateQueries({ queryKey: ['sn', 'tasks'] });
+    },
+  });
+}
+```
+
+### ProcessStepCard 수정 범위
+
+```tsx
+// Props에 권한 추가
+interface ProcessStepCardProps {
+  task: SNTaskDetail | null;
+  displayLabel: string;
+  categoryPercent?: number;
+  checklist?: ChecklistStatusResponse | null;
+  checklistLoading?: boolean;
+  canReactivate?: boolean;   // ← 추가 (단일 prop)
+}
+
+// worker 행 렌더링 부분 (기존 w.completed_at 표시 근처)
+// ⚠️ task.completed_at 아님! worker 행 단위 w.completed_at 기준
+{w.completed_at && canReactivate && w.task_detail_id && (
+  <button
+    onClick={() => handleReactivate(w.task_detail_id!)}
+    className="ml-2 text-gray-400 hover:text-orange-500 transition-colors"
+    title="작업 재활성화"
+  >
+    <RotateCcw size={14} />
+  </button>
+)}
+```
+
+### TaskWorker 타입 수정
+
+```typescript
+// src/types/snStatus.ts
+export interface TaskWorker {
+  worker_id: number;
+  worker_name: string;
+  started_at: string | null;
+  completed_at: string | null;
+  duration_minutes: number | null;
+  status: 'completed' | 'in_progress' | 'not_started';
+  task_name?: string;
+  task_detail_id?: number;   // ← 추가 (Sprint 23)
+}
+```
+
+## 규칙
+- **BE 변경 불필요**: task.id === task_detail_id, SNDetailPanel 병합 시 t.id 주입으로 해결
+- 코드 변경 전 반드시 사용자 승인
+- npm run build 실패 시 즉시 수정
+- 권한 판단: useAuth() → canReactivate boolean → prop drilling (SNStatusPage → SNDetailPanel → ProcessStepCard)
+- 재활성화 후 production_confirm 취소는 BE에서 처리됨 (FE는 결과만 표시)
+- API import: `apiClient from '@/api/client'` (기존 패턴 준수)

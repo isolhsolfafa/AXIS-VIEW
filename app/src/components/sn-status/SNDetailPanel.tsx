@@ -15,6 +15,7 @@ interface SNDetailPanelProps {
   tasks: SNTaskDetail[];
   isLoading: boolean;
   onClose: () => void;
+  canReactivate?: boolean;  // Sprint 23: 재활성화 버튼 표시 여부
 }
 
 // 각 카테고리별 체크리스트 hook wrapper
@@ -23,11 +24,13 @@ function ChecklistProcessCard({
   serialNumber,
   task,
   categoryPercent,
+  canReactivate,
 }: {
   cat: string;
   serialNumber: string;
   task: SNTaskDetail | null;
   categoryPercent?: number;
+  canReactivate?: boolean;
 }) {
   const { data: checklist, isLoading: clLoading } = useChecklist(serialNumber, cat);
   return (
@@ -37,11 +40,12 @@ function ChecklistProcessCard({
       categoryPercent={categoryPercent}
       checklist={checklist}
       checklistLoading={clLoading}
+      canReactivate={canReactivate}
     />
   );
 }
 
-export default function SNDetailPanel({ serialNumber, product, tasks, isLoading, onClose }: SNDetailPanelProps) {
+export default function SNDetailPanel({ serialNumber, product, tasks, isLoading, onClose, canReactivate }: SNDetailPanelProps) {
   const completedCount = PROCESS_ORDER.filter(cat => {
     const catData = product.categories[cat];
     return catData && catData.percent === 100;
@@ -154,7 +158,7 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
                   task_name: catTasks[0].task_name,
                   task_category: cat,
                   workers: catTasks.flatMap(t =>
-                    t.workers.map(w => ({ ...w, task_name: t.task_name }))
+                    t.workers.map(w => ({ ...w, task_name: t.task_name, task_detail_id: t.id }))
                   ),
                   my_status: catTasks.some(t => t.my_status === 'in_progress') ? 'in_progress'
                     : catTasks.some(t => t.my_status === 'completed') ? 'completed'
@@ -170,6 +174,7 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
                   serialNumber={serialNumber}
                   task={mergedTask}
                   categoryPercent={product.categories[cat]?.percent}
+                  canReactivate={canReactivate}
                 />
               );
             }
@@ -180,6 +185,7 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
                 task={mergedTask}
                 displayLabel={PROCESS_LABEL[cat] ?? cat}
                 categoryPercent={product.categories[cat]?.percent}
+                canReactivate={canReactivate}
               />
             );
           })

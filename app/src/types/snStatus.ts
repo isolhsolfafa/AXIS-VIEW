@@ -31,7 +31,8 @@ export interface TaskWorker {
   completed_at: string | null;
   duration_minutes: number | null;
   status: 'completed' | 'in_progress' | 'not_started';
-  task_name?: string;  // 병합 시 주입 — 상세뷰에서 작업 구분용
+  task_name?: string;        // 병합 시 주입 — 상세뷰에서 작업 구분용
+  task_detail_id?: number;   // 병합 시 주입 — 재활성화 API 호출용 (Sprint 23)
 }
 
 export interface SNTaskDetail {
