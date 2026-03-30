@@ -82,7 +82,7 @@ AXIS-VIEW/
 │   │   ├── api/              API 클라이언트 14개
 │   │   ├── hooks/            TanStack Query 훅 14개
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.17.0 (2026-03-29)
+│   │   ├── version.ts        v1.17.1 (2026-03-30)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
@@ -175,7 +175,7 @@ VITE_USE_MOCK=false
 
 ---
 
-## 페이지 구성 (19개, v1.17.0 기준)
+## 페이지 구성 (19개, v1.17.1 기준)
 
 ### 사이드바 메뉴 구조
 
