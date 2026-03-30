@@ -73,9 +73,7 @@ export default function ProcessStepCard({ task, displayLabel, categoryPercent, c
         toast.success(`작업이 재활성화되었습니다.${count > 0 ? ` (실적확인 ${count}건 취소)` : ''}`);
       },
       onError: (err: any) => {
-        const status = err?.response?.status;
-        if (status === 403) toast.error('권한이 없습니다.');
-        else toast.error(err?.response?.data?.message || '재활성화에 실패했습니다.');
+        toast.error(err?.response?.data?.message || '재활성화에 실패했습니다.');
       },
     });
   }
