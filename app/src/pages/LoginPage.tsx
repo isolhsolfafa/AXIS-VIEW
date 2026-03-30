@@ -42,10 +42,22 @@ export default function LoginPage() {
       toast.success('로그인 성공');
       // navigate는 useEffect에서 user 상태 변경 시 자동 처리
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.';
+      // 한글 에러 메시지 매핑 — 시스템 영문 메시지 사용자 노출 방지
+      const raw = err instanceof Error ? err.message : '';
+      const status = (err as any)?.response?.status;
+      const msg = raw.includes('대시보드 접근 권한이 없습니다')
+        ? raw
+        : status === 401
+          ? '이메일 또는 비밀번호가 올바르지 않습니다.'
+          : status === 403
+            ? '접근 권한이 없습니다. 관리자에게 문의해주세요.'
+            : status === 404
+              ? '등록되지 않은 계정입니다.'
+              : status === 429
+                ? '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.'
+                : status >= 500
+                  ? '서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.'
+                  : '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.';
 
       // 권한 없는 사용자 → 모달 팝업
       if (msg.includes('대시보드 접근 권한이 없습니다')) {

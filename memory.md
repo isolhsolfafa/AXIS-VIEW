@@ -75,6 +75,22 @@ if (task.workers.some(w => w.status === 'completed')) return 'completed';
 
 ---
 
+### ADR-V006: 에러 메시지 한글화 원칙 (2026-03-30)
+- **맥락**: `(error as Error)?.message` 또는 `err.message`를 UI에 직접 표시 → "Request failed with status code 401" 같은 영문 시스템 메시지 사용자 노출
+- **결정**: 모든 사용자 노출 에러는 한글 메시지로 교체. HTTP status 기반 분기 처리
+- **규칙**:
+  - `err.message` / `error.message`를 UI에 직접 표시 금지
+  - status 코드별 한글 fallback 메시지 사용 (401→인증, 403→권한, 404→미존재, 429→과다요청, 5xx→서버오류)
+  - BE 응답의 `data.message`도 영문일 수 있으므로 직접 표시 대신 status 기반 fallback 사용
+- **적용 파일**: LoginPage, PermissionsPage, ProductionPerformancePage, EtlChangeLogPage, ProcessStepCard
+
+### ADR-V007: 사이드바 토글 버튼 가시성 개선 (2026-03-30)
+- **맥락**: 반응형 UI 업데이트 후 사이드바 접기/펼기 버튼(24x24, 반투명)이 잘 보이지 않음
+- **결정**: 28x28 확대 + 그림자 강화 + hover 시 accent 색상 전환
+- **변경**: Sidebar.tsx 토글 버튼 — `right: -14px`, `boxShadow` 강화, hover 시 `background: accent + color: white`
+
+---
+
 ## 3. 반복 실수 방지
 
 ### CSS media query 순서

@@ -74,7 +74,7 @@ export default function EtlChangeLogPage() {
   const [searchSN, setSearchSN] = useState('');
 
   // API 호출
-  const { data, isLoading, isError, error } = useEtlChanges({
+  const { data, isLoading, isError } = useEtlChanges({
     days: period,
     field: filterField !== 'all' ? filterField : undefined,
     serial_number: searchSN.trim() || undefined,
@@ -279,7 +279,7 @@ export default function EtlChangeLogPage() {
               fontSize: '13px',
             }}
           >
-            데이터를 불러오지 못했습니다: {(error as Error)?.message || '알 수 없는 오류'}
+            데이터를 불러오지 못했습니다. 새로고침하거나 잠시 후 다시 시도해주세요.
           </div>
         )}
 

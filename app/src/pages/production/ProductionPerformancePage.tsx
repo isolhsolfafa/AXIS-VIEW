@@ -458,7 +458,7 @@ export default function ProductionPerformancePage() {
   };
 
   // API data
-  const { data: perfData, isLoading, isError, error } = usePerformance(
+  const { data: perfData, isLoading, isError } = usePerformance(
     activeWeek || undefined, undefined
   );
   const { data: monthlyData } = useMonthlySummary();
@@ -562,7 +562,7 @@ export default function ProductionPerformancePage() {
         )}
         {isError && (
           <div style={{ textAlign: 'center', padding: '60px', color: 'var(--gx-danger)' }}>
-            데이터 로드 실패: {(error as Error)?.message}
+            데이터를 불러오지 못했습니다. 새로고침하거나 잠시 후 다시 시도해주세요.
           </div>
         )}
 

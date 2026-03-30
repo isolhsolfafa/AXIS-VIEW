@@ -52,7 +52,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function PermissionsPage() {
   const { user: currentUser } = useAuth();
   const [showAll, setShowAll] = useState(false);
-  const { data, isLoading, isError, error } = useWorkers(
+  const { data, isLoading, isError } = useWorkers(
     showAll ? undefined : { is_manager: true }
   );
   const toggleMutation = useToggleManager();
@@ -261,7 +261,7 @@ export default function PermissionsPage() {
               fontSize: '13px',
             }}
           >
-            데이터를 불러오지 못했습니다: {(error as Error)?.message || '알 수 없는 오류'}
+            데이터를 불러오지 못했습니다. 새로고침하거나 잠시 후 다시 시도해주세요.
           </div>
         )}
 

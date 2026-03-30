@@ -570,13 +570,27 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
       {!isMobile && (
         <button
           onClick={onToggle}
+          className="sidebar-toggle-btn"
           style={{
-            position: 'absolute', top: '50%', right: '-12px', transform: 'translateY(-50%)',
-            width: '24px', height: '24px', borderRadius: '50%',
-            background: 'var(--gx-white)', border: '1px solid var(--gx-mist)',
+            position: 'absolute', top: '50%', right: '-14px', transform: 'translateY(-50%)',
+            width: '28px', height: '28px', borderRadius: '50%',
+            background: 'var(--gx-white)', border: '1.5px solid var(--gx-mist)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-            zIndex: 101, color: 'var(--gx-steel)',
+            cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+            zIndex: 101, color: 'var(--gx-slate)',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'var(--gx-accent)';
+            (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+            (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--gx-accent)';
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(99,102,241,0.3)';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'var(--gx-white)';
+            (e.currentTarget as HTMLButtonElement).style.color = 'var(--gx-slate)';
+            (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--gx-mist)';
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 6px rgba(0,0,0,0.12)';
           }}
         >
           <CollapseToggleIcon collapsed={collapsed} />

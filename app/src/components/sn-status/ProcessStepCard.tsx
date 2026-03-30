@@ -73,7 +73,15 @@ export default function ProcessStepCard({ task, displayLabel, categoryPercent, c
         toast.success(`작업이 재활성화되었습니다.${count > 0 ? ` (실적확인 ${count}건 취소)` : ''}`);
       },
       onError: (err: any) => {
-        toast.error(err?.response?.data?.message || '재활성화에 실패했습니다.');
+        const status = err?.response?.status;
+        const fallback = status === 403
+          ? '재활성화 권한이 없습니다.'
+          : status === 404
+            ? '해당 작업을 찾을 수 없습니다.'
+            : status >= 500
+              ? '서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.'
+              : '재활성화에 실패했습니다.';
+        toast.error(fallback);
       },
     });
   }
