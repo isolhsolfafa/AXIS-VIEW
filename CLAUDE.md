@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-03-30 | 버전: v1.18.0
+> 최종 갱신: 2026-03-31 | 버전: v1.19.0
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -82,7 +82,7 @@ AXIS-VIEW/
 │   │   ├── api/              API 클라이언트 14개
 │   │   ├── hooks/            TanStack Query 훅 14개
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.18.0 (2026-03-30)
+│   │   ├── version.ts        v1.19.0 (2026-03-31)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
@@ -175,7 +175,7 @@ VITE_USE_MOCK=false
 
 ---
 
-## 페이지 구성 (19개, v1.18.0 기준)
+## 페이지 구성 (19개, v1.19.0 기준)
 
 ### 사이드바 메뉴 구조
 
@@ -377,6 +377,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | 21 | 반응형 레이아웃 (태블릿 우선) | ✅ 완료 |
 | 22 | 공정 완료 판정 버그 수정 (categories 기준 통일) | ✅ 완료 |
 | 23 | Task 재활성화 UI (생산현황 S/N 디테일) | ✅ 완료 |
+| 24 | 생산현황 O/N 섹션 헤더 + 검색 확장 | ✅ 완료 |
 | 40-C | 비활성 사용자 관리 (VIEW 연동) | ✅ 완료 |
 | 40-C+ | Manager 비활성화 요청 기능 | ✅ 완료 |
 

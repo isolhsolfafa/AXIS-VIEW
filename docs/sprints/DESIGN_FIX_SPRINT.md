@@ -9890,7 +9890,7 @@ export interface TaskWorker {
 > 선행: OPS BE #51 (progress API에 `sales_order` 필드 추가)
 > 난이도: 낮 (2파일 수정, ~60줄 변경)
 > BE 변경: 있음 — OPS_API_REQUESTS.md #51 참조
-> 상태: 설계 완료, BE 선행 대기
+> 상태: ✅ FE 완료 (2026-03-31) — BE #51 배포 후 자동 활성화
 
 ---
 
@@ -10076,13 +10076,13 @@ placeholder="O/N · S/N · 모델명 검색"
 
 ```
 [ ] BE #51 완료 확인 — progress API 응답에 sales_order 포함
-[ ] snStatus.ts — SNProduct에 sales_order: string | null 추가
-[ ] SNStatusPage.tsx — groupedByON useMemo 추가
-[ ] SNStatusPage.tsx — 검색 필터 sales_order 매칭 추가
-[ ] SNStatusPage.tsx — placeholder "O/N · S/N · 모델명 검색"
-[ ] SNStatusPage.tsx — 렌더링: O/N 섹션 헤더 + 카드 그리드
-[ ] npm run build 성공 확인
-[ ] 테스트: O/N 검색 → 해당 그룹 필터링 확인
+[x] snStatus.ts — SNProduct에 sales_order: string | null 추가
+[x] SNStatusPage.tsx — groupedByON useMemo 추가
+[x] SNStatusPage.tsx — 검색 필터 sales_order 매칭 추가
+[x] SNStatusPage.tsx — placeholder "O/N · S/N · 모델명 검색"
+[x] SNStatusPage.tsx — 렌더링: O/N 섹션 헤더 + 카드 그리드
+[x] npm run build 성공 확인
+[ ] 테스트: O/N 검색 → 해당 그룹 필터링 확인 (BE #51 후)
 [ ] 테스트: SNCard 클릭 → SNDetailPanel 정상 동작
 [ ] 테스트: sales_order NULL인 S/N → 헤더 없이 개별 카드 표시
 [ ] 테스트: 협력사 로그인 → 자사 담당 S/N만 그룹에 포함

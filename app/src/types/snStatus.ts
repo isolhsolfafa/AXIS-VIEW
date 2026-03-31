@@ -7,6 +7,7 @@ export interface SNProduct {
   model: string;
   customer: string;
   ship_plan_date: string | null;
+  sales_order: string | null;      // O/N — BE #51 후 활성화
   all_completed: boolean;
   all_completed_at: string | null;
   overall_percent: number;

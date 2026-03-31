@@ -53,7 +53,8 @@ export default function SNStatusPage() {
       const q = search.toLowerCase();
       result = result.filter(p =>
         p.serial_number.toLowerCase().includes(q) ||
-        p.model.toLowerCase().includes(q),
+        p.model.toLowerCase().includes(q) ||
+        (p.sales_order && p.sales_order.toLowerCase().includes(q)),
       );
     }
 
@@ -72,6 +73,36 @@ export default function SNStatusPage() {
     });
   }, [products, search, isAdminOrGst, user?.company]);
 
+  // O/N별 그룹핑 — Sprint 24
+  const groupedByON = useMemo(() => {
+    const groups: { key: string; salesOrder: string; model: string; customer: string; products: SNProduct[]; overallPercent: number }[] = [];
+    const map = new Map<string, typeof groups[0]>();
+
+    for (const p of sorted) {
+      const key = p.sales_order ?? `_no_on_${p.serial_number}`;
+      if (!map.has(key)) {
+        const group = {
+          key,
+          salesOrder: p.sales_order ?? '',
+          model: p.model,
+          customer: p.customer,
+          products: [] as SNProduct[],
+          overallPercent: 0,
+        };
+        map.set(key, group);
+        groups.push(group);
+      }
+      map.get(key)!.products.push(p);
+    }
+
+    for (const g of groups) {
+      g.overallPercent = Math.round(
+        g.products.reduce((sum, p) => sum + p.overall_percent, 0) / g.products.length
+      );
+    }
+    return groups;
+  }, [sorted]);
+
   const handleCardClick = (sn: string) => {
     setSelectedSN(prev => prev === sn ? null : sn);
   };
@@ -84,7 +115,7 @@ export default function SNStatusPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
         <input
           type="text"
-          placeholder="S/N · 모델명 검색"
+          placeholder="O/N · S/N · 모델명 검색"
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={{
@@ -151,14 +182,54 @@ export default function SNStatusPage() {
           {search ? '검색 결과가 없습니다' : '표시할 S/N이 없습니다'}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-          {sorted.map(p => (
-            <SNCard
-              key={p.serial_number}
-              product={p}
-              isSelected={selectedSN === p.serial_number}
-              onClick={handleCardClick}
-            />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {groupedByON.map(group => (
+            <div key={group.key}>
+              {/* O/N 섹션 헤더 */}
+              {group.salesOrder && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '8px 4px', marginBottom: '12px',
+                  borderBottom: '1px solid var(--gx-mist)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
+                      O/N {group.salesOrder}
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>
+                      {group.model} · {group.customer} · {group.products.length}대
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '60px', height: '5px', borderRadius: '3px', background: 'var(--gx-cloud)' }}>
+                      <div style={{
+                        width: `${group.overallPercent}%`, height: '100%', borderRadius: '3px',
+                        background: group.overallPercent === 100 ? 'var(--gx-success)' : 'var(--gx-accent)',
+                        transition: 'width 0.3s ease',
+                      }} />
+                    </div>
+                    <span style={{
+                      fontSize: '12px', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
+                      color: group.overallPercent === 100 ? 'var(--gx-success)' : 'var(--gx-charcoal)',
+                    }}>
+                      {group.overallPercent}%
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* SNCard 그리드 */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                {group.products.map(p => (
+                  <SNCard
+                    key={p.serial_number}
+                    product={p}
+                    isSelected={selectedSN === p.serial_number}
+                    onClick={handleCardClick}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
