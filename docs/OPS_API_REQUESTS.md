@@ -3327,4 +3327,213 @@ elif category == 'TMS' and company and (
 3. 다른 협력사 Manager (FNI 등) → TMS task 재활성화 시도 → 403 정상 차단
 
 **VIEW 수정**: 없음
-**BE 수정**: `work.py` L264 — TMS 권한 체크에 `mech_partner` OR 조건 추가 (1줄)
+
+---
+
+### #51 progress API에 `sales_order` 필드 추가 — O/N 그룹핑 UI 선행 — PENDING (2026-03-31)
+
+**시급도**: 🟡 중간 — 생산현황 O/N 그룹핑 UI 선행 조건
+**참조**: VIEW Sprint 24 (O/N 그룹핑), `progress_service.py`
+
+#### 배경
+
+생산현황(SNStatusPage)에서 S/N 카드가 개별 나열되어 있어 같은 O/N(Order Number) 소속 S/N을 한눈에 파악하기 어려움. O/N 단위 섹션 헤더 UI를 구현하려면 progress API 응답에 `sales_order` 필드가 필요.
+
+현재 `GET /api/app/product/progress` 응답에 `sales_order` 없음.
+
+#### 현재 쿼리 구조 (progress_service.py)
+
+`sn_list` CTE (L57~76)에서 `plan.product_info pi`를 JOIN하고 있으며, 이미 `pi.model`, `pi.customer`, `pi.ship_plan_date`, `pi.mech_partner`, `pi.elec_partner`, `pi.module_outsourcing`을 SELECT.
+
+**`pi.sales_order`는 테이블에 존재하지만 SELECT에 포함되지 않음.**
+
+#### 수정 요청
+
+**파일**: `backend/app/services/progress_service.py`
+
+**1단계: sn_list CTE에 sales_order 추가 (L58~66)**
+
+```python
+# 현재
+WITH sn_list AS (
+    SELECT
+        qr.serial_number,
+        qr.qr_doc_id,
+        pi.model,
+        pi.customer,
+        pi.ship_plan_date,
+        pi.mech_partner,
+        pi.elec_partner,
+        pi.module_outsourcing,
+
+# 수정: pi.sales_order 추가
+WITH sn_list AS (
+    SELECT
+        qr.serial_number,
+        qr.qr_doc_id,
+        pi.model,
+        pi.customer,
+        pi.ship_plan_date,
+        pi.sales_order,          -- ← 추가
+        pi.mech_partner,
+        pi.elec_partner,
+        pi.module_outsourcing,
+```
+
+**2단계: 메인 SELECT에 sales_order 추가 (L87~103)**
+
+```python
+# 현재
+SELECT
+    sn.serial_number,
+    sn.qr_doc_id,
+    sn.model,
+    sn.customer,
+    sn.ship_plan_date,
+    sn.mech_partner,
+    ...
+
+# 수정: sn.sales_order 추가
+SELECT
+    sn.serial_number,
+    sn.qr_doc_id,
+    sn.model,
+    sn.customer,
+    sn.ship_plan_date,
+    sn.sales_order,              -- ← 추가
+    sn.mech_partner,
+    ...
+```
+
+**3단계: _aggregate_products()에서 sn_map에 sales_order 포함 (L254~266)**
+
+```python
+# 현재
+sn_map[sn] = {
+    'serial_number': sn,
+    'qr_doc_id': row['qr_doc_id'],
+    'model': row['model'],
+    'customer': row['customer'],
+    'ship_plan_date': ...,
+    'all_completed': ...,
+    'all_completed_at': ...,
+    'mech_partner': row['mech_partner'],
+    'elec_partner': row['elec_partner'],
+    'module_outsourcing': row['module_outsourcing'],
+    'categories': {},
+}
+
+# 수정: sales_order 추가 (mech_partner 위에)
+sn_map[sn] = {
+    'serial_number': sn,
+    'qr_doc_id': row['qr_doc_id'],
+    'model': row['model'],
+    'customer': row['customer'],
+    'ship_plan_date': ...,
+    'sales_order': row['sales_order'],   # ← 추가
+    'all_completed': ...,
+    'all_completed_at': ...,
+    'mech_partner': row['mech_partner'],
+    'elec_partner': row['elec_partner'],
+    'module_outsourcing': row['module_outsourcing'],
+    'categories': {},
+}
+```
+
+**⚠️ 주의**: `sales_order`는 `mech_partner`/`elec_partner`/`module_outsourcing`처럼 `pop()` 하지 않음. 응답에 포함되어야 FE에서 사용 가능.
+
+L293~296에서 partner 필드만 pop:
+```python
+sn_data.pop('mech_partner', None)
+sn_data.pop('elec_partner', None)
+sn_data.pop('module_outsourcing', None)
+# sales_order는 pop하지 않음 — 응답에 포함
+```
+
+#### 예상 응답 변화
+
+```json
+{
+  "products": [
+    {
+      "serial_number": "6905",
+      "model": "GAIA-I DUAL",
+      "customer": "...",
+      "sales_order": "6408",
+      "ship_plan_date": "2026-04-15",
+      "overall_percent": 65,
+      "categories": { "MECH": {...}, "ELEC": {...} },
+      ...
+    }
+  ]
+}
+```
+
+#### 검증
+
+1. `GET /api/app/product/progress` 응답에 `sales_order` 필드 존재 확인
+2. `sales_order`가 NULL인 S/N도 정상 응답 (NULL 허용)
+3. 기존 필드 (`serial_number`, `model`, `categories` 등) 영향 없음
+
+**VIEW 수정**: Sprint 24에서 `SNProduct` 타입에 `sales_order` 추가 + O/N 섹션 헤더 UI 구현
+
+---
+
+### #52 ETL 변경이력 `_FIELD_LABELS`에 `finishing_plan_end` 누락 — PENDING (2026-03-31)
+
+**시급도**: 🔴 즉시 — 마무리계획일 변경이력 조회 불가
+**참조**: VIEW `EtlChangeLogPage.tsx`, OPS `routes/admin.py`
+
+#### 증상
+
+VIEW ETL 변경이력 페이지에서 `finishing_plan_end`(마무리계획일) 필드 조회 시:
+```json
+{
+  "error": "INVALID_FIELD",
+  "message": "허용된 필드: elec_partner, mech_partner, mech_start, pi_start, sales_order, ship_plan_date"
+}
+```
+HTTP 400 응답 → 조회 차단.
+
+#### 원인
+
+`admin.py` L2067~2074 `_FIELD_LABELS` 딕셔너리에 `finishing_plan_end` 미등록:
+
+```python
+# 현재 (6개만 등록)
+_FIELD_LABELS = {
+    'sales_order': '판매오더',
+    'ship_plan_date': '출하예정',
+    'mech_start': '기구시작',
+    'pi_start': '가압시작',
+    'mech_partner': '기구외주',
+    'elec_partner': '전장외주',
+}
+```
+
+L2102~2107에서 `valid_fields = set(_FIELD_LABELS.keys())` 기반으로 필드 검증 → `finishing_plan_end`가 없으므로 `INVALID_FIELD` 에러 반환.
+
+#### 수정 요청
+
+**파일**: `backend/app/routes/admin.py` L2067~2074
+
+```python
+# 수정: finishing_plan_end 추가
+_FIELD_LABELS = {
+    'sales_order': '판매오더',
+    'ship_plan_date': '출하예정',
+    'mech_start': '기구시작',
+    'pi_start': '가압시작',
+    'finishing_plan_end': '마무리계획일',   # ← 추가
+    'mech_partner': '기구외주',
+    'elec_partner': '전장외주',
+}
+```
+
+#### 검증
+
+1. VIEW ETL 변경이력 → 필드 필터 `finishing_plan_end` 선택 → 정상 조회 (200)
+2. 기존 6개 필드 조회 정상 동작 확인 (회귀)
+3. 존재하지 않는 필드 → 여전히 400 에러 정상 차단
+
+**VIEW 수정**: 없음

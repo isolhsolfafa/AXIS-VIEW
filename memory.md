@@ -2,7 +2,7 @@
 
 > 세션 간 누적되는 의사결정, 버그 분석, 아키텍처 판단을 기록합니다.
 > CLAUDE.md = 프로젝트 고정 정보 / memory.md = 누적 학습 / handoff.md = 세션 인계
-> 마지막 업데이트: 2026-03-29
+> 마지막 업데이트: 2026-03-31
 
 ---
 
@@ -84,6 +84,19 @@ if (task.workers.some(w => w.status === 'completed')) return 'completed';
   - BE 응답의 `data.message`도 영문일 수 있으므로 직접 표시 대신 status 기반 fallback 사용
 - **적용 파일**: LoginPage, PermissionsPage, ProductionPerformancePage, EtlChangeLogPage, ProcessStepCard
 
+### ADR-V008: SNStatusPage O/N 그룹핑 — 섹션 헤더 방식 (2026-03-31)
+- **맥락**: 생산현황에서 S/N 카드가 개별 나열 → 같은 O/N 소속 S/N을 한눈에 파악 어려움
+- **결정**: O/N 단위 **섹션 헤더** (기존 카드 그리드 유지, 아코디언 아님)
+- **BE 선행**: progress API에 `sales_order` 필드 추가 필요 (#51)
+- **아코디언 → 섹션 헤더 변경 이유**:
+  1. 완료 S/N은 1일 후 BE에서 자동 제외 → 접을 대상이 거의 없음
+  2. 기존 카드 그리드 UX 유지 → 사용자 학습 비용 없음
+  3. 신규 컴포넌트 불필요 → 2파일 ~60줄로 구현 가능
+- **설계**:
+  - `sales_order`로 그룹핑 → O/N 헤더(오더번호, 모델, 고객, 대수, 진행률 바) → 바로 아래 SNCard 그리드
+  - `sales_order` NULL인 S/N은 헤더 없이 개별 카드 표시
+  - 검색: O/N 번호 매칭 추가
+
 ### ADR-V007: 사이드바 토글 버튼 가시성 개선 (2026-03-30)
 - **맥락**: 반응형 UI 업데이트 후 사이드바 접기/펼기 버튼(24x24, 반투명)이 잘 보이지 않음
 - **결정**: 28x28 확대 + 그림자 강화 + hover 시 accent 색상 전환
@@ -123,7 +136,7 @@ if (task.workers.some(w => w.status === 'completed')) return 'completed';
 - **훅**: 18개 (TanStack Query 기반)
 - **타입 정의**: 7개
 - **테스트**: 2개 파일만 (vitest 설치됨, 커버리지 낮음)
-- **Sprint 이력**: 1~22 (+ 18-B, 18-C, 19 HOTFIX, 40-C, 40-C+)
+- **Sprint 이력**: 1~24 (+ 18-B, 18-C, 19 HOTFIX, 40-C, 40-C+)
 
 ### 의존 BE (AXIS-OPS)
 - Flask + PostgreSQL (Railway)

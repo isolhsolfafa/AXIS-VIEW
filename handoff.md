@@ -1,33 +1,37 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-03-30
+> 마지막 업데이트: 2026-03-31
 
 ---
 
 ## 현재 버전
 
 - **VIEW FE**: v1.17.0
-- **최근 Sprint**: 22 (공정 완료 판정 버그 수정) — 승인 대기
-- **최근 완료**: Sprint 21 (반응형 레이아웃), Sprint 40-C+ (비활성 사용자)
+- **최근 Sprint**: 24 (O/N 그룹핑 UI 설계) — BE #51 선행 대기
+- **최근 완료**: Sprint 23 (Task 재활성화 UI 설계), Sprint 22 (완료 판정 버그 설계)
 
 ---
 
-## 직전 세션 작업 내용 (2026-03-30)
+## 직전 세션 작업 내용 (2026-03-31)
 
-1. Sprint 22 설계 완료 — ProcessStepCard 완료 판정 버그 (`workers.some()` → `categories.percent`)
-2. handoff.md + memory.md 신규 생성 (OPS와 동일 구조)
-3. CLAUDE.md에 handoff/memory 파일 참조 추가
-4. **#48 ETL finishing_plan_end 필터 — BE 수정 완료 (사용자 직접)**
-5. **#49 ProcessStepCard workers 정렬 — task_name 그룹핑 + started_at 내림차순 적용**
-6. **에러 메시지 한글화 — 5개소 수정** (LoginPage, PermissionsPage, ProductionPerformancePage, EtlChangeLogPage, ProcessStepCard)
-7. **사이드바 토글 버튼 위치 변경** — 경계선 돌출 → 사이드바 내부 하단 full-width 버튼
-8. **#50 request-deactivation API 경로 수정** — `/work/` → `/api/app/work/` (url_prefix 누락)
-9. OPS Sprint 41 진행 (릴레이 + 재활성화 BE) — VIEW Sprint 23 설계 완료
+1. **OPS_API_REQUESTS.md #51 작성** — progress API에 `sales_order` 필드 추가 요청 (BE 3개소 수정 상세 기술)
+2. **OPS_API_REQUESTS.md #52 작성** — ETL `_FIELD_LABELS`에 `finishing_plan_end` 누락
+3. **Sprint 24 설계 완료** — SNStatusPage O/N 섹션 헤더 UI (2파일, ~60줄)
+4. **QR CSV 다운로드 O/N 추가** — `downloadCsv()`에 `sales_order` 컬럼 포함
+5. **QR 라벨 통일** — 테이블 컬럼 + 검색 placeholder "Order No" → "O/N"
+6. handoff.md + memory.md 업데이트
 
 ---
 
 ## 진행 중 Sprint
+
+### VIEW Sprint 24 — O/N 섹션 헤더 (OPS BE #51 완료 후 실행)
+- SNStatusPage: O/N별 섹션 헤더 삽입 (기존 카드 그리드 유지)
+- 신규 컴포넌트 없음 — SNStatusPage 내 인라인 렌더링
+- 검색: O/N 번호 매칭 추가
+- **선행**: OPS BE #51 (progress API에 sales_order 필드 추가)
+- 설계 문서: `DESIGN_FIX_SPRINT.md` Sprint 24 섹션
 
 ### VIEW Sprint 23 — Task 재활성화 UI (OPS Sprint 41 BE 완료 후 실행)
 - ProcessStepCard worker 행 단위에 재활성화 버튼 추가
@@ -64,15 +68,15 @@
 
 ---
 
-## 금일 수정 완료 건 (2026-03-30)
+## 금일 수정 완료 건 (2026-03-31)
 
 | # | 내용 | 파일 |
 |---|------|------|
-| #48 | ETL `finishing_plan_end` 필터 BE 추가 | OPS BE (사용자 직접) |
-| #49 | ProcessStepCard workers 정렬 (task_name 그룹 + 최신순) | ProcessStepCard.tsx |
-| #50 | request-deactivation API 경로 수정 (`/api/app` prefix) | workers.ts |
-| — | 에러 메시지 한글화 5개소 | LoginPage, PermissionsPage 등 |
-| — | 사이드바 토글 버튼 내부 하단 이동 | Sidebar.tsx |
+| #51 | progress API sales_order 추가 BE 요청 작성 | OPS_API_REQUESTS.md |
+| #52 | ETL _FIELD_LABELS에 finishing_plan_end 누락 BE 요청 | OPS_API_REQUESTS.md |
+| — | Sprint 24 O/N 섹션 헤더 UI 설계 완료 | DESIGN_FIX_SPRINT.md |
+| — | QR CSV 다운로드에 O/N(sales_order) 컬럼 추가 | QrManagementPage.tsx |
+| — | QR 테이블/검색 "Order No" → "O/N" 라벨 통일 | QrManagementPage.tsx |
 
 ---
 
@@ -84,8 +88,10 @@
 | #45 | 카드뷰 last_worker에 task 이름 추가 | PENDING | S/N 카드뷰 |
 | #46 | 상세뷰 workers 누락 — task_id 매핑 불일치 | DONE (FE 버그) | — |
 | #47 | QR 명판 인식 — qrbox 200 적용, focusMode 미해결 | PENDING | OPS FE |
+| #51 | progress API에 sales_order 필드 추가 | PENDING | SNStatusPage O/N 그룹핑 |
+| #52 | ETL _FIELD_LABELS에 finishing_plan_end 누락 | PENDING | 마무리계획일 조회 불가 |
 
-> 전체 목록: `docs/OPS_API_REQUESTS.md` (#1~#50)
+> 전체 목록: `docs/OPS_API_REQUESTS.md` (#1~#52)
 
 ---
 
@@ -110,6 +116,9 @@
 
 ### 단기 — Sprint 23 실행 (OPS Sprint 41 배포 후)
 - Task 재활성화 UI — ProcessStepCard worker 행 단위 버튼
+
+### 단기 — Sprint 24 실행 (OPS BE #51 배포 후)
+- O/N 섹션 헤더 — SNStatusPage 인라인 렌더링 (2파일, ~60줄)
 
 ### 중기 — 체크리스트 완성 + 사내서버
 - ELEC 양식 수집 → 체크리스트 스키마 확장 (OPS BE Sprint 선행)

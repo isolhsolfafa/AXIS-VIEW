@@ -147,12 +147,12 @@ function SortIndicator({ active, direction }: { active: boolean; direction: 'asc
 }
 
 /* ── CSV 생성 & 다운로드 ── */
-function downloadCsv(items: { qr_doc_id: string; serial_number: string }[], filename: string) {
+function downloadCsv(items: { qr_doc_id: string; serial_number: string; sales_order?: string }[], filename: string) {
   const BOM = '\uFEFF';
-  const header = 'QR_DOC_ID,SN';
+  const header = 'QR_DOC_ID,SN,O/N';
   const rows = items.map(r => {
     const suffix = r.qr_doc_id.endsWith('-L') ? '-L' : r.qr_doc_id.endsWith('-R') ? '-R' : '';
-    return `${r.qr_doc_id},${r.serial_number}${suffix}`;
+    return `${r.qr_doc_id},${r.serial_number}${suffix},${r.sales_order ?? ''}`;
   });
   const csv = BOM + [header, ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -294,7 +294,7 @@ export default function QrManagementPage() {
     { key: 'qr_type', label: '타입', sortable: false, width: '80px' },
     { key: 'serial_number', label: 'S/N', sortable: true, width: '140px' },
     { key: 'model', label: '모델', sortable: true, width: '130px' },
-    { key: 'sales_order', label: 'Order No', sortable: true, width: '120px' },
+    { key: 'sales_order', label: 'O/N', sortable: true, width: '120px' },
     { key: 'customer', label: '고객사', sortable: false, width: '100px' },
     { key: 'mech_start', label: '기구시작', sortable: true, width: '110px' },
     { key: 'module_start', label: '모듈시작', sortable: true, width: '110px' },
@@ -436,7 +436,7 @@ export default function QrManagementPage() {
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                placeholder="S/N, QR Doc ID, Order No 검색..."
+                placeholder="S/N, QR Doc ID, O/N 검색..."
                 style={{
                   width: '100%', padding: '8px 12px 8px 36px',
                   borderRadius: 'var(--radius-gx-md)', border: '1px solid var(--gx-mist)',

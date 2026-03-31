@@ -9881,3 +9881,219 @@ export interface TaskWorker {
 - 권한 판단: useAuth() → canReactivate boolean → prop drilling (SNStatusPage → SNDetailPanel → ProcessStepCard)
 - 재활성화 후 production_confirm 취소는 BE에서 처리됨 (FE는 결과만 표시)
 - API import: `apiClient from '@/api/client'` (기존 패턴 준수)
+
+---
+
+# Sprint 24 (VIEW): 생산현황 O/N 섹션 헤더 (2026-03-31)
+
+> 등록일: 2026-03-31
+> 선행: OPS BE #51 (progress API에 `sales_order` 필드 추가)
+> 난이도: 낮 (2파일 수정, ~60줄 변경)
+> BE 변경: 있음 — OPS_API_REQUESTS.md #51 참조
+> 상태: 설계 완료, BE 선행 대기
+
+---
+
+## 변경 이유
+
+### 문제 현상
+
+생산현황(SNStatusPage)에서 모든 S/N이 동일 레벨의 카드 그리드로 나열됨.
+같은 O/N(Order Number = `sales_order`) 소속 S/N이 흩어져 있어 **오더 단위 진행률 파악이 어려움**.
+
+### 개선 방향
+
+기존 카드 그리드 레이아웃 유지 + **O/N 구분 섹션 헤더만 추가**.
+
+### 왜 아코디언이 아닌 섹션 헤더인가
+
+초기 설계에서는 O/N별 아코디언(접기/펼치기)을 검토했으나, 다음 이유로 **섹션 헤더 방식**으로 변경:
+
+1. **완료 S/N 자동 제외**: BE `progress_service.py`에서 `all_completed_at > NOW() - INTERVAL '1 days'` 필터 적용. 전체 공정 100% 완료된 S/N은 1일 후 리스트에서 자동 사라짐.
+2. **리스트에 남아있는 S/N은 대부분 진행중**: 접기 대상(완료 O/N)이 거의 없으므로 아코디언은 불필요한 클릭만 유발.
+3. **기존 UX 유지**: 카드 그리드를 그대로 유지하면서 O/N 헤더로 시각적 구분만 추가 → 사용자 학습 비용 없음.
+
+```
+── O/N 6408 · GAIA-I DUAL · SEC · 3대 ────── 85% ──
+[SNCard 6905] [SNCard 6906] [SNCard 6907]
+
+── O/N 6412 · GAIA-P · LG · 2대 ─────────── 40% ──
+[SNCard 6910] [SNCard 6911]
+```
+
+---
+
+## 수정 파일 (2개)
+
+```
+1. src/types/snStatus.ts                  (수정 — SNProduct에 sales_order 추가)
+2. src/pages/production/SNStatusPage.tsx   (수정 — O/N 그룹핑 + 섹션 헤더 렌더링)
+```
+
+SNCard.tsx, SNDetailPanel.tsx 수정 없음 — 기존 그대로 재활용.
+
+---
+
+## 1. snStatus.ts — SNProduct 타입 수정
+
+```typescript
+export interface SNProduct {
+  serial_number: string;
+  model: string;
+  customer: string;
+  ship_plan_date: string | null;
+  sales_order: string | null;      // ← 추가 (BE #51)
+  all_completed: boolean;
+  // ... 나머지 동일
+}
+```
+
+---
+
+## 2. SNStatusPage.tsx — O/N 그룹핑 + 섹션 헤더
+
+### 2-A: O/N 그룹핑 useMemo 추가 (sorted 아래)
+
+```typescript
+const groupedByON = useMemo(() => {
+  const groups: { key: string; salesOrder: string; model: string; customer: string; products: SNProduct[]; overallPercent: number }[] = [];
+  const map = new Map<string, typeof groups[0]>();
+
+  for (const p of sorted) {
+    const key = p.sales_order ?? `_no_on_${p.serial_number}`;
+    if (!map.has(key)) {
+      const group = {
+        key,
+        salesOrder: p.sales_order ?? '',
+        model: p.model,
+        customer: p.customer,
+        products: [] as SNProduct[],
+        overallPercent: 0,
+      };
+      map.set(key, group);
+      groups.push(group);
+    }
+    map.get(key)!.products.push(p);
+  }
+
+  for (const g of groups) {
+    g.overallPercent = Math.round(
+      g.products.reduce((sum, p) => sum + p.overall_percent, 0) / g.products.length
+    );
+  }
+  return groups;
+}, [sorted]);
+```
+
+### 2-B: 검색 필터에 sales_order 추가
+
+```typescript
+// 현재
+result = result.filter(p =>
+  p.serial_number.toLowerCase().includes(q) ||
+  p.model.toLowerCase().includes(q),
+);
+
+// 수정
+result = result.filter(p =>
+  p.serial_number.toLowerCase().includes(q) ||
+  p.model.toLowerCase().includes(q) ||
+  (p.sales_order && p.sales_order.toLowerCase().includes(q)),
+);
+```
+
+### 2-C: placeholder 변경
+
+```typescript
+placeholder="O/N · S/N · 모델명 검색"
+```
+
+### 2-D: 렌더링 변경 — 기존 그리드 유지 + O/N 섹션 헤더 삽입
+
+```tsx
+// 현재
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+  {sorted.map(p => (
+    <SNCard key={p.serial_number} product={p} isSelected={selectedSN === p.serial_number} onClick={handleCardClick} />
+  ))}
+</div>
+
+// 수정: O/N 섹션 헤더 + 카드 그리드
+<div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+  {groupedByON.map(group => (
+    <div key={group.key}>
+      {/* O/N 섹션 헤더 (O/N 없는 개별 S/N은 헤더 생략) */}
+      {group.salesOrder && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '8px 4px', marginBottom: '12px',
+          borderBottom: '1px solid var(--gx-mist)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
+              O/N {group.salesOrder}
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>
+              {group.model} · {group.customer} · {group.products.length}대
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '60px', height: '5px', borderRadius: '3px', background: 'var(--gx-cloud)' }}>
+              <div style={{
+                width: `${group.overallPercent}%`, height: '100%', borderRadius: '3px',
+                background: group.overallPercent === 100 ? 'var(--gx-success)' : 'var(--gx-accent)',
+                transition: 'width 0.3s ease',
+              }} />
+            </div>
+            <span style={{
+              fontSize: '12px', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
+              color: group.overallPercent === 100 ? 'var(--gx-success)' : 'var(--gx-charcoal)',
+            }}>
+              {group.overallPercent}%
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* 기존 SNCard 그리드 */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+        gap: '16px',
+      }}>
+        {group.products.map(p => (
+          <SNCard key={p.serial_number} product={p} isSelected={selectedSN === p.serial_number} onClick={handleCardClick} />
+        ))}
+      </div>
+    </div>
+  ))}
+</div>
+```
+
+---
+
+## 체크리스트
+
+```
+[ ] BE #51 완료 확인 — progress API 응답에 sales_order 포함
+[ ] snStatus.ts — SNProduct에 sales_order: string | null 추가
+[ ] SNStatusPage.tsx — groupedByON useMemo 추가
+[ ] SNStatusPage.tsx — 검색 필터 sales_order 매칭 추가
+[ ] SNStatusPage.tsx — placeholder "O/N · S/N · 모델명 검색"
+[ ] SNStatusPage.tsx — 렌더링: O/N 섹션 헤더 + 카드 그리드
+[ ] npm run build 성공 확인
+[ ] 테스트: O/N 검색 → 해당 그룹 필터링 확인
+[ ] 테스트: SNCard 클릭 → SNDetailPanel 정상 동작
+[ ] 테스트: sales_order NULL인 S/N → 헤더 없이 개별 카드 표시
+[ ] 테스트: 협력사 로그인 → 자사 담당 S/N만 그룹에 포함
+```
+
+---
+
+## 규칙
+
+- **BE 선행 필수**: OPS #51 배포 전에는 코드 작성 불가
+- 코드 변경 전 반드시 사용자 승인
+- npm run build 실패 시 즉시 수정
+- G-AXIS Design System 인라인 스타일 + CSS 변수 사용
+- 신규 컴포넌트 없음 — SNStatusPage.tsx 내 인라인 렌더링
