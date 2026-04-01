@@ -11,7 +11,7 @@ import { useAuth } from '@/store/authStore';
 import type { SNProduct } from '@/types/snStatus';
 
 // 테스트 S/N 필터 — DOC_TEST- prefix 숨김 (TODO: 추후 설정 on/off 전환)
-const TEST_SN_PREFIX = 'DOC_TEST-';
+const TEST_SN_PREFIXES = ['DOC_TEST-', 'TEST-'];
 
 // 협력사 company → 담당 카테고리 매핑 (BE _build_company_filter 기준)
 const COMPANY_CATEGORIES: Record<string, string[]> = {
@@ -44,7 +44,7 @@ export default function SNStatusPage() {
     let result = products;
 
     // 테스트 S/N 숨김
-    result = result.filter(p => !p.serial_number.startsWith(TEST_SN_PREFIX));
+    result = result.filter(p => !TEST_SN_PREFIXES.some(pfx => p.serial_number.startsWith(pfx)));
 
     // 협력사: 자사 담당 공정이 있는 S/N만 표시
     if (!isAdminOrGst && user?.company) {
