@@ -7,6 +7,7 @@ export interface DashboardSettings {
   refreshInterval: number;        // 분 단위. 0 = 수동
   defaultView: 'card' | 'table';
   showHqSiteBreakdown: boolean;
+  showTestSN: boolean;            // 테스트 S/N 표시 여부 (DOC_TEST-, TEST-)
 }
 
 const STORAGE_KEY = 'axis_view_settings';
@@ -15,6 +16,7 @@ const DEFAULT_SETTINGS: DashboardSettings = {
   refreshInterval: 5,
   defaultView: 'card',
   showHqSiteBreakdown: true,
+  showTestSN: false,
 };
 
 function loadSettings(): DashboardSettings {

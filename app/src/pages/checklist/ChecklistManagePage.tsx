@@ -6,6 +6,7 @@ import Layout from '@/components/layout/Layout';
 import ChecklistFilterBar from '@/components/checklist/ChecklistFilterBar';
 import ChecklistTable from '@/components/checklist/ChecklistTable';
 import ChecklistAddModal from '@/components/checklist/ChecklistAddModal';
+import ChecklistSettingsPanel from '@/components/checklist/ChecklistSettingsPanel';
 import { useChecklistMaster, useProductCodes, useCreateMaster, useUpdateMaster } from '@/hooks/useChecklistMaster';
 import type { CreateMasterPayload } from '@/types/checklist';
 
@@ -14,6 +15,7 @@ export default function ChecklistManagePage() {
   const [selectedCategory, setSelectedCategory] = useState('MECH');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { data: productCodes } = useProductCodes();
   const { data, isLoading, dataUpdatedAt } = useChecklistMaster(selectedCategory, selectedProduct);
@@ -55,7 +57,7 @@ export default function ChecklistManagePage() {
             onCategoryChange={setSelectedCategory}
           />
 
-          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center' }}>
             <label style={{
               display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--gx-steel)', cursor: 'pointer',
             }}>
@@ -79,6 +81,25 @@ export default function ChecklistManagePage() {
             >
               + 항목 추가
             </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setSettingsOpen(prev => !prev)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '36px', height: '36px', borderRadius: 'var(--radius-gx-md, 10px)',
+                  border: `1px solid ${settingsOpen ? 'var(--gx-accent)' : 'var(--gx-mist)'}`,
+                  background: settingsOpen ? 'rgba(99,102,241,0.08)' : 'var(--gx-white)',
+                  cursor: 'pointer', transition: 'all 0.15s',
+                  color: settingsOpen ? 'var(--gx-accent)' : 'var(--gx-slate)',
+                }}
+                title="TM 체크리스트 설정"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+                </svg>
+              </button>
+              <ChecklistSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+            </div>
           </div>
         </div>
       </div>

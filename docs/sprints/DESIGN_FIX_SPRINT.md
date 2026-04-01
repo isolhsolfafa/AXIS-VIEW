@@ -10097,3 +10097,561 @@ placeholder="O/N · S/N · 모델명 검색"
 - npm run build 실패 시 즉시 수정
 - G-AXIS Design System 인라인 스타일 + CSS 변수 사용
 - 신규 컴포넌트 없음 — SNStatusPage.tsx 내 인라인 렌더링
+
+---
+
+# Sprint 25 (VIEW): 페이지별 설정 패널 — 테스트 S/N 토글 + TM 체크리스트 옵션 (2026-04-01)
+
+> 등록일: 2026-04-01
+> 선행: 없음 (테스트 S/N 토글) / OPS Sprint 52 (TM 체크리스트 옵션)
+> 난이도: 중 (3파일 수정 + 2개 신규 컴포넌트)
+> BE 변경: 없음 (테스트 토글은 localStorage, TM 옵션은 기존 admin_settings API 활용)
+> 상태: 구현 완료 — 수동 테스트 대기
+
+---
+
+## 변경 이유
+
+### 문제 현상
+
+1. **테스트 S/N 필터**가 현재 `DOC_TEST-`/`TEST-` prefix 하드코딩 → Admin이 on/off 전환 불가
+2. **Sprint 52 TM 체크리스트 옵션** 3개(`tm_checklist_1st_checker`, `tm_checklist_issue_alert`, `tm_checklist_scope`)가 BE에 추가되지만 VIEW에서 설정할 UI 없음
+3. 전역 설정 페이지 1개보다 **페이지별 설정 패널**이 맥락에 맞음 (생산실적의 `ConfirmSettingsPanel` 패턴)
+
+### 설계 방향
+
+각 페이지에 해당 페이지의 옵션만 드롭다운 패널로 표시. 기존 패턴 재활용:
+- `ConfirmSettingsPanel` (생산실적) → BE `admin_settings` API 연동 패턴
+- `SettingsModal` (헤더 ⚙️) → localStorage 기반 FE 전용 패턴
+
+---
+
+## 현재 코드 구조 (확인 완료)
+
+```
+설정 인프라:
+  useSettings.ts          — localStorage (DashboardSettings: refreshInterval, defaultView, showHqSiteBreakdown)
+  useAdminSettings.ts     — BE API (TanStack Query: GET/PUT /api/admin/settings)
+  adminSettings.ts        — API 클라이언트 (AdminSettingsResponse 타입)
+
+기존 설정 패널:
+  SettingsModal.tsx       — 헤더 ⚙️ 드롭다운 (localStorage 기반, 대시보드 전역)
+  ConfirmSettingsPanel    — ProductionPerformancePage.tsx 내 인라인 (BE admin_settings)
+
+테스트 S/N 하드코딩:
+  SNStatusPage.tsx        — TEST_SN_PREFIXES = ['DOC_TEST-', 'TEST-']
+  QrManagementPage.tsx    — TEST_SN_PREFIXES = ['DOC_TEST-', 'TEST-']
+```
+
+---
+
+## 수정 파일 (3개 수정 + 2개 신규)
+
+```
+1. src/hooks/useSettings.ts                                    (수정 — showTestSN 추가)
+2. src/pages/production/SNStatusPage.tsx                        (수정 — 설정 패널 + showTestSN 연동)
+3. src/pages/qr/QrManagementPage.tsx                           (수정 — showTestSN 연동)
+4. src/components/sn-status/SNStatusSettingsPanel.tsx           (신규 — 생산현황 설정 패널)
+5. src/components/checklist/ChecklistSettingsPanel.tsx          (신규 — 체크리스트 설정 패널)
+```
+
+---
+
+## Part A: 테스트 S/N 토글 (BE 의존 없음)
+
+### A-1. useSettings.ts — showTestSN 추가
+
+```typescript
+// 현재
+export interface DashboardSettings {
+  refreshInterval: number;
+  defaultView: 'card' | 'table';
+  showHqSiteBreakdown: boolean;
+}
+
+const DEFAULT_SETTINGS: DashboardSettings = {
+  refreshInterval: 5,
+  defaultView: 'card',
+  showHqSiteBreakdown: true,
+};
+
+// 수정: showTestSN 추가
+export interface DashboardSettings {
+  refreshInterval: number;
+  defaultView: 'card' | 'table';
+  showHqSiteBreakdown: boolean;
+  showTestSN: boolean;           // ← 추가
+}
+
+const DEFAULT_SETTINGS: DashboardSettings = {
+  refreshInterval: 5,
+  defaultView: 'card',
+  showHqSiteBreakdown: true,
+  showTestSN: false,             // ← 기본값: 숨김
+};
+```
+
+**변경 이유**: localStorage 기반이라 BE 수정 불필요. `showTestSN: false`가 기본값이므로 기존 사용자 동작 변화 없음.
+
+### A-2. SNStatusSettingsPanel.tsx — 생산현황 설정 패널 (신규)
+
+```tsx
+// src/components/sn-status/SNStatusSettingsPanel.tsx
+import { useEffect, useRef } from 'react';
+import { useAuth } from '@/store/authStore';
+import type { DashboardSettings } from '@/hooks/useSettings';
+
+interface SNStatusSettingsPanelProps {
+  open: boolean;
+  onClose: () => void;
+  settings: DashboardSettings;
+  onUpdate: <K extends keyof DashboardSettings>(key: K, value: DashboardSettings[K]) => void;
+}
+
+export default function SNStatusSettingsPanel({ open, onClose, settings, onUpdate }: SNStatusSettingsPanelProps) {
+  const { user } = useAuth();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  // Admin 전용 — 일반 사용자에게는 표시할 옵션 없음
+  const isAdmin = user?.is_admin;
+
+  return (
+    <div ref={panelRef} style={{
+      position: 'absolute', top: '40px', right: '0', width: '260px', zIndex: 100,
+      background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-md)',
+      border: '1px solid var(--gx-mist)',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)',
+      padding: '16px',
+    }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--gx-mist)',
+      }}>
+        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
+          생산현황 설정
+        </span>
+        <button onClick={onClose} style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: 'var(--gx-steel)', fontSize: '16px',
+        }}>&#10005;</button>
+      </div>
+
+      {/* 테스트 S/N 표시 — Admin 전용 */}
+      {isAdmin && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-charcoal)' }}>
+              테스트 S/N 표시
+            </span>
+            <div style={{ fontSize: '10px', color: 'var(--gx-steel)', marginTop: '2px' }}>
+              DOC_TEST- prefix S/N 포함
+            </div>
+          </div>
+          <button
+            onClick={() => onUpdate('showTestSN', !settings.showTestSN)}
+            style={{
+              width: '40px', height: '22px', borderRadius: '11px', border: 'none',
+              cursor: 'pointer', position: 'relative',
+              background: settings.showTestSN ? 'var(--gx-accent)' : 'var(--gx-silver)',
+              transition: 'background 0.2s',
+            }}
+          >
+            <span style={{
+              position: 'absolute', top: '2px',
+              left: settings.showTestSN ? '20px' : '2px',
+              width: '18px', height: '18px', borderRadius: '50%',
+              background: 'var(--gx-white)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+              transition: 'left 0.2s',
+            }} />
+          </button>
+        </div>
+      )}
+
+      {/* Admin 아닌 경우 */}
+      {!isAdmin && (
+        <div style={{ fontSize: '12px', color: 'var(--gx-steel)', textAlign: 'center', padding: '8px 0' }}>
+          설정 가능한 항목이 없습니다.
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+**설계 판단**:
+- `ConfirmSettingsPanel`과 동일한 드롭다운 패턴 (외부 클릭 닫기, Escape 닫기)
+- Admin 전용 토글 — 협력사 사용자에게는 "설정 가능한 항목이 없습니다" 표시
+- 추후 옵션 추가 시 이 패널에 항목만 추가하면 됨
+
+### A-3. SNStatusPage.tsx — 설정 패널 연동
+
+```typescript
+// import 추가
+import { useSettings } from '@/hooks/useSettings';
+import SNStatusSettingsPanel from '@/components/sn-status/SNStatusSettingsPanel';
+
+// state 추가
+const { settings, updateSetting } = useSettings();
+const [settingsOpen, setSettingsOpen] = useState(false);
+
+// 기존 하드코딩 필터 변경
+// 현재
+result = result.filter(p => !TEST_SN_PREFIXES.some(pfx => p.serial_number.startsWith(pfx)));
+
+// 수정: showTestSN 설정에 따라 필터
+if (!settings.showTestSN) {
+  result = result.filter(p => !TEST_SN_PREFIXES.some(pfx => p.serial_number.startsWith(pfx)));
+}
+```
+
+**설정 버튼 위치**: 검색 바 우측, 새로고침 버튼 옆에 ⚙️ 아이콘 추가
+
+```tsx
+// 검색 + 새로고침 div 내부, 새로고침 버튼 뒤에 추가
+<div style={{ position: 'relative' }}>
+  <button
+    onClick={() => setSettingsOpen(prev => !prev)}
+    style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      width: '28px', height: '28px', borderRadius: '8px',
+      border: `1px solid ${settingsOpen ? 'var(--gx-accent)' : 'var(--gx-mist)'}`,
+      background: settingsOpen ? 'var(--gx-accent-soft)' : 'var(--gx-white)',
+      cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0,
+      color: settingsOpen ? 'var(--gx-accent)' : 'var(--gx-slate)',
+    }}
+    title="설정"
+  >
+    <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="9" cy="9" r="2.25"/>
+      <path d="M14.85 11.1a1.2 1.2 0 00.24 1.32l..." />
+    </svg>
+  </button>
+  <SNStatusSettingsPanel
+    open={settingsOpen}
+    onClose={() => setSettingsOpen(false)}
+    settings={settings}
+    onUpdate={updateSetting}
+  />
+</div>
+```
+
+### A-4. QrManagementPage.tsx — showTestSN 연동
+
+```typescript
+// import 추가
+import { useSettings } from '@/hooks/useSettings';
+
+// 기존 필터 변경
+// 현재
+const filtered = rawItems.filter(item => !TEST_SN_PREFIXES.some(pfx => item.serial_number.startsWith(pfx)));
+
+// 수정
+const { settings } = useSettings();
+const filtered = settings.showTestSN
+  ? rawItems
+  : rawItems.filter(item => !TEST_SN_PREFIXES.some(pfx => item.serial_number.startsWith(pfx)));
+
+// CSV 다운로드도 동일하게 적용
+let exportItems = settings.showTestSN
+  ? result.items
+  : result.items.filter(item => !TEST_SN_PREFIXES.some(pfx => item.serial_number.startsWith(pfx)));
+```
+
+**QR 관리 페이지에는 별도 설정 패널 불필요** — 생산현황 설정에서 토글하면 동일 `localStorage` 키를 공유하므로 양쪽에 즉시 반영.
+
+---
+
+## Part B: TM 체크리스트 설정 패널 (OPS Sprint 52 선행)
+
+### B-1. AdminSettingsResponse 타입 확장
+
+```typescript
+// src/api/adminSettings.ts
+export interface AdminSettingsResponse {
+  // 기존
+  confirm_mech_enabled: boolean;
+  confirm_elec_enabled: boolean;
+  confirm_tm_enabled: boolean;
+  tm_pressure_test_required: boolean;
+  confirm_pi_enabled: boolean;
+  confirm_qi_enabled: boolean;
+  confirm_si_enabled: boolean;
+  confirm_checklist_required: boolean;
+  // Sprint 52 추가
+  tm_checklist_1st_checker: string;     // "is_manager" | "user"
+  tm_checklist_issue_alert: boolean;    // ISSUE 알림 on/off
+  tm_checklist_scope: string;           // "product_code" | "all"
+  [key: string]: unknown;
+}
+```
+
+### B-2. ChecklistSettingsPanel.tsx — 체크리스트 설정 패널 (신규)
+
+```tsx
+// src/components/checklist/ChecklistSettingsPanel.tsx
+import { useEffect, useRef } from 'react';
+import { useAdminSettings, useUpdateAdminSettings } from '@/hooks/useAdminSettings';
+
+interface ChecklistSettingsPanelProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export default function ChecklistSettingsPanel({ open, onClose }: ChecklistSettingsPanelProps) {
+  const { data: settings, isLoading } = useAdminSettings();
+  const updateMutation = useUpdateAdminSettings();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const s = settings as Record<string, unknown> | undefined;
+  const checkerValue = (s?.tm_checklist_1st_checker as string) ?? 'is_manager';
+  const issueAlert = (s?.tm_checklist_issue_alert as boolean) ?? true;
+  const scope = (s?.tm_checklist_scope as string) ?? 'product_code';
+
+  const handleToggle = (key: string, currentValue: boolean) => {
+    updateMutation.mutate({ [key]: !currentValue });
+  };
+
+  return (
+    <div ref={panelRef} style={{
+      position: 'absolute', top: '40px', right: '0', width: '300px', zIndex: 100,
+      background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-md)',
+      border: '1px solid var(--gx-mist)',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)',
+      padding: '16px',
+    }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--gx-mist)',
+      }}>
+        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
+          TM 체크리스트 설정
+        </span>
+        <button onClick={onClose} style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: 'var(--gx-steel)', fontSize: '16px',
+        }}>&#10005;</button>
+      </div>
+
+      {isLoading ? (
+        <div style={{ textAlign: 'center', padding: '20px', color: 'var(--gx-steel)', fontSize: '12px' }}>
+          설정 불러오는 중...
+        </div>
+      ) : (
+        <>
+          {/* 1차 검수자 */}
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: 'var(--gx-graphite)', marginBottom: '6px' }}>
+              1차 검수자
+            </label>
+            <div style={{ fontSize: '10px', color: 'var(--gx-steel)', marginBottom: '6px' }}>
+              TM 체크리스트를 작성할 수 있는 권한
+            </div>
+            <select
+              value={checkerValue}
+              onChange={(e) => updateMutation.mutate({ tm_checklist_1st_checker: e.target.value })}
+              disabled={updateMutation.isPending}
+              style={{
+                width: '100%', padding: '7px 10px',
+                borderRadius: 'var(--radius-gx-sm)',
+                border: '1px solid var(--gx-mist)',
+                fontSize: '13px', color: 'var(--gx-charcoal)',
+                background: 'var(--gx-snow)', cursor: 'pointer', outline: 'none',
+              }}
+            >
+              <option value="is_manager">Manager만</option>
+              <option value="user">모든 사용자</option>
+            </select>
+          </div>
+
+          {/* ISSUE 알림 */}
+          <div style={{ marginBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-charcoal)' }}>
+                  ISSUE 알림
+                </span>
+                <div style={{ fontSize: '10px', color: 'var(--gx-steel)', marginTop: '2px' }}>
+                  체크리스트 완료 시 ISSUE → MECH/ELEC 알림
+                </div>
+              </div>
+              <button
+                onClick={() => handleToggle('tm_checklist_issue_alert', issueAlert)}
+                disabled={updateMutation.isPending}
+                style={{
+                  width: '40px', height: '22px', borderRadius: '11px', border: 'none',
+                  cursor: 'pointer', position: 'relative',
+                  background: issueAlert ? 'var(--gx-accent)' : 'var(--gx-silver)',
+                  transition: 'background 0.2s',
+                  opacity: updateMutation.isPending ? 0.6 : 1,
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: '2px',
+                  left: issueAlert ? '20px' : '2px',
+                  width: '18px', height: '18px', borderRadius: '50%',
+                  background: 'var(--gx-white)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                  transition: 'left 0.2s',
+                }} />
+              </button>
+            </div>
+          </div>
+
+          {/* 체크리스트 범위 */}
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: 'var(--gx-graphite)', marginBottom: '6px' }}>
+              항목 범위
+            </label>
+            <div style={{ fontSize: '10px', color: 'var(--gx-steel)', marginBottom: '6px' }}>
+              product_code별 맞춤 항목 vs 전체 공통 항목
+            </div>
+            <select
+              value={scope}
+              onChange={(e) => updateMutation.mutate({ tm_checklist_scope: e.target.value })}
+              disabled={updateMutation.isPending}
+              style={{
+                width: '100%', padding: '7px 10px',
+                borderRadius: 'var(--radius-gx-sm)',
+                border: '1px solid var(--gx-mist)',
+                fontSize: '13px', color: 'var(--gx-charcoal)',
+                background: 'var(--gx-snow)', cursor: 'pointer', outline: 'none',
+              }}
+            >
+              <option value="product_code">모델별 (product_code)</option>
+              <option value="all">전체 공통 (ALL)</option>
+            </select>
+          </div>
+
+          {updateMutation.isSuccess && (
+            <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--gx-success)', textAlign: 'center' }}>
+              설정이 저장되었습니다.
+            </div>
+          )}
+          {updateMutation.isError && (
+            <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--gx-danger)', textAlign: 'center' }}>
+              저장 실패
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+**설계 판단**:
+- `ConfirmSettingsPanel`과 동일한 BE `admin_settings` 연동 패턴
+- `useAdminSettings()` + `useUpdateAdminSettings()` 기존 훅 재활용
+- `select` 드롭다운 (1차 검수자, 범위) + 토글 (ISSUE 알림) 혼합 UI
+- Sprint 52 BE 배포 전에는 설정값이 없으므로, 기본값 fallback 처리 (`?? 'is_manager'`)
+
+### B-3. ChecklistManagePage.tsx — 설정 버튼 추가
+
+```tsx
+// import 추가
+import ChecklistSettingsPanel from '@/components/checklist/ChecklistSettingsPanel';
+
+// state 추가
+const [settingsOpen, setSettingsOpen] = useState(false);
+
+// 상단 필터 영역 우측에 ⚙️ 버튼 추가 (기존 '항목 추가' 버튼 옆)
+<div style={{ position: 'relative' }}>
+  <button
+    onClick={() => setSettingsOpen(prev => !prev)}
+    style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      width: '36px', height: '36px', borderRadius: 'var(--radius-gx-md)',
+      border: `1px solid ${settingsOpen ? 'var(--gx-accent)' : 'var(--gx-mist)'}`,
+      background: settingsOpen ? 'var(--gx-accent-soft)' : 'var(--gx-white)',
+      cursor: 'pointer', transition: 'all 0.15s',
+      color: settingsOpen ? 'var(--gx-accent)' : 'var(--gx-slate)',
+    }}
+    title="TM 체크리스트 설정"
+  >
+    <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="9" cy="9" r="2.25"/>
+      <path d="M14.85 11.1a1.2 1.2 0 00.24 1.32l..." />
+    </svg>
+  </button>
+  <ChecklistSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+</div>
+```
+
+---
+
+## 체크리스트
+
+```
+Part A — 테스트 S/N 토글 (BE 의존 없음, 즉시 실행 가능)
+[x] useSettings.ts — DashboardSettings에 showTestSN: boolean 추가 (기본값 false)
+[x] SNStatusSettingsPanel.tsx — 신규 컴포넌트 생성
+[x] SNStatusPage.tsx — ⚙️ 버튼 + 설정 패널 연동
+[x] SNStatusPage.tsx — 하드코딩 필터 → settings.showTestSN 조건부 필터
+[x] QrManagementPage.tsx — settings.showTestSN 조건부 필터 (테이블 + CSV)
+[x] npm run build 성공 확인
+[ ] 테스트: Admin 로그인 → 설정 패널 열림 → 토글 ON → DOC_TEST- S/N 표시
+[ ] 테스트: Admin 로그인 → 토글 OFF → DOC_TEST- S/N 숨김
+[ ] 테스트: 협력사 로그인 → 설정 패널에 "설정 가능한 항목이 없습니다" 표시
+[ ] 테스트: QR 관리 페이지에서도 동일 토글 상태 공유 확인
+[ ] 테스트: CSV 다운로드 시 토글 상태 반영 확인
+[ ] 테스트: 브라우저 새로고침 후 설정값 유지 (localStorage)
+
+Part B — TM 체크리스트 설정 (OPS Sprint 52 선행)
+[x] adminSettings.ts — AdminSettingsResponse에 tm_checklist_* 3개 타입 추가
+[x] ChecklistSettingsPanel.tsx — 신규 컴포넌트 생성
+[x] ChecklistManagePage.tsx — ⚙️ 버튼 + 설정 패널 연동
+[x] npm run build 성공 확인
+[ ] 테스트: 1차 검수자 변경 (Manager → 모든 사용자) → BE 저장 확인
+[ ] 테스트: ISSUE 알림 토글 ON/OFF → BE 저장 확인
+[ ] 테스트: 항목 범위 변경 (모델별 → 전체 공통) → BE 저장 확인
+[ ] 테스트: 저장 성공 메시지 표시 확인
+[ ] 테스트: API 에러 시 "저장 실패" 표시 확인
+```
+
+---
+
+## 규칙
+
+- Part A는 BE 의존 없음 → 즉시 실행 가능
+- Part B는 OPS Sprint 52 BE 배포 후 실행 (admin_settings에 tm_checklist_* 키 존재 필요)
+- 코드 변경 전 반드시 사용자 승인
+- npm run build 실패 시 즉시 수정
+- 설정 패널 UI는 기존 `ConfirmSettingsPanel` 패턴 준수 (외부 클릭 닫기, Escape 닫기)
+- 토글 스타일: 40x22px, accent/silver, 2px padding (기존 동일)

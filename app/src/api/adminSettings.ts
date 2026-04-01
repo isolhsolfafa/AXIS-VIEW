@@ -10,6 +10,10 @@ export interface AdminSettingsResponse {
   confirm_qi_enabled: boolean;
   confirm_si_enabled: boolean;
   confirm_checklist_required: boolean;
+  // TM 체크리스트 옵션 — OPS Sprint 52
+  tm_checklist_1st_checker: string;     // "is_manager" | "user"
+  tm_checklist_issue_alert: boolean;    // ISSUE 알림 on/off
+  tm_checklist_scope: string;           // "product_code" | "all"
   [key: string]: unknown;
 }
 

@@ -6,6 +6,7 @@ import { format, addDays } from 'date-fns';
 import Layout from '@/components/layout/Layout';
 import { useQrList } from '@/hooks/useQr';
 import { getQrList } from '@/api/qr';
+import { useSettings } from '@/hooks/useSettings';
 import type { QrListParams, QrRecord } from '@/types/qr';
 
 /* ── 아이콘 ── */
@@ -178,6 +179,7 @@ function getDefaultDateRange() {
 
 /* ===== 메인 컴포넌트 ===== */
 export default function QrManagementPage() {
+  const { settings } = useSettings();
   const defaultRange = useMemo(() => getDefaultDateRange(), []);
 
   const [search, setSearch] = useState('');
@@ -264,7 +266,9 @@ export default function QrManagementPage() {
         date_to: dateTo || undefined,
       };
       const result = await getQrList(exportParams);
-      let exportItems = result.items.filter(item => !TEST_SN_PREFIXES.some(pfx => item.serial_number.startsWith(pfx)));
+      let exportItems = settings.showTestSN
+        ? result.items
+        : result.items.filter(item => !TEST_SN_PREFIXES.some(pfx => item.serial_number.startsWith(pfx)));
       // 화면과 동일한 필터/정렬 적용
       if (dateField === 'mech_start') {
         exportItems = exportItems.filter(item => resolveQrType(item.qr_type, item.qr_doc_id) === 'PRODUCT');
@@ -311,9 +315,11 @@ export default function QrManagementPage() {
   const totalPages = data?.total_pages ?? 1;
   const total = data?.total ?? 0;
 
-  // 테스트 S/N 숨김 + 기구시작: TANK QR 숨김 / 모듈시작: S/N 기준 그룹핑 정렬
+  // 테스트 S/N 숨김 (설정 연동) + 기구시작: TANK QR 숨김 / 모듈시작: S/N 기준 그룹핑 정렬
   const items = useMemo(() => {
-    const filtered = rawItems.filter(item => !TEST_SN_PREFIXES.some(pfx => item.serial_number.startsWith(pfx)));
+    const filtered = settings.showTestSN
+      ? rawItems
+      : rawItems.filter(item => !TEST_SN_PREFIXES.some(pfx => item.serial_number.startsWith(pfx)));
     if (dateField === 'mech_start') {
       return filtered.filter(item => resolveQrType(item.qr_type, item.qr_doc_id) === 'PRODUCT');
     }
@@ -321,7 +327,7 @@ export default function QrManagementPage() {
     return [...filtered].sort((a, b) =>
       a.serial_number.localeCompare(b.serial_number) || a.qr_doc_id.localeCompare(b.qr_doc_id)
     );
-  }, [rawItems, dateField]);
+  }, [rawItems, dateField, settings.showTestSN]);
 
   /* ── 공통 input 스타일 ── */
   const selectStyle: React.CSSProperties = {
