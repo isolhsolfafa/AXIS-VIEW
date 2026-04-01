@@ -146,6 +146,9 @@ function SortIndicator({ active, direction }: { active: boolean; direction: 'asc
   return <span style={{ fontSize: '10px', marginLeft: '4px', color: 'var(--gx-accent)' }}>{direction === 'asc' ? '↑' : '↓'}</span>;
 }
 
+// 테스트 S/N 필터 — DOC_TEST- prefix 숨김 (TODO: 추후 설정 on/off 전환)
+const TEST_SN_PREFIX = 'DOC_TEST-';
+
 /* ── CSV 생성 & 다운로드 ── */
 function downloadCsv(items: { qr_doc_id: string; serial_number: string; sales_order?: string }[], filename: string) {
   const BOM = '\uFEFF';
@@ -261,7 +264,7 @@ export default function QrManagementPage() {
         date_to: dateTo || undefined,
       };
       const result = await getQrList(exportParams);
-      let exportItems = result.items;
+      let exportItems = result.items.filter(item => !item.serial_number.startsWith(TEST_SN_PREFIX));
       // 화면과 동일한 필터/정렬 적용
       if (dateField === 'mech_start') {
         exportItems = exportItems.filter(item => resolveQrType(item.qr_type, item.qr_doc_id) === 'PRODUCT');
@@ -308,13 +311,14 @@ export default function QrManagementPage() {
   const totalPages = data?.total_pages ?? 1;
   const total = data?.total ?? 0;
 
-  // 기구시작: TANK QR 숨김 / 모듈시작: S/N 기준 그룹핑 정렬
+  // 테스트 S/N 숨김 + 기구시작: TANK QR 숨김 / 모듈시작: S/N 기준 그룹핑 정렬
   const items = useMemo(() => {
+    const filtered = rawItems.filter(item => !item.serial_number.startsWith(TEST_SN_PREFIX));
     if (dateField === 'mech_start') {
-      return rawItems.filter(item => resolveQrType(item.qr_type, item.qr_doc_id) === 'PRODUCT');
+      return filtered.filter(item => resolveQrType(item.qr_type, item.qr_doc_id) === 'PRODUCT');
     }
     // 모듈시작: 같은 S/N끼리 묶이도록 serial_number → qr_doc_id 순 정렬
-    return [...rawItems].sort((a, b) =>
+    return [...filtered].sort((a, b) =>
       a.serial_number.localeCompare(b.serial_number) || a.qr_doc_id.localeCompare(b.qr_doc_id)
     );
   }, [rawItems, dateField]);

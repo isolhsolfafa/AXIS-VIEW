@@ -20,7 +20,8 @@
 3. **Sprint 24 설계 완료** — SNStatusPage O/N 섹션 헤더 UI (2파일, ~60줄)
 4. **QR CSV 다운로드 O/N 추가** — `downloadCsv()`에 `sales_order` 컬럼 포함
 5. **QR 라벨 통일** — 테이블 컬럼 + 검색 placeholder "Order No" → "O/N"
-6. handoff.md + memory.md 업데이트
+6. **테스트 S/N 숨김** — `DOC_TEST-` prefix 필터 (생산현황 + QR관리 + CSV 다운로드)
+7. handoff.md + memory.md 업데이트
 
 ---
 
@@ -77,6 +78,7 @@
 | — | Sprint 24 O/N 섹션 헤더 UI 설계 완료 | DESIGN_FIX_SPRINT.md |
 | — | QR CSV 다운로드에 O/N(sales_order) 컬럼 추가 | QrManagementPage.tsx |
 | — | QR 테이블/검색 "Order No" → "O/N" 라벨 통일 | QrManagementPage.tsx |
+| — | 테스트 S/N 숨김 (DOC_TEST- prefix) | SNStatusPage.tsx, QrManagementPage.tsx |
 
 ---
 

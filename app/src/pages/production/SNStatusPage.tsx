@@ -10,6 +10,9 @@ import { useSNTasks } from '@/hooks/useSNTasks';
 import { useAuth } from '@/store/authStore';
 import type { SNProduct } from '@/types/snStatus';
 
+// 테스트 S/N 필터 — DOC_TEST- prefix 숨김 (TODO: 추후 설정 on/off 전환)
+const TEST_SN_PREFIX = 'DOC_TEST-';
+
 // 협력사 company → 담당 카테고리 매핑 (BE _build_company_filter 기준)
 const COMPANY_CATEGORIES: Record<string, string[]> = {
   FNI: ['MECH'],
@@ -39,6 +42,9 @@ export default function SNStatusPage() {
   // 검색 + 권한 필터 → 정렬
   const sorted = useMemo(() => {
     let result = products;
+
+    // 테스트 S/N 숨김
+    result = result.filter(p => !p.serial_number.startsWith(TEST_SN_PREFIX));
 
     // 협력사: 자사 담당 공정이 있는 S/N만 표시
     if (!isAdminOrGst && user?.company) {
