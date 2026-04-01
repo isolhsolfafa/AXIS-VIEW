@@ -1,61 +1,41 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-03-31
+> 마지막 업데이트: 2026-04-01
 
 ---
 
 ## 현재 버전
 
-- **VIEW FE**: v1.17.0
-- **최근 Sprint**: 24 (O/N 그룹핑 UI 설계) — BE #51 선행 대기
-- **최근 완료**: Sprint 23 (Task 재활성화 UI 설계), Sprint 22 (완료 판정 버그 설계)
+- **VIEW FE**: v1.20.0
+- **최근 Sprint**: 25 (페이지별 설정 패널 — 테스트 S/N 토글 + TM 체크리스트 옵션)
+- **최근 완료**: Sprint 24 (O/N 섹션 헤더), Sprint 23 (Task 재활성화 UI)
 
 ---
 
-## 직전 세션 작업 내용 (2026-03-31)
+## 직전 세션 작업 내용 (2026-04-01)
 
-1. **OPS_API_REQUESTS.md #51 작성** — progress API에 `sales_order` 필드 추가 요청 (BE 3개소 수정 상세 기술)
-2. **OPS_API_REQUESTS.md #52 작성** — ETL `_FIELD_LABELS`에 `finishing_plan_end` 누락
-3. **Sprint 24 설계 완료** — SNStatusPage O/N 섹션 헤더 UI (2파일, ~60줄)
-4. **QR CSV 다운로드 O/N 추가** — `downloadCsv()`에 `sales_order` 컬럼 포함
-5. **QR 라벨 통일** — 테이블 컬럼 + 검색 placeholder "Order No" → "O/N"
-6. **테스트 S/N 숨김** — `DOC_TEST-` prefix 필터 (생산현황 + QR관리 + CSV 다운로드)
-7. handoff.md + memory.md 업데이트
+1. **테스트 S/N 필터 적용** — DOC_TEST- / TEST- prefix 필터 (생산현황 + QR관리 + CSV)
+2. **Sprint 25 설계 완료** — 페이지별 설정 패널 (테스트 S/N 토글 + TM 체크리스트 옵션)
+3. **Sprint 25 구현 완료** — Part A (showTestSN localStorage 토글) + Part B (TM 체크리스트 admin_settings 연동)
+4. **신규 컴포넌트 2개** — SNStatusSettingsPanel.tsx, ChecklistSettingsPanel.tsx
+5. **수정 5파일** — useSettings.ts, adminSettings.ts, SNStatusPage.tsx, QrManagementPage.tsx, ChecklistManagePage.tsx
+6. **npm run build 성공**, Netlify 배포 완료
 
 ---
 
 ## 진행 중 Sprint
 
-### VIEW Sprint 24 — O/N 섹션 헤더 (OPS BE #51 완료 후 실행)
-- SNStatusPage: O/N별 섹션 헤더 삽입 (기존 카드 그리드 유지)
-- 신규 컴포넌트 없음 — SNStatusPage 내 인라인 렌더링
-- 검색: O/N 번호 매칭 추가
-- **선행**: OPS BE #51 (progress API에 sales_order 필드 추가)
-- 설계 문서: `DESIGN_FIX_SPRINT.md` Sprint 24 섹션
-
-### VIEW Sprint 23 — Task 재활성화 UI (OPS Sprint 41 BE 완료 후 실행)
-- ProcessStepCard worker 행 단위에 재활성화 버튼 추가
-- SNDetailPanel 병합 시 `task_detail_id: t.id` 주입 방식으로 BE 수정 불필요
-- `canReactivate` 단일 prop drilling 설계
-- **선행**: OPS Sprint 41 BE 커밋 + 배포
-- 설계 문서: `DESIGN_FIX_SPRINT.md` Sprint 23 섹션
-- snStatus.ts에 `task_detail_id?: number` 타입 이미 추가됨
+없음 — Sprint 25까지 모두 완료
 
 ---
 
 ## 실행 대기 Sprint (설계 완료, 코드 미작성)
 
-### 1순위: Sprint 22 — 공정 완료 판정 버그 수정 (승인 대기)
-- ProcessStepCard.tsx: `workers.some()` → `categories.percent` 기준으로 변경
-- SNDetailPanel.tsx: `categoryPercent` prop 전달
-- **FE 2파일, ~20줄 변경. BE 변경 0건**
-- 상세: `DESIGN_FIX_SPRINT.md` → Sprint 22 섹션
-
-### 2순위: 사용시간 → 최근접속 변경
+### 1순위: 사용시간 → 최근접속 변경
 - AnalyticsDashboardPage.tsx: usage_minutes → last_access 표시 변경
 
-### 3순위: Defensive coding `?? []`
+### 2순위: Defensive coding `?? []`
 - ProductionPerformancePage.tsx: 7개소 옵셔널 체이닝 보강
 
 ---
@@ -64,21 +44,17 @@
 
 | ID | 설명 | 심각도 | 파일 |
 |----|------|--------|------|
-| BUG-V1 | S/N 6905 ELEC 완료 오표시 (`workers.some()` 버그) | 🔴 HIGH | ProcessStepCard.tsx L33 |
 | BUG-V2 | ProductionPerformancePage `?? []` 미적용 (7개소) | 🟡 LOW | ProductionPerformancePage.tsx |
 
 ---
 
-## 금일 수정 완료 건 (2026-03-31)
+## 금일 수정 완료 건 (2026-04-01)
 
 | # | 내용 | 파일 |
 |---|------|------|
-| #51 | progress API sales_order 추가 BE 요청 작성 | OPS_API_REQUESTS.md |
-| #52 | ETL _FIELD_LABELS에 finishing_plan_end 누락 BE 요청 | OPS_API_REQUESTS.md |
-| — | Sprint 24 O/N 섹션 헤더 UI 설계 완료 | DESIGN_FIX_SPRINT.md |
-| — | QR CSV 다운로드에 O/N(sales_order) 컬럼 추가 | QrManagementPage.tsx |
-| — | QR 테이블/검색 "Order No" → "O/N" 라벨 통일 | QrManagementPage.tsx |
-| — | 테스트 S/N 숨김 (DOC_TEST- prefix) | SNStatusPage.tsx, QrManagementPage.tsx |
+| — | 테스트 S/N 필터 (DOC_TEST- + TEST-) | SNStatusPage.tsx, QrManagementPage.tsx |
+| — | Sprint 25 Part A: showTestSN 토글 | useSettings.ts, SNStatusSettingsPanel.tsx, SNStatusPage.tsx, QrManagementPage.tsx |
+| — | Sprint 25 Part B: TM 체크리스트 설정 | adminSettings.ts, ChecklistSettingsPanel.tsx, ChecklistManagePage.tsx |
 
 ---
 
@@ -88,9 +64,8 @@
 |---|------|------|------|
 | #18 | factory.py weekly-kpi 주차 계산 오류 | PENDING | 공장 대시보드 |
 | #45 | 카드뷰 last_worker에 task 이름 추가 | PENDING | S/N 카드뷰 |
-| #46 | 상세뷰 workers 누락 — task_id 매핑 불일치 | DONE (FE 버그) | — |
 | #47 | QR 명판 인식 — qrbox 200 적용, focusMode 미해결 | PENDING | OPS FE |
-| #51 | progress API에 sales_order 필드 추가 | PENDING | SNStatusPage O/N 그룹핑 |
+| #51 | progress API에 sales_order 필드 추가 | DONE | SNStatusPage O/N 그룹핑 |
 | #52 | ETL _FIELD_LABELS에 finishing_plan_end 누락 | PENDING | 마무리계획일 조회 불가 |
 
 > 전체 목록: `docs/OPS_API_REQUESTS.md` (#1~#52)
@@ -104,8 +79,8 @@
 | `CLAUDE.md` | 프로젝트 고정 정보 (팀 구성, 기술 스택, 규칙) | 매 세션 시작 시 |
 | `memory.md` | 누적 의사결정, 버그 분석, 아키텍처 판단 | 맥락 필요 시 |
 | `handoff.md` | 현재 파일. 세션 인계용 | 매 세션 시작 시 |
-| `docs/sprints/DESIGN_FIX_SPRINT.md` | Sprint 1~22 메인 스프린트 문서 | Sprint 기획/실행 시 |
-| `docs/OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#50) | BE 의존 작업 시 |
+| `docs/sprints/DESIGN_FIX_SPRINT.md` | Sprint 1~25 메인 스프린트 문서 | Sprint 기획/실행 시 |
+| `docs/OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#52) | BE 의존 작업 시 |
 | `docs/APS_LITE_PLAN.md` | APS Lite 기획서 (차세대) | APS 작업 시 |
 | `docs/sprints/RESPONSIVE_DESIGN_PLAN.md` | 반응형 설계 v2 | 반응형 작업 시 |
 
@@ -113,18 +88,18 @@
 
 ## 다음 세션에서 할 일 (제안)
 
-### 즉시 — Sprint 22 코드 수정 (승인 후)
-- ProcessStepCard + SNDetailPanel categoryPercent 연동 (FE only, 30분 이내)
+### 즉시 — Sprint 25 수동 테스트
+- Admin 로그인 → 생산현황 ⚙️ → 테스트 S/N 토글 ON/OFF 확인
+- QR 관리 페이지 + CSV 다운로드 동기화 확인
+- 체크리스트 ⚙️ → TM 설정 3개 항목 변경 + BE 저장 확인
 
-### 단기 — Sprint 23 실행 (OPS Sprint 41 배포 후)
-- Task 재활성화 UI — ProcessStepCard worker 행 단위 버튼
+### 단기 — Defensive coding + 사용시간 변경
+- ProductionPerformancePage `?? []` 7개소
+- AnalyticsDashboardPage usage_minutes → last_access
 
-### 단기 — Sprint 24 실행 (OPS BE #51 배포 후)
-- O/N 섹션 헤더 — SNStatusPage 인라인 렌더링 (2파일, ~60줄)
-
-### 중기 — 체크리스트 완성 + 사내서버
-- ELEC 양식 수집 → 체크리스트 스키마 확장 (OPS BE Sprint 선행)
-- Railway/Netlify → 사내서버 마이그레이션
+### 중기 — 사내서버 마이그레이션
+- Railway/Netlify → 사내서버 전환
+- SAP RFC 연동 가능 환경 구축
 
 ### 장기 — APS Lite
 - Phase 0: 데이터 축적 (factory_calendar, standard_manhour)

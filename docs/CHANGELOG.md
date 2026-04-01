@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.19.0 (2026-03-31)
+> 최신 버전: v1.20.0 (2026-04-01)
 
 ---
 
@@ -70,6 +70,31 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.20.0 — 2026-04-01
+
+**신규 기능 — 페이지별 설정 패널 (Sprint 25)**
+
+### Part A: 테스트 S/N 토글
+- 생산현황 페이지에 ⚙️ 설정 버튼 추가 → Admin 전용 토글 패널
+- DOC_TEST- / TEST- prefix S/N 표시/숨김 전환 (기본값: 숨김)
+- QR 관리 페이지 + CSV 다운로드에도 동일 설정 공유 (localStorage)
+
+### Part B: TM 체크리스트 설정
+- 체크리스트 관리 페이지에 ⚙️ 설정 버튼 추가
+- 1차 검수자 (Manager/모든 사용자), ISSUE 알림 토글, 항목 범위 (모델별/전체) 설정
+- BE admin_settings API 연동 (OPS Sprint 52)
+
+### 수정 파일
+- `useSettings.ts` — showTestSN 필드 추가
+- `adminSettings.ts` — tm_checklist_* 3개 타입 추가
+- `SNStatusPage.tsx` — 설정 패널 + 조건부 필터
+- `QrManagementPage.tsx` — 조건부 필터 (테이블 + CSV)
+- `ChecklistManagePage.tsx` — 설정 버튼 연동
+- `SNStatusSettingsPanel.tsx` — 신규 컴포넌트
+- `ChecklistSettingsPanel.tsx` — 신규 컴포넌트
 
 ---
 

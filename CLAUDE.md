@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-03-31 | 버전: v1.19.0
+> 최종 갱신: 2026-04-01 | 버전: v1.20.0
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -75,8 +75,8 @@ AXIS-VIEW/
 │   │   ├── components/
 │   │   │   ├── layout/       Layout, Sidebar, Header, Notification, Settings
 │   │   │   ├── attendance/   출퇴근 전용 컴포넌트 7개
-│   │   │   ├── sn-status/    S/N 현황 카드 컴포넌트 4개
-│   │   │   ├── checklist/    체크리스트 컴포넌트 3개
+│   │   │   ├── sn-status/    S/N 현황 카드 컴포넌트 5개 (+SNStatusSettingsPanel)
+│   │   │   ├── checklist/    체크리스트 컴포넌트 4개 (+ChecklistSettingsPanel)
 │   │   │   ├── auth/         ProtectedRoute
 │   │   │   └── ui/           shadcn 기반 공통 UI 13개
 │   │   ├── api/              API 클라이언트 14개
@@ -92,14 +92,14 @@ AXIS-VIEW/
 │
 └── docs/                     ← 설계 문서
     ├── AXIS_VIEW_ROADMAP.md       전체 로드맵
-    ├── OPS_API_REQUESTS.md        BE API 요청사항 (#1~#43)
+    ├── OPS_API_REQUESTS.md        BE API 요청사항 (#1~#52)
     ├── APS_LITE_PLAN.md           APS Lite 기획서 (차세대)
     ├── API_INTEGRATION_REVIEW.md  API 통합 리뷰
     ├── BACKLOG.md                 백로그
     ├── CHANGELOG.md               변경이력
     ├── concepts/                  컨셉 HTML 모음
     └── sprints/
-        ├── DESIGN_FIX_SPRINT.md          Sprint 1~21 (메인 스프린트 문서)
+        ├── DESIGN_FIX_SPRINT.md          Sprint 1~25 (메인 스프린트 문서)
         ├── RESPONSIVE_DESIGN_PLAN.md     반응형 설계 v2
         └── PARTNER_SPRINT1_LAUNCH.md     Sprint 1 런치 가이드
 ```
@@ -175,7 +175,7 @@ VITE_USE_MOCK=false
 
 ---
 
-## 페이지 구성 (19개, v1.19.0 기준)
+## 페이지 구성 (19개, v1.20.0 기준)
 
 ### 사이드바 메뉴 구조
 
@@ -334,8 +334,8 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 |------|------|---------|
 | `handoff.md` | 세션 인계 (현재 상태, 대기 Sprint, 미해결 버그) | 매 세션 시작 시 |
 | `memory.md` | 누적 의사결정(ADR), 버그 분석, 아키텍처 판단 | 맥락 필요 시 |
-| `docs/sprints/DESIGN_FIX_SPRINT.md` | Sprint 1~22 메인 스프린트 문서 | 필수 |
-| `docs/OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#46) | 필수 |
+| `docs/sprints/DESIGN_FIX_SPRINT.md` | Sprint 1~25 메인 스프린트 문서 | 필수 |
+| `docs/OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#52) | 필수 |
 | `docs/APS_LITE_PLAN.md` | APS Lite 차세대 기획 | 참조 |
 | `docs/AXIS_VIEW_ROADMAP.md` | 전체 로드맵 | 참조 |
 | `docs/sprints/RESPONSIVE_DESIGN_PLAN.md` | 반응형 설계 v2 (Sprint 21) | 참조 |
@@ -378,6 +378,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | 22 | 공정 완료 판정 버그 수정 (categories 기준 통일) | ✅ 완료 |
 | 23 | Task 재활성화 UI (생산현황 S/N 디테일) | ✅ 완료 |
 | 24 | 생산현황 O/N 섹션 헤더 + 검색 확장 | ✅ 완료 |
+| 25 | 페이지별 설정 패널 (테스트 S/N 토글 + TM 체크리스트 옵션) | ✅ 완료 |
 | 40-C | 비활성 사용자 관리 (VIEW 연동) | ✅ 완료 |
 | 40-C+ | Manager 비활성화 요청 기능 | ✅ 완료 |
 

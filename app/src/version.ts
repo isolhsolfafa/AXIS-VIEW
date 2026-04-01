@@ -1,8 +1,8 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.19.0';
-export const BUILD_DATE = '2026-03-31';
+export const APP_VERSION = 'v1.20.0';
+export const BUILD_DATE = '2026-04-01';
 
 // 버전 이력
 // v1.0.0 | 2026-03-06 | Sprint 1~3     | 초기 릴리스 (로그인, 출퇴근 대시보드, 실 API 연동)
@@ -36,3 +36,4 @@ export const BUILD_DATE = '2026-03-31';
 // v1.17.1| 2026-03-30 | Sprint 22      | 공정 완료 판정 버그 수정 (categories 기준 통일)
 // v1.18.0| 2026-03-30 | Sprint 23      | Task 재활성화 UI (생산현황 S/N 디테일)
 // v1.19.0| 2026-03-31 | Sprint 24      | 생산현황 O/N 섹션 헤더 + 검색 확장
+// v1.20.0| 2026-04-01 | Sprint 25      | 페이지별 설정 패널 (테스트 S/N 토글 + TM 체크리스트 옵션)
