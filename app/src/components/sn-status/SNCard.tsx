@@ -3,6 +3,7 @@
 
 import type { SNProduct } from '@/types/snStatus';
 import { PROCESS_ORDER, TAB_LABEL } from './constants';
+import { maskName } from '@/utils/format';
 
 interface SNCardProps {
   product: SNProduct;
@@ -105,7 +106,7 @@ export default function SNCard({ product, isSelected, onClick }: SNCardProps) {
           </span>
         ) : last_worker ? (
           <span>
-            {last_worker}{last_task_name ? ` · ${last_task_name}` : ''} {last_activity_at ? formatActivityTime(last_activity_at) : ''}
+            {maskName(last_worker)}{last_task_name ? ` · ${last_task_name}` : ''} {last_activity_at ? formatActivityTime(last_activity_at) : ''}
           </span>
         ) : null}
       </div>
