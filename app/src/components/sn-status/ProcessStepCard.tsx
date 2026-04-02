@@ -65,7 +65,7 @@ export default function ProcessStepCard({ task, displayLabel, categoryPercent, c
   const cfg = STATUS_CONFIG[status];
   const workers = task?.workers ?? [];
   const isMultiWorker = workers.length >= 2;
-  const hasChecklist = checklist && checklist.summary.total_check > 0;
+  const hasChecklist = checklist && checklist.summary?.total_check > 0;
   const [checklistOpen, setChecklistOpen] = useState(false);
   const reactivate = useTaskReactivate();
 
@@ -228,14 +228,14 @@ export default function ProcessStepCard({ task, displayLabel, categoryPercent, c
             <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
               {checklistOpen ? '▼' : '▶'} 체크리스트
             </span>
-            <span style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: checklist.summary.percent === 100 ? 'var(--gx-success)' : 'var(--gx-slate)' }}>
-              {checklist.summary.completed} / {checklist.summary.total_check} 완료
+            <span style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: checklist.summary?.percent === 100 ? 'var(--gx-success)' : 'var(--gx-slate)' }}>
+              {checklist.summary?.completed ?? 0} / {checklist.summary?.total_check ?? 0} 완료
             </span>
             {!checklistOpen && (
               <div style={{ flex: 1, height: '4px', borderRadius: '2px', background: 'var(--gx-cloud)', overflow: 'hidden', marginLeft: '4px' }}>
                 <div style={{
-                  height: '100%', width: `${checklist.summary.percent}%`, borderRadius: '2px',
-                  background: checklist.summary.percent === 100 ? 'var(--gx-success)' : 'var(--gx-accent)',
+                  height: '100%', width: `${checklist.summary?.percent ?? 0}%`, borderRadius: '2px',
+                  background: checklist.summary?.percent === 100 ? 'var(--gx-success)' : 'var(--gx-accent)',
                 }} />
               </div>
             )}
