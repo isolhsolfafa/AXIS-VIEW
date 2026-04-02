@@ -1,12 +1,12 @@
 // src/hooks/useChecklistMaster.ts
-// 체크리스트 마스터 CRUD hooks — Sprint 20
+// 체크리스트 마스터 CRUD hooks — Sprint 26
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getChecklistMaster,
   createChecklistMaster,
   updateChecklistMaster,
-  deleteChecklistMaster,
+  toggleChecklistMaster,
   getProductCodes,
 } from '@/api/checklist';
 import type { CreateMasterPayload, UpdateMasterPayload } from '@/types/checklist';
@@ -49,10 +49,10 @@ export function useUpdateMaster() {
   });
 }
 
-export function useDeleteMaster() {
+export function useToggleMaster() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => deleteChecklistMaster(id),
+    mutationFn: (id: number) => toggleChecklistMaster(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['checklist', 'master'] });
     },

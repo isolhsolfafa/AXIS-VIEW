@@ -262,7 +262,7 @@ export default function ProcessStepCard({ task, displayLabel, categoryPercent, c
                     {incomplete.slice(0, 5).map(i => (
                       <div key={i.master_id} style={{ padding: '2px 0', display: 'flex', gap: '4px' }}>
                         <span style={{ color: 'var(--gx-silver)' }}>○</span>
-                        <span>{i.inspection_group} — {i.item_name}</span>
+                        <span>{i.item_group} — {i.item_name}</span>
                       </div>
                     ))}
                     {incomplete.length > 5 && (

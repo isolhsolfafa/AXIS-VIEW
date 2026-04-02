@@ -1,5 +1,5 @@
 // src/pages/checklist/ChecklistManagePage.tsx
-// 체크리스트 관리 페이지 — Sprint 20
+// 체크리스트 관리 페이지 — Sprint 26 (TM 활성화 + MECH/ELEC 블러)
 
 import { useState, useMemo } from 'react';
 import Layout from '@/components/layout/Layout';
@@ -7,25 +7,31 @@ import ChecklistFilterBar from '@/components/checklist/ChecklistFilterBar';
 import ChecklistTable from '@/components/checklist/ChecklistTable';
 import ChecklistAddModal from '@/components/checklist/ChecklistAddModal';
 import ChecklistSettingsPanel from '@/components/checklist/ChecklistSettingsPanel';
-import { useChecklistMaster, useProductCodes, useCreateMaster, useUpdateMaster } from '@/hooks/useChecklistMaster';
+import { useChecklistMaster, useProductCodes, useCreateMaster, useToggleMaster } from '@/hooks/useChecklistMaster';
 import type { CreateMasterPayload } from '@/types/checklist';
+
+const BLUR_CATEGORIES = new Set(['MECH', 'ELEC']);
 
 export default function ChecklistManagePage() {
   const [selectedProduct, setSelectedProduct] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('MECH');
+  const [selectedCategory, setSelectedCategory] = useState('TM');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  // TM → COMMON 자동 고정
+  const effectiveProduct = selectedCategory === 'TM' ? 'COMMON' : selectedProduct;
+  const isBlurred = BLUR_CATEGORIES.has(selectedCategory);
+
   const { data: productCodes } = useProductCodes();
-  const { data, isLoading, dataUpdatedAt } = useChecklistMaster(selectedCategory, selectedProduct);
+  const { data, isLoading, dataUpdatedAt } = useChecklistMaster(selectedCategory, effectiveProduct);
   const createMaster = useCreateMaster();
-  const updateMaster = useUpdateMaster();
+  const toggleMaster = useToggleMaster();
 
   const items = data?.items ?? [];
 
   const existingGroups = useMemo(() => {
-    const groups = new Set(items.map(i => i.inspection_group));
+    const groups = new Set(items.map(i => i.item_group));
     return Array.from(groups);
   }, [items]);
 
@@ -34,8 +40,8 @@ export default function ChecklistManagePage() {
     setShowAddModal(false);
   };
 
-  const handleToggleActive = (id: number, isActive: boolean) => {
-    updateMaster.mutate({ id, data: { is_active: isActive } });
+  const handleToggleActive = (id: number) => {
+    toggleMaster.mutate(id);
   };
 
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
@@ -55,6 +61,7 @@ export default function ChecklistManagePage() {
             onProductChange={setSelectedProduct}
             selectedCategory={selectedCategory}
             onCategoryChange={setSelectedCategory}
+            hideProductDropdown={selectedCategory === 'TM'}
           />
 
           <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center' }}>
@@ -65,17 +72,18 @@ export default function ChecklistManagePage() {
                 type="checkbox"
                 checked={showInactive}
                 onChange={e => setShowInactive(e.target.checked)}
+                disabled={isBlurred}
               />
               비활성 포함
             </label>
             <button
               onClick={() => setShowAddModal(true)}
-              disabled={!selectedProduct}
+              disabled={isBlurred || !effectiveProduct}
               style={{
                 padding: '8px 16px', borderRadius: '8px', border: 'none',
-                background: selectedProduct ? 'var(--gx-accent)' : 'var(--gx-mist)',
+                background: !isBlurred && effectiveProduct ? 'var(--gx-accent)' : 'var(--gx-mist)',
                 color: '#fff', fontSize: '13px', fontWeight: 600,
-                cursor: selectedProduct ? 'pointer' : 'not-allowed',
+                cursor: !isBlurred && effectiveProduct ? 'pointer' : 'not-allowed',
                 transition: 'all 0.15s',
               }}
             >
@@ -84,13 +92,15 @@ export default function ChecklistManagePage() {
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setSettingsOpen(prev => !prev)}
+                disabled={isBlurred}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: '36px', height: '36px', borderRadius: 'var(--radius-gx-md, 10px)',
                   border: `1px solid ${settingsOpen ? 'var(--gx-accent)' : 'var(--gx-mist)'}`,
                   background: settingsOpen ? 'rgba(99,102,241,0.08)' : 'var(--gx-white)',
-                  cursor: 'pointer', transition: 'all 0.15s',
+                  cursor: isBlurred ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
                   color: settingsOpen ? 'var(--gx-accent)' : 'var(--gx-slate)',
+                  opacity: isBlurred ? 0.5 : 1,
                 }}
                 title="TM 체크리스트 설정"
               >
@@ -108,62 +118,50 @@ export default function ChecklistManagePage() {
       <div style={{
         background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg, 14px)',
         boxShadow: 'var(--shadow-card, 0 0 0 1px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.04))',
-        padding: '16px 20px',
+        padding: '16px 20px', position: 'relative',
       }}>
-        {!selectedProduct ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--gx-silver)', fontSize: '14px' }}>
-            Product Code를 선택하세요
+        {/* MECH/ELEC 블러 오버레이 */}
+        {isBlurred && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 10,
+            background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            borderRadius: 'var(--radius-gx-lg, 14px)',
+          }}>
+            <div style={{
+              textAlign: 'center', padding: '40px',
+              background: 'var(--gx-white)', borderRadius: '12px',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+            }}>
+              <div style={{ fontSize: '24px', marginBottom: '8px' }}>🔒</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)', marginBottom: '4px' }}>
+                {selectedCategory} 체크리스트 준비중
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--gx-steel)' }}>
+                항목 확정 후 활성화 예정
+              </div>
+            </div>
           </div>
-        ) : isLoading ? (
+        )}
+
+        {isLoading ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--gx-steel)', fontSize: '13px' }}>
             로딩 중...
           </div>
         ) : (
-          <>
-            {/* 2차판정 토글 */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px',
-              padding: '8px 12px', background: 'var(--gx-cloud)', borderRadius: '8px',
-            }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
-                2차판정 필요
-              </span>
-              <span style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>
-                (second_judgment_required)
-              </span>
-              <button
-                style={{
-                  width: '36px', height: '20px', borderRadius: '10px', border: 'none',
-                  background: data?.second_judgment_required ? 'var(--gx-success)' : 'var(--gx-mist)',
-                  cursor: 'pointer', position: 'relative', transition: 'background 0.2s', marginLeft: '4px',
-                }}
-              >
-                <span style={{
-                  position: 'absolute', top: '2px',
-                  left: data?.second_judgment_required ? '18px' : '2px',
-                  width: '16px', height: '16px', borderRadius: '50%',
-                  background: '#fff', transition: 'left 0.2s',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                }} />
-              </button>
-              <span style={{ fontSize: '10px', color: 'var(--gx-steel)', marginLeft: 'auto' }}>
-                목업 — BE 연동 후 동작
-              </span>
-            </div>
-
-            <ChecklistTable
-              items={items}
-              showInactive={showInactive}
-              onToggleActive={handleToggleActive}
-            />
-          </>
+          <ChecklistTable
+            items={items}
+            showInactive={showInactive}
+            onToggleActive={handleToggleActive}
+            category={selectedCategory}
+          />
         )}
       </div>
 
       {/* 추가 모달 */}
-      {showAddModal && selectedProduct && (
+      {showAddModal && effectiveProduct && (
         <ChecklistAddModal
-          productCode={selectedProduct}
+          productCode={effectiveProduct}
           category={selectedCategory}
           existingGroups={existingGroups}
           onSubmit={handleAdd}

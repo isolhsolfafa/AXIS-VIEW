@@ -10655,3 +10655,454 @@ Part B — TM 체크리스트 설정 (OPS Sprint 52 선행)
 - npm run build 실패 시 즉시 수정
 - 설정 패널 UI는 기존 `ConfirmSettingsPanel` 패턴 준수 (외부 클릭 닫기, Escape 닫기)
 - 토글 스타일: 40x22px, accent/silver, 2px padding (기존 동일)
+
+---
+
+# Sprint 26 — 체크리스트 관리 페이지 BE 연동 + TM 활성화 (2026-04-02)
+
+> 등록일: 2026-04-02
+> 트랙: VIEW FE only
+> 선행: OPS Sprint 52 + 52-A BE 배포 (migration 043 + 043a 적용)
+> 난이도: 중 (목업→실제 API 전환, 필드 매핑 변경, 카테고리별 분기)
+> 수정 파일: 7개 (기존 6 + 신규 0, 삭제 1 mock)
+> 신규 컴포넌트: 없음
+
+## 배경
+
+Sprint 20에서 체크리스트 관리 페이지를 **목업**으로 구현함.
+OPS Sprint 52 + 52-A에서 TM 체크리스트 BE가 완성되어 실제 API 연동이 가능해짐.
+
+**현재 상태:**
+- API 호출: mock 데이터 반환 (checklist.ts 내 delay + MOCK_*)
+- 테이블: `item_type`(CHECK/INPUT), `spec_criteria`, `inspection_method` 컬럼 — 목업 기준
+- 카테고리 탭: MECH/ELEC/TM 모두 동일하게 동작 (블러 없음)
+- Product Code: 드롭다운으로 선택 필수 → TM은 COMMON 고정이어야 함
+
+**이번 Sprint 범위:**
+- TM 탭: BE 연동 + COMMON 자동 고정 + 테이블 필드 매핑
+- MECH/ELEC 탭: 블러 오버레이 + "준비중" 표시 (항목 미확정)
+- 추가 모달: 카테고리별 item_type 분기 (TM/ELEC=CHECK 고정, MECH=CHECK/INPUT)
+
+## 수정 대상 파일
+
+```
+1. app/src/api/checklist.ts                          (수정 — mock→실제 API)
+2. app/src/types/checklist.ts                        (수정 — BE 필드 매핑)
+3. app/src/pages/checklist/ChecklistManagePage.tsx    (수정 — TM 기본 탭 + COMMON 자동 + 블러)
+4. app/src/components/checklist/ChecklistFilterBar.tsx (수정 — 블러 + TM 시 드롭다운 숨김)
+5. app/src/components/checklist/ChecklistTable.tsx     (수정 — BE 필드 기준 컬럼)
+6. app/src/components/checklist/ChecklistAddModal.tsx   (수정 — 카테고리별 item_type 분기)
+7. app/src/mocks/checklist.ts                          (삭제 예정 — TM 연동 후 불필요)
+```
+
+## A. ChecklistManagePage.tsx — TM 기본 탭 + COMMON 자동 고정 + 블러
+
+```typescript
+// ── 변경 1: 기본 카테고리 TM으로 변경 ──
+// 현재
+const [selectedCategory, setSelectedCategory] = useState('MECH');
+// 수정
+const [selectedCategory, setSelectedCategory] = useState('TM');
+
+// ── 변경 2: TM 선택 시 Product Code 자동 COMMON 고정 ──
+// selectedCategory 변경 시 연동
+const effectiveProduct = selectedCategory === 'TM' ? 'COMMON' : selectedProduct;
+
+// useChecklistMaster에 effectiveProduct 전달
+const { data, isLoading, dataUpdatedAt } = useChecklistMaster(selectedCategory, effectiveProduct);
+
+// ── 변경 3: MECH/ELEC 선택 시 블러 오버레이 ──
+const isBlurred = selectedCategory !== 'TM';
+
+// 테이블 영역 감싸기
+<div style={{ position: 'relative' }}>
+  {isBlurred && (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 10,
+      background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      borderRadius: 'var(--radius-gx-lg, 14px)',
+    }}>
+      <div style={{
+        textAlign: 'center', padding: '40px',
+        background: 'var(--gx-white)', borderRadius: '12px',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+      }}>
+        <div style={{ fontSize: '24px', marginBottom: '8px' }}>🔒</div>
+        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)', marginBottom: '4px' }}>
+          {selectedCategory} 체크리스트 준비중
+        </div>
+        <div style={{ fontSize: '12px', color: 'var(--gx-steel)' }}>
+          항목 확정 후 활성화 예정
+        </div>
+      </div>
+    </div>
+  )}
+  {/* 기존 테이블 영역 */}
+</div>
+
+// ── 변경 4: 블러 시 액션 버튼 비활성화 ──
+// '+ 항목 추가' 버튼, ⚙️ 설정 버튼 — isBlurred일 때 disabled
+```
+
+**설계 판단**:
+- TM 기본 선택: 현재 유일하게 BE 연동 가능한 카테고리
+- COMMON 자동 고정: Sprint 52-A에서 scope='all' + product_code='COMMON' 결정. 드롭다운 선택 불필요
+- 블러: 완전 숨김보다 "곧 지원" 느낌을 줌. MECH/ELEC 항목 확정 후 동일 패턴 적용
+
+## B. ChecklistFilterBar.tsx — 블러 표시 + TM 시 드롭다운 숨김
+
+```typescript
+interface ChecklistFilterBarProps {
+  productCodes: string[];
+  selectedProduct: string;
+  onProductChange: (code: string) => void;
+  selectedCategory: string;
+  onCategoryChange: (cat: string) => void;
+  hideProductDropdown?: boolean;  // 추가
+}
+
+const CATEGORIES = ['MECH', 'ELEC', 'TM'] as const;
+const BLUR_CATEGORIES = new Set(['MECH', 'ELEC']);  // 블러 대상
+
+// Category 탭 렌더링 변경
+{CATEGORIES.map(cat => {
+  const isActive = selectedCategory === cat;
+  const isDisabled = BLUR_CATEGORIES.has(cat);  // 블러 대상이지만 클릭은 가능 (블러 오버레이로 처리)
+  return (
+    <button
+      key={cat}
+      onClick={() => onCategoryChange(cat)}
+      style={{
+        padding: '6px 18px',
+        borderRadius: '16px',
+        border: 'none',
+        fontSize: '12px',
+        fontWeight: isActive ? 600 : 400,
+        color: isActive ? 'var(--gx-white)' : isDisabled ? 'var(--gx-silver)' : 'var(--gx-slate)',
+        background: isActive
+          ? (isDisabled ? 'var(--gx-steel)' : 'var(--gx-accent)')
+          : 'var(--gx-cloud)',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+      }}
+    >
+      {cat} {isDisabled && '🔒'}
+    </button>
+  );
+})}
+
+// Product Code 드롭다운: hideProductDropdown=true 시 숨김
+{!hideProductDropdown && (
+  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    {/* 기존 드롭다운 */}
+  </div>
+)}
+
+// TM 선택 시 COMMON 표시
+{hideProductDropdown && (
+  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
+      항목 범위
+    </span>
+    <span style={{
+      padding: '6px 12px', borderRadius: '8px',
+      background: 'var(--gx-cloud)', fontSize: '13px',
+      color: 'var(--gx-slate)', fontFamily: "'JetBrains Mono', monospace",
+    }}>
+      COMMON (전 모델 공통)
+    </span>
+  </div>
+)}
+```
+
+## C. checklist.ts — mock → 실제 API 전환
+
+```typescript
+// src/api/checklist.ts
+import { apiClient } from '@/api/client';
+import type {
+  ChecklistMasterResponse,
+  ChecklistStatusResponse,
+  CreateMasterPayload,
+  UpdateMasterPayload,
+} from '@/types/checklist';
+
+// ── 마스터 CRUD (실제 API) ──
+
+export async function getChecklistMaster(
+  category: string,
+  productCode: string,
+): Promise<ChecklistMasterResponse> {
+  const { data } = await apiClient.get<ChecklistMasterResponse>(
+    '/api/admin/checklist/master',
+    { params: { category, product_code: productCode } },
+  );
+  return data;
+}
+
+export async function createChecklistMaster(
+  payload: CreateMasterPayload,
+): Promise<{ id: number }> {
+  const { data } = await apiClient.post('/api/admin/checklist/master', payload);
+  return data;
+}
+
+export async function updateChecklistMaster(
+  id: number,
+  payload: UpdateMasterPayload,
+): Promise<void> {
+  await apiClient.put(`/api/admin/checklist/master/${id}`, payload);
+}
+
+// toggle → PATCH (Sprint 52 Task 7 API 4)
+export async function toggleChecklistMaster(id: number): Promise<{ id: number; is_active: boolean }> {
+  const { data } = await apiClient.patch(`/api/admin/checklist/master/${id}/toggle`);
+  return data;
+}
+
+// deleteChecklistMaster 제거 — Sprint 52에서 삭제 API 없음, 비활성화로 대체
+
+// ── Product Code 목록 (실제 API) ──
+export async function getProductCodes(): Promise<string[]> {
+  // product_info 테이블에서 active 제품 조회
+  const { data } = await apiClient.get<{ product_codes: string[] }>('/api/admin/product-codes');
+  return data.product_codes;
+}
+
+// ── S/N별 체크리스트 상태 조회 (기존 유지) ──
+export async function getChecklistStatus(
+  serialNumber: string,
+  category: string,
+): Promise<ChecklistStatusResponse> {
+  const { data } = await apiClient.get<ChecklistStatusResponse>(
+    `/api/app/checklist/${serialNumber}/${category}`,
+  );
+  return data;
+}
+```
+
+**변경 포인트**:
+- `delay()` + mock import 전부 제거
+- `deleteChecklistMaster` → `toggleChecklistMaster`로 교체 (Sprint 52: 삭제 없음, 비활성화만)
+- `getProductCodes` — MECH/ELEC 탭 활성화 시 사용. TM은 COMMON 고정이므로 호출 불필요
+
+## D. types/checklist.ts — BE 필드 매핑 수정
+
+```typescript
+// ── BE Sprint 52 실제 응답 기준 ──
+
+export interface ChecklistMasterItem {
+  id: number;
+  product_code: string;
+  category: 'MECH' | 'ELEC' | 'TM';
+  item_group: string;          // BE: item_group (이전 목업: inspection_group)
+  item_name: string;
+  item_type: 'CHECK' | 'INPUT';  // MECH만 INPUT 존재, TM/ELEC은 CHECK 고정
+  item_order: number;
+  description: string | null;    // BE: description (이전 목업: spec_criteria + inspection_method 분리)
+  is_active: boolean;
+  // 제거: second_judgment_required (항목 단위 아님, 별도 설정)
+  // 제거: created_at, updated_at (테이블 표시 불필요)
+}
+
+// 한글 필드 매핑:
+// item_group    → 검사 그룹    (BURNER, REACTOR, EXHAUST, TANK 등)
+// item_name     → 검사 항목명  (SUS Fitting 조임 상태 등)
+// item_type     → 항목 타입    (CHECK=체크, INPUT=입력)
+// item_order    → 순서
+// description   → 기준/검사방법 (GAP GAUGE / 측수 검사)
+// is_active     → 활성 상태
+
+export interface ChecklistMasterResponse {
+  items: ChecklistMasterItem[];
+  total: number;
+  // 제거: second_judgment_required (페이지 레벨 → admin_settings로 이동)
+}
+
+export interface CreateMasterPayload {
+  product_code: string;
+  category: string;
+  item_group: string;          // 변경: inspection_group → item_group
+  item_name: string;
+  item_type: 'CHECK' | 'INPUT';
+  description?: string;         // 변경: spec_criteria + inspection_method → description 통합
+  item_order?: number;
+}
+
+export interface UpdateMasterPayload {
+  item_group?: string;          // 변경: inspection_group → item_group
+  item_name?: string;
+  item_type?: 'CHECK' | 'INPUT';
+  description?: string;         // 변경
+  item_order?: number;
+  is_active?: boolean;
+  // 제거: second_judgment_required, spec_criteria, inspection_method
+}
+
+// ChecklistRecord, ChecklistStatusResponse, ChecklistStatusItem → 기존 유지 (S/N별 조회용)
+```
+
+## E. ChecklistTable.tsx — BE 필드 기준 컬럼 변경
+
+```typescript
+// ── 테이블 헤더 변경 ──
+// 현재: ['#', '그룹', '항목명', '타입', '기준/SPEC', '검사방법', '활성', '액션']
+// 수정: ['#', '그룹', '항목명', '타입', '기준/검사방법', '활성', '액션']
+
+// ── 필드 매핑 변경 ──
+// 현재                  → 수정
+// item.inspection_group → item.item_group
+// item.spec_criteria    → (통합) item.description
+// item.inspection_method → (통합) item.description
+
+// 그룹 색상 교대 로직
+if (item.item_group !== prevGroup) {  // inspection_group → item_group
+  groupIdx++;
+  prevGroup = item.item_group;
+}
+
+// 그룹 컬럼
+<td>{item.item_group}</td>
+
+// 기준/검사방법 통합 컬럼
+<td style={{ padding: '9px 12px', color: 'var(--gx-slate)', fontSize: '11px' }}>
+  {item.description ?? '—'}
+</td>
+
+// 타입 컬럼 — TM/ELEC에서는 전부 CHECK이므로 표시하되 단색
+// MECH에서만 CHECK/INPUT 구분 색상
+
+// 요약 변경
+// 현재: CHECK {checkCount} / INPUT {inputCount}
+// TM/ELEC에서는 INPUT이 0이므로 INPUT 카운트 숨김
+{inputCount > 0 && <span>INPUT <b>{inputCount}</b></span>}
+```
+
+## F. ChecklistAddModal.tsx — 카테고리별 item_type 분기
+
+```typescript
+interface ChecklistAddModalProps {
+  productCode: string;
+  category: string;
+  existingGroups: string[];
+  onSubmit: (data: CreateMasterPayload) => void;
+  onClose: () => void;
+}
+
+// ── 카테고리별 item_type 분기 ──
+const INPUT_CATEGORIES = new Set(['MECH']);  // INPUT 타입이 존재하는 카테고리
+const showItemType = INPUT_CATEGORIES.has(category);
+
+// item_type 초기값: MECH만 선택 가능, 나머지 CHECK 고정
+const [itemType, setItemType] = useState<'CHECK' | 'INPUT'>('CHECK');
+
+// ── 필드 변경: spec_criteria + inspection_method → description ──
+// 현재: spec, method 별도 state
+// 수정: description 하나
+const [description, setDescription] = useState('');
+
+// ── 그룹 필드명 변경 ──
+// 현재: inspection_group
+// 수정: item_group
+
+const handleSubmit = () => {
+  const finalGroup = groupMode === 'new' ? newGroup.trim() : group;
+  if (!finalGroup || !itemName.trim()) return;
+  onSubmit({
+    product_code: productCode,
+    category,
+    item_group: finalGroup,        // 변경
+    item_name: itemName.trim(),
+    item_type: showItemType ? itemType : 'CHECK',  // TM/ELEC은 항상 CHECK
+    description: description.trim() || undefined,    // 변경
+  });
+};
+
+// ── 렌더링 분기 ──
+
+// item_type 라디오: MECH에서만 표시
+{showItemType && (
+  <div>
+    <label style={labelStyle}>타입</label>
+    <div style={{ display: 'flex', gap: '12px' }}>
+      {(['CHECK', 'INPUT'] as const).map(t => (
+        <label key={t} ...>
+          <input type="radio" checked={itemType === t} onChange={() => setItemType(t)} />
+          <span ...>{t}</span>
+        </label>
+      ))}
+    </div>
+  </div>
+)}
+
+// description 필드 (기존 spec + method → 통합)
+<div>
+  <label style={labelStyle}>기준/검사방법</label>
+  <input
+    value={description}
+    onChange={e => setDescription(e.target.value)}
+    placeholder="GAP GAUGE / 측수 검사"
+    style={inputStyle}
+  />
+</div>
+```
+
+## G. useChecklistMaster.ts — toggleMaster 추가
+
+```typescript
+// ── deleteChecklistMaster → toggleChecklistMaster 교체 ──
+
+// 기존 useDeleteMaster 제거, useToggleMaster 추가
+import { toggleChecklistMaster } from '@/api/checklist';
+
+export function useToggleMaster() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => toggleChecklistMaster(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['checklist', 'master'] });
+    },
+  });
+}
+```
+
+## 체크리스트
+
+```
+Phase 1 — API 전환 + 타입 수정 (BE 배포 후)
+[x] types/checklist.ts — BE 필드 매핑 수정 (item_group, description, 제거 항목)
+[x] api/checklist.ts — mock 제거, 실제 API 연결
+[x] useChecklistMaster.ts — useDeleteMaster → useToggleMaster 교체
+[x] npm run build 성공 확인
+
+Phase 2 — UI 수정
+[x] ChecklistManagePage.tsx — 기본 탭 TM + COMMON 자동 + 블러 오버레이
+[x] ChecklistFilterBar.tsx — 블러 탭 스타일 + TM 시 드롭다운 → COMMON 표시
+[x] ChecklistTable.tsx — item_group + description 컬럼 매핑
+[x] ChecklistAddModal.tsx — 카테고리별 item_type 분기 + description 통합
+[x] npm run build 성공 확인
+[x] ProcessStepCard.tsx — inspection_group → item_group 참조 수정
+[x] mocks/checklist.ts — 새 타입 필드 매핑 업데이트
+
+Phase 3 — 테스트
+[ ] 테스트: TM 탭 선택 → COMMON 자동 → 15개 항목 (4그룹) 표시
+[ ] 테스트: BURNER 그룹 3개 + REACTOR 4개 + EXHAUST 4개 + TANK 4개 = 15
+[ ] 테스트: 동일 item_name 구분 확인 (BURNER/REACTOR '클램프 체결', BURNER/EXHAUST 'SUS Fitting 조임 상태')
+[ ] 테스트: MECH 탭 → 블러 오버레이 + "MECH 체크리스트 준비중" 표시
+[ ] 테스트: ELEC 탭 → 블러 오버레이 + "ELEC 체크리스트 준비중" 표시
+[ ] 테스트: 항목 추가 (TM) → item_type 라디오 미표시, CHECK 자동 고정
+[ ] 테스트: 항목 활성/비활성 토글 → PATCH API 호출 확인
+[ ] 테스트: ⚙️ 설정 패널 — 3개 설정값 BE 저장/조회 확인
+[ ] 테스트: 비활성 포함 체크 → include_inactive=true 전달
+[ ] 테스트: 2차판정 목업 제거 확인 (admin_settings로 이동됨)
+```
+
+## 규칙
+
+- OPS Sprint 52 + 52-A BE 배포 완료 후 실행 (migration 043 + 043a 적용 필수)
+- 코드 변경 전 반드시 사용자 승인
+- npm run build 실패 시 즉시 수정
+- mock 파일(`mocks/checklist.ts`)은 TM 연동 확인 후 삭제 — MECH/ELEC 활성화 때까지 참고용 유지 가능
+- MECH/ELEC 블러 해제는 별도 Sprint (항목 확정 후)
+- `inspection_group` → `item_group` 리네이밍은 BE 필드 기준 통일

@@ -1,5 +1,5 @@
 // src/components/checklist/ChecklistAddModal.tsx
-// 체크리스트 항목 추가 모달 — Sprint 20
+// 체크리스트 항목 추가 모달 — Sprint 26 (카테고리별 item_type 분기)
 
 import { useState } from 'react';
 import type { CreateMasterPayload } from '@/types/checklist';
@@ -11,6 +11,9 @@ interface ChecklistAddModalProps {
   onSubmit: (data: CreateMasterPayload) => void;
   onClose: () => void;
 }
+
+// MECH만 INPUT 타입 존재, TM/ELEC은 CHECK 고정
+const INPUT_CATEGORIES = new Set(['MECH']);
 
 export default function ChecklistAddModal({
   productCode,
@@ -24,8 +27,9 @@ export default function ChecklistAddModal({
   const [newGroup, setNewGroup] = useState('');
   const [itemName, setItemName] = useState('');
   const [itemType, setItemType] = useState<'CHECK' | 'INPUT'>('CHECK');
-  const [spec, setSpec] = useState('');
-  const [method, setMethod] = useState('');
+  const [description, setDescription] = useState('');
+
+  const showItemType = INPUT_CATEGORIES.has(category);
 
   const handleSubmit = () => {
     const finalGroup = groupMode === 'new' ? newGroup.trim() : group;
@@ -33,11 +37,10 @@ export default function ChecklistAddModal({
     onSubmit({
       product_code: productCode,
       category,
-      inspection_group: finalGroup,
+      item_group: finalGroup,
       item_name: itemName.trim(),
-      item_type: itemType,
-      spec_criteria: spec.trim() || undefined,
-      inspection_method: method.trim() || undefined,
+      item_type: showItemType ? itemType : 'CHECK',
+      description: description.trim() || undefined,
     });
   };
 
@@ -117,33 +120,29 @@ export default function ChecklistAddModal({
             <input value={itemName} onChange={e => setItemName(e.target.value)} placeholder="검사 항목명" style={inputStyle} />
           </div>
 
-          {/* 타입 */}
-          <div>
-            <label style={labelStyle}>타입</label>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              {(['CHECK', 'INPUT'] as const).map(t => (
-                <label key={t} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--gx-charcoal)', cursor: 'pointer' }}>
-                  <input type="radio" checked={itemType === t} onChange={() => setItemType(t)} />
-                  <span style={{
-                    padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-                    background: t === 'CHECK' ? 'var(--gx-info-bg)' : 'var(--gx-warning-bg)',
-                    color: t === 'CHECK' ? 'var(--gx-info)' : 'var(--gx-warning)',
-                  }}>{t}</span>
-                </label>
-              ))}
+          {/* 타입 — MECH에서만 표시 */}
+          {showItemType && (
+            <div>
+              <label style={labelStyle}>타입</label>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                {(['CHECK', 'INPUT'] as const).map(t => (
+                  <label key={t} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--gx-charcoal)', cursor: 'pointer' }}>
+                    <input type="radio" checked={itemType === t} onChange={() => setItemType(t)} />
+                    <span style={{
+                      padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                      background: t === 'CHECK' ? 'rgba(59,130,246,0.08)' : 'rgba(245,158,11,0.08)',
+                      color: t === 'CHECK' ? 'var(--gx-info)' : 'var(--gx-warning)',
+                    }}>{t}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* 기준/SPEC */}
+          {/* 기준/검사방법 */}
           <div>
-            <label style={labelStyle}>기준/SPEC</label>
-            <input value={spec} onChange={e => setSpec(e.target.value)} placeholder="도면 1:1 확인" style={inputStyle} />
-          </div>
-
-          {/* 검사 방법 */}
-          <div>
-            <label style={labelStyle}>검사 방법</label>
-            <input value={method} onChange={e => setMethod(e.target.value)} placeholder="육안 검사 / 촉수 검사" style={inputStyle} />
+            <label style={labelStyle}>기준/검사방법</label>
+            <input value={description} onChange={e => setDescription(e.target.value)} placeholder="GAP GAUGE / 측수 검사" style={inputStyle} />
           </div>
         </div>
 

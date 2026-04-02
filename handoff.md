@@ -1,32 +1,31 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-04-01
+> 마지막 업데이트: 2026-04-02
 
 ---
 
 ## 현재 버전
 
 - **VIEW FE**: v1.20.0
-- **최근 Sprint**: 25 (페이지별 설정 패널 — 테스트 S/N 토글 + TM 체크리스트 옵션)
-- **최근 완료**: Sprint 24 (O/N 섹션 헤더), Sprint 23 (Task 재활성화 UI)
+- **최근 Sprint**: 26 (체크리스트 관리 BE 연동 + TM 활성화) — 설계 완료, 코드 미작성
+- **최근 완료**: Sprint 25 (페이지별 설정 패널), Sprint 24 (O/N 섹션 헤더)
 
 ---
 
-## 직전 세션 작업 내용 (2026-04-01)
+## 직전 세션 작업 내용 (2026-04-02)
 
-1. **테스트 S/N 필터 적용** — DOC_TEST- / TEST- prefix 필터 (생산현황 + QR관리 + CSV)
-2. **Sprint 25 설계 완료** — 페이지별 설정 패널 (테스트 S/N 토글 + TM 체크리스트 옵션)
-3. **Sprint 25 구현 완료** — Part A (showTestSN localStorage 토글) + Part B (TM 체크리스트 admin_settings 연동)
-4. **신규 컴포넌트 2개** — SNStatusSettingsPanel.tsx, ChecklistSettingsPanel.tsx
-5. **수정 5파일** — useSettings.ts, adminSettings.ts, SNStatusPage.tsx, QrManagementPage.tsx, ChecklistManagePage.tsx
-6. **npm run build 성공**, Netlify 배포 완료
+1. **ProcessStepCard 날짜 표시 수정** — formatTime: `HH:mm` → `MM/DD HH:mm` (배포 완료)
+2. **OPS Sprint 52 + 52-A 검토** — TM 체크리스트 전체 설계 리뷰, UNIQUE 충돌 발견→해결(item_group 추가)
+3. **Sprint 26 설계 완료** — 체크리스트 관리 페이지 목업→실제 BE 연동, TM 활성화, MECH/ELEC 블러
+4. **Sprint 25 검토 피드백** — SNStatusSettingsPanel 설명 텍스트 불일치 (DOC_TEST- → DOC_TEST-/TEST-)
+5. **OPS Sprint 52-A 검토** — COMMON seed 15항목, scope='all' 기본값, Excel UPSERT 4컬럼
 
 ---
 
 ## 진행 중 Sprint
 
-없음 — Sprint 25까지 모두 완료
+없음 — Sprint 26 설계 완료, 코드 미작성 (OPS Sprint 52 BE 배포 대기)
 
 ---
 
@@ -79,7 +78,7 @@
 | `CLAUDE.md` | 프로젝트 고정 정보 (팀 구성, 기술 스택, 규칙) | 매 세션 시작 시 |
 | `memory.md` | 누적 의사결정, 버그 분석, 아키텍처 판단 | 맥락 필요 시 |
 | `handoff.md` | 현재 파일. 세션 인계용 | 매 세션 시작 시 |
-| `docs/sprints/DESIGN_FIX_SPRINT.md` | Sprint 1~25 메인 스프린트 문서 | Sprint 기획/실행 시 |
+| `docs/sprints/DESIGN_FIX_SPRINT.md` | Sprint 1~26 메인 스프린트 문서 | Sprint 기획/실행 시 |
 | `docs/OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#52) | BE 의존 작업 시 |
 | `docs/APS_LITE_PLAN.md` | APS Lite 기획서 (차세대) | APS 작업 시 |
 | `docs/sprints/RESPONSIVE_DESIGN_PLAN.md` | 반응형 설계 v2 | 반응형 작업 시 |
@@ -88,10 +87,12 @@
 
 ## 다음 세션에서 할 일 (제안)
 
-### 즉시 — Sprint 25 수동 테스트
-- Admin 로그인 → 생산현황 ⚙️ → 테스트 S/N 토글 ON/OFF 확인
-- QR 관리 페이지 + CSV 다운로드 동기화 확인
-- 체크리스트 ⚙️ → TM 설정 3개 항목 변경 + BE 저장 확인
+### 즉시 — Sprint 25 설명 텍스트 수정
+- SNStatusSettingsPanel L10265: `DOC_TEST- prefix S/N 포함` → `DOC_TEST- / TEST- prefix S/N 포함`
+
+### 단기 — Sprint 26 실행 (OPS Sprint 52 BE 배포 후)
+- 체크리스트 관리 페이지 목업→실제 API 전환
+- TM 탭 활성화 + MECH/ELEC 블러
 
 ### 단기 — Defensive coding + 사용시간 변경
 - ProductionPerformancePage `?? []` 7개소

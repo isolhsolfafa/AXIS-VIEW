@@ -1,15 +1,16 @@
 // src/components/checklist/ChecklistTable.tsx
-// 체크리스트 마스터 항목 테이블 — Sprint 20
+// 체크리스트 마스터 항목 테이블 — Sprint 26 (BE 필드 기준)
 
 import type { ChecklistMasterItem } from '@/types/checklist';
 
 interface ChecklistTableProps {
   items: ChecklistMasterItem[];
   showInactive: boolean;
-  onToggleActive: (id: number, isActive: boolean) => void;
+  onToggleActive: (id: number) => void;
+  category: string;
 }
 
-export default function ChecklistTable({ items, showInactive, onToggleActive }: ChecklistTableProps) {
+export default function ChecklistTable({ items, showInactive, onToggleActive, category }: ChecklistTableProps) {
   const filtered = showInactive ? items : items.filter(i => i.is_active);
 
   if (filtered.length === 0) {
@@ -29,13 +30,16 @@ export default function ChecklistTable({ items, showInactive, onToggleActive }: 
   const activeCount = filtered.filter(i => i.is_active).length;
   const inactiveCount = filtered.filter(i => !i.is_active).length;
 
+  // TM/ELEC은 INPUT 없음
+  const showInput = category === 'MECH';
+
   return (
     <div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
           <thead>
             <tr style={{ background: 'var(--gx-cloud)' }}>
-              {['#', '그룹', '항목명', '타입', '기준/SPEC', '검사방법', '활성', '액션'].map(h => (
+              {['#', '그룹', '항목명', '타입', '기준/검사방법', '활성'].map(h => (
                 <th
                   key={h}
                   style={{
@@ -48,9 +52,9 @@ export default function ChecklistTable({ items, showInactive, onToggleActive }: 
           </thead>
           <tbody>
             {filtered.map((item) => {
-              if (item.inspection_group !== prevGroup) {
+              if (item.item_group !== prevGroup) {
                 groupIdx++;
-                prevGroup = item.inspection_group;
+                prevGroup = item.item_group;
               }
               const isEvenGroup = groupIdx % 2 === 0;
 
@@ -67,7 +71,7 @@ export default function ChecklistTable({ items, showInactive, onToggleActive }: 
                     {item.item_order}
                   </td>
                   <td style={{ padding: '9px 12px', fontWeight: 600, color: 'var(--gx-charcoal)', whiteSpace: 'nowrap' }}>
-                    {item.inspection_group}
+                    {item.item_group}
                   </td>
                   <td style={{ padding: '9px 12px', color: 'var(--gx-charcoal)' }}>
                     {item.item_name}
@@ -75,21 +79,18 @@ export default function ChecklistTable({ items, showInactive, onToggleActive }: 
                   <td style={{ padding: '9px 12px' }}>
                     <span style={{
                       padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 600,
-                      background: item.item_type === 'CHECK' ? 'var(--gx-info-bg, rgba(59,130,246,0.08))' : 'var(--gx-warning-bg, rgba(245,158,11,0.08))',
+                      background: item.item_type === 'CHECK' ? 'rgba(59,130,246,0.08)' : 'rgba(245,158,11,0.08)',
                       color: item.item_type === 'CHECK' ? 'var(--gx-info)' : 'var(--gx-warning)',
                     }}>
                       {item.item_type}
                     </span>
                   </td>
                   <td style={{ padding: '9px 12px', color: 'var(--gx-slate)', fontSize: '11px' }}>
-                    {item.spec_criteria ?? '—'}
-                  </td>
-                  <td style={{ padding: '9px 12px', color: 'var(--gx-slate)', fontSize: '11px' }}>
-                    {item.inspection_method ?? '—'}
+                    {item.description ?? '—'}
                   </td>
                   <td style={{ padding: '9px 12px' }}>
                     <button
-                      onClick={() => onToggleActive(item.id, !item.is_active)}
+                      onClick={() => onToggleActive(item.id)}
                       style={{
                         width: '36px', height: '20px', borderRadius: '10px', border: 'none',
                         background: item.is_active ? 'var(--gx-success)' : 'var(--gx-mist)',
@@ -105,15 +106,6 @@ export default function ChecklistTable({ items, showInactive, onToggleActive }: 
                       }} />
                     </button>
                   </td>
-                  <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
-                    <button
-                      style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        fontSize: '14px', padding: '2px 4px',
-                      }}
-                      title="수정"
-                    >✏️</button>
-                  </td>
                 </tr>
               );
             })}
@@ -127,7 +119,7 @@ export default function ChecklistTable({ items, showInactive, onToggleActive }: 
       }}>
         <span>총 <b style={{ color: 'var(--gx-charcoal)' }}>{filtered.length}</b>개 항목</span>
         <span>CHECK <b style={{ color: 'var(--gx-info)' }}>{checkCount}</b></span>
-        <span>INPUT <b style={{ color: 'var(--gx-warning)' }}>{inputCount}</b></span>
+        {showInput && inputCount > 0 && <span>INPUT <b style={{ color: 'var(--gx-warning)' }}>{inputCount}</b></span>}
         <span>활성 <b style={{ color: 'var(--gx-success)' }}>{activeCount}</b></span>
         {inactiveCount > 0 && <span>비활성 <b style={{ color: 'var(--gx-steel)' }}>{inactiveCount}</b></span>}
       </div>
