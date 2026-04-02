@@ -2,6 +2,7 @@
 // 체크리스트 관리 페이지 — Sprint 26 (TM 활성화 + MECH/ELEC 블러)
 
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import Layout from '@/components/layout/Layout';
 import ChecklistFilterBar from '@/components/checklist/ChecklistFilterBar';
 import ChecklistTable from '@/components/checklist/ChecklistTable';
@@ -40,8 +41,17 @@ export default function ChecklistManagePage() {
     setShowAddModal(false);
   };
 
-  const handleToggleActive = (id: number) => {
-    toggleMaster.mutate(id);
+  const handleToggleActive = (id: number, currentlyActive: boolean) => {
+    const label = currentlyActive ? '비활성화' : '활성화';
+    const item = items.find(i => i.id === id);
+    const itemLabel = item ? `[${item.item_group}] ${item.item_name}` : `항목 #${id}`;
+
+    if (!confirm(`${itemLabel}\n\n${label} 하시겠습니까?`)) return;
+
+    toggleMaster.mutate(id, {
+      onSuccess: () => toast.success(`${itemLabel} — ${label} 완료`),
+      onError: () => toast.error(`${label}에 실패했습니다`),
+    });
   };
 
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null;

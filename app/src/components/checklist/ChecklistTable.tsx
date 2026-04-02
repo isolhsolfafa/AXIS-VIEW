@@ -6,7 +6,7 @@ import type { ChecklistMasterItem } from '@/types/checklist';
 interface ChecklistTableProps {
   items: ChecklistMasterItem[];
   showInactive: boolean;
-  onToggleActive: (id: number) => void;
+  onToggleActive: (id: number, currentlyActive: boolean) => void;
   category: string;
 }
 
@@ -90,7 +90,7 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, ca
                   </td>
                   <td style={{ padding: '9px 12px' }}>
                     <button
-                      onClick={() => onToggleActive(item.id)}
+                      onClick={() => onToggleActive(item.id, item.is_active)}
                       style={{
                         width: '36px', height: '20px', borderRadius: '10px', border: 'none',
                         background: item.is_active ? 'var(--gx-success)' : 'var(--gx-mist)',
