@@ -93,20 +93,17 @@
 ### S/N 상세 — 작업시간 날짜 표시
 - ProcessStepCard formatTime: HH:mm → MM/DD HH:mm (야간 작업 날짜 구분)
 
+### S/N 상세 — 작업자 이름 마스킹
+- 개인정보 보호: 한글 이름 마스킹 (임지후→임*후, 김솔→김*)
+- 영문/특수문자 포함 이름은 그대로 표시
+
 ### 버그 수정
 - S/N 디테일뷰 체크리스트 summary undefined 크래시 — 옵셔널 체이닝 방어
 - 비활성 포함 체크박스 미작동 — BE에 `include_inactive` 파라미터 전달 추가
-- S/N 체크리스트 조회 — TM만 실제 API, MECH/ELEC은 빈 응답 반환 (BE 미구현)
-
-### 수정 파일
-- `types/checklist.ts` — BE 필드 매핑 수정
-- `api/checklist.ts` — 마스터 CRUD 실제 API + S/N 조회 TM/MECH 분기
-- `useChecklistMaster.ts` — useToggleMaster + include_inactive 파라미터
-- `ChecklistManagePage.tsx` — TM 기본 + 블러 + 확인 다이얼로그
-- `ChecklistFilterBar.tsx` — 블러 탭 + COMMON 표시
-- `ChecklistTable.tsx` — item_group/description 컬럼
-- `ChecklistAddModal.tsx` — 카테고리별 item_type 분기
-- `ProcessStepCard.tsx` — formatTime 날짜 + item_group 수정 + summary 옵셔널 체이닝
+- S/N 체크리스트 조회 — TM만 실제 API, MECH/ELEC은 빈 응답 반환
+- S/N 체크리스트 BE 엔드포인트 경로 + 응답 구조 매핑 수정
+- TMS→TM 카테고리 매핑 + API 에러 방어
+- 생산실적 월마감뷰 `monthlyData.weeks` undefined 크래시 수정
 
 ---
 

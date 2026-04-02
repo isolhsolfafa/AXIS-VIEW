@@ -8,8 +8,8 @@
 ## 현재 버전
 
 - **VIEW FE**: v1.21.0
-- **최근 Sprint**: 26 (체크리스트 관리 BE 연동 + TM 활성화)
-- **최근 완료**: Sprint 25 (페이지별 설정 패널), Sprint 24 (O/N 섹션 헤더)
+- **최근 Sprint**: 27 (월마감 캘린더 뷰) — 설계 완료, 코드 미작성
+- **최근 완료**: Sprint 26 (체크리스트 BE 연동), Sprint 25 (페이지별 설정 패널)
 
 ---
 
@@ -22,12 +22,16 @@
 5. **HOTFIX: 비활성 포함 체크박스** — BE에 `include_inactive` 파라미터 미전달 → 수정
 6. **HOTFIX: S/N 디테일뷰 크래시** — checklist.summary undefined → 옵셔널 체이닝 방어
 7. **HOTFIX: S/N 체크리스트 조회 분기** — TM만 실제 API, MECH/ELEC 빈 응답 (BE 미구현)
+8. **HOTFIX: S/N 체크리스트 BE 엔드포인트** — 경로 매핑 + TMS→TM + 응답 구조 변환
+9. **월마감 뷰 크래시 수정** — `monthlyData.weeks` undefined → `monthlyData?.weeks` 옵셔널 체이닝
+10. **작업자 이름 마스킹** — maskName() 한글 개인정보 보호 (임지후→임*후)
+11. **Sprint 27 설계 완료** — 월마감 캘린더 뷰 (달력 UI, 주차 클릭→주간 전환, 기전/TM 분류)
 
 ---
 
 ## 진행 중 Sprint
 
-없음 — Sprint 26까지 모두 완료
+없음 — Sprint 27 설계 완료, 코드 미작성 (사용자 승인 대기)
 
 ---
 

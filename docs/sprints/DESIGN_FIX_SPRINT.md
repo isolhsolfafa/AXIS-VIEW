@@ -11112,3 +11112,380 @@ Phase 3 — 테스트
 - [x] 비활성 포함 체크박스 → BE `include_inactive` 파라미터 전달
 - [x] S/N 디테일뷰 checklist.summary undefined 크래시 → 옵셔널 체이닝
 - [x] S/N 체크리스트 조회: TM만 실제 API, MECH/ELEC 빈 응답 반환
+
+---
+
+# Sprint 27 — 월마감 캘린더 뷰 (2026-04-02)
+
+> 등록일: 2026-04-02
+> 트랙: VIEW FE only
+> 선행: 없음 (기존 `useMonthlySummary` API 활용)
+> 난이도: 중 (캘린더 컴포넌트 신규, 주간 뷰 연동)
+> 수정 파일: 2개 (기존 1 + 신규 1)
+> 신규 컴포넌트: `MonthlyCalendarView.tsx`
+
+## 배경
+
+생산실적 페이지에 주간/월마감 토글이 있으나, 월마감 뷰가 단순 주차×공정 테이블로 되어있어 실용성이 낮음.
+API(`useMonthlySummary`)에서 이미 월 기준 주차별 기전(MECH+ELEC) / TM 완료·확인 데이터를 반환하므로, 이를 캘린더 UI로 시각화.
+
+**현재 상태:**
+- `activeView === 'monthly'` 토글 존재 (L607-616)
+- `useMonthlySummary()` → `{ month, weeks: WeekSummary[], totals }` 응답
+- `WeekSummary` = `{ week: string, mech: { completed, confirmed }, elec: { completed, confirmed }, tm: { completed, confirmed } }`
+- 주간 뷰에서 `activeProcessTab`: `'mech_elec' | 'tm'` 분류 이미 존재
+- `monthlyData.weeks.map()` → `monthlyData?.weeks` 옵셔널 체이닝 수정 완료 (금일)
+
+**이번 Sprint 범위:**
+- 월마감 뷰를 캘린더 UI로 교체
+- 주차 행에 기전/TM 실적 건수 표시
+- 주차 클릭 → 주간 뷰로 전환 (해당 주차 자동 선택)
+
+## 수정 대상 파일
+
+```
+1. app/src/components/production/MonthlyCalendarView.tsx  (신규 — 캘린더 컴포넌트)
+2. app/src/pages/production/ProductionPerformancePage.tsx  (수정 — 월마감 뷰 영역 교체)
+```
+
+## A. MonthlyCalendarView.tsx — 캘린더 컴포넌트 (신규)
+
+```typescript
+// src/components/production/MonthlyCalendarView.tsx
+// 월마감 캘린더 뷰 — Sprint 27
+
+import { useMemo } from 'react';
+import type { MonthlySummaryResponse, WeekSummary } from '@/types/production';
+
+interface MonthlyCalendarViewProps {
+  data: MonthlySummaryResponse;
+  currentWeek?: string;          // 현재 활성 주차 (하이라이트용)
+  onWeekClick: (week: string) => void;  // 주차 클릭 → 주간 뷰 전환
+}
+
+// ── 캘린더 데이터 생성 ──
+interface CalendarDay {
+  date: number;           // 1~31
+  isCurrentMonth: boolean;
+  weekLabel: string | null;  // 해당 날짜가 속한 주차 (W14, W15 등)
+}
+
+interface CalendarWeekRow {
+  days: CalendarDay[];        // 월~일 7칸
+  weekLabel: string | null;   // 이 행의 주차 라벨
+  summary: WeekSummary | null; // 해당 주차의 실적 데이터
+}
+
+function buildCalendarRows(month: string, weeks: WeekSummary[]): CalendarWeekRow[] {
+  // month: "2026-04" 형태
+  const [year, mon] = month.split('-').map(Number);
+  const firstDay = new Date(year, mon - 1, 1);
+  const lastDate = new Date(year, mon, 0).getDate();
+
+  // 월요일 시작 (0=월, 6=일)
+  const startDow = (firstDay.getDay() + 6) % 7;
+
+  // 주차 매핑: weeks 배열에서 week label → WeekSummary
+  const weekMap = new Map<string, WeekSummary>();
+  for (const w of weeks) weekMap.set(w.week, w);
+
+  // ISO 주차 계산
+  function getISOWeek(d: Date): string {
+    const tmp = new Date(d.getTime());
+    tmp.setDate(tmp.getDate() + 3 - ((tmp.getDay() + 6) % 7));
+    const yearStart = new Date(tmp.getFullYear(), 0, 4);
+    const weekNum = Math.ceil(((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+    return `W${String(weekNum).padStart(2, '0')}`;
+  }
+
+  const rows: CalendarWeekRow[] = [];
+  let dayIndex = 1 - startDow; // 시작 오프셋 (이전 달 날짜는 빈칸)
+
+  while (dayIndex <= lastDate) {
+    const days: CalendarDay[] = [];
+    let rowWeekLabel: string | null = null;
+
+    for (let col = 0; col < 7; col++) {
+      if (dayIndex < 1 || dayIndex > lastDate) {
+        days.push({ date: 0, isCurrentMonth: false, weekLabel: null });
+      } else {
+        const d = new Date(year, mon - 1, dayIndex);
+        const wk = getISOWeek(d);
+        days.push({ date: dayIndex, isCurrentMonth: true, weekLabel: wk });
+        if (!rowWeekLabel) rowWeekLabel = wk;
+      }
+      dayIndex++;
+    }
+
+    rows.push({
+      days,
+      weekLabel: rowWeekLabel,
+      summary: rowWeekLabel ? weekMap.get(rowWeekLabel) ?? null : null,
+    });
+  }
+
+  return rows;
+}
+
+export default function MonthlyCalendarView({ data, currentWeek, onWeekClick }: MonthlyCalendarViewProps) {
+  const rows = useMemo(() => buildCalendarRows(data.month, data.weeks ?? []), [data.month, data.weeks]);
+  const DOW = ['월', '화', '수', '목', '금', '토', '일'];
+
+  // 오늘 날짜 하이라이트용
+  const today = new Date();
+  const [tYear, tMon] = data.month.split('-').map(Number);
+  const isCurrentMonth = today.getFullYear() === tYear && today.getMonth() + 1 === tMon;
+  const todayDate = isCurrentMonth ? today.getDate() : -1;
+
+  return (
+    <div style={{
+      background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
+      boxShadow: 'var(--shadow-card)', overflow: 'hidden',
+    }}>
+      {/* 헤더 */}
+      <div style={{ padding: '18px 24px 12px' }}>
+        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)', marginBottom: '3px' }}>
+          {data.month} 월마감
+        </div>
+        <div style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>
+          주차 클릭 → 해당 주간 실적으로 이동
+        </div>
+      </div>
+
+      {/* 캘린더 */}
+      <div style={{ padding: '0 16px 16px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              {DOW.map(d => (
+                <th key={d} style={{
+                  padding: '8px 4px', textAlign: 'center', fontSize: '11px',
+                  fontWeight: 600, color: d === '일' ? 'var(--gx-danger, #EF4444)' : d === '토' ? 'var(--gx-info)' : 'var(--gx-steel)',
+                }}>{d}</th>
+              ))}
+              {/* 주차 + 실적 컬럼 */}
+              <th style={{
+                padding: '8px 12px', textAlign: 'center', fontSize: '11px',
+                fontWeight: 600, color: 'var(--gx-steel)', minWidth: '180px',
+              }}>주차 실적</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, ri) => {
+              const isCurrent = row.weekLabel === currentWeek;
+              const hasData = row.summary != null;
+              const mechElecConfirmed = (row.summary?.mech?.confirmed ?? 0) + (row.summary?.elec?.confirmed ?? 0);
+              const tmConfirmed = row.summary?.tm?.confirmed ?? 0;
+
+              return (
+                <tr
+                  key={ri}
+                  onClick={() => row.weekLabel && onWeekClick(row.weekLabel)}
+                  style={{
+                    cursor: row.weekLabel ? 'pointer' : 'default',
+                    borderBottom: '1px solid var(--gx-cloud)',
+                    background: isCurrent ? 'rgba(99,102,241,0.03)' : 'transparent',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => { if (row.weekLabel) e.currentTarget.style.background = 'rgba(99,102,241,0.05)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = isCurrent ? 'rgba(99,102,241,0.03)' : 'transparent'; }}
+                >
+                  {/* 날짜 셀 7개 */}
+                  {row.days.map((day, di) => (
+                    <td key={di} style={{
+                      padding: '10px 4px', textAlign: 'center',
+                      fontSize: '13px', fontFamily: "'JetBrains Mono', monospace",
+                      color: !day.isCurrentMonth ? 'var(--gx-mist)'
+                        : day.date === todayDate ? 'var(--gx-white)'
+                        : di === 6 ? 'var(--gx-danger, #EF4444)'
+                        : di === 5 ? 'var(--gx-info)'
+                        : 'var(--gx-charcoal)',
+                      fontWeight: day.date === todayDate ? 700 : 400,
+                    }}>
+                      {day.isCurrentMonth && (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: '28px', height: '28px', borderRadius: '50%',
+                          ...(day.date === todayDate ? {
+                            background: 'var(--gx-accent)', color: 'var(--gx-white)',
+                          } : {}),
+                        }}>
+                          {day.date}
+                        </span>
+                      )}
+                    </td>
+                  ))}
+
+                  {/* 주차 실적 셀 */}
+                  <td style={{ padding: '8px 12px' }}>
+                    {row.weekLabel && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {/* 주차 라벨 */}
+                        <span style={{
+                          fontSize: '11px', fontWeight: 600,
+                          fontFamily: "'JetBrains Mono', monospace",
+                          color: isCurrent ? 'var(--gx-accent)' : 'var(--gx-slate)',
+                          minWidth: '30px',
+                        }}>
+                          {row.weekLabel}
+                          {isCurrent && (
+                            <span style={{
+                              fontSize: '7px', fontWeight: 600, padding: '1px 4px', borderRadius: '4px',
+                              background: 'rgba(99,102,241,0.08)', color: 'var(--gx-accent)',
+                              marginLeft: '3px', verticalAlign: 'middle',
+                            }}>현재</span>
+                          )}
+                        </span>
+
+                        {/* 기전 */}
+                        {hasData && (
+                          <span style={{
+                            fontSize: '11px', color: 'var(--gx-success)',
+                            fontFamily: "'JetBrains Mono', monospace",
+                          }}>
+                            기전 <b>{mechElecConfirmed}</b>
+                          </span>
+                        )}
+
+                        {/* TM */}
+                        {hasData && (
+                          <span style={{
+                            fontSize: '11px', color: 'var(--gx-accent)',
+                            fontFamily: "'JetBrains Mono', monospace",
+                          }}>
+                            TM <b>{tmConfirmed}</b>
+                          </span>
+                        )}
+
+                        {/* 합계 바 */}
+                        {hasData && (mechElecConfirmed + tmConfirmed) > 0 && (
+                          <div style={{
+                            flex: 1, height: '4px', borderRadius: '2px',
+                            background: 'var(--gx-cloud)', overflow: 'hidden',
+                            display: 'flex',
+                          }}>
+                            {mechElecConfirmed > 0 && (
+                              <div style={{
+                                height: '100%',
+                                width: `${(mechElecConfirmed / (mechElecConfirmed + tmConfirmed)) * 100}%`,
+                                background: 'var(--gx-success)',
+                              }} />
+                            )}
+                            {tmConfirmed > 0 && (
+                              <div style={{
+                                height: '100%',
+                                width: `${(tmConfirmed / (mechElecConfirmed + tmConfirmed)) * 100}%`,
+                                background: 'var(--gx-accent)',
+                              }} />
+                            )}
+                          </div>
+                        )}
+
+                        {/* 화살표 */}
+                        <span style={{ fontSize: '12px', color: 'var(--gx-silver)' }}>→</span>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* 합계 */}
+        <div style={{
+          display: 'flex', gap: '20px', padding: '14px 16px',
+          borderTop: '2px solid var(--gx-mist)', marginTop: '4px',
+        }}>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--gx-charcoal)' }}>합계</span>
+          <span style={{ fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
+            기전 확인 <b style={{ color: 'var(--gx-success)' }}>
+              {(data.totals?.mech?.confirmed ?? 0) + (data.totals?.elec?.confirmed ?? 0)}
+            </b>
+            <span style={{ color: 'var(--gx-silver)', margin: '0 4px' }}>/</span>
+            완료 {(data.totals?.mech?.completed ?? 0) + (data.totals?.elec?.completed ?? 0)}
+          </span>
+          <span style={{ fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
+            TM 확인 <b style={{ color: 'var(--gx-accent)' }}>
+              {data.totals?.tm?.confirmed ?? 0}
+            </b>
+            <span style={{ color: 'var(--gx-silver)', margin: '0 4px' }}>/</span>
+            완료 {data.totals?.tm?.completed ?? 0}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+## B. ProductionPerformancePage.tsx — 월마감 뷰 영역 교체
+
+```typescript
+// ── import 추가 ──
+import MonthlyCalendarView from '@/components/production/MonthlyCalendarView';
+
+// ── 월마감 뷰 교체 (L882~943 기존 테이블 → 캘린더) ──
+
+// 현재:
+{activeView === 'monthly' && monthlyData?.weeks && (
+  <div>... 기존 주차×공정 테이블 ...</div>
+)}
+
+// 수정:
+{activeView === 'monthly' && monthlyData?.weeks && (
+  <MonthlyCalendarView
+    data={monthlyData}
+    currentWeek={perfData?.week}
+    onWeekClick={(week) => {
+      setActiveWeek(week);
+      setActiveView('weekly');
+    }}
+  />
+)}
+```
+
+**동작 흐름:**
+1. 월마감 토글 클릭 → 캘린더 뷰 표시
+2. 캘린더에서 주차 행 클릭 → `setActiveWeek(week)` + `setActiveView('weekly')` → 주간 뷰로 전환, 해당 주차 선택
+3. 주간 뷰에서 기전·전장 / TM(모듈) 탭으로 상세 확인
+
+## 설계 판단
+
+- **주차 기준**: ISO 주차 (월~일), 일요일이 주차 마지막 날
+- **캘린더 시작**: 월요일 시작 (한국 표준)
+- **실적 표시**: 확인(confirmed) 건수 기준 — 완료(completed)는 합계에서만 참고로 표시
+- **기전 합산**: MECH + ELEC confirmed 합산해서 "기전" 하나로 표시 (주간 뷰의 기구·전장 탭과 동일 개념)
+- **월 이동**: 현재 `useMonthlySummary(month?)` 에 month 파라미터 있으므로, 추후 ◀▶ 버튼으로 월 이동 가능 (이번 Sprint 범위 외)
+
+## 체크리스트
+
+```
+Phase 1 — 컴포넌트 생성
+[ ] MonthlyCalendarView.tsx 신규 생성
+[ ] npm run build 성공 확인
+
+Phase 2 — 페이지 연동
+[ ] ProductionPerformancePage.tsx — 기존 테이블 → MonthlyCalendarView 교체
+[ ] import 추가
+[ ] npm run build 성공 확인
+
+Phase 3 — 테스트
+[ ] 테스트: 월마감 토글 → 캘린더 표시 (에러 없음)
+[ ] 테스트: 오늘 날짜 원형 하이라이트 확인
+[ ] 테스트: 현재 주차 행 배경 하이라이트 + "현재" 뱃지
+[ ] 테스트: 주차 행에 기전/TM 실적 건수 표시
+[ ] 테스트: 주차 행 클릭 → 주간 뷰 전환 + 해당 주차 자동 선택
+[ ] 테스트: 기전·전장 탭 전환 정상 동작 (주간 뷰 복귀 후)
+[ ] 테스트: 합계 영역 — 기전 확인/완료, TM 확인/완료 정상 표시
+[ ] 테스트: API 응답 없을 때 (weeks 빈 배열) → 빈 캘린더 표시 (에러 없음)
+[ ] 테스트: 토요일 파란색, 일요일 빨간색 표시
+```
+
+## 규칙
+
+- 코드 변경 전 반드시 사용자 승인
+- npm run build 실패 시 즉시 수정
+- 기존 `useMonthlySummary` API 그대로 활용 (BE 변경 없음)
+- 월 이동(◀▶) 기능은 이번 범위 외 — 추후 추가
+- 주차 계산: ISO 8601 기준 (월요일 시작, `getISOWeek` 함수)
