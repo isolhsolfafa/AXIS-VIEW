@@ -880,7 +880,7 @@ export default function ProductionPerformancePage() {
             )}
 
             {/* ─── 월마감 뷰 ─── */}
-            {activeView === 'monthly' && monthlyData && (
+            {activeView === 'monthly' && monthlyData?.weeks && (
               <div style={{ background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
                 <div style={{ padding: '18px 24px 8px' }}>
                   <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)', marginBottom: '3px' }}>{monthlyData.month} — 주차별 실적 집계</div>
