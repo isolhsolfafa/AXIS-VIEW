@@ -11,10 +11,10 @@ import {
 } from '@/api/checklist';
 import type { CreateMasterPayload, UpdateMasterPayload } from '@/types/checklist';
 
-export function useChecklistMaster(category: string, productCode: string) {
+export function useChecklistMaster(category: string, productCode: string, includeInactive = false) {
   return useQuery({
-    queryKey: ['checklist', 'master', category, productCode],
-    queryFn: () => getChecklistMaster(category, productCode),
+    queryKey: ['checklist', 'master', category, productCode, includeInactive],
+    queryFn: () => getChecklistMaster(category, productCode, includeInactive),
     enabled: !!productCode,
     staleTime: 60 * 1000,
   });

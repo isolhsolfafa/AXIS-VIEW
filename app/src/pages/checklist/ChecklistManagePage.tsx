@@ -25,7 +25,7 @@ export default function ChecklistManagePage() {
   const isBlurred = BLUR_CATEGORIES.has(selectedCategory);
 
   const { data: productCodes } = useProductCodes();
-  const { data, isLoading, dataUpdatedAt } = useChecklistMaster(selectedCategory, effectiveProduct);
+  const { data, isLoading, dataUpdatedAt } = useChecklistMaster(selectedCategory, effectiveProduct, showInactive);
   const createMaster = useCreateMaster();
   const toggleMaster = useToggleMaster();
 

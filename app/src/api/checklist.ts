@@ -14,10 +14,11 @@ import type {
 export async function getChecklistMaster(
   category: string,
   productCode: string,
+  includeInactive = false,
 ): Promise<ChecklistMasterResponse> {
   const { data } = await apiClient.get<ChecklistMasterResponse>(
     '/api/admin/checklist/master',
-    { params: { category, product_code: productCode } },
+    { params: { category, product_code: productCode, include_inactive: includeInactive || undefined } },
   );
   return data;
 }
