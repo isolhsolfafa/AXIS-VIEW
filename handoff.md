@@ -7,8 +7,8 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.20.0
-- **최근 Sprint**: 26 (체크리스트 관리 BE 연동 + TM 활성화) — 설계 완료, 코드 미작성
+- **VIEW FE**: v1.21.0
+- **최근 Sprint**: 26 (체크리스트 관리 BE 연동 + TM 활성화)
 - **최근 완료**: Sprint 25 (페이지별 설정 패널), Sprint 24 (O/N 섹션 헤더)
 
 ---
@@ -16,16 +16,16 @@
 ## 직전 세션 작업 내용 (2026-04-02)
 
 1. **ProcessStepCard 날짜 표시 수정** — formatTime: `HH:mm` → `MM/DD HH:mm` (배포 완료)
-2. **OPS Sprint 52 + 52-A 검토** — TM 체크리스트 전체 설계 리뷰, UNIQUE 충돌 발견→해결(item_group 추가)
-3. **Sprint 26 설계 완료** — 체크리스트 관리 페이지 목업→실제 BE 연동, TM 활성화, MECH/ELEC 블러
-4. **Sprint 25 검토 피드백** — SNStatusSettingsPanel 설명 텍스트 불일치 (DOC_TEST- → DOC_TEST-/TEST-)
-5. **OPS Sprint 52-A 검토** — COMMON seed 15항목, scope='all' 기본값, Excel UPSERT 4컬럼
+2. **Sprint 26 구현 완료** — 체크리스트 관리 목업→BE 연동, TM 활성화, MECH/ELEC 블러
+3. **타입 필드 매핑 변경** — inspection_group→item_group, spec_criteria+inspection_method→description
+4. **활성 토글 UX 개선** — confirm 다이얼로그 + sonner 토스트 알림 추가
+5. **mock 파일 타입 업데이트** — 새 ChecklistMasterItem 필드에 맞게 수정 (참고용 유지)
 
 ---
 
 ## 진행 중 Sprint
 
-없음 — Sprint 26 설계 완료, 코드 미작성 (OPS Sprint 52 BE 배포 대기)
+없음 — Sprint 26까지 모두 완료
 
 ---
 
@@ -47,13 +47,14 @@
 
 ---
 
-## 금일 수정 완료 건 (2026-04-01)
+## 금일 수정 완료 건 (2026-04-02)
 
 | # | 내용 | 파일 |
 |---|------|------|
-| — | 테스트 S/N 필터 (DOC_TEST- + TEST-) | SNStatusPage.tsx, QrManagementPage.tsx |
-| — | Sprint 25 Part A: showTestSN 토글 | useSettings.ts, SNStatusSettingsPanel.tsx, SNStatusPage.tsx, QrManagementPage.tsx |
-| — | Sprint 25 Part B: TM 체크리스트 설정 | adminSettings.ts, ChecklistSettingsPanel.tsx, ChecklistManagePage.tsx |
+| — | ProcessStepCard 날짜 표시 (MM/DD HH:mm) | ProcessStepCard.tsx |
+| — | Sprint 26 Phase 1: API 전환 + 타입 수정 | checklist.ts, types/checklist.ts, useChecklistMaster.ts |
+| — | Sprint 26 Phase 2: UI 수정 | ChecklistManagePage, FilterBar, Table, AddModal |
+| — | 활성 토글 확인 다이얼로그 + 토스트 | ChecklistManagePage.tsx, ChecklistTable.tsx |
 
 ---
 
@@ -87,24 +88,23 @@
 
 ## 다음 세션에서 할 일 (제안)
 
-### 즉시 — Sprint 25 설명 텍스트 수정
-- SNStatusSettingsPanel L10265: `DOC_TEST- prefix S/N 포함` → `DOC_TEST- / TEST- prefix S/N 포함`
-
-### 단기 — Sprint 26 실행 (OPS Sprint 52 BE 배포 후)
-- 체크리스트 관리 페이지 목업→실제 API 전환
-- TM 탭 활성화 + MECH/ELEC 블러
+### 즉시 — Sprint 26 수동 테스트 (Phase 3)
+- TM 탭 → COMMON 자동 → 15개 항목 (4그룹) BE 데이터 확인
+- MECH/ELEC 블러 오버레이 동작 확인
+- 항목 추가/토글 API 호출 확인
+- ⚙️ TM 체크리스트 설정 패널 BE 저장/조회 확인
 
 ### 단기 — Defensive coding + 사용시간 변경
 - ProductionPerformancePage `?? []` 7개소
 - AnalyticsDashboardPage usage_minutes → last_access
 
+### 중기 — MECH/ELEC 체크리스트 활성화
+- 항목 확정 후 블러 해제 (별도 Sprint)
+
 ### 중기 — 사내서버 마이그레이션
 - Railway/Netlify → 사내서버 전환
-- SAP RFC 연동 가능 환경 구축
 
 ### 장기 — APS Lite
-- Phase 0: 데이터 축적 (factory_calendar, standard_manhour)
-- Phase 1: APS 엔진 개발/검증
 - 상세: `docs/APS_LITE_PLAN.md`
 
 ---

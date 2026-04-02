@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.20.0 (2026-04-01)
+> 최신 버전: v1.21.0 (2026-04-02)
 
 ---
 
@@ -70,6 +70,38 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.21.0 — 2026-04-02
+
+**신규 기능 — 체크리스트 관리 BE 연동 + TM 활성화 (Sprint 26)**
+
+### 체크리스트 관리 — TM 활성화
+- 목업 → 실제 BE API 연동 (OPS Sprint 52)
+- TM 탭 기본 선택 + COMMON 자동 고정 (전 모델 공통)
+- MECH/ELEC 탭 블러 오버레이 + "준비중" 표시
+- 필드 매핑 변경: item_group, description 통합
+- 항목 삭제 → 활성/비활성 토글로 교체 (PATCH API)
+- 토글 시 확인 다이얼로그 + 토스트 알림
+
+### 체크리스트 항목 추가 — 카테고리별 분기
+- TM/ELEC: item_type CHECK 자동 고정 (라디오 미표시)
+- MECH: CHECK/INPUT 선택 가능
+- 기준/SPEC + 검사방법 → description 통합 필드
+
+### S/N 상세 — 작업시간 날짜 표시
+- ProcessStepCard formatTime: HH:mm → MM/DD HH:mm (야간 작업 날짜 구분)
+
+### 수정 파일
+- `types/checklist.ts` — BE 필드 매핑 수정
+- `api/checklist.ts` — mock 제거, 실제 API 연결
+- `useChecklistMaster.ts` — useToggleMaster 추가
+- `ChecklistManagePage.tsx` — TM 기본 + 블러 + 확인 다이얼로그
+- `ChecklistFilterBar.tsx` — 블러 탭 + COMMON 표시
+- `ChecklistTable.tsx` — item_group/description 컬럼
+- `ChecklistAddModal.tsx` — 카테고리별 item_type 분기
+- `ProcessStepCard.tsx` — formatTime 날짜 추가 + item_group 참조 수정
 
 ---
 
