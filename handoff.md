@@ -19,7 +19,9 @@
 2. **Sprint 26 구현 완료** — 체크리스트 관리 목업→BE 연동, TM 활성화, MECH/ELEC 블러
 3. **타입 필드 매핑 변경** — inspection_group→item_group, spec_criteria+inspection_method→description
 4. **활성 토글 UX 개선** — confirm 다이얼로그 + sonner 토스트 알림 추가
-5. **mock 파일 타입 업데이트** — 새 ChecklistMasterItem 필드에 맞게 수정 (참고용 유지)
+5. **HOTFIX: 비활성 포함 체크박스** — BE에 `include_inactive` 파라미터 미전달 → 수정
+6. **HOTFIX: S/N 디테일뷰 크래시** — checklist.summary undefined → 옵셔널 체이닝 방어
+7. **HOTFIX: S/N 체크리스트 조회 분기** — TM만 실제 API, MECH/ELEC 빈 응답 (BE 미구현)
 
 ---
 
@@ -55,6 +57,9 @@
 | — | Sprint 26 Phase 1: API 전환 + 타입 수정 | checklist.ts, types/checklist.ts, useChecklistMaster.ts |
 | — | Sprint 26 Phase 2: UI 수정 | ChecklistManagePage, FilterBar, Table, AddModal |
 | — | 활성 토글 확인 다이얼로그 + 토스트 | ChecklistManagePage.tsx, ChecklistTable.tsx |
+| — | 비활성 포함 → BE include_inactive 전달 | checklist.ts, useChecklistMaster.ts, ChecklistManagePage.tsx |
+| — | S/N 디테일뷰 summary 크래시 수정 | ProcessStepCard.tsx |
+| — | S/N 체크리스트 TM/MECH 분기 | checklist.ts |
 
 ---
 

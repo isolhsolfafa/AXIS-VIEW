@@ -11106,3 +11106,9 @@ Phase 3 — 테스트
 - mock 파일(`mocks/checklist.ts`)은 TM 연동 확인 후 삭제 — MECH/ELEC 활성화 때까지 참고용 유지 가능
 - MECH/ELEC 블러 해제는 별도 Sprint (항목 확정 후)
 - `inspection_group` → `item_group` 리네이밍은 BE 필드 기준 통일
+
+### HOTFIX (Sprint 26 배포 후)
+- [x] 활성 토글 confirm 다이얼로그 + sonner 토스트 추가
+- [x] 비활성 포함 체크박스 → BE `include_inactive` 파라미터 전달
+- [x] S/N 디테일뷰 checklist.summary undefined 크래시 → 옵셔널 체이닝
+- [x] S/N 체크리스트 조회: TM만 실제 API, MECH/ELEC 빈 응답 반환
