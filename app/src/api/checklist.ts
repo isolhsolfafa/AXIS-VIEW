@@ -67,8 +67,16 @@ export async function getChecklistStatus(
     return { ...EMPTY_CHECKLIST, serial_number: serialNumber, category };
   }
 
-  const { data } = await apiClient.get<ChecklistStatusResponse>(
-    `/api/app/checklist/${serialNumber}/${category}`,
-  );
-  return data;
+  // BE 카테고리 키: TMS → TM 매핑
+  const beCategory = category === 'TMS' ? 'TM' : category;
+
+  try {
+    const { data } = await apiClient.get<ChecklistStatusResponse>(
+      `/api/app/checklist/${serialNumber}/${beCategory}`,
+    );
+    return data;
+  } catch {
+    // API 에러 시 빈 응답 (BE 미배포 등)
+    return { ...EMPTY_CHECKLIST, serial_number: serialNumber, category };
+  }
 }
