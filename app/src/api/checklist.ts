@@ -50,11 +50,23 @@ export async function getProductCodes(): Promise<string[]> {
 }
 
 // ── S/N별 체크리스트 상태 조회 ──
+// TM: BE 구현 완료 (OPS Sprint 52) → 실제 API
+// MECH/ELEC: BE 미구현 → 빈 응답 반환
+
+const EMPTY_CHECKLIST: ChecklistStatusResponse = {
+  serial_number: '', category: '', items: [],
+  summary: { total_check: 0, completed: 0, percent: 0 },
+};
 
 export async function getChecklistStatus(
   serialNumber: string,
   category: string,
 ): Promise<ChecklistStatusResponse> {
+  // MECH/ELEC은 BE 미구현 — 빈 응답
+  if (category !== 'TM' && category !== 'TMS') {
+    return { ...EMPTY_CHECKLIST, serial_number: serialNumber, category };
+  }
+
   const { data } = await apiClient.get<ChecklistStatusResponse>(
     `/api/app/checklist/${serialNumber}/${category}`,
   );
