@@ -5,6 +5,7 @@ import apiClient from './client';
 import type {
   ChecklistMasterResponse,
   ChecklistStatusResponse,
+  ChecklistStatusItem,
   CreateMasterPayload,
   UpdateMasterPayload,
 } from '@/types/checklist';
@@ -50,13 +51,38 @@ export async function getProductCodes(): Promise<string[]> {
 }
 
 // ── S/N별 체크리스트 상태 조회 ──
-// TM: BE 구현 완료 (OPS Sprint 52) → 실제 API
-// MECH/ELEC: BE 미구현 → 빈 응답 반환
+// BE 엔드포인트 구조 (Sprint 52):
+//   /api/app/checklist/tm/{sn}/status → { is_complete, checked_count, total_count }
+//   /api/app/checklist/tm/{sn}        → { items: [...], total } (groups 배열)
+// VIEW 기대 구조: ChecklistStatusResponse { serial_number, category, items, summary }
 
 const EMPTY_CHECKLIST: ChecklistStatusResponse = {
   serial_number: '', category: '', items: [],
   summary: { total_check: 0, completed: 0, percent: 0 },
 };
+
+interface BeStatusResponse {
+  is_complete: boolean;
+  checked_count: number;
+  total_count: number;
+}
+
+interface BeDetailItem {
+  id?: number;
+  item_group: string;
+  item_name: string;
+  item_type: 'CHECK' | 'INPUT';
+  description?: string | null;
+  status?: 'PASS' | 'NA' | null;
+  checked_at?: string | null;
+  worker_name?: string | null;
+}
+
+interface BeDetailResponse {
+  items?: BeDetailItem[];
+  groups?: { group_name: string; items: BeDetailItem[] }[];
+  total?: number;
+}
 
 export async function getChecklistStatus(
   serialNumber: string,
@@ -67,16 +93,60 @@ export async function getChecklistStatus(
     return { ...EMPTY_CHECKLIST, serial_number: serialNumber, category };
   }
 
-  // BE 카테고리 키: TMS → TM 매핑
-  const beCategory = category === 'TMS' ? 'TM' : category;
+  const beCat = 'tm';
 
   try {
-    const { data } = await apiClient.get<ChecklistStatusResponse>(
-      `/api/app/checklist/${serialNumber}/${beCategory}`,
-    );
-    return data;
+    // status + 상세 병렬 호출
+    const [statusRes, detailRes] = await Promise.all([
+      apiClient.get<BeStatusResponse>(`/api/app/checklist/${beCat}/${serialNumber}/status`).catch(() => null),
+      apiClient.get<BeDetailResponse>(`/api/app/checklist/${beCat}/${serialNumber}`).catch(() => null),
+    ]);
+
+    // summary 구성
+    const st = statusRes?.data;
+    const totalCheck = st?.total_count ?? 0;
+    const completed = st?.checked_count ?? 0;
+    const percent = totalCheck > 0 ? Math.round((completed / totalCheck) * 100) : 0;
+
+    // items 구성 — groups 배열 또는 items 배열 둘 다 대응
+    const detail = detailRes?.data;
+    let flatItems: BeDetailItem[] = [];
+    if (detail?.groups && Array.isArray(detail.groups)) {
+      for (const g of detail.groups) {
+        for (const item of g.items ?? []) {
+          flatItems.push({ ...item, item_group: item.item_group ?? g.group_name });
+        }
+      }
+    } else if (detail?.items && Array.isArray(detail.items)) {
+      flatItems = detail.items;
+    }
+
+    const items: ChecklistStatusItem[] = flatItems.map((item, i) => ({
+      master_id: item.id ?? i,
+      item_group: item.item_group ?? '',
+      item_name: item.item_name,
+      item_type: item.item_type ?? 'CHECK',
+      description: item.description ?? null,
+      record: item.status ? {
+        id: item.id ?? i,
+        serial_number: serialNumber,
+        master_id: item.id ?? i,
+        status: item.status,
+        note: null,
+        judgment_round: 1,
+        worker_id: 0,
+        worker_name: item.worker_name ?? '',
+        checked_at: item.checked_at ?? '',
+      } : null,
+    }));
+
+    return {
+      serial_number: serialNumber,
+      category,
+      items,
+      summary: { total_check: totalCheck, completed, percent },
+    };
   } catch {
-    // API 에러 시 빈 응답 (BE 미배포 등)
     return { ...EMPTY_CHECKLIST, serial_number: serialNumber, category };
   }
 }
