@@ -27,6 +27,22 @@ function formatTime(isoStr: string | null): string {
   return `${mm}/${dd} ${hh}:${mi}`;
 }
 
+/**
+ * 이름 마스킹 — 개인정보 보호
+ * 3글자: 임지후 → 임*후 | 2글자: 김솔 → 김* | 4글자+: 남궁지후 → 남궁*후
+ * 영문/특수문자 포함 이름: 마스킹 안함
+ */
+function maskName(name: string): string {
+  if (!name) return '';
+  // 한글로만 구성된 이름만 마스킹
+  if (!/^[가-힣]+$/.test(name)) return name;
+  const len = name.length;
+  if (len <= 1) return name;
+  if (len === 2) return name[0] + '*';
+  // 3글자 이상: 첫 글자 + * + 마지막 글자
+  return name[0] + '*'.repeat(len - 2) + name[len - 1];
+}
+
 function formatDuration(minutes: number | null): string {
   if (minutes == null) return '—';
   if (minutes >= 60) {
@@ -147,7 +163,7 @@ export default function ProcessStepCard({ task, displayLabel, categoryPercent, c
               }}
             >
               <span style={{ color: 'var(--gx-slate)', fontWeight: 500, minWidth: '56px' }}>
-                👤 {w.worker_name}
+                👤 {maskName(w.worker_name)}
                 {w.task_name && (
                   <span style={{ color: 'var(--gx-silver)', fontWeight: 400, fontSize: '10px', marginLeft: '4px' }}>
                     {w.task_name}
