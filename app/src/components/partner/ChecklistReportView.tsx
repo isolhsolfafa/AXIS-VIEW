@@ -43,7 +43,28 @@ async function exportPDF(data: ChecklistReportData) {
     mel.textContent = mel.getAttribute('data-fullname') ?? mel.textContent;
   });
 
-  const canvas = await html2canvas(el, { scale: 2, useCORS: true });
+  // html2canvas oklch() 미지원 우회
+  // Tailwind CSS 4가 oklch() 사용 → html2canvas 파싱 에러
+  // 해결: 캡처 영역을 임시 clone하여 oklch를 제거한 뒤 캡처
+  const clone = el.cloneNode(true) as HTMLElement;
+  clone.style.position = 'absolute';
+  clone.style.left = '-9999px';
+  clone.style.top = '0';
+  document.body.appendChild(clone);
+
+  // clone 내부 모든 요소의 computed color를 inline으로 강제 적용 (브라우저가 rgb로 resolve)
+  const allEls = [clone, ...clone.querySelectorAll('*')] as HTMLElement[];
+  const colorProps = ['color', 'backgroundColor', 'borderColor'] as const;
+  for (const htmlEl of allEls) {
+    const computed = getComputedStyle(htmlEl);
+    for (const prop of colorProps) {
+      const val = computed[prop];
+      if (val) htmlEl.style[prop] = val; // 브라우저 resolve된 rgb 값으로 덮어씀
+    }
+  }
+
+  const canvas = await html2canvas(clone, { scale: 2, useCORS: true });
+  document.body.removeChild(clone);
 
   // 마스킹 복원
   originals.forEach(({ el: mel, text }) => { mel.textContent = text; });
