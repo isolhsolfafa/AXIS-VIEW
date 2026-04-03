@@ -134,7 +134,7 @@ const navGroups: NavGroup[] = [
           { label: '평가지수', to: '/partner/evaluation', preparing: true },
           { label: '물량할당', to: '/partner/allocation', preparing: true },
           { label: '근태 관리', to: '/partner/attendance' },
-          { label: '체크리스트', to: '/partner/report' },
+          { label: '체크리스트', to: '/partner/report', preparing: true },
         ],
       },
       {
@@ -145,7 +145,7 @@ const navGroups: NavGroup[] = [
         children: [
           { label: '생산일정', to: '/production/plan' },
           { label: '생산현황', to: '/production/status' },
-          { label: '생산실적', to: '/production/performance', preparing: true },
+          { label: '생산실적', to: '/production/performance' },
           { label: '출하이력', to: '/production/shipment', preparing: true },
         ],
       },

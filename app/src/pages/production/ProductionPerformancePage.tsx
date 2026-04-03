@@ -700,9 +700,7 @@ export default function ProductionPerformancePage() {
                     </>
                   )}
                 </>
-              ) : (
-                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>{perfData?.month ?? ''}</span>
-              )}
+              ) : null}
 
               {isAdmin && (
                 <div style={{ marginLeft: 'auto', position: 'relative' }}>
