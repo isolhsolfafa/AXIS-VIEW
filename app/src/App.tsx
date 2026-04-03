@@ -21,6 +21,7 @@ import ChecklistManagePage from '@/pages/checklist/ChecklistManagePage';
 import PermissionsPage from '@/pages/admin/PermissionsPage';
 import InactiveWorkersPage from '@/pages/admin/InactiveWorkersPage';
 import AnalyticsDashboardPage from '@/pages/analytics/AnalyticsDashboardPage';
+import ChecklistReportPage from '@/pages/partner/ChecklistReportPage';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 function NotFoundPage() {
@@ -77,6 +78,14 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['admin', 'manager']}>
               <AttendancePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/partner/report"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+              <ChecklistReportPage />
             </ProtectedRoute>
           }
         />

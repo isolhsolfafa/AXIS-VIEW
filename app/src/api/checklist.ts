@@ -8,6 +8,8 @@ import type {
   ChecklistStatusItem,
   CreateMasterPayload,
   UpdateMasterPayload,
+  ChecklistReportData,
+  OrderSNListResponse,
 } from '@/types/checklist';
 
 // ── 마스터 CRUD ──
@@ -149,4 +151,36 @@ export async function getChecklistStatus(
   } catch {
     return { ...EMPTY_CHECKLIST, serial_number: serialNumber, category };
   }
+}
+
+// ── 성적서 조회 (Sprint 28) ──
+
+/** 월별 S/N 목록 또는 O/N/S/N 검색 → S/N 목록 */
+export async function searchSNList(opts: {
+  query?: string;
+  month?: string;   // YYYY-MM
+}): Promise<OrderSNListResponse> {
+  const params: Record<string, string> = {};
+
+  if (opts.query) {
+    const isSN = /^[A-Z]{2,5}-/.test(opts.query.toUpperCase());
+    if (isSN) params.serial_number = opts.query;
+    else params.sales_order = opts.query;
+  }
+
+  if (opts.month) params.month = opts.month;
+
+  const { data } = await apiClient.get<OrderSNListResponse>(
+    '/api/admin/checklist/report/orders',
+    { params },
+  );
+  return data;
+}
+
+/** S/N별 전체 카테고리 체크리스트 성적서 */
+export async function getChecklistReport(serialNumber: string): Promise<ChecklistReportData> {
+  const { data } = await apiClient.get<ChecklistReportData>(
+    `/api/admin/checklist/report/${serialNumber}`,
+  );
+  return data;
 }

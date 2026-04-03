@@ -11491,6 +11491,68 @@ Phase 3 — 테스트
 - 월 이동(◀▶) 기능은 이번 범위 외 — 추후 추가
 - 주차 계산: ISO 8601 기준 (월요일 시작, `getISOWeek` 함수)
 
+### Sprint 27 보완 — BE `weeks` + `totals` API 연동 (OPS #53)
+
+> 추가일: 2026-04-03
+> 상태: Sprint 27 FE 구현 완료. BE `monthly-summary` API에 `weeks`/`totals` 미반영 → OPS Sprint 53에서 추가 예정
+> FE 추가 수정: 없음 (MonthlyCalendarView가 이미 `data.weeks ?? []` 소비)
+
+#### 주차-월 매핑 기준: 금요일
+
+경계 주차(월 걸침) 처리 — **해당 주차 금요일이 속하는 월 = 소속 월**
+
+```
+W14 (3/30 월 ~ 4/5 일) → 금 = 4/3 → 4월 소속
+W39 (9/28 월 ~ 10/4 일) → 금 = 10/2 → 10월 소속
+```
+
+- 생산계획 기준 금요일이 주의 마지막 근무일
+- 한국 공휴일 무관 (달력상 금요일 날짜 고정)
+- `confirmed_month` 컬럼 저장 방식 변경 없음 — 조회 뷰 전용 매핑
+
+#### BE API 변경 (OPS Sprint 53)
+
+`GET /api/admin/production/monthly-summary` 응답에 `weeks` + `totals` 추가:
+
+```json
+{
+  "month": "2026-04",
+  "weeks": [
+    {
+      "week": "W14",
+      "mech": { "completed": 3, "confirmed": 2 },
+      "elec": { "completed": 4, "confirmed": 3 },
+      "tm":   { "completed": 1, "confirmed": 0 }
+    }
+  ],
+  "totals": {
+    "mech": { "completed": 8, "confirmed": 7 },
+    "elec": { "completed": 9, "confirmed": 8 },
+    "tm":   { "completed": 3, "confirmed": 1 }
+  },
+  "orders": [],
+  "confirms": {}
+}
+```
+
+#### completed 판정 기준
+
+| 공정 | 기준 | 비고 |
+|------|------|------|
+| mech | `task_category='MECH'` 전체 100% | |
+| elec | `task_category='ELEC'` 전체 100% | |
+| tm | `task_category='TMS'`, `task_id='TANK_MODULE'`만 | PRESSURE_TEST 제외 (Sprint 37-A) |
+
+- 주차 배정: S/N의 `mech_end` 기준 ISO 주차
+- confirmed: `production_confirm.confirmed_week` 기준
+
+#### FE 영향
+
+없음. MonthlyCalendarView는 이미 아래 구조로 소비:
+- `data.weeks ?? []` → 캘린더 행별 실적 바
+- `data.totals` → 하단 합계
+- BE Sprint 53 배포 시 자동 연동
+
 ---
 
 # Sprint 28 — 체크리스트 성적서 페이지 (2026-04-03)
@@ -11499,7 +11561,7 @@ Phase 3 — 테스트
 > 트랙: VIEW FE + BE API 1건
 > 선행: OPS Sprint 52 (TM 체크리스트 BE 완료)
 > 난이도: 상 (신규 페이지 + PDF export + API 1건)
-> 수정 파일: 4개 (신규 3 + 기존 2 수정)
+> 수정 파일: 6개 (신규 2 + 기존 4 수정)
 > 신규 컴포넌트: `ChecklistReportPage.tsx`, `ChecklistReportView.tsx`
 > 신규 API: `getChecklistReport(serialNumber)`
 > 신규 유틸: PDF export 함수
@@ -11525,11 +11587,12 @@ Phase 3 — 테스트
 ## 수정 대상 파일
 
 ```
-1. app/src/pages/partner/ChecklistReportPage.tsx    (신규 — 성적서 페이지)
+1. app/src/pages/partner/ChecklistReportPage.tsx      (신규 — 성적서 페이지)
 2. app/src/components/partner/ChecklistReportView.tsx (신규 — 성적서 뷰 컴포넌트)
-3. app/src/api/checklist.ts                          (수정 — 성적서 API 추가)
-4. app/src/types/checklist.ts                        (수정 — 성적서 타입 추가)
-5. app/src/App.tsx                                   (수정 — 라우트 추가)
+3. app/src/api/checklist.ts                           (수정 — 성적서 API + mock 추가)
+4. app/src/types/checklist.ts                         (수정 — 성적서 타입 추가)
+5. app/src/App.tsx                                    (수정 — 라우트 추가)
+6. app/src/components/layout/Sidebar.tsx              (수정 — 성적서 탭 추가)
 ```
 
 ## A. 타입 정의 — types/checklist.ts 추가
@@ -11585,27 +11648,87 @@ export interface OrderSNListResponse {
 ```typescript
 // ── 성적서 조회 (Sprint 28) ──
 
-/** O/N 기준 S/N 목록 */
-export async function getOrderSNList(salesOrder: string): Promise<OrderSNListResponse> {
+/** O/N 또는 S/N 검색 → S/N 목록 */
+export async function searchSNList(query: string): Promise<OrderSNListResponse> {
+  // S/N 패턴 감지: GBWS- 또는 SWS- 등 prefix
+  const isSN = /^[A-Z]{2,5}-/.test(query.toUpperCase());
+  const params = isSN
+    ? { serial_number: query }
+    : { sales_order: query };
+
   const { data } = await apiClient.get<OrderSNListResponse>(
     '/api/admin/checklist/report/orders',
-    { params: { sales_order: salesOrder } },
+    { params },
   );
   return data;
 }
 
 /** S/N별 전체 카테고리 체크리스트 성적서 */
 export async function getChecklistReport(serialNumber: string): Promise<ChecklistReportData> {
-  const { data } = await apiClient.get<ChecklistReportData>(
-    `/api/admin/checklist/report/${serialNumber}`,
-  );
-  return data;
+  try {
+    // BE #54-B 구현 완료 시 → 실제 API
+    const { data } = await apiClient.get<ChecklistReportData>(
+      `/api/admin/checklist/report/${serialNumber}`,
+    );
+    return data;
+  } catch {
+    // BE #54-B 미구현 시 → TM 실데이터 + MECH/ELEC mock 조합
+    const tmData = await getChecklistStatus(serialNumber, 'TM');
+    const tmCategory: ChecklistReportCategory = {
+      category: 'TM', label: 'TM (모듈)',
+      items: tmData.items.map(i => ({
+        item_group: i.item_group, item_name: i.item_name,
+        item_type: i.item_type, description: i.description,
+        result: i.record?.status ?? null, input_value: null,
+        worker_name: i.record?.worker_name ?? null,
+        checked_at: i.record?.checked_at ?? null,
+      })),
+      summary: tmData.summary,
+    };
+    return {
+      serial_number: serialNumber,
+      model: '', sales_order: null, customer: '',
+      categories: [...getMockCategories(), tmCategory],
+      generated_at: new Date().toISOString(),
+    };
+  }
+}
+
+// ── Mock: MECH/ELEC (BE 미구현) — TM은 실제 API 사용 ──
+
+const MOCK_MECH_ITEMS: ChecklistReportItem[] = [
+  { item_group: '프레임', item_name: '프레임 수평 확인', item_type: 'CHECK', description: null, result: null, input_value: null, worker_name: null, checked_at: null },
+  { item_group: '프레임', item_name: '볼트 토크값', item_type: 'INPUT', description: '규격: 25±2 Nm', result: null, input_value: null, worker_name: null, checked_at: null },
+];
+
+const MOCK_ELEC_ITEMS: ChecklistReportItem[] = [
+  { item_group: '배선', item_name: '케이블 결선 상태', item_type: 'CHECK', description: null, result: null, input_value: null, worker_name: null, checked_at: null },
+  { item_group: '배선', item_name: '절연저항 측정', item_type: 'INPUT', description: '기준: 100MΩ 이상', result: null, input_value: null, worker_name: null, checked_at: null },
+];
+
+/** MECH/ELEC mock 카테고리 생성 (BE 미구현 시 fallback) */
+export function getMockCategories(): ChecklistReportCategory[] {
+  return [
+    {
+      category: 'MECH', label: '기구 (MECH)',
+      items: MOCK_MECH_ITEMS,
+      summary: { total: MOCK_MECH_ITEMS.length, completed: 0, percent: 0 },
+    },
+    {
+      category: 'ELEC', label: '전장 (ELEC)',
+      items: MOCK_ELEC_ITEMS,
+      summary: { total: MOCK_ELEC_ITEMS.length, completed: 0, percent: 0 },
+    },
+  ];
 }
 ```
 
-> **BE API 필요 (OPS Sprint 신규):**
+> **BE API 필요 (OPS #54):**
 > 1. `GET /api/admin/checklist/report/orders?sales_order=6656` → O/N에 속한 S/N 목록
-> 2. `GET /api/admin/checklist/report/{serial_number}` → S/N 전체 카테고리 체크리스트 결과 통합
+> 2. `GET /api/admin/checklist/report/orders?serial_number=GBWS-69` → S/N 부분검색
+> 3. `GET /api/admin/checklist/report/{serial_number}` → S/N 전체 카테고리 체크리스트 결과 통합
+>
+> **Mock 전략:** BE #54 미구현 시 → TM은 기존 `getChecklistStatus(sn, 'TM')` 실데이터 활용, MECH/ELEC은 `getMockCategories()`로 빈 항목 표시
 
 ## C. ChecklistReportPage.tsx — 성적서 페이지 (신규)
 
@@ -11616,7 +11739,7 @@ export async function getChecklistReport(serialNumber: string): Promise<Checklis
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Search, FileText } from 'lucide-react';
-import { getOrderSNList, getChecklistReport } from '@/api/checklist';
+import { searchSNList, getChecklistReport } from '@/api/checklist';
 import ChecklistReportView from '@/components/partner/ChecklistReportView';
 import type { OrderSNListResponse, ChecklistReportData } from '@/types/checklist';
 
@@ -11626,10 +11749,10 @@ export default function ChecklistReportPage() {
   const [searchQuery, setSearchQuery] = useState('');     // 실제 검색 트리거
   const [selectedSN, setSelectedSN] = useState<string | null>(null);
 
-  // ── O/N 검색 → S/N 목록 ──
+  // ── O/N 또는 S/N 검색 → S/N 목록 ──
   const { data: orderData, isLoading: orderLoading } = useQuery({
-    queryKey: ['orderSNList', searchQuery],
-    queryFn: () => getOrderSNList(searchQuery),
+    queryKey: ['searchSNList', searchQuery],
+    queryFn: () => searchSNList(searchQuery),
     enabled: !!searchQuery,
   });
 
@@ -12039,13 +12162,14 @@ cd app && npm install html2canvas jspdf
 > 화면 렌더링 → 캔버스 캡처 → A4 PDF 변환.
 > PDF 출력 시 `data-fullname` 속성으로 마스킹 해제 → 풀네임 표시 → 캡처 후 마스킹 복원.
 
-## H. BE API 요청 사항 (OPS Sprint 신규)
+## H. BE API 요청 사항 (OPS #54)
 
-VIEW에서 필요한 BE 엔드포인트 2건:
+VIEW에서 필요한 BE 엔드포인트 2건 → `OPS_API_REQUESTS.md` #54-A, #54-B에 등록 완료.
 
-### H-1. O/N 기준 S/N 목록 조회
+### H-1. O/N 또는 S/N 검색 → S/N 목록 조회 (OPS #54-A)
 ```
 GET /api/admin/checklist/report/orders?sales_order=6656
+GET /api/admin/checklist/report/orders?serial_number=GBWS-69  (부분검색, LIKE '%GBWS-69%')
 ```
 응답:
 ```json
@@ -12058,7 +12182,7 @@ GET /api/admin/checklist/report/orders?sales_order=6656
 }
 ```
 
-### H-2. S/N 전체 체크리스트 성적서
+### H-2. S/N 전체 체크리스트 성적서 (OPS #54-B)
 ```
 GET /api/admin/checklist/report/GBWS-6920
 ```
@@ -12098,23 +12222,36 @@ GET /api/admin/checklist/report/GBWS-6920
 ## 체크리스트
 
 ```
-Phase 1 — 의존성 + 타입
-[ ] npm install html2canvas jspdf
-[ ] types/checklist.ts에 성적서 타입 추가
-[ ] api/checklist.ts에 성적서 API 함수 추가
+Phase 1 — 의존성 + 타입 + API
+[x] npm install html2canvas jspdf
+[x] types/checklist.ts에 성적서 타입 추가
+[x] api/checklist.ts에 성적서 API 함수 추가 (searchSNList, getChecklistReport)
+[x] mock/fallback 코드 제거 (BE #54 배포 완료)
 
 Phase 2 — 컴포넌트 구현
-[ ] ChecklistReportView.tsx 신규 생성
-[ ] ChecklistReportPage.tsx 신규 생성
-[ ] App.tsx 라우트 추가 (/partner/report)
-[ ] 사이드바 네비게이션에 '성적서' 탭 추가
-[ ] npm run build 성공 확인
+[x] ChecklistReportView.tsx 신규 생성
+[x] ChecklistReportPage.tsx 신규 생성 (월별 기본뷰 + 검색)
+[x] App.tsx 라우트 추가 (/partner/report)
+[x] Sidebar.tsx에 '성적서' 탭 추가
+[x] npm run build 성공 확인
+
+Phase 2.5 — 피드백 반영 (2026-04-03)
+[x] mock/fallback 코드 전면 제거 → BE 직접 호출
+[x] 월별 기본뷰 추가 (현재 월 S/N 자동 로드 + 월 네비게이션)
+[x] 카테고리 명칭: 기구, 전장 (괄호 영문 제거)
+[x] 전체 폰트 +2px 증가 (테이블 13px, 라벨 14px, 헤더 22px)
+[x] searchSNList에 month 파라미터 추가
+[ ] BE #54-A에 month 파라미터 지원 요청 등록 (OPS_API_REQUESTS.md)
 
 Phase 3 — 테스트
 [ ] 테스트: 협력사 관리 → 성적서 탭 진입
+[ ] 테스트: 월별 기본뷰 — 현재 월 S/N 목록 자동 표시
+[ ] 테스트: 월 네비게이션 (이전/다음 월 이동)
 [ ] 테스트: O/N 검색 → S/N 목록 표시
+[ ] 테스트: S/N 직접 검색 (GBWS- prefix) → S/N 목록 표시
+[ ] 테스트: 검색 초기화 → 월별 뷰 복귀
 [ ] 테스트: S/N 클릭 → 성적서 뷰 표시
-[ ] 테스트: 카테고리별 체크리스트 테이블 렌더링
+[ ] 테스트: 카테고리별 체크리스트 테이블 렌더링 (기구/전장/TM)
 [ ] 테스트: 화면에서 이름 마스킹 확인 (임*후)
 [ ] 테스트: PDF 다운로드 → 이름 풀네임 확인
 [ ] 테스트: PDF A4 포맷, 페이지 분할 정상
@@ -12126,7 +12263,8 @@ Phase 3 — 테스트
 
 - 코드 변경 전 반드시 사용자 승인
 - npm run build 실패 시 즉시 수정
-- BE API 미구현 시 mock 데이터로 먼저 구현 → BE 완료 후 전환
+- Mock 전략: TM → 실제 `getChecklistStatus(sn, 'TM')` API, MECH/ELEC → `getMockCategories()` mock
+- BE #54 완료 시 `getChecklistReport()` 실제 API로 전환, mock 제거
 - GST 로고: `LOGO_PLACEHOLDER` 변수로 관리 — 로고 파일 공유 후 교체
 - PDF 출력 시 마스킹 해제 (data-fullname 속성 활용)
 - categories 배열 동적 순회 — MECH/ELEC BE 확장 시 FE 수정 불필요

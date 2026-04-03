@@ -74,3 +74,47 @@ export interface ChecklistStatusItem {
   description: string | null;
   record: ChecklistRecord | null;
 }
+
+// ── 성적서용 타입 (Sprint 28) ──
+
+/** S/N 성적서 — 전체 카테고리 체크리스트 통합 */
+export interface ChecklistReportData {
+  serial_number: string;
+  model: string;
+  sales_order: string | null;    // O/N
+  customer: string;
+  categories: ChecklistReportCategory[];
+  generated_at: string;           // 조회 시점
+}
+
+export interface ChecklistReportCategory {
+  category: 'MECH' | 'ELEC' | 'TM';
+  label: string;                  // 기구 / 전장 / TM
+  items: ChecklistReportItem[];
+  summary: {
+    total: number;
+    completed: number;
+    percent: number;
+  };
+}
+
+export interface ChecklistReportItem {
+  item_group: string;
+  item_name: string;
+  item_type: 'CHECK' | 'INPUT';
+  description: string | null;
+  result: 'PASS' | 'NA' | null;         // CHECK 타입
+  input_value: string | null;            // INPUT 타입 (MECH)
+  worker_name: string | null;
+  checked_at: string | null;
+}
+
+/** O/N 기준 S/N 목록 조회 */
+export interface OrderSNListResponse {
+  sales_order: string;
+  products: {
+    serial_number: string;
+    model: string;
+    overall_percent: number;
+  }[];
+}
