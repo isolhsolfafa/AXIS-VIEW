@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-04-03 | 버전: v1.22.0
+> 최종 갱신: 2026-04-03 | 버전: v1.23.0
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -175,7 +175,7 @@ VITE_USE_MOCK=false
 
 ---
 
-## 페이지 구성 (19개, v1.22.0 기준)
+## 페이지 구성 (20개, v1.23.0 기준)
 
 ### 사이드바 메뉴 구조
 
@@ -185,11 +185,12 @@ VITE_USE_MOCK=false
   ├─ 대시보드        /partner                    (preparing)
   ├─ 평가지수        /partner/evaluation         (preparing)
   ├─ 물량할당        /partner/allocation         (preparing)
-  └─ 근태 관리       /partner/attendance
+  ├─ 근태 관리       /partner/attendance
+  └─ 체크리스트      /partner/report
 생산관리            /production/plan             [admin, manager, gst]
   ├─ 생산일정        /production/plan
   ├─ 생산현황        /production/status
-  ├─ 생산실적        /production/performance     (preparing)
+  ├─ 생산실적        /production/performance
   └─ 출하이력        /production/shipment        (preparing)
 QR 관리             /qr                          [admin, manager, gst]
   ├─ QR Registry    /qr
@@ -222,7 +223,7 @@ CT 분석            /ct                            [admin, gst] (preparing)
 | qr.ts | getQrList | `/api/admin/qr/*` |
 | etl.ts | getEtlChanges | `/api/admin/etl/*` |
 | notices.ts | getNotices | `/api/notices` |
-| checklist.ts | getMasters, getRecords, upsertMaster, deleteMaster | `/api/admin/checklist/*` |
+| checklist.ts | getMasters, getRecords, upsertMaster, deleteMaster, searchSNList, getChecklistReport | `/api/admin/checklist/*` |
 | adminSettings.ts | getSettings, updateSettings | `/api/admin/settings/*` |
 
 ---
@@ -381,6 +382,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | 25 | 페이지별 설정 패널 (테스트 S/N 토글 + TM 체크리스트 옵션) | ✅ 완료 |
 | 26 | 체크리스트 관리 BE 연동 + TM 활성화 | ✅ 완료 |
 | 27 | 월마감 캘린더 뷰 | ✅ 완료 |
+| 28 | 체크리스트 성적서 페이지 | ✅ 완료 |
 | 40-C | 비활성 사용자 관리 (VIEW 연동) | ✅ 완료 |
 | 40-C+ | Manager 비활성화 요청 기능 | ✅ 완료 |
 
