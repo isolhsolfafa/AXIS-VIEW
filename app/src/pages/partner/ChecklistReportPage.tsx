@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Search, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import Layout from '@/components/layout/Layout';
 import { searchSNList, getChecklistReport } from '@/api/checklist';
 import ChecklistReportView from '@/components/partner/ChecklistReportView';
 
@@ -74,6 +75,7 @@ export default function ChecklistReportPage() {
   }
 
   return (
+    <Layout title="체크리스트 성적서">
     <div style={{ display: 'flex', gap: '20px', height: '100%', padding: '24px' }}>
       {/* ── 좌측: 월 선택 + 검색 + S/N 목록 ── */}
       <div style={{
@@ -208,5 +210,6 @@ export default function ChecklistReportPage() {
         {reportData && <ChecklistReportView data={reportData} />}
       </div>
     </div>
+    </Layout>
   );
 }
