@@ -15,14 +15,14 @@ import MonthlyCalendarView from '@/components/production/MonthlyCalendarView';
 
 /* ─── MiniProgress ─────────────────────────────────── */
 function MiniProgress({ value, total }: { value: number; total?: number }) {
-  if (total === 0) return <span style={{ fontSize: '10px', color: 'var(--gx-silver)', fontStyle: 'italic' }}>N/A</span>;
+  if (total === 0) return <span style={{ fontSize: '12px', color: 'var(--gx-silver)', fontStyle: 'italic' }}>N/A</span>;
   const color = value >= 100 ? 'var(--gx-success)' : value > 0 ? 'var(--gx-accent)' : 'var(--gx-mist)';
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-      <div style={{ width: '44px', height: '4px', borderRadius: '2px', background: 'var(--gx-cloud)', overflow: 'hidden', flexShrink: 0 }}>
+      <div style={{ width: '48px', height: '5px', borderRadius: '2px', background: 'var(--gx-cloud)', overflow: 'hidden', flexShrink: 0 }}>
         <div style={{ width: `${Math.min(value, 100)}%`, height: '100%', borderRadius: '2px', background: color, transition: 'width 0.3s' }} />
       </div>
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', fontWeight: 600, color, minWidth: '28px' }}>
+      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', fontWeight: 600, color, minWidth: '32px' }}>
         {value >= 100 ? '100%' : `${value}%`}
       </span>
     </div>
@@ -214,18 +214,18 @@ function SNConfirmButton({ sn, onConfirm, pending }: {
   pending: boolean;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px', padding: '1px 0' }}>
-      <span style={{ fontSize: '9px', fontFamily: "'JetBrains Mono', monospace", color: 'var(--gx-graphite)' }}>{sn.serial_number.slice(-4)}</span>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', padding: '2px 0' }}>
+      <span style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: 'var(--gx-graphite)' }}>{sn.serial_number.slice(-4)}</span>
       {sn.confirmed ? (
-        <span style={{ fontSize: '7px', fontWeight: 600, padding: '1px 5px', borderRadius: '4px', background: 'rgba(16,185,129,0.08)', color: 'var(--gx-success)' }}>✓</span>
+        <span style={{ fontSize: '9px', fontWeight: 600, padding: '2px 7px', borderRadius: '4px', background: 'rgba(16,185,129,0.08)', color: 'var(--gx-success)' }}>✓</span>
       ) : sn.confirmable ? (
         <button onClick={(e) => { e.stopPropagation(); onConfirm([sn.serial_number]); }} disabled={pending} style={{
-          fontSize: '7px', fontWeight: 600, padding: '1px 5px', borderRadius: '4px',
+          fontSize: '9px', fontWeight: 600, padding: '2px 7px', borderRadius: '4px',
           background: 'var(--gx-accent)', color: '#fff', border: 'none',
           cursor: pending ? 'not-allowed' : 'pointer', opacity: pending ? 0.6 : 1,
         }}>확인</button>
       ) : (
-        <span style={{ fontSize: '7px', color: 'var(--gx-silver)' }}>대기</span>
+        <span style={{ fontSize: '9px', color: 'var(--gx-silver)' }}>대기</span>
       )}
     </div>
   );
@@ -249,13 +249,13 @@ function ProcessCell({ processType: _, processStatus, partnerDisplay, mixed, onC
     return (
       <td style={{ padding: '12px 14px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <span style={{ fontSize: '11px', color: 'var(--gx-silver)', fontStyle: 'italic' }}>N/A</span>
+          <span style={{ fontSize: '12px', color: 'var(--gx-silver)', fontStyle: 'italic' }}>N/A</span>
           {partnerDisplay && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ fontSize: '10px', color: 'var(--gx-steel)' }}>{partnerDisplay}</span>
+              <span style={{ fontSize: '12px', color: 'var(--gx-steel)' }}>{partnerDisplay}</span>
               {mixed && (
                 <span style={{
-                  fontSize: '7.5px', fontWeight: 700, padding: '1px 4px', borderRadius: '3px',
+                  fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px',
                   background: 'rgba(245,158,11,0.1)', color: 'var(--gx-warning)',
                 }}>혼재</span>
               )}
@@ -274,7 +274,7 @@ function ProcessCell({ processType: _, processStatus, partnerDisplay, mixed, onC
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', fontWeight: 700, color: 'var(--gx-silver)' }}>
             {processStatus.ready}/{processStatus.total}
           </span>
-          <span style={{ fontSize: '9px', fontWeight: 600, padding: '2px 8px', borderRadius: '8px', background: 'var(--gx-cloud)', color: 'var(--gx-steel)', display: 'inline-block', width: 'fit-content' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '8px', background: 'var(--gx-cloud)', color: 'var(--gx-steel)', display: 'inline-block', width: 'fit-content' }}>
             확인 비활성
           </span>
         </div>
@@ -312,15 +312,15 @@ function ProcessCell({ processType: _, processStatus, partnerDisplay, mixed, onC
               return (
                 <div key={pc.partner} style={{ marginBottom: '4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--gx-graphite)' }}>{pc.partner}</span>
-                    {pc.all_confirmed && <span style={{ fontSize: '7px', color: 'var(--gx-success)' }}>✓</span>}
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gx-graphite)' }}>{pc.partner}</span>
+                    {pc.all_confirmed && <span style={{ fontSize: '9px', color: 'var(--gx-success)' }}>✓</span>}
                   </div>
                   {pc.sn_confirms.map(sc => (
                     <SNConfirmButton key={sc.serial_number} sn={sc} onConfirm={(sns) => onConfirm(sns, pc.partner)} pending={confirmPending} />
                   ))}
                   {confirmableSNs.length > 1 && (
                     <button onClick={(e) => { e.stopPropagation(); onBatchConfirm(confirmableSNs, pc.partner); }} disabled={confirmPending} style={{
-                      fontSize: '7px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px', marginTop: '2px',
+                      fontSize: '9px', fontWeight: 600, padding: '3px 8px', borderRadius: '4px', marginTop: '3px',
                       background: 'rgba(99,102,241,0.06)', color: 'var(--gx-accent)', border: '1px solid rgba(99,102,241,0.2)',
                       cursor: confirmPending ? 'not-allowed' : 'pointer', width: '100%',
                     }}>일괄확인 ({confirmableSNs.length})</button>
@@ -355,10 +355,10 @@ function ProcessCell({ processType: _, processStatus, partnerDisplay, mixed, onC
           </div>
           {partnerDisplay && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ fontSize: '10px', color: 'var(--gx-steel)' }}>{partnerDisplay}</span>
+              <span style={{ fontSize: '12px', color: 'var(--gx-steel)' }}>{partnerDisplay}</span>
               {mixed && (
                 <span style={{
-                  fontSize: '7.5px', fontWeight: 700, padding: '1px 4px', borderRadius: '3px',
+                  fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px',
                   background: 'rgba(245,158,11,0.1)', color: 'var(--gx-warning)',
                 }}>혼재</span>
               )}
@@ -399,7 +399,7 @@ function ProcessCell({ processType: _, processStatus, partnerDisplay, mixed, onC
 
           {processStatus.confirmed ? (
             <span style={{
-              fontSize: '9px', fontWeight: 600, padding: '2px 8px', borderRadius: '8px',
+              fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '8px',
               background: 'rgba(16,185,129,0.08)', color: 'var(--gx-success)',
               display: 'inline-flex', alignItems: 'center', gap: '3px',
             }}>
@@ -410,7 +410,7 @@ function ProcessCell({ processType: _, processStatus, partnerDisplay, mixed, onC
               onClick={(e) => { e.stopPropagation(); onConfirm([]); }}
               disabled={confirmPending}
               style={{
-                fontSize: '9px', fontWeight: 600, padding: '3px 10px', borderRadius: '8px',
+                fontSize: '11px', fontWeight: 600, padding: '4px 12px', borderRadius: '8px',
                 background: 'var(--gx-accent)', color: '#fff',
                 border: 'none', cursor: confirmPending ? 'not-allowed' : 'pointer',
                 boxShadow: '0 1px 4px rgba(99,102,241,0.3)',
@@ -442,7 +442,7 @@ function ProcessCell({ processType: _, processStatus, partnerDisplay, mixed, onC
 /* ─── 메인 ──────────────────────────────────────────── */
 export default function ProductionPerformancePage() {
   const [activeWeek, setActiveWeek] = useState<string>('');
-  const [activeView, setActiveView] = useState<'weekly' | 'monthly'>('weekly');
+  const [activeView, setActiveView] = useState<'weekly' | 'monthly'>('monthly');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<'all' | 'done' | 'pending'>('all');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -550,7 +550,7 @@ export default function ProductionPerformancePage() {
           <svg width="16" height="16" viewBox="0 0 20 20" fill="var(--gx-accent)" style={{ flexShrink: 0 }}>
             <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 4a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.828a1 1 0 101.415-1.414L11 9.586V6z"/>
           </svg>
-          <div style={{ fontSize: '11.5px', color: 'var(--gx-steel)' }}>
+          <div style={{ fontSize: '13px', color: 'var(--gx-steel)' }}>
             OPS 공정 100% →
             <strong style={{ color: 'var(--gx-accent)', margin: '0 3px' }}>실적확인</strong>
             (공정별 개별) → 확인 이력 DB 저장 → 월마감 정산 → 재무·회계 근거
@@ -585,10 +585,10 @@ export default function ProductionPerformancePage() {
                   background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
                   padding: '18px 20px', boxShadow: 'var(--shadow-card)',
                 }}>
-                  <div style={{ fontSize: '10.5px', fontWeight: 500, color: 'var(--gx-steel)', letterSpacing: '0.3px', marginBottom: '8px' }}>{k.label}</div>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-steel)', letterSpacing: '0.3px', marginBottom: '8px' }}>{k.label}</div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
                     <span style={{ fontSize: '24px', fontWeight: 700, color: 'var(--gx-charcoal)', fontFamily: "'JetBrains Mono', monospace" }}>{k.value}</span>
-                    <span style={{ fontSize: '10.5px', color: k.sub.includes('가능') ? k.color : 'var(--gx-steel)' }}>{k.sub}</span>
+                    <span style={{ fontSize: '12px', color: k.sub.includes('가능') ? k.color : 'var(--gx-steel)' }}>{k.sub}</span>
                   </div>
                   <div style={{ marginTop: '8px', height: '3px', borderRadius: '2px', background: 'var(--gx-cloud)' }}>
                     <div style={{ width: '55%', height: '100%', borderRadius: '2px', background: k.color }} />
@@ -703,7 +703,7 @@ export default function ProductionPerformancePage() {
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>{perfData?.month ?? ''}</span>
-                  <span style={{ fontSize: '9px', fontWeight: 600, padding: '2px 8px', borderRadius: '8px', background: 'rgba(245,158,11,0.08)', color: 'var(--gx-warning)' }}>마감 전</span>
+                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '8px', background: 'rgba(245,158,11,0.08)', color: 'var(--gx-warning)' }}>마감 전</span>
                 </div>
               )}
 
@@ -738,7 +738,7 @@ export default function ProductionPerformancePage() {
                         ].map((h, i) => (
                           <th key={h + i} style={{
                             padding: '11px 14px', textAlign: 'left',
-                            fontSize: '10px', fontWeight: 600, color: 'var(--gx-steel)',
+                            fontSize: '12px', fontWeight: 600, color: 'var(--gx-steel)',
                             letterSpacing: '0.5px', textTransform: 'uppercase',
                             whiteSpace: 'nowrap', borderBottom: '2px solid var(--gx-mist)',
                             width: i === 0 ? '32px' : 'auto',
@@ -780,10 +780,10 @@ export default function ProductionPerformancePage() {
                             <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--gx-charcoal)', fontSize: '12px', whiteSpace: 'nowrap' }}>{order.model}</td>
                             {/* S/N 요약 */}
                             <td style={{ padding: '12px 14px' }}>
-                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--gx-graphite)' }}>
+                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--gx-graphite)' }}>
                                 {order.sn_summary}
                               </span>
-                              <span style={{ fontSize: '10px', color: 'var(--gx-steel)', marginLeft: '5px' }}>({order.sn_count}대)</span>
+                              <span style={{ fontSize: '11px', color: 'var(--gx-steel)', marginLeft: '5px' }}>({order.sn_count}대)</span>
                             </td>
                             {/* 기구·전장 탭일 때 */}
                             {activeProcessTab === 'mech_elec' && (

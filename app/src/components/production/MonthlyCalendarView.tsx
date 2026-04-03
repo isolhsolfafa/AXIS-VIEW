@@ -84,10 +84,10 @@ export default function MonthlyCalendarView({ data, currentWeek, onWeekClick }: 
     }}>
       {/* 헤더 */}
       <div style={{ padding: '18px 24px 12px' }}>
-        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)', marginBottom: '3px' }}>
+        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--gx-charcoal)', marginBottom: '3px' }}>
           {data.month} 월마감
         </div>
-        <div style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>
+        <div style={{ fontSize: '12px', color: 'var(--gx-steel)' }}>
           주차 클릭 → 해당 주간 실적으로 이동
         </div>
       </div>
@@ -99,13 +99,13 @@ export default function MonthlyCalendarView({ data, currentWeek, onWeekClick }: 
             <tr>
               {DOW.map(d => (
                 <th key={d} style={{
-                  padding: '8px 4px', textAlign: 'center', fontSize: '11px',
+                  padding: '8px 4px', textAlign: 'center', fontSize: '12px',
                   fontWeight: 600,
                   color: d === '일' ? 'var(--gx-danger, #EF4444)' : d === '토' ? 'var(--gx-info)' : 'var(--gx-steel)',
                 }}>{d}</th>
               ))}
               <th style={{
-                padding: '8px 12px', textAlign: 'center', fontSize: '11px',
+                padding: '8px 12px', textAlign: 'center', fontSize: '12px',
                 fontWeight: 600, color: 'var(--gx-steel)', minWidth: '180px',
               }}>주차 실적</th>
             </tr>
@@ -162,7 +162,7 @@ export default function MonthlyCalendarView({ data, currentWeek, onWeekClick }: 
                     {row.weekLabel && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <span style={{
-                          fontSize: '11px', fontWeight: 600,
+                          fontSize: '12px', fontWeight: 600,
                           fontFamily: "'JetBrains Mono', monospace",
                           color: isCurrent ? 'var(--gx-accent)' : 'var(--gx-slate)',
                           minWidth: '30px',
@@ -170,7 +170,7 @@ export default function MonthlyCalendarView({ data, currentWeek, onWeekClick }: 
                           {row.weekLabel}
                           {isCurrent && (
                             <span style={{
-                              fontSize: '7px', fontWeight: 600, padding: '1px 4px', borderRadius: '4px',
+                              fontSize: '9px', fontWeight: 600, padding: '2px 5px', borderRadius: '4px',
                               background: 'rgba(99,102,241,0.08)', color: 'var(--gx-accent)',
                               marginLeft: '3px', verticalAlign: 'middle',
                             }}>현재</span>
@@ -179,16 +179,16 @@ export default function MonthlyCalendarView({ data, currentWeek, onWeekClick }: 
 
                         {hasData && (
                           <span style={{
-                            fontSize: '11px', color: 'var(--gx-success)',
+                            fontSize: '12px', color: 'var(--gx-success)',
                             fontFamily: "'JetBrains Mono', monospace",
                           }}>
-                            기전 <b>{mechElecConfirmed}</b>
+                            기구·전장 <b>{mechElecConfirmed}</b>
                           </span>
                         )}
 
                         {hasData && (
                           <span style={{
-                            fontSize: '11px', color: 'var(--gx-accent)',
+                            fontSize: '12px', color: 'var(--gx-accent)',
                             fontFamily: "'JetBrains Mono', monospace",
                           }}>
                             TM <b>{tmConfirmed}</b>
@@ -235,7 +235,7 @@ export default function MonthlyCalendarView({ data, currentWeek, onWeekClick }: 
         }}>
           <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--gx-charcoal)' }}>합계</span>
           <span style={{ fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
-            기전 확인 <b style={{ color: 'var(--gx-success)' }}>
+            기구·전장 확인 <b style={{ color: 'var(--gx-success)' }}>
               {(data.totals?.mech?.confirmed ?? 0) + (data.totals?.elec?.confirmed ?? 0)}
             </b>
             <span style={{ color: 'var(--gx-silver)', margin: '0 4px' }}>/</span>

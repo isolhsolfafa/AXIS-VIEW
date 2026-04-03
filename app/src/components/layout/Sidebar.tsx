@@ -134,7 +134,7 @@ const navGroups: NavGroup[] = [
           { label: '평가지수', to: '/partner/evaluation', preparing: true },
           { label: '물량할당', to: '/partner/allocation', preparing: true },
           { label: '근태 관리', to: '/partner/attendance' },
-          { label: '성적서', to: '/partner/report' },
+          { label: '체크리스트', to: '/partner/report' },
         ],
       },
       {
