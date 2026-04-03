@@ -23,9 +23,10 @@ interface CalendarWeekRow {
 }
 
 function getISOWeek(d: Date): string {
-  const tmp = new Date(d.getTime());
-  tmp.setDate(tmp.getDate() + 3 - ((tmp.getDay() + 6) % 7));
-  const yearStart = new Date(tmp.getFullYear(), 0, 4);
+  const tmp = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dayNum = tmp.getDay() || 7; // 일요일=7
+  tmp.setDate(tmp.getDate() + 4 - dayNum); // 해당 주 목요일
+  const yearStart = new Date(tmp.getFullYear(), 0, 1);
   const weekNum = Math.ceil(((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   return `W${String(weekNum).padStart(2, '0')}`;
 }
