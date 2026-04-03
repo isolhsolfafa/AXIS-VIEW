@@ -44,27 +44,51 @@ async function exportPDF(data: ChecklistReportData) {
   });
 
   // html2canvas oklch() 미지원 우회
-  // Tailwind CSS 4가 oklch() 사용 → html2canvas 파싱 에러
-  // 해결: 캡처 영역을 임시 clone하여 oklch를 제거한 뒤 캡처
-  const clone = el.cloneNode(true) as HTMLElement;
-  clone.style.position = 'absolute';
-  clone.style.left = '-9999px';
-  clone.style.top = '0';
-  document.body.appendChild(clone);
+  // html2canvas가 stylesheet 자체를 파싱하면서 oklch()를 만나 에러 발생
+  // 해결: 캡처 시 모든 stylesheet를 임시 비활성화 (inline style만으로 렌더링)
+  const sheets = document.querySelectorAll('style, link[rel="stylesheet"]');
+  const disabledSheets: { el: HTMLElement; wasDisabled: boolean }[] = [];
+  sheets.forEach((s) => {
+    const sheet = s as HTMLStyleElement | HTMLLinkElement;
+    const wasDisabled = (sheet as any).disabled ?? false;
+    (sheet as any).disabled = true;
+    disabledSheets.push({ el: sheet, wasDisabled });
+  });
 
-  // clone 내부 모든 요소의 computed color를 inline으로 강제 적용 (브라우저가 rgb로 resolve)
-  const allEls = [clone, ...clone.querySelectorAll('*')] as HTMLElement[];
-  const colorProps = ['color', 'backgroundColor', 'borderColor'] as const;
+  // 캡처 대상 + 내부 요소에 computed style을 inline으로 강제 적용
+  const allEls = [el, ...el.querySelectorAll('*')] as HTMLElement[];
+  const styleBackups: { el: HTMLElement; original: string }[] = [];
+
+  // stylesheet 활성 상태에서 computed style 수집을 위해 잠시 복원
+  disabledSheets.forEach(({ el: s, wasDisabled }) => { (s as any).disabled = wasDisabled; });
+
   for (const htmlEl of allEls) {
+    styleBackups.push({ el: htmlEl, original: htmlEl.getAttribute('style') ?? '' });
     const computed = getComputedStyle(htmlEl);
-    for (const prop of colorProps) {
-      const val = computed[prop];
-      if (val) htmlEl.style[prop] = val; // 브라우저 resolve된 rgb 값으로 덮어씀
+    const important = [
+      'color', 'background-color', 'background', 'border-color',
+      'border-top-color', 'border-bottom-color', 'border-left-color', 'border-right-color',
+      'outline-color', 'box-shadow', 'text-decoration-color',
+    ];
+    for (const prop of important) {
+      const val = computed.getPropertyValue(prop);
+      if (val && val !== 'none' && val !== 'rgba(0, 0, 0, 0)') {
+        htmlEl.style.setProperty(prop, val);
+      }
     }
   }
 
-  const canvas = await html2canvas(clone, { scale: 2, useCORS: true });
-  document.body.removeChild(clone);
+  // 이제 stylesheet 비활성화하고 캡처 (oklch 없는 inline만 남음)
+  disabledSheets.forEach(({ el: s }) => { (s as any).disabled = true; });
+
+  const canvas = await html2canvas(el, { scale: 2, useCORS: true });
+
+  // stylesheet 복원 + inline style 복원
+  disabledSheets.forEach(({ el: s, wasDisabled }) => { (s as any).disabled = wasDisabled; });
+  styleBackups.forEach(({ el: htmlEl, original }) => {
+    if (original) htmlEl.setAttribute('style', original);
+    else htmlEl.removeAttribute('style');
+  });
 
   // 마스킹 복원
   originals.forEach(({ el: mel, text }) => { mel.textContent = text; });
