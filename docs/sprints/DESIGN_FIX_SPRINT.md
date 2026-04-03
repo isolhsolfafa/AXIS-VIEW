@@ -11462,13 +11462,14 @@ import MonthlyCalendarView from '@/components/production/MonthlyCalendarView';
 
 ```
 Phase 1 — 컴포넌트 생성
-[ ] MonthlyCalendarView.tsx 신규 생성
-[ ] npm run build 성공 확인
+[x] MonthlyCalendarView.tsx 신규 생성
+[x] npm run build 성공 확인
 
 Phase 2 — 페이지 연동
-[ ] ProductionPerformancePage.tsx — 기존 테이블 → MonthlyCalendarView 교체
-[ ] import 추가
-[ ] npm run build 성공 확인
+[x] ProductionPerformancePage.tsx — 기존 테이블 → MonthlyCalendarView 교체
+[x] import 추가
+[x] 미사용 코드 제거 (thStyle, subThStyle, numCellStyle, MonthlyCell)
+[x] npm run build 성공 확인
 
 Phase 3 — 테스트
 [ ] 테스트: 월마감 토글 → 캘린더 표시 (에러 없음)
@@ -11489,3 +11490,643 @@ Phase 3 — 테스트
 - 기존 `useMonthlySummary` API 그대로 활용 (BE 변경 없음)
 - 월 이동(◀▶) 기능은 이번 범위 외 — 추후 추가
 - 주차 계산: ISO 8601 기준 (월요일 시작, `getISOWeek` 함수)
+
+---
+
+# Sprint 28 — 체크리스트 성적서 페이지 (2026-04-03)
+
+> 등록일: 2026-04-03
+> 트랙: VIEW FE + BE API 1건
+> 선행: OPS Sprint 52 (TM 체크리스트 BE 완료)
+> 난이도: 상 (신규 페이지 + PDF export + API 1건)
+> 수정 파일: 4개 (신규 3 + 기존 2 수정)
+> 신규 컴포넌트: `ChecklistReportPage.tsx`, `ChecklistReportView.tsx`
+> 신규 API: `getChecklistReport(serialNumber)`
+> 신규 유틸: PDF export 함수
+
+## 배경
+
+고객사 오딧(Audit) 시 S/N별 체크리스트 결과를 성적서 형태로 제출해야 함.
+현재 SN 상세뷰(ProcessStepCard)에서는 간략 요약만 제공되므로, 전체 항목을 테이블 형태로 보여주고 PDF export가 가능한 독립 페이지가 필요.
+
+**결정 사항:**
+- 위치: 협력사 관리(`/partner`) 하위 탭 추가 → `/partner/report`
+- 접근 권한: `admin`, `manager` (기존 협력사 관리와 동일)
+- 뷰 단위: O/N(수주번호) 기준 검색 → 하위 S/N 목록 → S/N별 성적서
+- 이름 마스킹: 화면에서는 `maskName` 적용, PDF 출력 시에는 풀네임
+- GST 로고: 변경 가능하도록 설정 (placeholder → 추후 로고 파일 교체)
+
+**기존 인프라:**
+- `getChecklistStatus(sn, category)` — S/N별 카테고리 체크리스트 상태 조회 (현재 TM만)
+- `ChecklistStatusResponse` — items + summary 구조
+- `SNProduct.sales_order` — O/N 필드 (BE #51 후 활성화)
+- `maskName()` — `utils/format.ts` 공통 유틸
+
+## 수정 대상 파일
+
+```
+1. app/src/pages/partner/ChecklistReportPage.tsx    (신규 — 성적서 페이지)
+2. app/src/components/partner/ChecklistReportView.tsx (신규 — 성적서 뷰 컴포넌트)
+3. app/src/api/checklist.ts                          (수정 — 성적서 API 추가)
+4. app/src/types/checklist.ts                        (수정 — 성적서 타입 추가)
+5. app/src/App.tsx                                   (수정 — 라우트 추가)
+```
+
+## A. 타입 정의 — types/checklist.ts 추가
+
+```typescript
+// ── 성적서용 타입 (Sprint 28) ──
+
+/** S/N 성적서 — 전체 카테고리 체크리스트 통합 */
+export interface ChecklistReportData {
+  serial_number: string;
+  model: string;
+  sales_order: string | null;    // O/N
+  customer: string;
+  categories: ChecklistReportCategory[];
+  generated_at: string;           // 조회 시점
+}
+
+export interface ChecklistReportCategory {
+  category: 'MECH' | 'ELEC' | 'TM';
+  label: string;                  // 기구 / 전장 / TM
+  items: ChecklistReportItem[];
+  summary: {
+    total: number;
+    completed: number;
+    percent: number;
+  };
+}
+
+export interface ChecklistReportItem {
+  item_group: string;
+  item_name: string;
+  item_type: 'CHECK' | 'INPUT';
+  description: string | null;
+  result: 'PASS' | 'NA' | null;         // CHECK 타입
+  input_value: string | null;            // INPUT 타입 (MECH)
+  worker_name: string | null;
+  checked_at: string | null;
+}
+
+/** O/N 기준 S/N 목록 조회 */
+export interface OrderSNListResponse {
+  sales_order: string;
+  products: {
+    serial_number: string;
+    model: string;
+    overall_percent: number;
+  }[];
+}
+```
+
+## B. API 추가 — api/checklist.ts
+
+```typescript
+// ── 성적서 조회 (Sprint 28) ──
+
+/** O/N 기준 S/N 목록 */
+export async function getOrderSNList(salesOrder: string): Promise<OrderSNListResponse> {
+  const { data } = await apiClient.get<OrderSNListResponse>(
+    '/api/admin/checklist/report/orders',
+    { params: { sales_order: salesOrder } },
+  );
+  return data;
+}
+
+/** S/N별 전체 카테고리 체크리스트 성적서 */
+export async function getChecklistReport(serialNumber: string): Promise<ChecklistReportData> {
+  const { data } = await apiClient.get<ChecklistReportData>(
+    `/api/admin/checklist/report/${serialNumber}`,
+  );
+  return data;
+}
+```
+
+> **BE API 필요 (OPS Sprint 신규):**
+> 1. `GET /api/admin/checklist/report/orders?sales_order=6656` → O/N에 속한 S/N 목록
+> 2. `GET /api/admin/checklist/report/{serial_number}` → S/N 전체 카테고리 체크리스트 결과 통합
+
+## C. ChecklistReportPage.tsx — 성적서 페이지 (신규)
+
+```typescript
+// src/pages/partner/ChecklistReportPage.tsx
+// 체크리스트 성적서 — Sprint 28
+
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Search, FileText } from 'lucide-react';
+import { getOrderSNList, getChecklistReport } from '@/api/checklist';
+import ChecklistReportView from '@/components/partner/ChecklistReportView';
+import type { OrderSNListResponse, ChecklistReportData } from '@/types/checklist';
+
+export default function ChecklistReportPage() {
+  // ── 검색 상태 ──
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');     // 실제 검색 트리거
+  const [selectedSN, setSelectedSN] = useState<string | null>(null);
+
+  // ── O/N 검색 → S/N 목록 ──
+  const { data: orderData, isLoading: orderLoading } = useQuery({
+    queryKey: ['orderSNList', searchQuery],
+    queryFn: () => getOrderSNList(searchQuery),
+    enabled: !!searchQuery,
+  });
+
+  // ── S/N 선택 → 성적서 데이터 ──
+  const { data: reportData, isLoading: reportLoading } = useQuery({
+    queryKey: ['checklistReport', selectedSN],
+    queryFn: () => getChecklistReport(selectedSN!),
+    enabled: !!selectedSN,
+  });
+
+  function handleSearch() {
+    const q = searchInput.trim();
+    if (!q) return;
+    setSearchQuery(q);
+    setSelectedSN(null);
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '20px', height: '100%', padding: '24px' }}>
+      {/* ── 좌측: 검색 + S/N 목록 ── */}
+      <div style={{
+        width: '320px', flexShrink: 0,
+        display: 'flex', flexDirection: 'column', gap: '16px',
+      }}>
+        {/* 검색바 */}
+        <div style={{
+          display: 'flex', gap: '8px',
+          background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-md, 10px)',
+          padding: '12px 16px', border: '1px solid var(--gx-mist)',
+        }}>
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            placeholder="O/N 또는 S/N 검색"
+            style={{
+              flex: 1, border: 'none', outline: 'none', fontSize: '13px',
+              background: 'transparent', color: 'var(--gx-charcoal)',
+            }}
+          />
+          <button onClick={handleSearch} style={{
+            background: 'var(--gx-accent)', border: 'none', borderRadius: '6px',
+            padding: '6px 12px', cursor: 'pointer', color: '#fff',
+            display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px',
+          }}>
+            <Search size={14} /> 검색
+          </button>
+        </div>
+
+        {/* S/N 목록 */}
+        <div style={{
+          flex: 1, overflow: 'auto',
+          background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-md, 10px)',
+          border: '1px solid var(--gx-mist)', padding: '8px',
+        }}>
+          {orderLoading && (
+            <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--gx-steel)' }}>
+              검색 중...
+            </div>
+          )}
+          {!searchQuery && (
+            <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: '12px', color: 'var(--gx-silver)' }}>
+              <FileText size={32} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
+              <div>O/N 또는 S/N을 검색하세요</div>
+            </div>
+          )}
+          {orderData && orderData.products.length === 0 && (
+            <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--gx-silver)' }}>
+              검색 결과가 없습니다
+            </div>
+          )}
+          {orderData?.products.map((p) => (
+            <div
+              key={p.serial_number}
+              onClick={() => setSelectedSN(p.serial_number)}
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                border: selectedSN === p.serial_number ? '2px solid var(--gx-accent)' : '1px solid transparent',
+                background: selectedSN === p.serial_number ? 'rgba(99,102,241,0.04)' : 'transparent',
+                marginBottom: '4px',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gx-charcoal)', fontFamily: "'JetBrains Mono', monospace" }}>
+                {p.serial_number}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>{p.model}</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: p.overall_percent === 100 ? 'var(--gx-success)' : 'var(--gx-slate)' }}>
+                  {p.overall_percent}%
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── 우측: 성적서 뷰 ── */}
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        {!selectedSN && (
+          <div style={{
+            height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-md, 10px)',
+            border: '1px solid var(--gx-mist)', color: 'var(--gx-silver)', fontSize: '13px',
+          }}>
+            좌측에서 S/N을 선택하면 체크리스트 성적서가 표시됩니다
+          </div>
+        )}
+        {reportLoading && (
+          <div style={{
+            height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-md, 10px)',
+            border: '1px solid var(--gx-mist)', color: 'var(--gx-steel)', fontSize: '13px',
+          }}>
+            성적서 로딩 중...
+          </div>
+        )}
+        {reportData && <ChecklistReportView data={reportData} />}
+      </div>
+    </div>
+  );
+}
+```
+
+## D. ChecklistReportView.tsx — 성적서 뷰 컴포넌트 (신규)
+
+```typescript
+// src/components/partner/ChecklistReportView.tsx
+// 체크리스트 성적서 뷰 — Sprint 28
+
+import { useRef } from 'react';
+import { Download } from 'lucide-react';
+import { maskName } from '@/utils/format';
+import type { ChecklistReportData, ChecklistReportCategory } from '@/types/checklist';
+
+// GST 로고 — 추후 실제 로고 파일로 교체
+// import logoSrc from '@/assets/images/gst-logo.png';
+const LOGO_PLACEHOLDER = ''; // 로고 경로 설정 후 교체
+
+const CATEGORY_LABEL: Record<string, string> = {
+  MECH: '기구 (MECH)',
+  ELEC: '전장 (ELEC)',
+  TM: 'TM (모듈)',
+};
+
+interface Props {
+  data: ChecklistReportData;
+}
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${dd} ${hh}:${mi}`;
+}
+
+// ── PDF Export ──
+async function exportPDF(data: ChecklistReportData) {
+  // html2canvas + jsPDF 동적 로드
+  const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+    import('html2canvas'),
+    import('jspdf'),
+  ]);
+
+  const el = document.getElementById('checklist-report-print');
+  if (!el) return;
+
+  // PDF 출력 시 마스킹 해제: data-fullname 속성의 텍스트로 교체
+  const maskedEls = el.querySelectorAll('[data-fullname]');
+  const originals: { el: Element; text: string }[] = [];
+  maskedEls.forEach((mel) => {
+    originals.push({ el: mel, text: mel.textContent ?? '' });
+    mel.textContent = mel.getAttribute('data-fullname') ?? mel.textContent;
+  });
+
+  const canvas = await html2canvas(el, { scale: 2, useCORS: true });
+
+  // 마스킹 복원
+  originals.forEach(({ el: mel, text }) => { mel.textContent = text; });
+
+  const imgData = canvas.toDataURL('image/png');
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdfW = pdf.internal.pageSize.getWidth();
+  const pdfH = (canvas.height * pdfW) / canvas.width;
+
+  // 페이지 분할
+  let yOffset = 0;
+  const pageH = pdf.internal.pageSize.getHeight();
+  while (yOffset < pdfH) {
+    if (yOffset > 0) pdf.addPage();
+    pdf.addImage(imgData, 'PNG', 0, -yOffset, pdfW, pdfH);
+    yOffset += pageH;
+  }
+
+  pdf.save(`체크리스트_성적서_${data.serial_number}.pdf`);
+}
+
+export default function ChecklistReportView({ data }: Props) {
+  return (
+    <div style={{
+      background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-md, 10px)',
+      border: '1px solid var(--gx-mist)', overflow: 'hidden',
+    }}>
+      {/* 툴바 — PDF 다운로드 */}
+      <div style={{
+        display: 'flex', justifyContent: 'flex-end', padding: '12px 16px',
+        borderBottom: '1px solid var(--gx-cloud)',
+      }}>
+        <button
+          onClick={() => exportPDF(data)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            background: 'var(--gx-accent)', color: '#fff', border: 'none',
+            borderRadius: '6px', padding: '8px 16px', cursor: 'pointer',
+            fontSize: '12px', fontWeight: 600,
+          }}
+        >
+          <Download size={14} /> PDF 다운로드
+        </button>
+      </div>
+
+      {/* 성적서 본문 — PDF 캡처 영역 */}
+      <div id="checklist-report-print" style={{ padding: '32px', maxWidth: '800px', margin: '0 auto' }}>
+        {/* 헤더: 로고 + 타이틀 */}
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          {LOGO_PLACEHOLDER && (
+            <img src={LOGO_PLACEHOLDER} alt="GST" style={{ height: '40px', marginBottom: '8px' }} />
+          )}
+          <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--gx-charcoal)', margin: '0 0 4px' }}>
+            공정 체크리스트 성적서
+          </h2>
+          <p style={{ fontSize: '11px', color: 'var(--gx-steel)', margin: 0 }}>
+            Process Checklist Inspection Report
+          </p>
+        </div>
+
+        {/* 기본정보 테이블 */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px', fontSize: '12px' }}>
+          <tbody>
+            <tr>
+              <td style={infoLabelStyle}>S/N</td>
+              <td style={infoValueStyle}>{data.serial_number}</td>
+              <td style={infoLabelStyle}>모델</td>
+              <td style={infoValueStyle}>{data.model}</td>
+            </tr>
+            <tr>
+              <td style={infoLabelStyle}>O/N (수주번호)</td>
+              <td style={infoValueStyle}>{data.sales_order ?? '—'}</td>
+              <td style={infoLabelStyle}>고객사</td>
+              <td style={infoValueStyle}>{data.customer ?? '—'}</td>
+            </tr>
+            <tr>
+              <td style={infoLabelStyle}>출력일시</td>
+              <td style={infoValueStyle} colSpan={3}>{formatDateTime(data.generated_at)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* 카테고리별 체크리스트 */}
+        {data.categories.map((cat) => (
+          <CategoryTable key={cat.category} cat={cat} />
+        ))}
+
+        {/* 하단 */}
+        <div style={{ marginTop: '32px', borderTop: '1px solid var(--gx-cloud)', paddingTop: '12px', fontSize: '10px', color: 'var(--gx-silver)', textAlign: 'center' }}>
+          본 성적서는 G-AXIS VIEW 시스템에서 자동 생성되었습니다.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 카테고리 테이블 ──
+function CategoryTable({ cat }: { cat: ChecklistReportCategory }) {
+  if (cat.items.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: '24px' }}>
+      {/* 카테고리 헤더 */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '8px 12px', background: 'var(--gx-cloud)', borderRadius: '6px 6px 0 0',
+      }}>
+        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--gx-charcoal)' }}>
+          {CATEGORY_LABEL[cat.category] ?? cat.category}
+        </span>
+        <span style={{
+          fontSize: '11px', fontWeight: 600,
+          color: cat.summary.percent === 100 ? 'var(--gx-success)' : 'var(--gx-steel)',
+        }}>
+          {cat.summary.completed} / {cat.summary.total} 완료 ({cat.summary.percent}%)
+        </span>
+      </div>
+
+      {/* 테이블 */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+        <thead>
+          <tr style={{ background: 'var(--gx-mist)' }}>
+            <th style={thStyle}>No</th>
+            <th style={thStyle}>항목그룹</th>
+            <th style={thStyle}>항목명</th>
+            <th style={thStyle}>유형</th>
+            <th style={thStyle}>결과</th>
+            <th style={thStyle}>작업자</th>
+            <th style={thStyle}>확인일시</th>
+          </tr>
+        </thead>
+        <tbody>
+          {cat.items.map((item, idx) => (
+            <tr key={idx} style={{ borderBottom: '1px solid var(--gx-cloud)' }}>
+              <td style={tdStyle}>{idx + 1}</td>
+              <td style={tdStyle}>{item.item_group}</td>
+              <td style={tdStyle}>{item.item_name}</td>
+              <td style={{ ...tdStyle, textAlign: 'center' }}>
+                {item.item_type === 'CHECK' ? '✓' : '입력'}
+              </td>
+              <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 600, color: resultColor(item) }}>
+                {item.item_type === 'INPUT'
+                  ? (item.input_value ?? '—')
+                  : (item.result ?? '—')}
+              </td>
+              <td style={tdStyle}>
+                <span data-fullname={item.worker_name ?? ''}>
+                  {item.worker_name ? maskName(item.worker_name) : '—'}
+                </span>
+              </td>
+              <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px' }}>
+                {formatDateTime(item.checked_at)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function resultColor(item: { result: string | null; item_type: string }): string {
+  if (item.item_type === 'INPUT') return 'var(--gx-charcoal)';
+  if (item.result === 'PASS') return 'var(--gx-success)';
+  if (item.result === 'NA') return 'var(--gx-steel)';
+  return 'var(--gx-silver)';
+}
+
+// ── 스타일 상수 ──
+const infoLabelStyle: React.CSSProperties = {
+  padding: '6px 10px', fontWeight: 600, color: 'var(--gx-slate)',
+  background: 'var(--gx-cloud)', border: '1px solid var(--gx-mist)', width: '120px',
+};
+const infoValueStyle: React.CSSProperties = {
+  padding: '6px 10px', color: 'var(--gx-charcoal)',
+  border: '1px solid var(--gx-mist)',
+};
+const thStyle: React.CSSProperties = {
+  padding: '6px 8px', textAlign: 'left', fontWeight: 600,
+  color: 'var(--gx-slate)', borderBottom: '2px solid var(--gx-mist)',
+};
+const tdStyle: React.CSSProperties = {
+  padding: '6px 8px', color: 'var(--gx-charcoal)',
+};
+```
+
+## E. 라우트 등록 — App.tsx
+
+```typescript
+// 기존 partner 라우트 그룹에 추가:
+import ChecklistReportPage from '@/pages/partner/ChecklistReportPage';
+
+// /partner 하위 라우트에 추가:
+<Route path="/partner/report" element={
+  <ProtectedRoute allowedRoles={['admin', 'manager']}>
+    <ChecklistReportPage />
+  </ProtectedRoute>
+} />
+```
+
+## F. 사이드바 네비게이션 — 탭 추가
+
+기존 협력사 관리 사이드바 탭 구성:
+```
+대시보드 | 평가지수 | 물량할당 | 근태 관리
+```
+
+변경 후:
+```
+대시보드 | 평가지수 | 물량할당 | 근태 관리 | 성적서
+```
+
+사이드바 네비게이션 배열에 추가:
+```typescript
+{ label: '성적서', path: '/partner/report', icon: FileText }
+```
+
+## G. 의존성 — html2canvas + jsPDF
+
+```bash
+cd app && npm install html2canvas jspdf
+```
+
+> **참고:** html2canvas + jsPDF 조합으로 클라이언트 사이드 PDF 생성.
+> 화면 렌더링 → 캔버스 캡처 → A4 PDF 변환.
+> PDF 출력 시 `data-fullname` 속성으로 마스킹 해제 → 풀네임 표시 → 캡처 후 마스킹 복원.
+
+## H. BE API 요청 사항 (OPS Sprint 신규)
+
+VIEW에서 필요한 BE 엔드포인트 2건:
+
+### H-1. O/N 기준 S/N 목록 조회
+```
+GET /api/admin/checklist/report/orders?sales_order=6656
+```
+응답:
+```json
+{
+  "sales_order": "6656",
+  "products": [
+    { "serial_number": "GBWS-6920", "model": "GAIA-I DUAL", "overall_percent": 14 },
+    { "serial_number": "GBWS-6921", "model": "GAIA-I DUAL", "overall_percent": 0 }
+  ]
+}
+```
+
+### H-2. S/N 전체 체크리스트 성적서
+```
+GET /api/admin/checklist/report/GBWS-6920
+```
+응답:
+```json
+{
+  "serial_number": "GBWS-6920",
+  "model": "GAIA-I DUAL",
+  "sales_order": "6656",
+  "customer": "MICRON",
+  "categories": [
+    {
+      "category": "TM",
+      "label": "TM",
+      "items": [
+        {
+          "item_group": "BURNER",
+          "item_name": "가스 밸브 작동 상태",
+          "item_type": "CHECK",
+          "description": null,
+          "result": "PASS",
+          "input_value": null,
+          "worker_name": "김태영",
+          "checked_at": "2026-04-01T14:30:00"
+        }
+      ],
+      "summary": { "total": 15, "completed": 12, "percent": 80 }
+    }
+  ],
+  "generated_at": "2026-04-03T10:00:00"
+}
+```
+
+> **참고:** MECH/ELEC 체크리스트 BE가 완료되면 categories 배열에 자동 포함.
+> 현재는 TM만 반환되며, FE는 categories 배열을 그대로 순회하므로 BE 확장 시 FE 수정 불필요.
+
+## 체크리스트
+
+```
+Phase 1 — 의존성 + 타입
+[ ] npm install html2canvas jspdf
+[ ] types/checklist.ts에 성적서 타입 추가
+[ ] api/checklist.ts에 성적서 API 함수 추가
+
+Phase 2 — 컴포넌트 구현
+[ ] ChecklistReportView.tsx 신규 생성
+[ ] ChecklistReportPage.tsx 신규 생성
+[ ] App.tsx 라우트 추가 (/partner/report)
+[ ] 사이드바 네비게이션에 '성적서' 탭 추가
+[ ] npm run build 성공 확인
+
+Phase 3 — 테스트
+[ ] 테스트: 협력사 관리 → 성적서 탭 진입
+[ ] 테스트: O/N 검색 → S/N 목록 표시
+[ ] 테스트: S/N 클릭 → 성적서 뷰 표시
+[ ] 테스트: 카테고리별 체크리스트 테이블 렌더링
+[ ] 테스트: 화면에서 이름 마스킹 확인 (임*후)
+[ ] 테스트: PDF 다운로드 → 이름 풀네임 확인
+[ ] 테스트: PDF A4 포맷, 페이지 분할 정상
+[ ] 테스트: 검색 결과 없을 때 빈 상태 표시
+[ ] 테스트: admin/manager 외 접근 시 권한 차단
+```
+
+## 규칙
+
+- 코드 변경 전 반드시 사용자 승인
+- npm run build 실패 시 즉시 수정
+- BE API 미구현 시 mock 데이터로 먼저 구현 → BE 완료 후 전환
+- GST 로고: `LOGO_PLACEHOLDER` 변수로 관리 — 로고 파일 공유 후 교체
+- PDF 출력 시 마스킹 해제 (data-fullname 속성 활용)
+- categories 배열 동적 순회 — MECH/ELEC BE 확장 시 FE 수정 불필요

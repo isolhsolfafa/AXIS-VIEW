@@ -1,15 +1,15 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-04-02
+> 마지막 업데이트: 2026-04-03
 
 ---
 
 ## 현재 버전
 
-- **VIEW FE**: v1.21.0
-- **최근 Sprint**: 27 (월마감 캘린더 뷰) — 설계 완료, 코드 미작성
-- **최근 완료**: Sprint 26 (체크리스트 BE 연동), Sprint 25 (페이지별 설정 패널)
+- **VIEW FE**: v1.22.0
+- **최근 Sprint**: 28 (체크리스트 성적서) — 설계 완료, 코드 미작성
+- **최근 완료**: Sprint 26 (체크리스트 BE 연동), 이름 마스킹 (maskName)
 
 ---
 
@@ -24,14 +24,15 @@
 7. **HOTFIX: S/N 체크리스트 조회 분기** — TM만 실제 API, MECH/ELEC 빈 응답 (BE 미구현)
 8. **HOTFIX: S/N 체크리스트 BE 엔드포인트** — 경로 매핑 + TMS→TM + 응답 구조 변환
 9. **월마감 뷰 크래시 수정** — `monthlyData.weeks` undefined → `monthlyData?.weeks` 옵셔널 체이닝
-10. **작업자 이름 마스킹** — maskName() 한글 개인정보 보호 (임지후→임*후)
+10. **작업자 이름 마스킹** — maskName() 공통 유틸 분리 (utils/format.ts), ProcessStepCard + SNCard 적용
 11. **Sprint 27 설계 완료** — 월마감 캘린더 뷰 (달력 UI, 주차 클릭→주간 전환, 기전/TM 분류)
+12. **Sprint 28 설계 완료** — 체크리스트 성적서 페이지 (협력사 관리 탭, O/N 검색, PDF export, 마스킹 해제 출력)
 
 ---
 
 ## 진행 중 Sprint
 
-없음 — Sprint 27 설계 완료, 코드 미작성 (사용자 승인 대기)
+없음 — Sprint 27, 28 설계 완료, 코드 미작성 (사용자 승인 대기)
 
 ---
 
@@ -88,7 +89,7 @@
 | `CLAUDE.md` | 프로젝트 고정 정보 (팀 구성, 기술 스택, 규칙) | 매 세션 시작 시 |
 | `memory.md` | 누적 의사결정, 버그 분석, 아키텍처 판단 | 맥락 필요 시 |
 | `handoff.md` | 현재 파일. 세션 인계용 | 매 세션 시작 시 |
-| `docs/sprints/DESIGN_FIX_SPRINT.md` | Sprint 1~26 메인 스프린트 문서 | Sprint 기획/실행 시 |
+| `docs/sprints/DESIGN_FIX_SPRINT.md` | Sprint 1~28 메인 스프린트 문서 | Sprint 기획/실행 시 |
 | `docs/OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#52) | BE 의존 작업 시 |
 | `docs/APS_LITE_PLAN.md` | APS Lite 기획서 (차세대) | APS 작업 시 |
 | `docs/sprints/RESPONSIVE_DESIGN_PLAN.md` | 반응형 설계 v2 | 반응형 작업 시 |

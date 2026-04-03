@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.21.0 (2026-04-02)
+> 최신 버전: v1.22.0 (2026-04-03)
 
 ---
 
@@ -70,6 +70,32 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.22.0 — 2026-04-03
+
+**신규 기능 — 월마감 캘린더 뷰 (Sprint 27)**
+
+### 생산실적 — 월마감 캘린더
+- 기존 주차×공정 테이블 → 캘린더 UI로 교체
+- 오늘 날짜 원형 하이라이트, 현재 주차 "현재" 뱃지
+- 주차별 기전/TM 확인 건수 + 비율 바 표시
+- 주차 행 클릭 → 주간 뷰로 전환 (해당 주차 자동 선택)
+- 합계: 기전 확인/완료, TM 확인/완료
+- 토/일 색상 구분 (파란색/빨간색)
+
+### 작업자 이름 마스킹
+- `maskName()` 공통 유틸 분리 (`utils/format.ts`)
+- SNCard + ProcessStepCard 양쪽 적용
+- 한글 이름만 마스킹 (임지후→임*후), 영문은 그대로
+
+### 수정 파일
+- `MonthlyCalendarView.tsx` — 신규 캘린더 컴포넌트
+- `ProductionPerformancePage.tsx` — 월마감 뷰 교체 + 미사용 코드 제거
+- `utils/format.ts` — maskName 공통 유틸 신규
+- `ProcessStepCard.tsx` — maskName import 전환
+- `SNCard.tsx` — last_worker 마스킹 적용
 
 ---
 
