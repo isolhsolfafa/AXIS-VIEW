@@ -11,6 +11,7 @@ import type { ProcessStatus } from '@/types/production';
 import { getISOWeekRange, filterByProcessTab, filterByStatus, calcTabKpi, isOrderDone } from '@/utils/productionFilters';
 import { useAuth } from '@/store/authStore';
 import { useAdminSettings, useUpdateAdminSettings } from '@/hooks/useAdminSettings';
+import MonthlyCalendarView from '@/components/production/MonthlyCalendarView';
 
 /* ─── MiniProgress ─────────────────────────────────── */
 function MiniProgress({ value, total }: { value: number; total?: number }) {
@@ -879,67 +880,16 @@ export default function ProductionPerformancePage() {
               </div>
             )}
 
-            {/* ─── 월마감 뷰 ─── */}
+            {/* ─── 월마감 뷰 — 캘린더 (Sprint 27) ─── */}
             {activeView === 'monthly' && monthlyData?.weeks && (
-              <div style={{ background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
-                <div style={{ padding: '18px 24px 8px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)', marginBottom: '3px' }}>{monthlyData.month} — 주차별 실적 집계</div>
-                  <div style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>공정별 완료 + 실적확인 건수 · plan.production_confirm 기준</div>
-                </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ background: 'var(--gx-cloud)' }}>
-                        <th style={{ ...thStyle, textAlign: 'left' }}>주차</th>
-                        <th colSpan={2} style={{ ...thStyle, borderBottom: '2px solid var(--gx-mist)', background: 'rgba(99,102,241,0.04)' }}>기구 (MECH)</th>
-                        <th colSpan={2} style={{ ...thStyle, borderBottom: '2px solid var(--gx-mist)', background: 'rgba(59,130,246,0.04)' }}>전장 (ELEC)</th>
-                        <th colSpan={2} style={{ ...thStyle, borderBottom: '2px solid var(--gx-mist)', background: 'rgba(139,92,246,0.04)' }}>TM</th>
-                      </tr>
-                      <tr style={{ background: 'var(--gx-cloud)' }}>
-                        <th />
-                        <th style={subThStyle}>완료</th>
-                        <th style={subThStyle}>확인</th>
-                        <th style={subThStyle}>완료</th>
-                        <th style={subThStyle}>확인</th>
-                        <th style={subThStyle}>완료</th>
-                        <th style={subThStyle}>확인</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {monthlyData.weeks.map(row => {
-                        const isCurrent = perfData?.week === row.week;
-                        return (
-                          <tr key={row.week} style={{
-                            borderBottom: '1px solid var(--gx-cloud)',
-                            background: isCurrent ? 'rgba(99,102,241,0.02)' : 'transparent',
-                          }}>
-                            <td style={{ padding: '13px 20px', fontWeight: 600, color: isCurrent ? 'var(--gx-accent)' : 'var(--gx-charcoal)', fontSize: '13px' }}>
-                              {row.week}
-                              {isCurrent && <span style={{ fontSize: '8px', fontWeight: 600, padding: '1px 5px', borderRadius: '5px', background: 'rgba(99,102,241,0.08)', color: 'var(--gx-accent)', marginLeft: '5px' }}>현재</span>}
-                            </td>
-                            <MonthlyCell value={row.mech?.completed ?? 0} max={0} />
-                            <MonthlyCell value={row.mech?.confirmed ?? 0} max={row.mech?.completed ?? 0} isConfirm />
-                            <MonthlyCell value={row.elec?.completed ?? 0} max={0} />
-                            <MonthlyCell value={row.elec?.confirmed ?? 0} max={row.elec?.completed ?? 0} isConfirm />
-                            <MonthlyCell value={row.tm?.completed ?? 0} max={0} />
-                            <MonthlyCell value={row.tm?.confirmed ?? 0} max={row.tm?.completed ?? 0} isConfirm />
-                          </tr>
-                        );
-                      })}
-                      {/* 합계 */}
-                      <tr style={{ background: 'var(--gx-cloud)', borderTop: '2px solid var(--gx-mist)' }}>
-                        <td style={{ padding: '13px 20px', fontWeight: 700, color: 'var(--gx-charcoal)', fontSize: '13px' }}>합계</td>
-                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-success)' }}>{monthlyData?.totals?.mech?.completed ?? 0}</td>
-                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-accent)' }}>{monthlyData?.totals?.mech?.confirmed ?? 0}</td>
-                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-success)' }}>{monthlyData?.totals?.elec?.completed ?? 0}</td>
-                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-accent)' }}>{monthlyData?.totals?.elec?.confirmed ?? 0}</td>
-                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-success)' }}>{monthlyData?.totals?.tm?.completed ?? 0}</td>
-                        <td style={{ ...numCellStyle, fontWeight: 700, color: 'var(--gx-accent)' }}>{monthlyData?.totals?.tm?.confirmed ?? 0}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <MonthlyCalendarView
+                data={monthlyData}
+                currentWeek={perfData?.week}
+                onWeekClick={(week) => {
+                  setActiveWeek(week);
+                  setActiveView('weekly');
+                }}
+              />
             )}
           </>
         )}
@@ -948,33 +898,3 @@ export default function ProductionPerformancePage() {
   );
 }
 
-/* ─── 스타일 상수 ───────────────────────────────────── */
-const thStyle: React.CSSProperties = {
-  padding: '10px 16px', textAlign: 'center',
-  fontSize: '10px', fontWeight: 600, color: 'var(--gx-steel)',
-  letterSpacing: '0.5px', textTransform: 'uppercase',
-  borderBottom: '2px solid var(--gx-mist)',
-};
-const subThStyle: React.CSSProperties = {
-  padding: '6px 16px', textAlign: 'center',
-  fontSize: '9px', fontWeight: 600, color: 'var(--gx-silver)',
-  letterSpacing: '0.3px', borderBottom: '1px solid var(--gx-mist)',
-};
-const numCellStyle: React.CSSProperties = {
-  padding: '13px 16px', textAlign: 'center',
-  fontFamily: "'JetBrains Mono', monospace", fontSize: '13px',
-  fontWeight: 600, color: 'var(--gx-charcoal)',
-};
-
-function MonthlyCell({ value, max, isConfirm }: { value: number; max: number; isConfirm?: boolean }) {
-  const allDone = max > 0 && value === max;
-  return (
-    <td style={{
-      ...numCellStyle,
-      color: value === 0 ? 'var(--gx-silver)' : isConfirm ? (allDone ? 'var(--gx-success)' : 'var(--gx-accent)') : (allDone ? 'var(--gx-success)' : 'var(--gx-charcoal)'),
-    }}>
-      {value}
-      {isConfirm && allDone && max > 0 && <span style={{ color: 'var(--gx-success)', marginLeft: '2px', fontSize: '10px' }}>&#10003;</span>}
-    </td>
-  );
-}
