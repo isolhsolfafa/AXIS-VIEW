@@ -114,9 +114,13 @@ export default function MonthlyCalendarView({ data, currentWeek, onWeekClick }: 
             {rows.map((row, ri) => {
               const isCurrent = row.weekLabel === currentWeek;
               const hasData = row.summary != null;
+              const mechElecCompleted = (row.summary?.mech?.completed ?? 0) + (row.summary?.elec?.completed ?? 0);
               const mechElecConfirmed = (row.summary?.mech?.confirmed ?? 0) + (row.summary?.elec?.confirmed ?? 0);
+              const mechElecPending = mechElecCompleted - mechElecConfirmed;
+              const tmCompleted = (row.summary?.tm?.completed ?? 0);
               const tmConfirmed = row.summary?.tm?.confirmed ?? 0;
-              const total = mechElecConfirmed + tmConfirmed;
+              const tmPending = tmCompleted - tmConfirmed;
+              const total = mechElecCompleted + tmCompleted;
 
               return (
                 <tr
@@ -177,43 +181,52 @@ export default function MonthlyCalendarView({ data, currentWeek, onWeekClick }: 
                           )}
                         </span>
 
-                        {hasData && (
-                          <span style={{
-                            fontSize: '12px', color: 'var(--gx-success)',
-                            fontFamily: "'JetBrains Mono', monospace",
-                          }}>
-                            기구·전장 <b>{mechElecConfirmed}</b>
-                          </span>
-                        )}
-
-                        {hasData && (
-                          <span style={{
-                            fontSize: '12px', color: 'var(--gx-accent)',
-                            fontFamily: "'JetBrains Mono', monospace",
-                          }}>
-                            TM <b>{tmConfirmed}</b>
-                          </span>
+                        {hasData && (mechElecCompleted > 0 || tmCompleted > 0) && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
+                            {/* 기구·전장 */}
+                            <span>
+                              <span style={{ color: 'var(--gx-slate)', marginRight: '4px' }}>기구·전장</span>
+                              {mechElecPending > 0 && (
+                                <span style={{ color: 'var(--gx-warning)', fontWeight: 600, marginRight: '4px' }}>
+                                  대기 {mechElecPending}
+                                </span>
+                              )}
+                              <span style={{ color: 'var(--gx-success)', fontWeight: 600 }}>
+                                확인 {mechElecConfirmed}
+                              </span>
+                            </span>
+                            {/* TM */}
+                            <span>
+                              <span style={{ color: 'var(--gx-slate)', marginRight: '4px' }}>TM</span>
+                              {tmPending > 0 && (
+                                <span style={{ color: 'var(--gx-warning)', fontWeight: 600, marginRight: '4px' }}>
+                                  대기 {tmPending}
+                                </span>
+                              )}
+                              <span style={{ color: 'var(--gx-success)', fontWeight: 600 }}>
+                                확인 {tmConfirmed}
+                              </span>
+                            </span>
+                          </div>
                         )}
 
                         {hasData && total > 0 && (
                           <div style={{
-                            flex: 1, height: '4px', borderRadius: '2px',
+                            flex: 1, height: '5px', borderRadius: '2px',
                             background: 'var(--gx-cloud)', overflow: 'hidden',
                             display: 'flex',
                           }}>
                             {mechElecConfirmed > 0 && (
-                              <div style={{
-                                height: '100%',
-                                width: `${(mechElecConfirmed / total) * 100}%`,
-                                background: 'var(--gx-success)',
-                              }} />
+                              <div style={{ height: '100%', width: `${(mechElecConfirmed / total) * 100}%`, background: 'var(--gx-success)' }} />
+                            )}
+                            {mechElecPending > 0 && (
+                              <div style={{ height: '100%', width: `${(mechElecPending / total) * 100}%`, background: 'var(--gx-warning)', opacity: 0.5 }} />
                             )}
                             {tmConfirmed > 0 && (
-                              <div style={{
-                                height: '100%',
-                                width: `${(tmConfirmed / total) * 100}%`,
-                                background: 'var(--gx-accent)',
-                              }} />
+                              <div style={{ height: '100%', width: `${(tmConfirmed / total) * 100}%`, background: 'var(--gx-accent)' }} />
+                            )}
+                            {tmPending > 0 && (
+                              <div style={{ height: '100%', width: `${(tmPending / total) * 100}%`, background: 'var(--gx-accent)', opacity: 0.3 }} />
                             )}
                           </div>
                         )}
@@ -235,18 +248,28 @@ export default function MonthlyCalendarView({ data, currentWeek, onWeekClick }: 
         }}>
           <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--gx-charcoal)' }}>합계</span>
           <span style={{ fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
-            기구·전장 확인 <b style={{ color: 'var(--gx-success)' }}>
-              {(data.totals?.mech?.confirmed ?? 0) + (data.totals?.elec?.confirmed ?? 0)}
-            </b>
-            <span style={{ color: 'var(--gx-silver)', margin: '0 4px' }}>/</span>
-            완료 {(data.totals?.mech?.completed ?? 0) + (data.totals?.elec?.completed ?? 0)}
+            <span style={{ color: 'var(--gx-slate)', marginRight: '4px' }}>기구·전장</span>
+            {(() => {
+              const c = (data.totals?.mech?.completed ?? 0) + (data.totals?.elec?.completed ?? 0);
+              const f = (data.totals?.mech?.confirmed ?? 0) + (data.totals?.elec?.confirmed ?? 0);
+              const p = c - f;
+              return (<>
+                {p > 0 && <span style={{ color: 'var(--gx-warning)', fontWeight: 600, marginRight: '4px' }}>대기 {p}</span>}
+                <span style={{ color: 'var(--gx-success)', fontWeight: 600 }}>확인 {f}</span>
+              </>);
+            })()}
           </span>
           <span style={{ fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
-            TM 확인 <b style={{ color: 'var(--gx-accent)' }}>
-              {data.totals?.tm?.confirmed ?? 0}
-            </b>
-            <span style={{ color: 'var(--gx-silver)', margin: '0 4px' }}>/</span>
-            완료 {data.totals?.tm?.completed ?? 0}
+            <span style={{ color: 'var(--gx-slate)', marginRight: '4px' }}>TM</span>
+            {(() => {
+              const c = data.totals?.tm?.completed ?? 0;
+              const f = data.totals?.tm?.confirmed ?? 0;
+              const p = c - f;
+              return (<>
+                {p > 0 && <span style={{ color: 'var(--gx-warning)', fontWeight: 600, marginRight: '4px' }}>대기 {p}</span>}
+                <span style={{ color: 'var(--gx-success)', fontWeight: 600 }}>확인 {f}</span>
+              </>);
+            })()}
           </span>
         </div>
       </div>
