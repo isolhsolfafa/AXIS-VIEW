@@ -701,10 +701,7 @@ export default function ProductionPerformancePage() {
                   )}
                 </>
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>{perfData?.month ?? ''}</span>
-                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '8px', background: 'rgba(245,158,11,0.08)', color: 'var(--gx-warning)' }}>마감 전</span>
-                </div>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>{perfData?.month ?? ''}</span>
               )}
 
               {isAdmin && (
