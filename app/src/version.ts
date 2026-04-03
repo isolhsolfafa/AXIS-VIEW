@@ -1,7 +1,7 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.22.0';
+export const APP_VERSION = 'v1.23.0';
 export const BUILD_DATE = '2026-04-03';
 
 // 버전 이력
@@ -39,3 +39,4 @@ export const BUILD_DATE = '2026-04-03';
 // v1.20.0| 2026-04-01 | Sprint 25      | 페이지별 설정 패널 (테스트 S/N 토글 + TM 체크리스트 옵션)
 // v1.21.0| 2026-04-02 | Sprint 26      | 체크리스트 관리 BE 연동 + TM 활성화 + 토글 확인 다이얼로그
 // v1.22.0| 2026-04-03 | Sprint 27      | 월마감 캘린더 뷰 + 이름 마스킹
+// v1.23.0| 2026-04-03 | Sprint 28      | 체크리스트 성적서 + 생산실적 폰트/명칭 개선 + ISO주차 수정

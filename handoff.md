@@ -7,32 +7,43 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.22.0
-- **최근 Sprint**: 28 (체크리스트 성적서) — 설계 완료, 코드 미작성
-- **최근 완료**: Sprint 26 (체크리스트 BE 연동), 이름 마스킹 (maskName)
+- **VIEW FE**: v1.23.0
+- **최근 Sprint**: 28 (체크리스트 성적서) — 구현 완료, 운영 중
+- **최근 완료**: Sprint 27 (월마감 캘린더), Sprint 28 (체크리스트 성적서)
 
 ---
 
-## 직전 세션 작업 내용 (2026-04-02)
+## 직전 세션 작업 내용 (2026-04-03)
 
-1. **ProcessStepCard 날짜 표시 수정** — formatTime: `HH:mm` → `MM/DD HH:mm` (배포 완료)
-2. **Sprint 26 구현 완료** — 체크리스트 관리 목업→BE 연동, TM 활성화, MECH/ELEC 블러
-3. **타입 필드 매핑 변경** — inspection_group→item_group, spec_criteria+inspection_method→description
-4. **활성 토글 UX 개선** — confirm 다이얼로그 + sonner 토스트 알림 추가
-5. **HOTFIX: 비활성 포함 체크박스** — BE에 `include_inactive` 파라미터 미전달 → 수정
-6. **HOTFIX: S/N 디테일뷰 크래시** — checklist.summary undefined → 옵셔널 체이닝 방어
-7. **HOTFIX: S/N 체크리스트 조회 분기** — TM만 실제 API, MECH/ELEC 빈 응답 (BE 미구현)
-8. **HOTFIX: S/N 체크리스트 BE 엔드포인트** — 경로 매핑 + TMS→TM + 응답 구조 변환
-9. **월마감 뷰 크래시 수정** — `monthlyData.weeks` undefined → `monthlyData?.weeks` 옵셔널 체이닝
-10. **작업자 이름 마스킹** — maskName() 공통 유틸 분리 (utils/format.ts), ProcessStepCard + SNCard 적용
-11. **Sprint 27 설계 완료** — 월마감 캘린더 뷰 (달력 UI, 주차 클릭→주간 전환, 기전/TM 분류)
-12. **Sprint 28 설계 완료** — 체크리스트 성적서 페이지 (협력사 관리 탭, O/N 검색, PDF export, 마스킹 해제 출력)
+### Sprint 28 — 체크리스트 성적서 페이지
+1. **신규 페이지**: ChecklistReportPage (O/N·S/N 검색 → 성적서 뷰)
+2. **신규 컴포넌트**: ChecklistReportView (카테고리별 테이블 + PDF export)
+3. **API**: searchSNList, getChecklistReport (BE #54 직접 호출)
+4. **BE→FE 필드 매핑**: check_result→result, checked_by_name→worker_name, value→input_value
+5. **GST 로고 적용**: gst-logo.png import, 헤더 로고(좌)+타이틀(중앙) 레이아웃
+6. **라우트**: /partner/report (admin, manager)
+7. **사이드바**: 협력사 관리 > 체크리스트 탭
+
+### 생산실적 개선
+8. **폰트 증가**: 전체 +2px (7→9, 9→11, 10→12, 10.5→12)
+9. **명칭 수정**: "기전" → "기구·전장" (MonthlyCalendarView 2곳)
+10. **기본뷰 변경**: weekly → monthly (월마감 캘린더가 기본)
+11. **월마감 캘린더 대기/확인 이중 카운트**: completed-confirmed=대기(주황), confirmed=확인(초록)
+12. **ISO 주차 버그 수정**: getISOWeek yearStart Jan 4 → Jan 1 (W14가 W13으로 밀리던 버그)
+13. **하드코딩 제거**: "2026-03 마감 전" 배지, 중복 월 텍스트 삭제
+
+### 사이드바 배지
+14. **생산실적**: preparing 제거 (운영 중)
+15. **체크리스트**: preparing 추가 → 이후 제거 (운영 전환)
+
+### 체크리스트 400 에러 수정
+16. **월별 자동 로드 제거**: BE month 파라미터 미지원 → 검색 전용 UI로 복원
 
 ---
 
 ## 진행 중 Sprint
 
-없음 — Sprint 27, 28 설계 완료, 코드 미작성 (사용자 승인 대기)
+없음 — Sprint 28 구현 완료
 
 ---
 
@@ -46,25 +57,12 @@
 
 ---
 
-## 미해결 버그
+## 미해결 버그 / BE 대기
 
-| ID | 설명 | 심각도 | 파일 |
+| ID | 설명 | 심각도 | 상태 |
 |----|------|--------|------|
-| BUG-V2 | ProductionPerformancePage `?? []` 미적용 (7개소) | 🟡 LOW | ProductionPerformancePage.tsx |
-
----
-
-## 금일 수정 완료 건 (2026-04-02)
-
-| # | 내용 | 파일 |
-|---|------|------|
-| — | ProcessStepCard 날짜 표시 (MM/DD HH:mm) | ProcessStepCard.tsx |
-| — | Sprint 26 Phase 1: API 전환 + 타입 수정 | checklist.ts, types/checklist.ts, useChecklistMaster.ts |
-| — | Sprint 26 Phase 2: UI 수정 | ChecklistManagePage, FilterBar, Table, AddModal |
-| — | 활성 토글 확인 다이얼로그 + 토스트 | ChecklistManagePage.tsx, ChecklistTable.tsx |
-| — | 비활성 포함 → BE include_inactive 전달 | checklist.ts, useChecklistMaster.ts, ChecklistManagePage.tsx |
-| — | S/N 디테일뷰 summary 크래시 수정 | ProcessStepCard.tsx |
-| — | S/N 체크리스트 TM/MECH 분기 | checklist.ts |
+| BUG-V2 | ProductionPerformancePage `?? []` 미적용 (7개소) | 🟡 LOW | FE 대기 |
+| #53 | monthly-summary weeks/totals 집계값 전부 0 | 🔴 HIGH | BE 버그 |
 
 ---
 
@@ -74,11 +72,12 @@
 |---|------|------|------|
 | #18 | factory.py weekly-kpi 주차 계산 오류 | PENDING | 공장 대시보드 |
 | #45 | 카드뷰 last_worker에 task 이름 추가 | PENDING | S/N 카드뷰 |
-| #47 | QR 명판 인식 — qrbox 200 적용, focusMode 미해결 | PENDING | OPS FE |
-| #51 | progress API에 sales_order 필드 추가 | DONE | SNStatusPage O/N 그룹핑 |
-| #52 | ETL _FIELD_LABELS에 finishing_plan_end 누락 | PENDING | 마무리계획일 조회 불가 |
+| #47 | QR 명판 인식 — qrbox 200 적용 | PENDING | OPS FE |
+| #52 | ETL _FIELD_LABELS에 finishing_plan_end 누락 | PENDING | 마무리계획일 |
+| #53 | monthly-summary weeks/totals 집계 BUG | **BUG** | 월마감 캘린더 |
+| #54 | 체크리스트 성적서 API 2건 | **DONE** | 체크리스트 페이지 |
 
-> 전체 목록: `docs/OPS_API_REQUESTS.md` (#1~#52)
+> 전체 목록: `docs/OPS_API_REQUESTS.md` (#1~#54)
 
 ---
 
@@ -90,7 +89,7 @@
 | `memory.md` | 누적 의사결정, 버그 분석, 아키텍처 판단 | 맥락 필요 시 |
 | `handoff.md` | 현재 파일. 세션 인계용 | 매 세션 시작 시 |
 | `docs/sprints/DESIGN_FIX_SPRINT.md` | Sprint 1~28 메인 스프린트 문서 | Sprint 기획/실행 시 |
-| `docs/OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#52) | BE 의존 작업 시 |
+| `docs/OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#54) | BE 의존 작업 시 |
 | `docs/APS_LITE_PLAN.md` | APS Lite 기획서 (차세대) | APS 작업 시 |
 | `docs/sprints/RESPONSIVE_DESIGN_PLAN.md` | 반응형 설계 v2 | 반응형 작업 시 |
 
@@ -98,11 +97,9 @@
 
 ## 다음 세션에서 할 일 (제안)
 
-### 즉시 — Sprint 26 수동 테스트 (Phase 3)
-- TM 탭 → COMMON 자동 → 15개 항목 (4그룹) BE 데이터 확인
-- MECH/ELEC 블러 오버레이 동작 확인
-- 항목 추가/토글 API 호출 확인
-- ⚙️ TM 체크리스트 설정 패널 BE 저장/조회 확인
+### 즉시 — BE #53 수정 후 월마감 캘린더 검증
+- weeks/totals 집계가 채워지면 대기/확인 카운트 정상 표시 확인
+- W14 6905 전장 완료건 → "대기 1" 표시 검증
 
 ### 단기 — Defensive coding + 사용시간 변경
 - ProductionPerformancePage `?? []` 7개소

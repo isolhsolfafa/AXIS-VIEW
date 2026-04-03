@@ -2,7 +2,7 @@
 
 > 세션 간 누적되는 의사결정, 버그 분석, 아키텍처 판단을 기록합니다.
 > CLAUDE.md = 프로젝트 고정 정보 / memory.md = 누적 학습 / handoff.md = 세션 인계
-> 마지막 업데이트: 2026-03-31
+> 마지막 업데이트: 2026-04-03
 
 ---
 
@@ -84,6 +84,32 @@ if (task.workers.some(w => w.status === 'completed')) return 'completed';
   - BE 응답의 `data.message`도 영문일 수 있으므로 직접 표시 대신 status 기반 fallback 사용
 - **적용 파일**: LoginPage, PermissionsPage, ProductionPerformancePage, EtlChangeLogPage, ProcessStepCard
 
+### ADR-V010: 체크리스트 성적서 — BE 필드 매핑 보정 패턴 (2026-04-03)
+- **맥락**: BE #54 체크리스트 성적서 API 반환 필드명이 FE 타입과 불일치
+- **BE 반환**: `check_result`, `checked_by_name`, `value`
+- **FE 기대**: `result`, `worker_name`, `input_value`
+- **결정**: `getChecklistReport()` 내부에서 응답 후처리로 필드 매핑 보정
+- **패턴**: `item.result ?? item.check_result ?? null` (FE 우선 → BE fallback)
+- **이유**: BE 수정 요청 없이 FE에서 즉시 대응. 추후 BE가 필드명 통일하면 fallback 자동 무시
+- **참고**: 동일 패턴이 `getPerformance()`에도 적용 중 (partner_info, confirms 변환)
+
+### ADR-V011: ISO 주차 계산 — yearStart 기준 (2026-04-03)
+- **맥락**: MonthlyCalendarView에서 W14(3/30~4/5)가 W13으로 1주 밀려 표시
+- **원인**: `getISOWeek()`의 `yearStart = new Date(year, 0, 4)` (Jan 4 기준)
+- **수정**: `yearStart = new Date(year, 0, 1)` (Jan 1 기준) + `dayNum = day || 7` (일요일=7)
+- **검증**: 2026-04-01(수) → 수정 전 W13 → 수정 후 W14 (정확)
+
+### ADR-V009: 체크리스트 관리 BE 연동 — TM 우선 + MECH/ELEC 블러 (2026-04-02)
+- **맥락**: Sprint 20 목업 → OPS Sprint 52/52-A BE 완성 후 실제 연동 필요
+- **결정**: TM 탭만 활성화, MECH/ELEC은 블러 오버레이 ("준비중")
+- **TM Product Code**: `COMMON` 자동 고정 (드롭다운 숨김). 추후 MECH/ELEC도 동일 패턴
+- **필드 매핑 변경**:
+  - `inspection_group` → `item_group` (BE 기준)
+  - `spec_criteria` + `inspection_method` → `description` (BE 통합 필드)
+  - `item_type`: TM/ELEC=CHECK only, MECH=CHECK+INPUT
+- **API 변경**: mock 제거, `deleteChecklistMaster` → `toggleChecklistMaster` (PATCH toggle)
+- **UNIQUE 제약**: `(product_code, category, item_group, item_name)` — Sprint 52-A에서 item_group 추가
+
 ### ADR-V008: SNStatusPage O/N 그룹핑 — 섹션 헤더 방식 (2026-03-31)
 - **맥락**: 생산현황에서 S/N 카드가 개별 나열 → 같은 O/N 소속 S/N을 한눈에 파악 어려움
 - **결정**: O/N 단위 **섹션 헤더** (기존 카드 그리드 유지, 아코디언 아님)
@@ -130,13 +156,13 @@ if (task.workers.some(w => w.status === 'completed')) return 'completed';
 ## 4. 프로젝트 수치 (2026-03-29 기준)
 
 ### VIEW FE
-- **페이지**: 19개
-- **컴포넌트**: layout 5개, sn-status 4개, checklist 3개, attendance 7개, auth 1개, ui 13개
+- **페이지**: 20개 (Sprint 28: ChecklistReportPage 추가)
+- **컴포넌트**: layout 5개, sn-status 4개, checklist 3개, partner 1개, attendance 7개, auth 1개, ui 13개
 - **API 클라이언트**: 14개
 - **훅**: 18개 (TanStack Query 기반)
 - **타입 정의**: 7개
 - **테스트**: 2개 파일만 (vitest 설치됨, 커버리지 낮음)
-- **Sprint 이력**: 1~24 (+ 18-B, 18-C, 19 HOTFIX, 40-C, 40-C+)
+- **Sprint 이력**: 1~28 (+ 18-B, 18-C, 19 HOTFIX, 40-C, 40-C+)
 
 ### 의존 BE (AXIS-OPS)
 - Flask + PostgreSQL (Railway)

@@ -5,9 +5,8 @@ import { Download } from 'lucide-react';
 import { maskName } from '@/utils/format';
 import type { ChecklistReportData, ChecklistReportCategory } from '@/types/checklist';
 
-// GST 로고 — 추후 실제 로고 파일로 교체
-// import logoSrc from '@/assets/images/gst-logo.png';
-const LOGO_PLACEHOLDER = ''; // 로고 경로 설정 후 교체
+// GST 로고
+import logoSrc from '@/assets/images/gst-logo.png';
 
 const CATEGORY_LABEL: Record<string, string> = {
   MECH: '기구',
@@ -96,17 +95,18 @@ export default function ChecklistReportView({ data }: Props) {
 
       {/* 성적서 본문 — PDF 캡처 영역 */}
       <div id="checklist-report-print" style={{ padding: '36px', maxWidth: '860px', margin: '0 auto' }}>
-        {/* 헤더: 로고 + 타이틀 */}
-        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-          {LOGO_PLACEHOLDER && (
-            <img src={LOGO_PLACEHOLDER} alt="GST" style={{ height: '44px', marginBottom: '10px' }} />
-          )}
-          <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--gx-charcoal)', margin: '0 0 4px' }}>
-            공정 체크리스트 성적서
-          </h2>
-          <p style={{ fontSize: '13px', color: 'var(--gx-steel)', margin: 0 }}>
-            Process Checklist Inspection Report
-          </p>
+        {/* 헤더: 로고(좌) + 타이틀(중앙) */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '28px' }}>
+          <img src={logoSrc} alt="GST" style={{ height: '44px' }} />
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--gx-charcoal)', margin: '0 0 4px' }}>
+              공정 체크리스트 성적서
+            </h2>
+            <p style={{ fontSize: '13px', color: 'var(--gx-steel)', margin: 0 }}>
+              Process Checklist Inspection Report
+            </p>
+          </div>
+          <div style={{ width: '44px' }} /> {/* 로고 균형 spacer */}
         </div>
 
         {/* 기본정보 테이블 */}
@@ -138,7 +138,7 @@ export default function ChecklistReportView({ data }: Props) {
 
         {/* 하단 */}
         <div style={{ marginTop: '36px', borderTop: '1px solid var(--gx-cloud)', paddingTop: '14px', fontSize: '12px', color: 'var(--gx-silver)', textAlign: 'center' }}>
-          본 성적서는 G-AXIS VIEW 시스템에서 자동 생성되었습니다.
+          본 성적서는 G-AXIS OPS에서 체크 완료된 데이터를 기반으로 자동 생성되었습니다.
         </div>
       </div>
     </div>

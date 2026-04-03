@@ -176,5 +176,19 @@ export async function getChecklistReport(serialNumber: string): Promise<Checklis
   const { data } = await apiClient.get<ChecklistReportData>(
     `/api/admin/checklist/report/${serialNumber}`,
   );
+
+  // BE→FE 필드 매핑 보정
+  // BE: check_result, checked_by_name → FE: result, worker_name
+  if (data.categories) {
+    for (const cat of data.categories) {
+      cat.items = (cat.items ?? []).map((item: any) => ({
+        ...item,
+        result: item.result ?? item.check_result ?? null,
+        worker_name: item.worker_name ?? item.checked_by_name ?? null,
+        input_value: item.input_value ?? item.value ?? null,
+      }));
+    }
+  }
+
   return data;
 }

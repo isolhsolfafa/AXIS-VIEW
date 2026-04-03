@@ -12230,26 +12230,27 @@ Phase 1 — 의존성 + 타입 + API
 
 Phase 2 — 컴포넌트 구현
 [x] ChecklistReportView.tsx 신규 생성
-[x] ChecklistReportPage.tsx 신규 생성 (월별 기본뷰 + 검색)
+[x] ChecklistReportPage.tsx 신규 생성 (검색 전용)
 [x] App.tsx 라우트 추가 (/partner/report)
-[x] Sidebar.tsx에 '성적서' 탭 추가
+[x] Sidebar.tsx에 '체크리스트' 탭 추가
+[x] Layout 래핑 추가 (사이드바 표시)
 [x] npm run build 성공 확인
 
-Phase 2.5 — 피드백 반영 (2026-04-03)
-[x] mock/fallback 코드 전면 제거 → BE 직접 호출
-[x] 월별 기본뷰 추가 (현재 월 S/N 자동 로드 + 월 네비게이션)
+Phase 2.5 — 피드백 반영 + BE 연동 (2026-04-03)
+[x] mock/fallback 코드 전면 제거 → BE #54 직접 호출
 [x] 카테고리 명칭: 기구, 전장 (괄호 영문 제거)
 [x] 전체 폰트 +2px 증가 (테이블 13px, 라벨 14px, 헤더 22px)
-[x] searchSNList에 month 파라미터 추가
-[ ] BE #54-A에 month 파라미터 지원 요청 등록 (OPS_API_REQUESTS.md)
+[x] 월별 자동 로드 제거 (BE month 파라미터 미지원 → 400 에러)
+[x] GST 로고 실제 파일 적용 (gst-logo.png import)
+[x] 헤더 레이아웃: 로고(좌) + 타이틀(중앙) flex 균형
+[x] 하단 문구: OPS 체크 데이터 기반 자동 생성 안내
+[x] BE→FE 필드 매핑: check_result→result, checked_by_name→worker_name, value→input_value
+[x] preparing 배지 제거 → 운영 전환
 
 Phase 3 — 테스트
-[ ] 테스트: 협력사 관리 → 성적서 탭 진입
-[ ] 테스트: 월별 기본뷰 — 현재 월 S/N 목록 자동 표시
-[ ] 테스트: 월 네비게이션 (이전/다음 월 이동)
+[x] 테스트: 협력사 관리 → 체크리스트 탭 진입 (사이드바 정상)
 [ ] 테스트: O/N 검색 → S/N 목록 표시
 [ ] 테스트: S/N 직접 검색 (GBWS- prefix) → S/N 목록 표시
-[ ] 테스트: 검색 초기화 → 월별 뷰 복귀
 [ ] 테스트: S/N 클릭 → 성적서 뷰 표시
 [ ] 테스트: 카테고리별 체크리스트 테이블 렌더링 (기구/전장/TM)
 [ ] 테스트: 화면에서 이름 마스킹 확인 (임*후)
@@ -12263,8 +12264,8 @@ Phase 3 — 테스트
 
 - 코드 변경 전 반드시 사용자 승인
 - npm run build 실패 시 즉시 수정
-- Mock 전략: TM → 실제 `getChecklistStatus(sn, 'TM')` API, MECH/ELEC → `getMockCategories()` mock
-- BE #54 완료 시 `getChecklistReport()` 실제 API로 전환, mock 제거
-- GST 로고: `LOGO_PLACEHOLDER` 변수로 관리 — 로고 파일 공유 후 교체
+- BE #54 배포 완료 → 실제 API 직접 호출 (mock 없음)
+- BE→FE 필드 매핑: `getChecklistReport()`에서 보정 (check_result→result 등)
+- GST 로고: `gst-logo.png` import 완료
 - PDF 출력 시 마스킹 해제 (data-fullname 속성 활용)
 - categories 배열 동적 순회 — MECH/ELEC BE 확장 시 FE 수정 불필요
