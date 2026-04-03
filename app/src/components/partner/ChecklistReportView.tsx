@@ -14,6 +14,14 @@ const CATEGORY_LABEL: Record<string, string> = {
   TM: 'TM (모듈)',
 };
 
+/** description "SPEC / 검사방법" → [spec, method] 분리 */
+function splitDescription(desc: string | null): [string, string] {
+  if (!desc) return ['—', '—'];
+  const idx = desc.indexOf(' / ');
+  if (idx >= 0) return [desc.slice(0, idx), desc.slice(idx + 3)];
+  return [desc, '—'];
+}
+
 function formatDateTime(iso: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -217,23 +225,25 @@ function CategoryTable({ cat }: { cat: ChecklistReportCategory }) {
         <thead>
           <tr style={{ background: 'var(--gx-mist)' }}>
             <th style={thStyle}>No</th>
-            <th style={thStyle}>항목그룹</th>
-            <th style={thStyle}>항목명</th>
-            <th style={thStyle}>유형</th>
-            <th style={thStyle}>결과</th>
+            <th style={thStyle}>검사항목</th>
+            <th style={thStyle}>검사내용</th>
+            <th style={thStyle}>기준/SPEC</th>
+            <th style={thStyle}>검사방법</th>
+            <th style={thStyle}>판정</th>
             <th style={thStyle}>작업자</th>
             <th style={thStyle}>확인일시</th>
           </tr>
         </thead>
         <tbody>
-          {cat.items.map((item, idx) => (
+          {cat.items.map((item, idx) => {
+            const [spec, method] = splitDescription(item.description);
+            return (
             <tr key={idx} style={{ borderBottom: '1px solid var(--gx-cloud)' }}>
               <td style={tdStyle}>{idx + 1}</td>
               <td style={tdStyle}>{item.item_group}</td>
               <td style={tdStyle}>{item.item_name}</td>
-              <td style={{ ...tdStyle, textAlign: 'center' }}>
-                {item.item_type === 'CHECK' ? '✓' : '입력'}
-              </td>
+              <td style={tdStyle}>{spec}</td>
+              <td style={tdStyle}>{method}</td>
               <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 600, color: resultColor(item) }}>
                 {item.item_type === 'INPUT'
                   ? (item.input_value ?? '—')
@@ -248,7 +258,8 @@ function CategoryTable({ cat }: { cat: ChecklistReportCategory }) {
                 {formatDateTime(item.checked_at)}
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
