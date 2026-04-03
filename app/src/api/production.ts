@@ -77,6 +77,5 @@ export async function getMonthlySummary(month?: string): Promise<MonthlySummaryR
   const { data } = await apiClient.get<MonthlySummaryResponse>(
     `/api/admin/production/monthly-summary${query}`,
   );
-  console.log('[monthly-summary] raw response:', JSON.stringify(data, null, 2));
   return data;
 }

@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-03-30 (#48 reactivate-task TMS 권한 체크 버그)
+> 마지막 업데이트: 2026-04-03 (#53 monthly-summary weeks 집계, #54 체크리스트 성적서 API)
 
 ---
 
@@ -3537,3 +3537,212 @@ _FIELD_LABELS = {
 3. 존재하지 않는 필드 → 여전히 400 에러 정상 차단
 
 **VIEW 수정**: 없음
+
+---
+
+### #53 monthly-summary API `weeks`/`totals` 집계 값 0 — BUG (2026-04-03)
+
+**배경**: Sprint 27에서 월마감 캘린더 뷰 구현 완료. BE가 `weeks`/`totals` 구조는 반환하지만 **집계 값이 전부 0**. 주간 실적 API(`/performance`)에서는 6905 전장 완료가 확인되므로 `monthly-summary` 집계 로직 미연동.
+
+**2026-04-03 디버그 결과**:
+```
+W14: mech.completed=0, elec.completed=0, tm.completed=0  ← 전부 0
+totals: mech=0, elec=0, tm=0                              ← 전부 0
+```
+기대값: W14 elec.completed ≥ 1 (6905 전장 완료).
+
+**엔드포인트**: `GET /api/admin/production/monthly-summary`
+
+**현재 응답 구조**:
+```json
+{
+  "month": "2026-04",
+  "orders": [
+    { "model": "GAIA-I DUAL", "sales_order": "6367", "sn_count": 1 },
+    ...
+  ],
+  "confirms": {}
+}
+```
+
+**요청: `weeks` + `totals` 필드 추가**:
+```json
+{
+  "month": "2026-04",
+  "orders": [ ... ],
+  "confirms": { ... },
+  "weeks": [
+    {
+      "week": "W14",
+      "mech": { "completed": 3, "confirmed": 2 },
+      "elec": { "completed": 4, "confirmed": 3 },
+      "tm":   { "completed": 1, "confirmed": 0 }
+    },
+    {
+      "week": "W15",
+      "mech": { "completed": 5, "confirmed": 5 },
+      "elec": { "completed": 5, "confirmed": 5 },
+      "tm":   { "completed": 2, "confirmed": 1 }
+    }
+  ],
+  "totals": {
+    "mech": { "completed": 8, "confirmed": 7 },
+    "elec": { "completed": 9, "confirmed": 8 },
+    "tm":   { "completed": 3, "confirmed": 1 }
+  }
+}
+```
+
+**weeks 집계 기준**:
+- ISO 8601 주차 (월요일 시작)
+- **주차-월 매핑: 금요일 기준** — 해당 주차 금요일이 속하는 월 = 소속 월
+  - W14 (3/30~4/5) → 금 4/3 → 4월 소속
+  - 생산계획 기준 금요일이 마지막 근무일, 공휴일 무관
+  - `friday = week_monday + 4일` → `friday.month`
+- `completed`: 해당 주차에 공정 100% 완료된 S/N 수 (all tasks done)
+  - mech/elec: 카테고리 전체 태스크 기준
+  - tm: `task_id='TANK_MODULE'`만 (PRESSURE_TEST 제외)
+- `confirmed`: 해당 주차에 실적확인 완료된 S/N 수 (production_confirm 기록 기준)
+- 주차 배정: S/N의 `mech_end` 기준 ISO 주차
+- 해당 월에 포함되는 주차만 반환 (금요일 기준 필터)
+- `totals`: 월 전체 합계
+- `confirmed_month` 저장 변경 없음 — 조회 뷰 전용 매핑
+
+**VIEW FE 타입 참고** (`types/production.ts`):
+```typescript
+interface ProcessSummary {
+  completed: number;
+  confirmed: number;
+}
+
+interface WeekSummary {
+  week: string;          // "W14"
+  mech: ProcessSummary;
+  elec: ProcessSummary;
+  tm: ProcessSummary;
+}
+
+interface MonthlySummaryResponse {
+  month: string;
+  weeks: WeekSummary[];
+  totals: {
+    mech: ProcessSummary;
+    elec: ProcessSummary;
+    tm: ProcessSummary;
+  };
+  orders: ...;    // 기존 유지
+  confirms: ...;  // 기존 유지
+}
+```
+
+**VIEW 영향**: MonthlyCalendarView.tsx에서 `data.weeks`로 주차별 기구·전장/TM 실적 바 렌더링. `data.totals`로 하단 합계 표시. BE가 집계 값만 채워주면 FE 추가 수정 없음 (이미 구현 완료).
+
+---
+
+### #54 체크리스트 성적서 API 2건 — PENDING (2026-04-03)
+
+**배경**: Sprint 28 체크리스트 성적서 페이지. 고객사 오딧(Audit) 시 S/N별 체크리스트 결과를 성적서 형태로 조회 + PDF export.
+
+#### #54-A. O/N 기준 S/N 목록 조회
+
+**엔드포인트**: `GET /api/admin/checklist/report/orders?sales_order={on}`
+
+S/N 직접 검색도 지원: `?serial_number={sn}` (부분 일치, ILIKE). 두 파라미터 동시 전달 시 OR 조건.
+
+**응답**:
+```json
+{
+  "sales_order": "6656",
+  "products": [
+    { "serial_number": "GBWS-6920", "model": "GAIA-I DUAL", "overall_percent": 14 },
+    { "serial_number": "GBWS-6921", "model": "GAIA-I DUAL", "overall_percent": 0 }
+  ]
+}
+```
+
+**`overall_percent` 기준**: 체크리스트 진행률 (checklist_master active 항목 중 check_result IS NOT NULL 비율). 현재 TM만 데이터 존재, MECH/ELEC 마스터 확정 시 자동 포함.
+
+**로직**: `product_info` 테이블에서 `sales_order` 매칭 → S/N 목록 반환. 진행률은 `checklist_master` + `checklist_record` LEFT JOIN 집계.
+
+#### #54-B. S/N 전체 체크리스트 성적서
+
+**엔드포인트**: `GET /api/admin/checklist/report/{serial_number}`
+
+**응답**:
+```json
+{
+  "serial_number": "GBWS-6920",
+  "model": "GAIA-I DUAL",
+  "sales_order": "6656",
+  "customer": "MICRON",
+  "categories": [
+    {
+      "category": "TM",
+      "items": [
+        {
+          "item_group": "BURNER",
+          "item_name": "가스 밸브 작동 상태",
+          "item_type": "CHECK",
+          "description": null,
+          "check_result": "PASS",
+          "checked_by_name": "김태영",
+          "checked_at": "2026-04-01T14:30:00"
+        }
+      ],
+      "summary": { "total": 15, "checked": 12, "percent": 80 }
+    }
+  ],
+  "generated_at": "2026-04-03T10:00:00"
+}
+```
+
+**필드명 통일** (기존 `get_tm_checklist()` 서비스 기준):
+- `check_result`: PASS / NA / null (기존 필드명 그대로)
+- `checked_by_name`: worker 이름 (기존 필드명 그대로)
+- `summary.checked`: check_result IS NOT NULL 건수 (기존 필드명 그대로)
+- `label` 필드 제거 — FE에서 필요 시 매핑
+
+**`input_value` 미포함**: MECH 전용 INPUT 타입은 현재 미구현. `item_type` 필드는 master 정보로 반환하되 값 입력 필드는 추후 MECH 마스터 확정 시 추가.
+
+**로직** — 기존 `checklist_service.get_tm_checklist()` 패턴 재활용:
+1. `product_info` → S/N 기본정보 (model, sales_order, customer)
+2. 카테고리 루프 (현재 TM만, 추후 MECH/ELEC 추가):
+   - `checklist_master` (scope 설정 반영: COMMON 또는 product_code) + `checklist_record` LEFT JOIN
+   - `item_group`별 그룹핑 + summary 집계
+3. 기존 서비스 함수에 `category` 파라미터 추가하여 일반화 (TM 외 카테고리 확장 대비)
+4. 신규 함수 최소화 — `get_tm_checklist(sn, phase, category)` 시그니처 확장으로 처리
+
+**기존 코드 재활용 범위**:
+- `checklist_service.get_tm_checklist()`: 쿼리 + 그룹핑 + summary 로직 그대로
+- `product_info` 조회: 기존 서비스 내 동일 패턴
+- `tm_checklist_scope` 설정: 기존 로직 재활용 (추후 카테고리별 scope 분리 시 확장)
+
+**VIEW FE 타입 참고** (`types/checklist.ts` Sprint 28 추가 예정):
+```typescript
+interface ChecklistReportItem {
+  item_group: string;
+  item_name: string;
+  item_type: string;
+  description: string | null;
+  check_result: 'PASS' | 'NA' | null;
+  checked_by_name: string | null;
+  checked_at: string | null;
+}
+
+interface ChecklistReportCategory {
+  category: string;
+  items: ChecklistReportItem[];
+  summary: { total: number; checked: number; percent: number };
+}
+
+interface ChecklistReportData {
+  serial_number: string;
+  model: string;
+  sales_order: string | null;
+  customer: string;
+  categories: ChecklistReportCategory[];
+  generated_at: string;
+}
+```
+
+**VIEW 영향**: ChecklistReportPage.tsx에서 API 호출. BE 반영 시 FE 추가 수정 없음.
