@@ -48,6 +48,18 @@ const MAP_STYLES = `
   .fm-rack-slot{width:30px;height:16px;border-radius:3px;border:1px solid var(--gx-mist);background:var(--gx-white);font-family:'JetBrains Mono',monospace;font-size:7px;color:var(--gx-steel);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;}
   .fm-rack-slot.occupied{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.2);color:var(--gx-success);}
 
+  .fm-viewport{width:100%;height:100%;transition:transform .9s cubic-bezier(.25,.1,.25,1);transform-origin:0 0;}
+
+  .fm-minimap{position:absolute;top:12px;right:12px;width:200px;height:130px;background:var(--gx-white);border:1px solid var(--gx-mist);border-radius:var(--radius-gx-md,10px);padding:10px;box-shadow:var(--shadow-card);opacity:0;transform:translateY(-8px);transition:all .4s;pointer-events:none;z-index:50;}
+  .fm-minimap.visible{opacity:1;transform:translateY(0);pointer-events:auto;}
+  .fm-mm-title{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;color:var(--gx-steel);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase;}
+  .fm-mm-floor{display:flex;gap:6px;height:calc(100% - 20px);}
+  .fm-mm-fac{border:1px solid var(--gx-mist);border-radius:4px;background:var(--gx-cloud);position:relative;}
+  .fm-mm-f2{width:36%;}.fm-mm-f1{width:64%;}
+  .fm-mm-label{font-family:'JetBrains Mono',monospace;font-size:7px;color:var(--gx-steel);position:absolute;top:3px;left:4px;}
+  .fm-mm-pin{position:absolute;width:10px;height:10px;background:var(--gx-accent);border-radius:50%;border:2px solid var(--gx-white);box-shadow:0 0 0 3px rgba(99,102,241,.08);animation:fmPinPulse 1.5s infinite;display:none;}
+  @keyframes fmPinPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.2);}}
+
   .fm-detail{position:absolute;right:-330px;top:0;width:310px;height:100%;background:var(--gx-white);border-left:1px solid var(--gx-mist);padding:20px;transition:right .4s cubic-bezier(.25,.1,.25,1);z-index:40;overflow-y:auto;box-shadow:-4px 0 16px rgba(0,0,0,.04);}
   .fm-detail.open{right:0;}
   .fm-d-close{position:absolute;top:14px;right:14px;background:var(--gx-cloud);border:1px solid var(--gx-mist);border-radius:6px;color:var(--gx-steel);cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;}
@@ -98,13 +110,19 @@ export default function FactoryMapPage() {
       return eq;
     }
 
-    // 상세 패널
+    // 상세 패널 + viewport + minimap
     const detail = el.querySelector('.fm-detail') as HTMLElement;
     const dContent = el.querySelector('#fm-dContent') as HTMLElement;
     const dClose = el.querySelector('#fm-dClose') as HTMLElement;
+    const viewport = el.querySelector('#fm-viewport') as HTMLElement;
+    const minimap = el.querySelector('#fm-minimap') as HTMLElement;
+    const mmPin = el.querySelector('#fm-mmPin') as HTMLElement;
 
     function resetView() {
       detail.classList.remove('open');
+      minimap.classList.remove('visible');
+      mmPin.style.display = 'none';
+      viewport.style.transform = '';
       el.querySelectorAll('.fm-eq.focused').forEach(e => e.classList.remove('focused'));
       el.querySelectorAll('.fm-area.highlight').forEach(e => e.classList.remove('highlight'));
     }
@@ -142,7 +160,35 @@ export default function FactoryMapPage() {
     function focusEquipment(eq: Eq) {
       resetView();
       el.querySelectorAll(`.fm-eq[data-eq-id="${eq.id}"]`).forEach(e => { e.classList.add('focused'); const a = e.closest('.fm-area'); if (a) a.classList.add('highlight'); });
+
+      // Zoom in
+      const target = el.querySelector('.fm-eq.focused') as HTMLElement;
+      const mc = el.querySelector('#fm-map-container') as HTMLElement;
+      if (target && mc) {
+        const mr = mc.getBoundingClientRect();
+        const tr = target.getBoundingClientRect();
+        const cx = tr.left + tr.width / 2 - mr.left;
+        const cy = tr.top + tr.height / 2 - mr.top;
+        const s = 2.2;
+        viewport.style.transform = `translate(${mr.width * .35 - cx * s}px,${mr.height / 2 - cy * s}px) scale(${s})`;
+      }
+
+      // Mini map
+      minimap.classList.add('visible');
+      const mmFloor = minimap.querySelector('.fm-mm-floor') as HTMLElement;
+      const mmFac = minimap.querySelector(eq.factory === 'f2' ? '.fm-mm-f2' : '.fm-mm-f1') as HTMLElement;
+      if (mmFloor && mmFac) {
+        const fr = mmFac.getBoundingClientRect();
+        const flr = mmFloor.getBoundingClientRect();
+        mmPin.style.display = 'block';
+        mmPin.style.left = (fr.left - flr.left + fr.width * (.2 + Math.random() * .6) + mmFloor.offsetLeft - 5) + 'px';
+        mmPin.style.top = (fr.top - flr.top + fr.height * (.2 + Math.random() * .6) + 22) + 'px';
+      }
+
       showDetail(eq);
+
+      // 6초 후 자동 줌아웃
+      setTimeout(() => { viewport.style.transform = ''; setTimeout(() => minimap.classList.remove('visible'), 800); }, 6000);
     }
 
     // 영역 생성
@@ -278,8 +324,18 @@ export default function FactoryMapPage() {
         </div>
 
         {/* 맵 */}
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          <div id="fm-floor" className="fm-floor" style={{ height: '100%' }} />
+        <div id="fm-map-container" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          <div id="fm-viewport" className="fm-viewport">
+            <div id="fm-floor" className="fm-floor" style={{ height: '100%' }} />
+          </div>
+          <div className="fm-minimap" id="fm-minimap">
+            <div className="fm-mm-title">Location</div>
+            <div className="fm-mm-floor">
+              <div className="fm-mm-fac fm-mm-f2"><span className="fm-mm-label">2공장</span></div>
+              <div className="fm-mm-fac fm-mm-f1"><span className="fm-mm-label">1공장</span></div>
+            </div>
+            <div className="fm-mm-pin" id="fm-mmPin" />
+          </div>
           <div className="fm-detail" id="fm-detail">
             <button className="fm-d-close" id="fm-dClose">&times;</button>
             <div id="fm-dContent" />
