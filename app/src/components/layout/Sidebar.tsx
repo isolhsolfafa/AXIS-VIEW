@@ -351,7 +351,7 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
         {(!collapsed || isMobile) && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', whiteSpace: 'nowrap' }}>
             <span style={{ fontSize: '17px', fontWeight: 300, letterSpacing: '5px', color: 'var(--gx-charcoal)', lineHeight: 1 }}>
-              AXIS-VIEW
+              VIEW
             </span>
             <span style={{ fontSize: '8px', fontWeight: 400, letterSpacing: '0.5px', color: 'var(--gx-steel)', lineHeight: 1.2 }}>
               Manufacturing Execution Platform
