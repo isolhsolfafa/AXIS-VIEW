@@ -14,13 +14,13 @@ const MAP_STYLES = `
   .fm-stat-legend span{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--gx-steel);}
   .fm-stat-legend .dot{width:8px;height:8px;border-radius:2px;display:inline-block;}
 
-  .fm-floor{display:flex;gap:14px;height:100%;width:100%;}
+  .fm-floor{display:flex;gap:14px;min-height:100%;width:100%;}
   .fm-factory{background:var(--gx-white);border:1px solid var(--gx-mist);border-radius:var(--radius-gx-md,10px);display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow-card);}
   .fm-f2{width:36%;}.fm-f1{width:64%;}
   .fm-f-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--gx-cloud);flex-shrink:0;}
   .fm-f-name{font-size:15px;font-weight:600;color:var(--gx-charcoal);}
   .fm-f-badge{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gx-steel);background:var(--gx-cloud);padding:3px 10px;border-radius:3px;}
-  .fm-f-body{flex:1;display:flex;flex-direction:column;padding:8px;gap:6px;min-height:0;}
+  .fm-f-body{flex:1;display:flex;flex-direction:column;padding:10px;gap:8px;min-height:0;}
 
   .fm-area{background:var(--gx-cloud);border:1px solid var(--gx-mist);border-radius:6px;display:flex;flex-direction:column;overflow:hidden;transition:border-color .4s,box-shadow .4s;}
   .fm-area.highlight{border-color:var(--gx-accent);box-shadow:0 0 0 3px rgba(99,102,241,.08);}
@@ -28,11 +28,11 @@ const MAP_STYLES = `
   .fm-area-name{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--gx-slate);}
   .fm-area-tag{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gx-steel);background:var(--gx-cloud);padding:2px 8px;border-radius:3px;margin-left:auto;}
 
-  .fm-lane-wrap{flex:1;overflow:hidden;padding:6px 10px;display:flex;flex-direction:column;gap:4px;min-height:0;}
-  .fm-lane{display:flex;align-items:center;gap:3px;}
+  .fm-lane-wrap{flex:1;overflow:auto;padding:8px 10px;display:flex;flex-direction:column;gap:5px;min-height:0;}
+  .fm-lane{display:flex;align-items:center;gap:4px;}
   .fm-lane-label{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gx-steel);width:36px;flex-shrink:0;text-align:right;}
 
-  .fm-eq{height:30px;flex:1;border-radius:4px;border:1px solid var(--gx-mist);background:var(--gx-white);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gx-steel);cursor:pointer;transition:all .2s;position:relative;overflow:hidden;min-width:0;}
+  .fm-eq{height:28px;flex:1;border-radius:4px;border:1px solid var(--gx-mist);background:var(--gx-white);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gx-steel);cursor:pointer;transition:all .2s;position:relative;overflow:hidden;min-width:48px;}
   .fm-eq:hover{border-color:var(--gx-silver);box-shadow:var(--shadow-card);}
   .fm-eq.empty{border-style:dashed;background:transparent;opacity:.4;cursor:default;}
   .fm-eq.done{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.2);color:var(--gx-success);}
@@ -283,7 +283,7 @@ export default function FactoryMapPage() {
   }, []);
 
   return (
-    <Layout title="공정 맵">
+    <Layout title="Digital Twin">
       <style>{MAP_STYLES}</style>
       <div ref={containerRef} style={{ padding: '20px 28px', height: '100%', display: 'flex', flexDirection: 'column' }}>
         {/* 통계 + 검색 */}
@@ -324,7 +324,7 @@ export default function FactoryMapPage() {
         </div>
 
         {/* 맵 */}
-        <div id="fm-map-container" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <div id="fm-map-container" style={{ flex: 1, position: 'relative', overflow: 'auto' }}>
           <div id="fm-viewport" className="fm-viewport">
             <div id="fm-floor" className="fm-floor" style={{ height: '100%' }} />
           </div>
