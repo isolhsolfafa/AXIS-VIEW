@@ -11,6 +11,7 @@ import PartnerAllocationPage from '@/pages/partner/PartnerAllocationPage';
 import QrManagementPage from '@/pages/qr/QrManagementPage';
 import EtlChangeLogPage from '@/pages/qr/EtlChangeLogPage';
 import FactoryDashboardPage from '@/pages/factory/FactoryDashboardPage';
+import FactoryMapPage from '@/pages/factory/FactoryMapPage';
 import ProductionPlanPage from '@/pages/plan/ProductionPlanPage';
 import ProductionPerformancePage from '@/pages/production/ProductionPerformancePage';
 import ShipmentHistoryPage from '@/pages/production/ShipmentHistoryPage';
@@ -162,6 +163,14 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['admin', 'manager', 'gst']}>
               <FactoryDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/factory/map"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'gst']}>
+              <FactoryMapPage />
             </ProtectedRoute>
           }
         />

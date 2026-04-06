@@ -123,7 +123,16 @@ const navGroups: NavGroup[] = [
   {
     title: 'Dashboard',
     items: [
-      { label: '공장 대시보드', icon: <FactoryIcon />, to: '/factory', roles: ['admin', 'manager', 'gst'] },
+      {
+        label: '공장 대시보드',
+        icon: <FactoryIcon />,
+        to: '/factory',
+        roles: ['admin', 'manager', 'gst'],
+        children: [
+          { label: '요약', to: '/factory' },
+          { label: '공정 맵', to: '/factory/map', preparing: true },
+        ],
+      },
       {
         label: '협력사 관리',
         icon: <UsersIcon />,
