@@ -129,8 +129,8 @@ const navGroups: NavGroup[] = [
         to: '/factory',
         roles: ['admin', 'manager', 'gst'],
         children: [
-          { label: '요약', to: '/factory' },
-          { label: '공정 맵', to: '/factory/map', preparing: true },
+          { label: 'Summary', to: '/factory' },
+          { label: 'Digital Twin', to: '/factory/map', preparing: true },
         ],
       },
       {
