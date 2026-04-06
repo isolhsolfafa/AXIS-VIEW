@@ -11,35 +11,28 @@ interface ProcessCard {
   iqr: number;
   avg: number;
   icon: React.ReactNode;
-  topColor: string;
-  iconBg: string;
-  iconColor: string;
-  valueColor: string;
+  accentColor: string;
 }
 
 const PROCESS_CARDS: ProcessCard[] = [
   {
     name: '기구', variant: 'machinery', iqr: 0.0, avg: 0.0,
-    topColor: 'var(--gx-silver)', iconBg: 'rgba(184,188,200,0.15)', iconColor: 'var(--gx-silver)',
-    valueColor: 'var(--gx-silver)',
+    accentColor: 'var(--gx-silver)',
     icon: <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clipRule="evenodd"/></svg>,
   },
   {
     name: '전장', variant: 'electrical', iqr: 31.6, avg: 34.5,
-    topColor: 'var(--gx-accent)', iconBg: 'var(--gx-accent-soft)', iconColor: 'var(--gx-accent)',
-    valueColor: 'var(--gx-accent)',
+    accentColor: 'var(--gx-accent)',
     icon: <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd"/></svg>,
   },
   {
     name: '검사', variant: 'inspection', iqr: 4.6, avg: 4.4,
-    topColor: 'var(--gx-success)', iconBg: 'var(--gx-success-bg)', iconColor: 'var(--gx-success)',
-    valueColor: 'var(--gx-accent)',
+    accentColor: 'var(--gx-success)',
     icon: <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>,
   },
   {
     name: '기타', variant: 'etc', iqr: 0.0, avg: 0.0,
-    topColor: 'var(--gx-steel)', iconBg: 'rgba(139,144,160,0.1)', iconColor: 'var(--gx-steel)',
-    valueColor: 'var(--gx-silver)',
+    accentColor: 'var(--gx-steel)',
     icon: <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 8a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zm6-6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zm0 8a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>,
   },
 ];
@@ -200,40 +193,30 @@ export default function CtAnalysisPage() {
               key={p.name}
               style={{
                 background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
-                boxShadow: 'var(--shadow-card)', padding: '20px',
-                position: 'relative', overflow: 'hidden',
-                transition: 'transform 0.2s, box-shadow 0.2s', cursor: 'default',
+                boxShadow: 'var(--shadow-card)', padding: '18px 20px',
               }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'var(--shadow-card)'; }}
             >
-              {/* Top color bar */}
-              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '3px', background: p.topColor }} />
-
-              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gx-slate)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{
-                  width: '28px', height: '28px', borderRadius: 'var(--radius-gx-sm)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: p.iconBg, color: p.iconColor,
-                }}>
-                  {p.icon}
-                </div>
+              <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-steel)', letterSpacing: '0.3px', marginBottom: '8px' }}>
                 {p.name}
               </div>
 
               <div style={{ display: 'flex', gap: '20px' }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--gx-steel)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '4px' }}>IQR 시간</div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '22px', fontWeight: 500, lineHeight: 1, color: p.valueColor }}>
+                  <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--gx-steel)', marginBottom: '4px' }}>IQR 시간</div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '24px', fontWeight: 700, lineHeight: 1, color: p.iqr === 0 ? 'var(--gx-silver)' : 'var(--gx-charcoal)' }}>
                     {p.iqr.toFixed(1)}<span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--gx-steel)', marginLeft: '2px' }}>h</span>
                   </div>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--gx-steel)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '4px' }}>평균 시간</div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '22px', fontWeight: 500, lineHeight: 1, color: p.iqr === 0 ? 'var(--gx-silver)' : 'var(--gx-graphite)' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--gx-steel)', marginBottom: '4px' }}>평균 시간</div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '24px', fontWeight: 700, lineHeight: 1, color: p.iqr === 0 ? 'var(--gx-silver)' : 'var(--gx-charcoal)' }}>
                     {p.avg.toFixed(1)}<span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--gx-steel)', marginLeft: '2px' }}>h</span>
                   </div>
                 </div>
+              </div>
+
+              <div style={{ marginTop: '8px', height: '3px', borderRadius: '2px', background: 'var(--gx-cloud)' }}>
+                <div style={{ width: p.iqr > 0 ? '55%' : '0%', height: '100%', borderRadius: '2px', background: p.accentColor }} />
               </div>
             </div>
           ))}
