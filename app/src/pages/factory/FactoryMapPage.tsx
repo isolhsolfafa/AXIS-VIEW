@@ -48,7 +48,7 @@ const MAP_STYLES = `
   .fm-rack-slot{width:36px;height:22px;border-radius:3px;border:1px solid var(--gx-mist);background:var(--gx-white);font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gx-steel);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;}
   .fm-rack-slot.occupied{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.2);color:var(--gx-success);}
 
-  .fm-viewport{position:absolute;top:0;left:0;right:0;bottom:0;transition:transform .9s cubic-bezier(.25,.1,.25,1);transform-origin:0 0;}
+  .fm-viewport{width:100%;height:100%;transition:transform .9s cubic-bezier(.25,.1,.25,1);transform-origin:0 0;}
 
   .fm-minimap{position:absolute;top:12px;right:12px;width:200px;height:130px;background:var(--gx-white);border:1px solid var(--gx-mist);border-radius:var(--radius-gx-md,10px);padding:10px;box-shadow:var(--shadow-card);opacity:0;transform:translateY(-8px);transition:all .4s;pointer-events:none;z-index:50;}
   .fm-minimap.visible{opacity:1;transform:translateY(0);pointer-events:auto;}
@@ -285,7 +285,7 @@ export default function FactoryMapPage() {
   return (
     <Layout title="Digital Twin">
       <style>{MAP_STYLES}</style>
-      <div ref={containerRef} style={{ padding: '20px 28px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div ref={containerRef} style={{ padding: '20px 28px', height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* 통계 + 검색 */}
         <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'stretch' }}>
           <div className="fm-stat">
