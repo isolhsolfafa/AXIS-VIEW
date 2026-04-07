@@ -1,7 +1,7 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-04-03
+> 마지막 업데이트: 2026-04-06
 
 ---
 
@@ -39,6 +39,15 @@
 ### 체크리스트 400 에러 수정
 16. **월별 자동 로드 제거**: BE month 파라미터 미지원 → 검색 전용 UI로 복원
 
+### QR 관리 개선
+17. **QR 이미지 모달**: Doc ID 클릭 → QR 코드 이미지 모달 (O/N + QR + S/N 라벨 레이아웃)
+18. **인쇄 기능**: 모달 내 인쇄 버튼 → 새 창 열어 브라우저 인쇄
+19. **의존성 추가**: `qrcode` 패키지 (QR 코드 FE 생성, 에러정정 M레벨)
+
+### 이름 마스킹
+20. **maskName 공통 유틸**: `utils/format.ts` — 한글 이름 마스킹 (임지후→임*후)
+21. **적용 범위**: ProcessStepCard (디테일뷰) + SNCard (카드 목록)
+
 ---
 
 ## 진행 중 Sprint
@@ -62,7 +71,7 @@
 | ID | 설명 | 심각도 | 상태 |
 |----|------|--------|------|
 | BUG-V2 | ProductionPerformancePage `?? []` 미적용 (7개소) | 🟡 LOW | FE 대기 |
-| #53 | monthly-summary weeks/totals 집계값 전부 0 | 🔴 HIGH | BE 버그 |
+| ~~#53~~ | ~~monthly-summary weeks/totals~~ | ~~HIGH~~ | ✅ BE Sprint 53 완료·테스트 통과 |
 
 ---
 
@@ -74,8 +83,8 @@
 | #45 | 카드뷰 last_worker에 task 이름 추가 | PENDING | S/N 카드뷰 |
 | #47 | QR 명판 인식 — qrbox 200 적용 | PENDING | OPS FE |
 | #52 | ETL _FIELD_LABELS에 finishing_plan_end 누락 | PENDING | 마무리계획일 |
-| #53 | monthly-summary weeks/totals 집계 BUG | **BUG** | 월마감 캘린더 |
-| #54 | 체크리스트 성적서 API 2건 | **DONE** | 체크리스트 페이지 |
+| ~~#53~~ | ~~monthly-summary weeks/totals 집계~~ | ✅ **DONE** | 월마감 캘린더 |
+| ~~#54~~ | ~~체크리스트 성적서 API 2건~~ | ✅ BE Sprint 54 완료·테스트 통과 | 체크리스트 페이지 |
 
 > 전체 목록: `docs/OPS_API_REQUESTS.md` (#1~#54)
 

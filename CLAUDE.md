@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-04-03 | 버전: v1.23.0
+> 최종 갱신: 2026-04-07 | 버전: v1.24.0
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -175,12 +175,14 @@ VITE_USE_MOCK=false
 
 ---
 
-## 페이지 구성 (20개, v1.23.0 기준)
+## 페이지 구성 (21개, v1.24.0 기준)
 
 ### 사이드바 메뉴 구조
 
 ```
 공장 대시보드        /factory                    [admin, manager, gst]
+  ├─ Summary        /factory
+  └─ Digital Twin   /factory/map                (preparing)
 협력사 관리          /partner                    [admin, manager]
   ├─ 대시보드        /partner                    (preparing)
   ├─ 평가지수        /partner/evaluation         (preparing)

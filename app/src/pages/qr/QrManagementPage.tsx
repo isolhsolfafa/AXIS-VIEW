@@ -1,8 +1,9 @@
 // src/pages/qr/QrManagementPage.tsx
 // QR 관리 페이지 — G-AXIS 디자인 시스템
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { format, addDays } from 'date-fns';
+import QRCode from 'qrcode';
 import Layout from '@/components/layout/Layout';
 import { useQrList } from '@/hooks/useQr';
 import { getQrList } from '@/api/qr';
@@ -111,6 +112,91 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/* ── QR 이미지 모달 ── */
+function QrImageModal({ item, onClose }: { item: QrRecord; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      QRCode.toCanvas(canvasRef.current, item.qr_doc_id, {
+        width: 200,
+        margin: 2,
+        errorCorrectionLevel: 'M',
+      });
+    }
+  }, [item.qr_doc_id]);
+
+  function handlePrint() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL('image/png');
+    const win = window.open('', '_blank', 'width=400,height=500');
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>QR - ${item.qr_doc_id}</title>
+      <style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;}
+      @media print{button{display:none!important;}}</style></head>
+      <body>
+        <div style="font-size:18px;font-weight:700;margin-bottom:4px">${item.sales_order || '—'}</div>
+        <img src="${dataUrl}" width="200" height="200"/>
+        <div style="font-size:16px;font-weight:600;margin-top:4px">${item.serial_number}</div>
+        <button onclick="window.print()" style="margin-top:20px;padding:8px 24px;font-size:14px;cursor:pointer;border:1px solid #ccc;border-radius:6px;background:#fff">인쇄</button>
+      </body></html>`);
+    win.document.close();
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: '12px', padding: '32px',
+          minWidth: '300px', textAlign: 'center', position: 'relative',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+        }}
+      >
+        {/* 닫기 */}
+        <button onClick={onClose} style={{
+          position: 'absolute', top: '12px', right: '16px',
+          background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#999',
+        }}>×</button>
+
+        {/* O/N */}
+        <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--gx-charcoal)', marginBottom: '8px' }}>
+          {item.sales_order || '—'}
+        </div>
+
+        {/* QR 이미지 */}
+        <canvas ref={canvasRef} style={{ margin: '8px auto', display: 'block' }} />
+
+        {/* S/N */}
+        <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--gx-charcoal)', fontFamily: "'JetBrains Mono', monospace", marginTop: '8px' }}>
+          {item.serial_number}
+        </div>
+
+        {/* Doc ID */}
+        <div style={{ fontSize: '11px', color: 'var(--gx-silver)', marginTop: '4px' }}>
+          {item.qr_doc_id}
+        </div>
+
+        {/* 인쇄 버튼 */}
+        <button onClick={handlePrint} style={{
+          marginTop: '20px', padding: '8px 24px', fontSize: '13px', fontWeight: 600,
+          background: 'var(--gx-accent)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer',
+        }}>
+          인쇄
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ── KPI 카드 ── */
 function KpiCard({ label, value, color, sub }: { label: string; value: number; color: string; sub?: string }) {
   return (
@@ -201,6 +287,9 @@ export default function QrManagementPage() {
 
   // 전체 보기 모드
   const [showAll, setShowAll] = useState(false);
+
+  // QR 이미지 모달
+  const [qrModalItem, setQrModalItem] = useState<QrRecord | null>(null);
 
   const params: QrListParams = useMemo(() => ({
     search: search || undefined,
@@ -617,7 +706,10 @@ export default function QrManagementPage() {
                       onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.04)'; }}
                       onMouseLeave={e => { e.currentTarget.style.background = idx % 2 === 1 ? 'rgba(248,250,252,0.5)' : 'transparent'; }}
                     >
-                      <td style={{ padding: '11px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--gx-accent)', fontWeight: 500 }}>
+                      <td
+                        onClick={() => setQrModalItem(item)}
+                        style={{ padding: '11px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--gx-accent)', fontWeight: 500, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'rgba(99,102,241,0.3)' }}
+                      >
                         {item.qr_doc_id}
                       </td>
                       <td style={{ padding: '11px 14px' }}>
@@ -685,6 +777,8 @@ export default function QrManagementPage() {
           )}
         </div>
       </div>
+      {/* QR 이미지 모달 */}
+      {qrModalItem && <QrImageModal item={qrModalItem} onClose={() => setQrModalItem(null)} />}
     </Layout>
   );
 }
