@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-04-03 (#53 monthly-summary weeks 집계, #54 체크리스트 성적서 API)
+> 마지막 업데이트: 2026-04-09 (#55 비활성화 NO_CHANGE 오판 + 로그인 is_active 미검증)
 
 ---
 
@@ -3746,3 +3746,67 @@ interface ChecklistReportData {
 ```
 
 **VIEW 영향**: ChecklistReportPage.tsx에서 API 호출. BE 반영 시 FE 추가 수정 없음.
+
+---
+
+### #55 QR 목록 API에 `elec_start` 필드 + 필터 추가 — SPRINT ASSIGNED (2026-04-08)
+
+> **BE**: OPS Sprint 56 (AGENT_TEAM_LAUNCH.md) — qr.py 4곳 수정
+> **FE**: VIEW Sprint 29 (DESIGN_FIX_SPRINT.md) — types/qr.ts + QrManagementPage.tsx
+
+**배경**: QR Registry 페이지에서 현재 `mech_start`(기구시작)와 `module_start`(모듈시작) 기준으로만 날짜 필터가 가능. 전장시작(`elec_start`) 기준 필터가 필요.
+
+**엔드포인트**: `GET /api/admin/qr/list`
+
+**요청 내용**:
+
+1. **응답 필드 추가**: 각 QR 레코드에 `elec_start` (전장 공정 시작일) 필드 추가
+
+```json
+{
+  "qr_id": 123,
+  "qr_doc_id": "DOC_GBWS-6978",
+  "serial_number": "GBWS-6978",
+  "mech_start": "2026-03-30",
+  "elec_start": "2026-04-01",
+  "module_start": "2026-04-05",
+  ...
+}
+```
+
+2. **`date_field` 파라미터 확장**: 기존 `mech_start | module_start`에 `elec_start` 추가
+
+```
+GET /api/admin/qr/list?date_field=elec_start&date_from=2026-04-01&date_to=2026-04-14
+```
+
+**소스**: `product` 테이블의 `elec_start` 컬럼 (기존 `mech_start`, `module_start`와 동일 패턴)
+
+**VIEW FE 수정 (BE 반영 후)**:
+- `types/qr.ts`: `QrRecord`에 `elec_start` 필드 추가, `QrListParams.date_field`에 `'elec_start'` 추가
+- `QrManagementPage.tsx`: 날짜 필터 드롭다운에 `전장시작` 옵션 추가, 테이블 컬럼 추가
+
+---
+
+### #55 비활성화 API NO_CHANGE 오판 + 로그인 is_active 미검증 — BUG (2026-04-09)
+
+**배경**: VIEW 권한 관리에서 Admin이 활성 사용자를 비활성화 시도 → BE가 `422 NO_CHANGE` 반환. 해당 사용자(test5@naver.com)는 현재 로그인 가능한 상태.
+
+**증상**:
+1. `POST /api/admin/worker-status` `{worker_id: N, action: 'deactivate'}` → `{"error":"NO_CHANGE"}`
+2. 사용자는 실제로 접속 가능 (비활성화된 적 없음)
+
+**원인 추정**:
+- `deactivate_worker()` (worker.py L782): `WHERE id=%s AND is_active=TRUE RETURNING id` — `is_active`가 이미 `FALSE`면 업데이트 0건 → `False` 반환 → `NO_CHANGE`
+- DB에서 `is_active=FALSE`이지만 로그인이 허용되는 상태 (로그인 시 `is_active` 체크 누락 가능)
+
+**확인 필요**:
+```sql
+SELECT id, name, email, is_active, deactivated_at FROM workers WHERE email = 'test5@naver.com';
+```
+
+**수정 요청 2건**:
+1. **DB 데이터 정합성**: `is_active=FALSE`인데 접속 가능한 사용자 확인 + 필요 시 `is_active=TRUE`로 복원
+2. **로그인 시 is_active 검증**: `POST /api/auth/login`에서 `is_active=FALSE`인 사용자 로그인 차단 (현재 미검증 추정)
+
+**VIEW 영향**: FE 수정 없음. BE 데이터 정합성 + 로그인 로직 수정 필요.
