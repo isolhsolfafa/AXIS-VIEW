@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-04-09 (#55 비활성화 NO_CHANGE 오판 + 로그인 is_active 미검증)
+> 마지막 업데이트: 2026-04-09 (#55 비활성화 BUG, #56 체크리스트 필수 토글 연동)
 
 ---
 
@@ -3810,3 +3810,60 @@ SELECT id, name, email, is_active, deactivated_at FROM workers WHERE email = 'te
 2. **로그인 시 is_active 검증**: `POST /api/auth/login`에서 `is_active=FALSE`인 사용자 로그인 차단 (현재 미검증 추정)
 
 **VIEW 영향**: FE 수정 없음. BE 데이터 정합성 + 로그인 로직 수정 필요.
+
+---
+
+### #56 confirm_checklist_required 실적확인 연동 — PENDING (2026-04-09)
+
+**배경**: VIEW 생산실적 설정 패널에 "체크리스트 필수" 토글이 Sprint 25에서 추가됨. DB(`admin_settings`)에 `confirm_checklist_required` 키가 저장되고 GET/PUT 설정 API도 정상 동작하지만, **실적확인 `confirmable` 판정에 실제로 반영되지 않는 dead toggle 상태**.
+
+**현재 상태**:
+- DB: `admin_settings` 테이블에 키 존재 (migration 027)
+- BE 설정 API: `GET/PUT /api/admin/settings` — 읽기/쓰기 정상
+- BE 실적확인: `production_service.py`에서 `confirmable` 판정 시 **체크리스트 완료 여부 미참조**
+- FE: `confirmable`은 BE 응답값 그대로 사용 — 토글 ON/OFF 무관
+
+**수정 요청**:
+
+`GET /api/admin/production/performance` 응답의 `confirmable` 판정에 체크리스트 완료 조건 추가:
+
+```
+confirm_checklist_required = TRUE일 때:
+  - S/N별 공정 체크리스트 완료 여부 확인
+  - 미완료 시 confirmable = false
+  - 완료 시 기존 로직 유지 (공정 100% 등)
+
+confirm_checklist_required = FALSE일 때:
+  - 기존 로직 그대로 (체크리스트 무관)
+```
+
+**공정별 체크리스트 매핑**:
+
+| 공정 | 체크리스트 | BE 상태 | 비고 |
+|------|-----------|---------|------|
+| TM | `check_elec_completion()` 패턴 | ✅ Sprint 52 완료 | `checker_role` 조건 없음 |
+| ELEC | `check_elec_completion()` | 🔜 Sprint 57 예정 | `checker_role != 'QI'` (GST 제외) |
+| MECH | 미정 | ❌ 미구현 | MECH 체크리스트 BE 선행 필요 |
+
+**구현 제안**:
+```python
+# production_service.py — confirmable 판정 내부
+from app.models.admin_settings import get_setting
+
+checklist_required = get_setting('confirm_checklist_required') == 'true'
+
+if checklist_required:
+    if process_type == 'TMS':
+        from app.services.checklist_service import check_tm_completion
+        if not check_tm_completion(serial_number):
+            confirmable = False
+    elif process_type == 'ELEC':
+        from app.services.checklist_service import check_elec_completion
+        if not check_elec_completion(serial_number):
+            confirmable = False
+    # MECH: 체크리스트 BE 구현 후 추가
+```
+
+**우선순위**: 🟡 MEDIUM — Sprint 57 (ELEC 체크리스트) 완료 후 연동이 현실적. TM 단독으로 먼저 연동 가능.
+
+**VIEW 영향**: FE 수정 없음. BE가 `confirmable` 판정에 반영하면 기존 UI 그대로 동작.
