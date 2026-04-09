@@ -93,6 +93,23 @@ if (task.workers.some(w => w.status === 'completed')) return 'completed';
 - **이유**: BE 수정 요청 없이 FE에서 즉시 대응. 추후 BE가 필드명 통일하면 fallback 자동 무시
 - **참고**: 동일 패턴이 `getPerformance()`에도 적용 중 (partner_info, confirms 변환)
 
+### ADR-V012: confirm_checklist_required — UI만 존재, 로직 미연동 (2026-04-09 발견)
+- **맥락**: 생산실적 ConfirmSettingsPanel에 "체크리스트 필수" 토글이 있음 (Sprint 25에서 추가)
+- **현상**: 토글 ON/OFF 상관없이 실적확인 동작에 영향 없음
+- **원인 분석**:
+  - DB: `admin_settings` 테이블에 `confirm_checklist_required` 키 존재 (migration 027)
+  - BE 설정 API: 읽기/쓰기 정상 (`GET/PUT /api/admin/settings`)
+  - **BE 실적확인**: `production_service.py`에서 `confirmable` 판정 시 체크리스트 완료 여부 **미참조**
+  - FE: `confirmable`은 BE 응답값 그대로 사용 — FE에서 체크리스트 상태를 별도 확인하지 않음
+- **결론**: 설정값은 저장되지만 `confirmable` 판정 파이프라인에 연결되지 않은 dead toggle 상태
+- **구현 필요 사항 (BE)**:
+  1. `GET /api/admin/production/performance` 응답의 `confirmable` 판정에 체크리스트 완료 여부 조건 추가
+  2. `confirm_checklist_required=true`일 때: 해당 S/N의 공정별 체크리스트가 미완료이면 `confirmable=false`
+  3. 현재 체크리스트 BE: TM만 구현됨, ELEC은 Sprint 57에서 추가 예정, MECH는 미정
+  4. 공정별 분기 필요: TM → TM 체크리스트, ELEC → ELEC 체크리스트 (Sprint 57 후), MECH → 미정
+- **FE 수정**: BE가 `confirmable` 판정에 반영하면 FE 추가 수정 없음
+- **How to apply**: BE Sprint으로 별도 등록 필요. ELEC 체크리스트(Sprint 57) 완료 후 연동이 현실적
+
 ### ADR-V011: ISO 주차 계산 — yearStart 기준 (2026-04-03)
 - **맥락**: MonthlyCalendarView에서 W14(3/30~4/5)가 W13으로 1주 밀려 표시
 - **원인**: `getISOWeek()`의 `yearStart = new Date(year, 0, 4)` (Jan 4 기준)
