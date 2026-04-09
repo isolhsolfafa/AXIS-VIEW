@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react';
 import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/store/authStore';
-import { useWorkers, useToggleManager, useRequestDeactivation } from '@/hooks/useWorkers';
+import { useWorkers, useToggleManager, useRequestDeactivation, useWorkerStatus } from '@/hooks/useWorkers';
 import { toast } from 'sonner';
 
 /* ── 회사별 색상 ─────────────────────────────────────── */
@@ -57,6 +57,7 @@ export default function PermissionsPage() {
   );
   const toggleMutation = useToggleManager();
   const deactivateMutation = useRequestDeactivation();
+  const workerStatusMutation = useWorkerStatus();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCompany, setFilterCompany] = useState('');
@@ -454,29 +455,57 @@ export default function PermissionsPage() {
                         )}
                       </td>
                       <td style={{ padding: '10px 16px' }}>
-                        {!isAdmin && !isCurrentUser && currentUser?.is_manager && w.company === currentUser.company && (
+                        {!isCurrentUser && !w.is_admin && (
+                          isAdmin || (currentUser?.is_manager && w.company === currentUser.company)
+                        ) && (
                           <button
                             onClick={() => {
-                              const reason = prompt(`${w.name} 비활성화 사유를 입력하세요:`);
-                              if (reason === null) return;
-                              deactivateMutation.mutate(
-                                { workerId: w.id, reason: reason || '' },
-                                {
-                                  onSuccess: () => toast.success(`${w.name} — 비활성화 요청 완료 (admin 승인 대기)`),
-                                  onError: () => toast.error('비활성화 요청에 실패했습니다'),
-                                }
-                              );
+                              if (isAdmin) {
+                                const confirmed = confirm(`${w.name} 님을 정말 비활성화 하시겠습니까?\n이 작업은 즉시 반영됩니다.`);
+                                if (!confirmed) return;
+                                workerStatusMutation.mutate(
+                                  { workerId: w.id, action: 'deactivate' },
+                                  {
+                                    onSuccess: () => toast.success(`${w.name} — 비활성화 완료`),
+                                    onError: (err: any) => {
+                                      const msg = err?.response?.data?.error;
+                                      if (msg === 'NO_CHANGE') {
+                                        toast.error('이미 비활성화된 사용자입니다');
+                                      } else {
+                                        toast.error('비활성화에 실패했습니다');
+                                      }
+                                    },
+                                  }
+                                );
+                              } else {
+                                const reason = prompt(`${w.name} 비활성화 사유를 입력하세요:`);
+                                if (reason === null) return;
+                                deactivateMutation.mutate(
+                                  { workerId: w.id, reason: reason || '' },
+                                  {
+                                    onSuccess: () => toast.success(`${w.name} — 비활성화 요청 완료 (admin 승인 대기)`),
+                                    onError: (err: any) => {
+                                      const msg = err?.response?.data?.error;
+                                      if (msg === 'NO_CHANGE') {
+                                        toast.error('이미 비활성화 요청된 사용자입니다');
+                                      } else {
+                                        toast.error('비활성화 요청에 실패했습니다');
+                                      }
+                                    },
+                                  }
+                                );
+                              }
                             }}
-                            disabled={deactivateMutation.isPending}
+                            disabled={deactivateMutation.isPending || workerStatusMutation.isPending}
                             style={{
                               fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '6px',
                               border: 'none', cursor: 'pointer',
                               background: 'var(--gx-danger-bg)', color: 'var(--gx-danger)',
-                              opacity: deactivateMutation.isPending ? 0.5 : 1,
+                              opacity: (deactivateMutation.isPending || workerStatusMutation.isPending) ? 0.5 : 1,
                               transition: 'all 0.15s',
                             }}
                           >
-                            비활성화 요청
+                            {isAdmin ? '비활성화' : '비활성화 요청'}
                           </button>
                         )}
                       </td>
