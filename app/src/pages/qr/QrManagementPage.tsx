@@ -278,7 +278,7 @@ export default function QrManagementPage() {
   const perPage = 30;
 
   // 날짜 필터 — 기본값: 오늘 ~ +2주
-  const [dateField, setDateField] = useState<'mech_start' | 'module_start'>('mech_start');
+  const [dateField, setDateField] = useState<'mech_start' | 'elec_start' | 'module_start'>('mech_start');
   const [dateFrom, setDateFrom] = useState(defaultRange.from);
   const [dateTo, setDateTo] = useState(defaultRange.to);
 
@@ -359,7 +359,7 @@ export default function QrManagementPage() {
         ? result.items
         : result.items.filter(item => !TEST_SN_PREFIXES.some(pfx => item.serial_number.startsWith(pfx)));
       // 화면과 동일한 필터/정렬 적용
-      if (dateField === 'mech_start') {
+      if (dateField === 'mech_start' || dateField === 'elec_start') {
         exportItems = exportItems.filter(item => resolveQrType(item.qr_type, item.qr_doc_id) === 'PRODUCT');
       } else {
         exportItems = [...exportItems].sort((a, b) =>
@@ -370,7 +370,7 @@ export default function QrManagementPage() {
         alert('추출할 데이터가 없습니다.');
         return;
       }
-      const dateLabel = dateField === 'mech_start' ? '기구시작' : '모듈시작';
+      const dateLabel = dateField === 'mech_start' ? '기구시작' : dateField === 'elec_start' ? '전장시작' : '모듈시작';
       const range = dateFrom || dateTo ? `_${dateFrom || ''}~${dateTo || ''}` : '';
       const filename = `QR_${dateLabel}${range}.csv`;
       downloadCsv(exportItems, filename);
@@ -393,6 +393,7 @@ export default function QrManagementPage() {
     { key: 'sales_order', label: 'O/N', sortable: true, width: '120px' },
     { key: 'customer', label: '고객사', sortable: false, width: '100px' },
     { key: 'mech_start', label: '기구시작', sortable: true, width: '110px' },
+    { key: 'elec_start', label: '전장시작', sortable: true, width: '110px' },
     { key: 'module_start', label: '모듈시작', sortable: true, width: '110px' },
     { key: 'ship_plan_date', label: '출하예정', sortable: false, width: '110px' },
     { key: 'status', label: '상태', sortable: false, width: '80px' },
@@ -409,7 +410,7 @@ export default function QrManagementPage() {
     const filtered = settings.showTestSN
       ? rawItems
       : rawItems.filter(item => !TEST_SN_PREFIXES.some(pfx => item.serial_number.startsWith(pfx)));
-    if (dateField === 'mech_start') {
+    if (dateField === 'mech_start' || dateField === 'elec_start') {
       return filtered.filter(item => resolveQrType(item.qr_type, item.qr_doc_id) === 'PRODUCT');
     }
     // 모듈시작: 같은 S/N끼리 묶이도록 serial_number → qr_doc_id 순 정렬
@@ -571,10 +572,11 @@ export default function QrManagementPage() {
             </div>
             <select
               value={dateField}
-              onChange={e => { setDateField(e.target.value as 'mech_start' | 'module_start'); setShowAll(false); setPage(1); }}
+              onChange={e => { setDateField(e.target.value as 'mech_start' | 'elec_start' | 'module_start'); setShowAll(false); setPage(1); }}
               style={{ ...selectStyle, minWidth: '120px' }}
             >
               <option value="mech_start">기구시작</option>
+              <option value="elec_start">전장시작</option>
               <option value="module_start">모듈시작</option>
             </select>
 
@@ -649,7 +651,7 @@ export default function QrManagementPage() {
           {showAll ? (
             <span> · 전체 보기</span>
           ) : hasDateFilter ? (
-            <span> · {dateField === 'mech_start' ? '기구시작' : '모듈시작'} {dateFrom || '…'} ~ {dateTo || '…'}</span>
+            <span> · {dateField === 'mech_start' ? '기구시작' : dateField === 'elec_start' ? '전장시작' : '모듈시작'} {dateFrom || '…'} ~ {dateTo || '…'}</span>
           ) : null}
         </div>
 

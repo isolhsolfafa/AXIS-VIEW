@@ -15,6 +15,7 @@ export interface QrRecord {
   mech_partner: string;
   elec_partner: string;
   mech_start: string | null;
+  elec_start: string | null;
   module_start: string | null;
   ship_plan_date: string | null;
   prod_date: string | null;
@@ -45,7 +46,7 @@ export interface QrListParams {
   per_page?: number;
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
-  date_field?: 'mech_start' | 'module_start';
+  date_field?: 'mech_start' | 'elec_start' | 'module_start';
   date_from?: string;
   date_to?: string;
 }
