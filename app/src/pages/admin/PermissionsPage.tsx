@@ -456,11 +456,11 @@ export default function PermissionsPage() {
                       </td>
                       <td style={{ padding: '10px 16px' }}>
                         {!isCurrentUser && !w.is_admin && (
-                          isAdmin || (currentUser?.is_manager && w.company === currentUser.company)
+                          currentUser?.is_admin || (currentUser?.is_manager && w.company === currentUser.company)
                         ) && (
                           <button
                             onClick={() => {
-                              if (isAdmin) {
+                              if (currentUser?.is_admin) {
                                 const confirmed = confirm(`${w.name} 님을 정말 비활성화 하시겠습니까?\n이 작업은 즉시 반영됩니다.`);
                                 if (!confirmed) return;
                                 workerStatusMutation.mutate(
@@ -505,7 +505,7 @@ export default function PermissionsPage() {
                               transition: 'all 0.15s',
                             }}
                           >
-                            {isAdmin ? '비활성화' : '비활성화 요청'}
+                            {currentUser?.is_admin ? '비활성화' : '비활성화 요청'}
                           </button>
                         )}
                       </td>
