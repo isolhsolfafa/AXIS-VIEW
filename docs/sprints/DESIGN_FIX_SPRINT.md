@@ -12269,3 +12269,383 @@ Phase 3 — 테스트
 - GST 로고: `gst-logo.png` import 완료
 - PDF 출력 시 마스킹 해제 (data-fullname 속성 활용)
 - categories 배열 동적 순회 — MECH/ELEC BE 확장 시 FE 수정 불필요
+
+---
+
+# Sprint 29 — QR 목록 전장시작(elec_start) 필터 추가 (2026-04-08)
+
+> 등록일: 2026-04-08
+> 트랙: VIEW FE (BE는 OPS Sprint 56에서 별도 처리)
+> 선행: OPS Sprint 56 (QR API elec_start 필드 + 필터 추가)
+> 난이도: 하 (기존 패턴 복제, 4곳 수정)
+> 수정 파일: 2개 (기존 수정)
+> 신규 컴포넌트: 없음
+> 신규 API: 없음 (기존 useQrList 그대로 사용)
+
+## 배경
+
+QR Registry 페이지에서 현재 `기구시작`(mech_start), `모듈시작`(module_start) 두 가지 날짜 기준으로만 필터 가능.
+현장에서 전장공정 시작일(`elec_start`) 기준으로도 일정을 관리하므로 드롭다운에 `전장시작` 옵션 추가 필요.
+
+BE Sprint 56에서 `/api/admin/qr/list` 응답에 `elec_start` 필드가 포함되고, `date_field=elec_start` 필터가 지원됨.
+
+## 수정 대상 파일
+
+```
+1. app/src/types/qr.ts                         (수정 — QrRecord, QrListParams 타입)
+2. app/src/pages/qr/QrManagementPage.tsx        (수정 — 드롭다운, 컬럼, 라벨 분기)
+```
+
+## A. 타입 수정 — types/qr.ts
+
+```typescript
+// src/types/qr.ts
+// QR 관리 페이지 타입 정의
+
+export interface QrRecord {
+  qr_id: number;
+  qr_doc_id: string;
+  serial_number: string;
+  status: 'active' | 'shipped' | 'revoked';
+  qr_type: 'PRODUCT' | 'TANK';
+  parent_qr_doc_id: string | null;
+  qr_created_at: string | null;
+  model: string;
+  sales_order: string;
+  customer: string;
+  mech_partner: string;
+  elec_partner: string;
+  mech_start: string | null;
+  elec_start: string | null;     // ← Sprint 29 추가
+  module_start: string | null;
+  ship_plan_date: string | null;
+  prod_date: string | null;
+}
+
+// QrStats, QrListResponse — 변경 없음
+
+export interface QrListParams {
+  search?: string;
+  model?: string;
+  status?: string;
+  page?: number;
+  per_page?: number;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+  date_field?: 'mech_start' | 'module_start' | 'elec_start';  // ← Sprint 29 추가
+  date_from?: string;
+  date_to?: string;
+}
+```
+
+변경 2곳:
+1. `QrRecord`에 `elec_start: string | null` 추가 (mech_start과 module_start 사이)
+2. `QrListParams.date_field`에 `'elec_start'` 유니온 추가
+
+## B. QrManagementPage.tsx — 4곳 수정
+
+### B-1. useState 타입 확장 (L281)
+
+```typescript
+// 기존:
+const [dateField, setDateField] = useState<'mech_start' | 'module_start'>('mech_start');
+
+// 변경:
+const [dateField, setDateField] = useState<'mech_start' | 'module_start' | 'elec_start'>('mech_start');
+```
+
+### B-2. 드롭다운 옵션 추가 (L577-578)
+
+```typescript
+// 기존:
+<option value="mech_start">기구시작</option>
+<option value="module_start">모듈시작</option>
+
+// 변경:
+<option value="mech_start">기구시작</option>
+<option value="elec_start">전장시작</option>
+<option value="module_start">모듈시작</option>
+```
+
+### B-3. 테이블 컬럼 추가 (L395-396)
+
+```typescript
+// 기존:
+{ key: 'mech_start', label: '기구시작', sortable: true, width: '110px' },
+{ key: 'module_start', label: '모듈시작', sortable: true, width: '110px' },
+
+// 변경:
+{ key: 'mech_start', label: '기구시작', sortable: true, width: '110px' },
+{ key: 'elec_start', label: '전장시작', sortable: true, width: '110px' },
+{ key: 'module_start', label: '모듈시작', sortable: true, width: '110px' },
+```
+
+### B-4. 라벨 표시 분기 (L373, L574, L652)
+
+날짜 라벨을 표시하는 곳이 3곳 있으며, 모두 동일 패턴:
+
+```typescript
+// 기존 (L373):
+const dateLabel = dateField === 'mech_start' ? '기구시작' : '모듈시작';
+
+// 변경:
+const dateLabel = dateField === 'mech_start' ? '기구시작' : dateField === 'elec_start' ? '전장시작' : '모듈시작';
+```
+
+```typescript
+// 기존 (L574):
+onChange={e => { setDateField(e.target.value as 'mech_start' | 'module_start'); ...
+
+// 변경:
+onChange={e => { setDateField(e.target.value as 'mech_start' | 'module_start' | 'elec_start'); ...
+```
+
+```typescript
+// 기존 (L652):
+<span> · {dateField === 'mech_start' ? '기구시작' : '모듈시작'} ...
+
+// 변경:
+<span> · {dateField === 'mech_start' ? '기구시작' : dateField === 'elec_start' ? '전장시작' : '모듈시작'} ...
+```
+
+### B-5. 필터 모드 분기 (L407-418) — 선택 사항
+
+현재 `기구시작` 선택 시 TANK QR 숨김, `모듈시작` 선택 시 S/N 그룹핑 정렬 적용.
+`전장시작` 선택 시는 `기구시작`과 동일 동작(PRODUCT QR만 표시)으로 처리:
+
+```typescript
+// 기존 (L412):
+if (dateField === 'mech_start') {
+  return filtered.filter(item => resolveQrType(item.qr_type, item.qr_doc_id) === 'PRODUCT');
+}
+
+// 변경:
+if (dateField === 'mech_start' || dateField === 'elec_start') {
+  return filtered.filter(item => resolveQrType(item.qr_type, item.qr_doc_id) === 'PRODUCT');
+}
+```
+
+### B-6. isDefaultState 확인 (L385)
+
+```typescript
+// 기존:
+const isDefaultState = !showAll && dateFrom === defaultRange.from && dateTo === defaultRange.to && dateField === 'mech_start' && ...
+
+// 변경 없음 — 기본값이 'mech_start'이므로 elec_start 추가로 영향 없음
+```
+
+## 테스트 체크리스트
+
+```
+Phase 1 — 타입 + 빌드
+[x] types/qr.ts에 elec_start 추가
+[x] QrManagementPage 드롭다운/컬럼/라벨/필터 수정 (8곳)
+[x] npm run build 성공
+
+Phase 2 — UI 동작
+[ ] 테스트: QR 관리 페이지 진입 → 날짜 드롭다운에 "기구시작/전장시작/모듈시작" 3개 옵션
+[ ] 테스트: "전장시작" 선택 → API 호출 시 date_field=elec_start 전달 확인
+[ ] 테스트: 전장시작 기준 날짜 범위 필터 정상 동작
+[ ] 테스트: 테이블에 "전장시작" 컬럼 표시 + 정렬 클릭 동작
+[ ] 테스트: 기구시작/모듈시작 기존 필터 regression 없음
+[ ] 테스트: elec_start가 null인 행 → 빈 셀 표시 (에러 없음)
+[ ] 테스트: CSV 내보내기 시 dateLabel "전장시작" 정상 표시
+[ ] 테스트: 상단 요약 라벨 "전장시작 2026-04-01 ~ 2026-04-14" 정상 표시
+```
+
+## 규칙
+
+- BE Sprint 56 배포 완료 후 FE 작업 진행 (API에 elec_start 필드 존재해야 함)
+- 기존 mech_start/module_start 동작 변경 없음 — 추가만
+- dateField 기본값(`'mech_start'`) 변경 금지
+
+---
+
+# Sprint 30 — 비활성화 권한 분기 + 422 에러 처리 (2026-04-09)
+
+> 등록일: 2026-04-09
+> 트랙: VIEW FE (BE 추가 작업 없음 — 기존 API 활용)
+> 선행: 없음 (기존 BE API 2개 모두 존재)
+> 난이도: 하 (단일 파일, 조건 분기 + 에러 처리)
+> 수정 파일: 1개 (기존 수정)
+> 신규 컴포넌트: 없음
+> 신규 API: 없음
+
+## 배경
+
+권한 관리(PermissionsPage)에서 비활성화 기능에 두 가지 문제가 있음:
+
+1. **Admin 비활성화 버튼 미노출**: 조건문에 `!isAdmin`이 있어 admin 계정에서는 비활성화 버튼이 아예 안 보임
+2. **422 NO_CHANGE 에러**: 이미 비활성화 요청된 사용자에게 다시 요청 시 BE가 `{"error":"NO_CHANGE"}`를 반환하지만, FE에서 "비활성화 요청에 실패했습니다"로만 표시
+
+## 비활성화 로직 정리
+
+### 역할별 동작 흐름
+
+| 역할 | 동작 | 팝업 | API | toast |
+|------|------|------|-----|-------|
+| **Manager** | 요청 생성 → admin 승인 대기 | `prompt()` 사유 입력 | `POST /api/app/work/request-deactivation` | `"○○○ — 비활성화 요청 완료 (admin 승인 대기)"` |
+| **Admin** | 즉시 비활성화 처리 | `confirm()` 확인 팝업 | `POST /api/admin/worker-status` (action: deactivate) | `"○○○ — 비활성화 완료"` |
+
+### 버튼 노출 조건
+
+| 대상 사용자 | Manager에서 | Admin에서 |
+|-------------|-------------|-----------|
+| 자기 자신 | ✗ | ✗ |
+| 같은 회사 일반 사용자 | ✅ | ✅ |
+| 다른 회사 일반 사용자 | ✗ | ✅ |
+| Admin 계정 | ✗ | ✗ |
+
+### 버튼 텍스트
+
+| 역할 | 버튼 텍스트 |
+|------|------------|
+| Manager | `비활성화 요청` (기존 유지) |
+| Admin | `비활성화` |
+
+## 수정 대상 파일
+
+```
+1. app/src/pages/admin/PermissionsPage.tsx    (수정 — 조건 분기 + 에러 처리)
+```
+
+## A. 버튼 노출 조건 변경 — PermissionsPage.tsx (L457)
+
+**현재 코드:**
+```typescript
+{!isAdmin && !isCurrentUser && currentUser?.is_manager && w.company === currentUser.company && (
+  <button onClick={() => { ... }}>비활성화 요청</button>
+)}
+```
+
+**문제**: `!isAdmin`으로 admin 계정에서는 버튼 자체가 렌더링되지 않음
+
+**수정 코드:**
+```typescript
+{!isCurrentUser && !w.is_admin && (
+  isAdmin || (currentUser?.is_manager && w.company === currentUser.company)
+) && (
+  <button onClick={() => { ... }}>
+    {isAdmin ? '비활성화' : '비활성화 요청'}
+  </button>
+)}
+```
+
+**조건 해석:**
+- `!isCurrentUser` — 자기 자신 제외
+- `!w.is_admin` — 대상이 admin이면 제외 (admin끼리 비활성화 불가)
+- `isAdmin` — admin이면 전체 사용자 대상 가능
+- `currentUser?.is_manager && w.company === currentUser.company` — manager는 같은 회사만
+
+## B. Admin/Manager 분기 처리 — onClick 핸들러
+
+**수정 코드:**
+```typescript
+onClick={() => {
+  if (isAdmin) {
+    // ── Admin: confirm 팝업 → 즉시 비활성화 ──
+    const confirmed = confirm(`${w.name} 님을 정말 비활성화 하시겠습니까?\n이 작업은 즉시 반영됩니다.`);
+    if (!confirmed) return;
+    workerStatusMutation.mutate(
+      { workerId: w.id, action: 'deactivate' },
+      {
+        onSuccess: () => toast.success(`${w.name} — 비활성화 완료`),
+        onError: (err: any) => {
+          const msg = err?.response?.data?.error;
+          if (msg === 'NO_CHANGE') {
+            toast.error('이미 비활성화된 사용자입니다');
+          } else {
+            toast.error('비활성화에 실패했습니다');
+          }
+        },
+      }
+    );
+  } else {
+    // ── Manager: 사유 입력 → 요청 생성 (admin 승인 대기) ──
+    const reason = prompt(`${w.name} 비활성화 사유를 입력하세요:`);
+    if (reason === null) return;
+    deactivateMutation.mutate(
+      { workerId: w.id, reason: reason || '' },
+      {
+        onSuccess: () => toast.success(`${w.name} — 비활성화 요청 완료 (admin 승인 대기)`),
+        onError: (err: any) => {
+          const msg = err?.response?.data?.error;
+          if (msg === 'NO_CHANGE') {
+            toast.error('이미 비활성화 요청된 사용자입니다');
+          } else {
+            toast.error('비활성화 요청에 실패했습니다');
+          }
+        },
+      }
+    );
+  }
+}}
+```
+
+## C. useWorkerStatus 훅 추가 import
+
+```typescript
+// 기존:
+import { useWorkers, useToggleManager, useRequestDeactivation } from '@/hooks/useWorkers';
+
+// 수정:
+import { useWorkers, useToggleManager, useRequestDeactivation, useWorkerStatus } from '@/hooks/useWorkers';
+```
+
+컴포넌트 내부에 mutation 추가:
+```typescript
+const deactivateMutation = useRequestDeactivation();   // 기존 유지
+const workerStatusMutation = useWorkerStatus();         // 추가 — admin 즉시 비활성화용
+```
+
+## D. disabled 조건 업데이트
+
+```typescript
+// 기존:
+disabled={deactivateMutation.isPending}
+
+// 수정:
+disabled={deactivateMutation.isPending || workerStatusMutation.isPending}
+```
+
+## 사용 API 정리 (기존 BE API — 신규 요청 없음)
+
+| 역할 | API | 비고 |
+|------|-----|------|
+| Manager | `POST /api/app/work/request-deactivation` | 기존 — 요청 생성, admin 승인 대기 |
+| Admin | `POST /api/admin/worker-status` `{worker_id, action:'deactivate'}` | 기존 — `useWorkerStatus` 훅으로 이미 FE에 존재 |
+
+## 테스트 체크리스트
+
+```
+Phase 1 — 빌드
+[x] npm run build 성공
+[x] isAdmin 버그 수정 (w.is_admin → currentUser?.is_admin)
+
+Phase 2 — Admin 계정 테스트
+[x] 테스트: 권한 관리 진입 → 전체 사용자(타사 포함)에 "비활성화" 버튼 표시
+[ ] 테스트: 다른 admin 계정에는 비활성화 버튼 미표시
+[ ] 테스트: 자기 자신에는 비활성화 버튼 미표시
+[ ] 테스트: 버튼 클릭 → confirm 팝업 "정말 비활성화 하시겠습니까?"
+[ ] 테스트: 취소 클릭 → 아무 동작 없음
+[ ] 테스트: 확인 클릭 → 즉시 비활성화 → toast "○○○ — 비활성화 완료"
+[ ] 테스트: 이미 비활성화된 사용자 → toast "이미 비활성화된 사용자입니다"
+
+Phase 3 — Manager 계정 테스트
+[ ] 테스트: 같은 회사 소속만 "비활성화 요청" 버튼 표시
+[ ] 테스트: 타사 사용자에는 버튼 미표시
+[ ] 테스트: 버튼 클릭 → prompt 사유 입력 팝업
+[ ] 테스트: 사유 입력 후 확인 → toast "○○○ — 비활성화 요청 완료 (admin 승인 대기)"
+[ ] 테스트: 이미 요청된 사용자 → toast "이미 비활성화 요청된 사용자입니다"
+
+Phase 4 — 일반 사용자 테스트
+[ ] 테스트: 비활성화 버튼 미표시 (manager도 admin도 아닌 경우)
+```
+
+## 규칙
+
+- BE 추가 요청 없음 — 기존 API 2개로 처리
+- admin의 `POST /api/admin/worker-status`는 즉시 처리 (승인 대기 X)
+- manager의 `POST /api/app/work/request-deactivation`은 요청만 (admin 승인 필요)
+- admin끼리는 비활성화 불가 (`!w.is_admin` 조건)
+- npm run build 실패 시 즉시 수정
