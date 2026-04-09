@@ -3788,7 +3788,7 @@ GET /api/admin/qr/list?date_field=elec_start&date_from=2026-04-01&date_to=2026-0
 
 ---
 
-### #55 비활성화 API NO_CHANGE 오판 + 로그인 is_active 미검증 — BUG (2026-04-09)
+### #55 비활성화 API NO_CHANGE 오판 + 로그인 is_active 미검증 — ✅ DONE (2026-04-09)
 
 **배경**: VIEW 권한 관리에서 Admin이 활성 사용자를 비활성화 시도 → BE가 `422 NO_CHANGE` 반환. 해당 사용자(test5@naver.com)는 현재 로그인 가능한 상태.
 
