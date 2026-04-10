@@ -2,7 +2,7 @@
 
 > 세션 간 누적되는 의사결정, 버그 분석, 아키텍처 판단을 기록합니다.
 > CLAUDE.md = 프로젝트 고정 정보 / memory.md = 누적 학습 / handoff.md = 세션 인계
-> 마지막 업데이트: 2026-04-03
+> 마지막 업데이트: 2026-04-10
 
 ---
 
@@ -83,6 +83,19 @@ if (task.workers.some(w => w.status === 'completed')) return 'completed';
   - status 코드별 한글 fallback 메시지 사용 (401→인증, 403→권한, 404→미존재, 429→과다요청, 5xx→서버오류)
   - BE 응답의 `data.message`도 영문일 수 있으므로 직접 표시 대신 status 기반 fallback 사용
 - **적용 파일**: LoginPage, PermissionsPage, ProductionPerformancePage, EtlChangeLogPage, ProcessStepCard
+
+### ADR-V013: 성적서 ELEC Phase 분리 + TM DUAL L/R — 카테고리 배열 확장 패턴 (2026-04-10)
+- **맥락**: 성적서 API가 단일 phase/단일 qr_doc_id로만 조회 → ELEC 2차 배선 누락 + TM DUAL L/R 체크 결과 0건
+- **결정**: BE가 `categories` 배열에 동일 category를 phase/tank별로 복수 추가, FE는 `phase_label` 필드로 구분 표시
+- **패턴**:
+  - ELEC → `{category:'ELEC', phase:1, phase_label:'1차 배선'}` + `{category:'ELEC', phase:2, phase_label:'2차 배선'}`
+  - TM DUAL → `{category:'TM', phase_label:'L Tank', qr_doc_id:'DOC_xxx-L'}` + `{category:'TM', phase_label:'R Tank'}`
+  - TM SINGLE / MECH → 기존 단일 카테고리 유지
+- **FE 구현**: `CategoryTable`에서 `cat.phase_label && " — ${cat.phase_label}"` 한 줄로 자동 적용
+- **SELECT 타입**: `item_type='SELECT'` → `selected_value` 표시 (TUBE 색상 등)
+- **QI 항목**: `checker_role='QI'` → 보라색 배지 표시, 실적 판정에서 제외 (BE `check_elec_completion`)
+- **summary 필드 불일치**: BE `checked` / FE `completed` → API 매핑에서 `checked→completed` fallback 보정
+- **How to apply**: 새 카테고리/phase 추가 시 BE가 `phase_label` 필드만 채우면 FE 수정 없이 자동 렌더링
 
 ### ADR-V010: 체크리스트 성적서 — BE 필드 매핑 보정 패턴 (2026-04-03)
 - **맥락**: BE #54 체크리스트 성적서 API 반환 필드명이 FE 타입과 불일치
