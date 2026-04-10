@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.25.0 (2026-04-09)
+> 최신 버전: v1.26.0 (2026-04-10)
 
 ---
 
@@ -70,6 +70,31 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.26.0 — 2026-04-10
+
+**Sprint 30+ — 성적서 ELEC Phase/TM DUAL/SELECT/QI 지원**
+
+### 체크리스트 성적서 — ELEC Phase 분리
+- ELEC 1차 배선 / 2차 배선 별도 테이블 표시
+- Phase별 독립 summary (n/17, n/31)
+
+### 체크리스트 성적서 — TM DUAL L/R 분기
+- DUAL 모델: "TM (모듈) — L Tank" + "TM (모듈) — R Tank" 2개 테이블
+- SINGLE 모델: 기존 동작 유지
+
+### 체크리스트 성적서 — SELECT/QI 지원
+- SELECT 타입(TUBE 색상): 판정 컬럼에 선택값 표시
+- QI 항목: 검사항목에 보라색 QI 배지 표시
+- resultColor SELECT 분기 추가
+
+### 체크리스트 관리 — 그룹 정렬
+- item_group 1차 정렬 + item_order 2차 정렬 (같은 그룹 항목 연속 배치)
+
+### QR 관리 — elec_start 셀 누락 수정
+- tbody에 전장시작 td 누락 → 컬럼 밀림 해소
 
 ---
 

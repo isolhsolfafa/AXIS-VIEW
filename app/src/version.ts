@@ -1,8 +1,8 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.25.0';
-export const BUILD_DATE = '2026-04-09';
+export const APP_VERSION = 'v1.26.0';
+export const BUILD_DATE = '2026-04-10';
 
 // 버전 이력
 // v1.0.0 | 2026-03-06 | Sprint 1~3     | 초기 릴리스 (로그인, 출퇴근 대시보드, 실 API 연동)
@@ -42,3 +42,4 @@ export const BUILD_DATE = '2026-04-09';
 // v1.23.0| 2026-04-03 | Sprint 28      | 체크리스트 성적서 + 생산실적 폰트/명칭 개선 + ISO주차 수정
 // v1.24.0| 2026-04-07 | Sprint 28+     | QR 이미지 모달 + Digital Twin 목업 + CT 분석 카드 통일
 // v1.25.0| 2026-04-09 | Sprint 29~30   | QR 전장시작 필터 + 비활성화 권한 분기 + 422 에러 처리
+// v1.26.0| 2026-04-10 | Sprint 30+     | 성적서 ELEC Phase/TM DUAL/SELECT/QI + 체크리스트 그룹 정렬

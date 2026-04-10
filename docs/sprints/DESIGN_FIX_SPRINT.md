@@ -12648,4 +12648,769 @@ Phase 4 — 일반 사용자 테스트
 - admin의 `POST /api/admin/worker-status`는 즉시 처리 (승인 대기 X)
 - manager의 `POST /api/app/work/request-deactivation`은 요청만 (admin 승인 필요)
 - admin끼리는 비활성화 불가 (`!w.is_admin` 조건)
+
+---
+
+# Sprint 30: 체크리스트 성적서 ELEC Phase 2 + SELECT/QI 지원
+
+## 목적
+공정 체크리스트 성적서 VIEW에서 ELEC(전장) 데이터가 **1차 배선만** 표시되고 **2차 배선 테이블이 완전 누락**됨.
+또한 Sprint 57-C에서 추가된 `SELECT` 타입(TUBE 색상), `checker_role=QI` 항목, `selected_value` 등이 성적서에 반영되지 않음.
+
+## 사전 조건
+- ✅ AXIS-OPS Sprint 57-C 완료 (ELEC 31항목 seed + SELECT/INPUT 스키마)
+- ✅ AXIS-OPS BE `get_checklist_report()` 존재 (`checklist_service.py` L278)
+- ✅ AXIS-VIEW `ChecklistReportView.tsx` 존재 (Sprint 28)
+- ✅ BE ELEC 체크리스트 API Phase 1/2 정상 동작 확인
+
+---
+
+## 근본 원인
+
+### 1. BE: `get_checklist_report()`가 단일 phase만 조회
+```
+checklist_service.py L361:
+    cat_data = _get_checklist_by_category(cur, sn, cat, pc, scope, judgment_phase)
+    ← 모든 카테고리에 동일 phase 적용. ELEC Phase 2 별도 조회 없음
+```
+
+### 2. VIEW FE: API 호출 시 phase 파라미터 미전송
+```
+checklist.ts L175-177:
+    apiClient.get(`/api/admin/checklist/report/${serialNumber}`)
+    ← phase 파라미터 없음 → BE 기본값 phase=1
+```
+
+### 3. VIEW FE: 타입/렌더링에 phase, SELECT, QI 미지원
+- `ChecklistReportCategory` 타입에 `phase` 필드 없음
+- `CategoryTable` 렌더링에 `SELECT` 타입 분기 없음
+- `checker_role` 표시 없음
+
+---
+
+## 실행 순서
+
+### Step 1: tmux 세션 시작
+```bash
+tmux new -s axis-view-report
+Ctrl+B, %
+```
+
+### Step 2: Claude Code 시작
+```bash
+cd ~/Desktop/GST/AXIS-VIEW/app
+claude
+```
+
+### Step 3: Sprint 프롬프트 입력
+
+---
+
+## 🚀 Sprint 프롬프트 (복사해서 사용)
+
+```
+체크리스트 성적서에서 ELEC 2차 배선 테이블이 누락되어 있습니다. BE + VIEW FE 모두 수정이 필요합니다.
+
+⚠️ 반드시 읽어야 할 파일:
+- CLAUDE.md: ~/Desktop/GST/AXIS-VIEW/CLAUDE.md
+- BE 성적서 서비스: ~/Desktop/GST/AXIS-OPS/backend/app/services/checklist_service.py (L278 get_checklist_report, L21 _get_checklist_by_category)
+- BE 성적서 라우트: ~/Desktop/GST/AXIS-OPS/backend/app/routes/checklist.py (L1083 get_checklist_report_detail)
+- VIEW 성적서 API: ~/Desktop/GST/AXIS-VIEW/app/src/api/checklist.ts (L175 getChecklistReport)
+- VIEW 성적서 뷰: ~/Desktop/GST/AXIS-VIEW/app/src/components/partner/ChecklistReportView.tsx
+- VIEW 타입 정의: ~/Desktop/GST/AXIS-VIEW/app/src/types/checklist.ts (L80~)
+
+## 팀 구성
+1명의 teammate를 생성해줘. Sonnet 모델 사용:
+1. **FE** (Frontend 담당) — 소유: src/**
+
+---
+
+## Phase A: BE 수정 (AXIS-OPS — Lead가 직접 수정)
+
+### A-1. `checklist_service.py` → `get_checklist_report()` ELEC Phase 분리
+
+현재 L358-365:
+```python
+categories = []
+for cat_row in cat_rows:
+    cat = cat_row['category']
+    cat_data = _get_checklist_by_category(
+        cur, serial_number, cat, product_code, scope, judgment_phase
+    )
+    if cat_data['summary']['total'] > 0:
+        categories.append(cat_data)
+```
+
+변경 후:
+```python
+categories = []
+for cat_row in cat_rows:
+    cat = cat_row['category']
+    if cat == 'ELEC':
+        # ELEC은 Phase 1 + Phase 2 각각 조회
+        for phase_num, phase_label in [(1, '1차 배선'), (2, '2차 배선')]:
+            p_data = _get_checklist_by_category(
+                cur, serial_number, cat, product_code, scope, phase_num
+            )
+            # Phase 1: JIG 그룹 제외 (get_elec_checklist과 동일 로직)
+            if phase_num == 1:
+                p_data['items'] = [
+                    i for i in p_data['items']
+                    if i['item_group'] != 'JIG 검사 및 특별관리 POINT'
+                ]
+            # summary 재계산 (Phase 1 JIG 제외 반영)
+            items = p_data['items']
+            total = len(items)
+            checked = sum(1 for i in items if i.get('check_result') in ('PASS', 'NA'))
+            p_data['summary'] = {
+                'total': total,
+                'checked': checked,
+                'percent': round(checked / total * 100, 1) if total > 0 else 0.0,
+            }
+            p_data['phase'] = phase_num
+            p_data['phase_label'] = phase_label
+            if total > 0:
+                categories.append(p_data)
+    else:
+        cat_data = _get_checklist_by_category(
+            cur, serial_number, cat, product_code, scope, judgment_phase
+        )
+        if cat_data['summary']['total'] > 0:
+            categories.append(cat_data)
+```
+
+> **핵심**: ELEC만 Phase 1/2 각각 조회 → `categories` 배열에 `{category:'ELEC', phase:1, phase_label:'1차 배선'}` + `{category:'ELEC', phase:2, phase_label:'2차 배선'}` 2개 추가.
+> TM/MECH는 기존대로 단일 phase.
+
+### A-2. `_get_checklist_by_category()` 반환 필드 확인
+
+이미 반환하는 필드 (변경 불필요):
+- `item_type`: CHECK / SELECT / INPUT ✅
+- `checker_role`: WORKER / QI ✅  
+- `select_options`: JSONB ✅
+- `selected_value`: VARCHAR ✅
+- `check_result`: PASS / NA / null ✅
+- `checked_by_name`: workers.name ✅
+- `checked_at`: timestamp ✅
+
+추가 필요 없음 — `_get_checklist_by_category()`는 Sprint 57-C에서 이미 모든 필드 반환 중.
+
+---
+
+## Phase B: VIEW FE 수정 (AXIS-VIEW — FE 워커 담당)
+
+### B-1. 타입 확장 (`src/types/checklist.ts`)
+
+```ts
+// L90 ChecklistReportCategory에 추가
+export interface ChecklistReportCategory {
+  category: 'MECH' | 'ELEC' | 'TM';
+  phase?: number;              // NEW: 1 또는 2 (ELEC 전용)
+  phase_label?: string;        // NEW: "1차 배선" / "2차 배선"
+  items: ChecklistReportItem[];
+  summary: {
+    total: number;
+    completed: number;
+    percent: number;
+  };
+}
+
+// L101 ChecklistReportItem에 추가
+export interface ChecklistReportItem {
+  item_group: string;
+  item_name: string;
+  item_type: 'CHECK' | 'INPUT' | 'SELECT';   // SELECT 추가
+  description: string | null;
+  result: 'PASS' | 'NA' | null;
+  input_value: string | null;
+  selected_value: string | null;              // NEW: TUBE 색상 선택값
+  checker_role?: string | null;               // NEW: 'WORKER' | 'QI'
+  worker_name: string | null;
+  checked_at: string | null;
+}
+```
+
+### B-2. API 필드 매핑 보정 (`src/api/checklist.ts`)
+
+L182-191 `getChecklistReport()` 매핑 전체 교체:
+```ts
+// BE→FE 필드 매핑 보정
+if (data.categories) {
+  for (const cat of data.categories) {
+    // ⚠️ summary 필드명 불일치 보정: BE "checked" → FE "completed"
+    const rawSummary = cat.summary as any;
+    cat.summary = {
+      total: rawSummary.total ?? 0,
+      completed: rawSummary.completed ?? rawSummary.checked ?? 0,
+      percent: rawSummary.percent ?? 0,
+    };
+
+    // items 필드 매핑
+    cat.items = (cat.items ?? []).map((item: any) => ({
+      ...item,
+      result: item.result ?? item.check_result ?? null,
+      worker_name: item.worker_name ?? item.checked_by_name ?? null,
+      input_value: item.input_value ?? item.value ?? null,
+      selected_value: item.selected_value ?? null,        // NEW
+      checker_role: item.checker_role ?? null,             // NEW
+    }));
+  }
+}
+```
+
+> **핵심**: BE는 `summary.checked`, FE 타입은 `summary.completed`.
+> `ChecklistReportView.tsx` L219에서 `cat.summary.completed`로 렌더링하므로 매핑 미보정 시 `undefined` → "undefined / 31 완료" 표시됨.
+
+### B-3. 카테고리 라벨 분기 (`ChecklistReportView.tsx`)
+
+현재 L11-15:
+```ts
+const CATEGORY_LABEL: Record<string, string> = {
+  MECH: '기구', ELEC: '전장', TM: 'TM (모듈)',
+};
+```
+
+`CategoryTable` 컴포넌트 L212-213에서 라벨 생성 시 `phase_label` 반영:
+```tsx
+<span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--gx-charcoal)' }}>
+  {CATEGORY_LABEL[cat.category] ?? cat.category}
+  {cat.phase_label && ` — ${cat.phase_label}`}
+</span>
+```
+
+결과 예시: `전장 — 1차 배선`, `전장 — 2차 배선`
+
+### B-4. 판정 컬럼 렌더링 — SELECT 타입 추가 (`ChecklistReportView.tsx`)
+
+현재 L248-250:
+```tsx
+{item.item_type === 'INPUT'
+  ? (item.input_value ?? '—')
+  : (item.result ?? '—')}
+```
+
+변경 후:
+```tsx
+{item.item_type === 'INPUT'
+  ? (item.input_value ?? '—')
+  : item.item_type === 'SELECT'
+    ? (item.selected_value ?? '—')
+    : (item.result ?? '—')}
+```
+
+### B-5. QI 항목 구분 표시 (선택)
+
+검사항목(item_group) 컬럼에서 QI 항목에 배지 표시:
+```tsx
+<td style={tdStyle}>
+  {item.item_group}
+  {item.checker_role === 'QI' && (
+    <span style={{
+      fontSize: '10px', fontWeight: 600,
+      background: 'rgba(124, 58, 237, 0.08)', color: '#7C3AED',
+      padding: '1px 5px', borderRadius: '3px', marginLeft: '5px',
+    }}>QI</span>
+  )}
+</td>
+```
+
+### B-6. `resultColor` 함수 SELECT 타입 추가
+
+```ts
+function resultColor(item: { result: string | null; item_type: string; selected_value?: string | null }): string {
+  if (item.item_type === 'INPUT') return 'var(--gx-charcoal)';
+  if (item.item_type === 'SELECT') return item.selected_value ? 'var(--gx-accent)' : 'var(--gx-silver)';
+  if (item.result === 'PASS') return 'var(--gx-success)';
+  if (item.result === 'NA') return 'var(--gx-steel)';
+  return 'var(--gx-silver)';
+}
+```
+
+---
+
+## Phase C: 성적서 진행률 계산 보정 (BE)
+
+### C-1. `get_checklist_report_orders()` 진행률 — ELEC Phase 1+2 합산
+
+현재 `checklist.py` L918 `get_checklist_report_orders()`에서 S/N별 진행률 계산 시
+ELEC은 Phase 1만 집계됨. Phase 1+2 합산이 필요.
+
+**파일**: `backend/app/routes/checklist.py` L918 `get_checklist_report_orders()`
+
+현재 진행률 SQL에서 `judgment_phase = 1` 하드코딩되어 있다면:
+- ELEC Phase 1 + Phase 2 모두 카운트하도록 수정
+- 또는 카테고리별 Phase를 분리해서 합산
+
+**확인 필요**: 해당 함수의 실제 SQL 확인 후 수정 범위 판단.
+
+---
+
+## BE 응답 구조 (변경 전 → 변경 후)
+
+### 변경 전 (Phase 1만):
+```json
+{
+  "serial_number": "TEST-1111",
+  "categories": [
+    {
+      "category": "ELEC",
+      "items": [ /* 17 items — 1차 배선만, JIG 제외 */ ],
+      "summary": { "total": 17, "checked": 6, "percent": 35.3 }
+    },
+    {
+      "category": "TM",
+      "items": [ /* ... */ ],
+      "summary": { "total": 10, "checked": 0, "percent": 0 }
+    }
+  ]
+}
+```
+
+### 변경 후 (Phase 1 + 2 분리):
+```json
+{
+  "serial_number": "TEST-1111",
+  "categories": [
+    {
+      "category": "ELEC",
+      "phase": 1,
+      "phase_label": "1차 배선",
+      "items": [
+        {
+          "item_group": "PANEL 검사",
+          "item_name": "파트 사양확인 (라벨 포함)",
+          "item_type": "CHECK",
+          "description": "Part 및 Duct Label 도면상의 사양 일치",
+          "checker_role": "WORKER",
+          "check_result": "PASS",
+          "checked_by_name": "ADMIN",
+          "checked_at": "2026-04-10T21:40:00",
+          "selected_value": null,
+          "note": null
+        }
+        /* ... 총 17 items: PANEL 11 + 조립 6, JIG 제외 */
+      ],
+      "summary": { "total": 17, "checked": 6, "percent": 35.3 }
+    },
+    {
+      "category": "ELEC",
+      "phase": 2,
+      "phase_label": "2차 배선",
+      "items": [
+        /* PANEL 11 + 조립 6 + JIG 7(WORKER) + JIG 7(QI) = 31 items */
+        {
+          "item_group": "JIG 검사 및 특별관리 POINT",
+          "item_name": "JIG 검사 항목명",
+          "item_type": "CHECK",
+          "description": "...",
+          "checker_role": "QI",
+          "check_result": null,
+          "checked_by_name": null,
+          "checked_at": null,
+          "selected_value": null,
+          "note": null
+        }
+      ],
+      "summary": { "total": 31, "checked": 0, "percent": 0 }
+    },
+    {
+      "category": "TM",
+      "items": [ /* TM items — phase 필드 없음 (기존 동작) */ ],
+      "summary": { "total": 10, "checked": 0, "percent": 0 }
+    }
+  ]
+}
+```
+
+---
+
+## DB → API → FE 데이터 매핑 표
+
+| DB 테이블.컬럼 | BE API 응답 필드 | VIEW FE 타입 필드 | 렌더링 |
+|---|---|---|---|
+| `checklist_master.category` | `category` | `ChecklistReportCategory.category` | 카테고리 헤더 (기구/전장/TM) |
+| (BE 생성) | `phase` | `ChecklistReportCategory.phase` | ELEC만: 1 or 2 |
+| (BE 생성) | `phase_label` | `ChecklistReportCategory.phase_label` | "1차 배선" / "2차 배선" |
+| `checklist_master.item_group` | `item_group` | `ChecklistReportItem.item_group` | 검사항목 컬럼 |
+| `checklist_master.item_name` | `item_name` | `ChecklistReportItem.item_name` | 검사내용 컬럼 |
+| `checklist_master.item_type` | `item_type` | `ChecklistReportItem.item_type` | CHECK → PASS/NA, SELECT → 선택값, INPUT → 입력값 |
+| `checklist_master.description` | `description` | `ChecklistReportItem.description` | 기준/SPEC + 검사방법 (splitDescription) |
+| `checklist_master.checker_role` | `checker_role` | `ChecklistReportItem.checker_role` | QI 배지 표시 |
+| `checklist_record.check_result` | `check_result` → FE `result` | `ChecklistReportItem.result` | PASS (녹색) / NA (회색) / — (미체크) |
+| `checklist_record.selected_value` | `selected_value` | `ChecklistReportItem.selected_value` | SELECT 타입 판정 컬럼 |
+| `checklist_record.input_value` | `input_value` | `ChecklistReportItem.input_value` | INPUT 타입 판정 컬럼 |
+| `workers.name` (JOIN) | `checked_by_name` → FE `worker_name` | `ChecklistReportItem.worker_name` | 작업자 컬럼 (마스킹) |
+| `checklist_record.checked_at` | `checked_at` | `ChecklistReportItem.checked_at` | 확인일시 컬럼 |
+| `checklist_record.judgment_phase` | (조회 파라미터) | — | Phase 1/2 record 분리 기준 |
+| `checklist_record.qr_doc_id` | (조회 파라미터, 기본 '') | — | ELEC은 '' 고정 (DUAL 미해당) |
+
+---
+
+## ELEC Phase 구조 정리
+
+```
+Phase 1 (1차 배선) — 17 items
+├── PANEL 검사 (11 items) — checker_role: WORKER
+│   ├── #1 파트 사양확인 (라벨 포함)
+│   ├── #2 파트 고정위치
+│   ├── #3 파트 고정상태
+│   ├── #4 NUMBERING 상태
+│   ├── #5 LOADLOCK 와셔
+│   ├── #6 TUBE 종류/색상 (R, S, T, PE) ← item_type=SELECT
+│   ├── #7 Connector, Penhole 작업 상태 검사
+│   ├── #8 MFC CONNECTOR확인
+│   ├── #9 FLOW SENSOR확인
+│   ├── #10 GAS BOX 및 SCRUBBER 배선상태
+│   └── #11 상부 HEATER 및 SENSOR배선
+└── 조립 검사 (6 items) — checker_role: WORKER
+    ├── #12 파트 사양확인 (라벨 포함)
+    ├── #13 파트 고정위치
+    ├── #14 파트 고정상태
+    ├── #15 LOADLOCK 와셔
+    ├── #16 Connector, Penhole 작업 상태 검사
+    └── #17 RF CABLE 상태
+
+Phase 2 (2차 배선) — 31 items
+├── PANEL 검사 (11 items) — checker_role: WORKER (동일 master, Phase 2 record)
+├── 조립 검사 (6 items) — checker_role: WORKER
+├── JIG 검사 및 특별관리 POINT (7 items) — checker_role: WORKER
+│   ├── #18 파트 사양확인 (라벨 포함)
+│   ├── #19 파트 고정위치
+│   ├── #20 파트 고정상태
+│   ├── #21 LOADLOCK 와셔
+│   ├── #22 기구 파트 체결부 보존상태
+│   ├── #23 LASER MARKER 및 BARCODE 확인
+│   └── #24 VENT LINE 연결 상태
+└── JIG 검사 및 특별관리 POINT (7 items) — checker_role: QI
+    ├── #25 파트 사양확인 (라벨 포함)
+    ├── #26 파트 고정위치
+    ├── #27 파트 고정상태
+    ├── #28 LOADLOCK 와셔
+    ├── #29 기구 파트 체결부 보존상태
+    ├── #30 LASER MARKER 및 BARCODE 확인
+    └── #31 VENT LINE 연결 상태
+```
+
+---
+
+## 테스트 체크리스트
+
+```
+Phase A — BE 수정
+
+[x] get_checklist_report 호출 → ELEC Phase 1 + Phase 2 별도 카테고리 반환 확인
+[ ] Phase 1: JIG 그룹 제외 (17 items)
+[ ] Phase 2: 전체 31 items (PANEL 11 + 조립 6 + JIG 14)
+[ ] Phase 1 items에 phase=1, phase_label="1차 배선" 포함
+[ ] Phase 2 items에 phase=2, phase_label="2차 배선" 포함
+[ ] TM 카테고리: 기존 동작 유지 (phase 필드 없음)
+[ ] MECH 카테고리: 기존 동작 유지
+[ ] TUBE 항목 (#6): item_type='SELECT', selected_value 반환 확인
+[ ] QI 항목: checker_role='QI' 반환 확인
+[ ] Phase 2 QI 항목: check_result=null (미체크 시), checked_by_name=null
+
+Phase B — VIEW FE 수정 (2026-04-10 구현 완료)
+
+[x] 타입: ChecklistReportCategory에 phase, phase_label, qr_doc_id 추가
+[x] 타입: ChecklistReportItem에 SELECT, selected_value, checker_role 추가
+[x] API 매핑: selected_value, checker_role 필드 매핑 + summary.checked→completed 보정
+[x] 성적서 페이지: "전장 — 1차 배선" 테이블 표시
+[x] 성적서 페이지: "전장 — 2차 배선" 테이블 별도 표시
+[ ] 1차 배선: 17 items (JIG 없음) — BE 배포 후 확인
+[ ] 2차 배선: 31 items (JIG 포함) — BE 배포 후 확인
+[x] TUBE SELECT 항목: 판정 컬럼에 선택값 표시 (예: "비가역 EYE CAP(갈, 검, 회, 녹)")
+[x] QI 항목: 검사항목 컬럼에 QI 배지 표시
+[ ] 미체크 항목: 판정 "—", 작업자 "—", 확인일시 "—"
+[ ] TM 테이블: 기존 동작 유지 (regression)
+[ ] PDF 다운로드: 2차 배선 테이블 포함하여 정상 출력
+[ ] summary: Phase별 독립 카운트 (1차: n/17, 2차: n/31)
+
+Phase C — 진행률
+
+[ ] O/N 검색 → S/N 목록 진행률: ELEC Phase 1+2 합산 반영
+[ ] 좌측 카드 13% → Phase 1+2 합산 퍼센트로 변경
+```
+
+## 규칙
+
+- **BE 파일 소유권**: `checklist_service.py`, `checklist.py` → Lead가 직접 수정 (AXIS-OPS 프로젝트)
+- **VIEW FE 파일 소유권**: `src/**` → FE 워커 담당 (AXIS-VIEW 프로젝트)
+- **ELEC Phase 2 JIG 포함**: Phase 1에서만 JIG 제외, Phase 2는 전체 master 표시
+- **phase1_na 자동 NA**: Phase 1에서 phase1_na=TRUE인 항목은 check_result=null이어도 'NA'로 표시 (BE `_get_checklist_by_category` L118에서 처리됨)
+- **QI 항목 실적 제외**: `check_elec_completion()`은 QI 항목 제외하고 완료 판정. 성적서에서는 QI 항목도 표시하되 배지로 구분
+- **ELEC DUAL 미해당**: ELEC은 qr_doc_id='' 고정. TM DUAL과 무관
 - npm run build 실패 시 즉시 수정
+
+---
+
+## Phase D: TM DUAL L/R Tank 분기 (BE + VIEW FE)
+
+### 근본 원인
+
+AXIS-OPS에서는 DUAL 모델일 때 TMS 태스크를 `qr_doc_id + '-L'`, `qr_doc_id + '-R'`로 분리 생성하고,
+체크리스트 record도 각 `qr_doc_id`별로 독립 저장됨.
+
+그러나 성적서 API `get_checklist_report()`는 TM 카테고리 조회 시:
+```
+checklist_service.py L361:
+    cat_data = _get_checklist_by_category(cur, sn, cat, pc, scope, judgment_phase)
+    ← qr_doc_id 미전달 → 기본값 '' → DUAL L/R record 매칭 불가
+```
+
+`_get_checklist_by_category()` SQL (L88-92):
+```sql
+LEFT JOIN checklist.checklist_record cr
+    ON cr.master_id      = cm.id
+   AND cr.serial_number  = %s
+   AND cr.judgment_phase = %s
+   AND cr.qr_doc_id     = %s   ← '' ≠ 'DOC_xxx-L' / 'DOC_xxx-R'
+```
+
+결과: DUAL 모델의 TM 성적서는 항상 체크 결과 0건 (모든 항목 미체크로 표시).
+
+### D-1. BE: `get_checklist_report()` TM DUAL 분기 추가
+
+**파일**: `backend/app/services/checklist_service.py` → `get_checklist_report()` L358-365
+
+현재 Phase A에서 ELEC Phase 1/2 분리 코드가 추가된 상태. 여기에 TM DUAL 분기를 추가:
+
+```python
+categories = []
+for cat_row in cat_rows:
+    cat = cat_row['category']
+    if cat == 'ELEC':
+        # ... (Phase A 코드 — ELEC Phase 1/2 분리, 기존 유지) ...
+    elif cat == 'TM':
+        # ── TM: DUAL 모델이면 L/R 탱크별 분리 조회 ──
+        is_dual = _is_report_dual_model(model)
+        if is_dual:
+            # app_task_details에서 TMS qr_doc_id 목록 조회
+            cur.execute(
+                """
+                SELECT DISTINCT qr_doc_id
+                FROM app_task_details
+                WHERE serial_number = %s
+                  AND task_category = 'TMS'
+                  AND qr_doc_id != ''
+                ORDER BY qr_doc_id
+                """,
+                (serial_number,)
+            )
+            tank_rows = cur.fetchall()
+            for tank_row in tank_rows:
+                tank_qr = tank_row['qr_doc_id']
+                # L/R 라벨 결정
+                if tank_qr.endswith('-L'):
+                    tank_label = 'L Tank'
+                elif tank_qr.endswith('-R'):
+                    tank_label = 'R Tank'
+                else:
+                    tank_label = tank_qr  # fallback
+                t_data = _get_checklist_by_category(
+                    cur, serial_number, cat, product_code, scope,
+                    judgment_phase, qr_doc_id=tank_qr
+                )
+                t_data['qr_doc_id'] = tank_qr
+                t_data['phase_label'] = tank_label
+                if t_data['summary']['total'] > 0:
+                    categories.append(t_data)
+            # DUAL인데 task_details에 TMS 없으면 → 빈 결과 (표시 안 함)
+        else:
+            # SINGLE: 기존 동일 (qr_doc_id 미전달 → '' 기본값)
+            cat_data = _get_checklist_by_category(
+                cur, serial_number, cat, product_code, scope, judgment_phase
+            )
+            if cat_data['summary']['total'] > 0:
+                categories.append(cat_data)
+    else:
+        # MECH 등 기타 카테고리: 기존 동일
+        cat_data = _get_checklist_by_category(
+            cur, serial_number, cat, product_code, scope, judgment_phase
+        )
+        if cat_data['summary']['total'] > 0:
+            categories.append(cat_data)
+```
+
+### D-2. BE: DUAL 모델 감지 헬퍼 추가
+
+`get_checklist_report()` 상단 또는 모듈 레벨에 추가:
+
+```python
+def _is_report_dual_model(model: Optional[str]) -> bool:
+    """성적서용 DUAL 모델 감지 (task_seed._is_dual_model 간소화 버전)
+    
+    model_config 의존 없이 model명만으로 판단.
+    iVAS 등 always_dual 모델은 별도 처리 필요 시 확장.
+    """
+    if not model:
+        return False
+    return 'DUAL' in model.upper().split()
+```
+
+> **주의**: `task_seed._is_dual_model()`은 `model_config.always_dual`도 체크하지만,
+> 성적서 API에서는 model_config 로드 없이 간단히 model명 기반 판단.
+> iVAS 등 `always_dual=True` 모델 지원이 필요하면 `model_config` import 추가.
+
+### D-3. VIEW FE: 타입 확장 (`src/types/checklist.ts`)
+
+Phase B-1의 `ChecklistReportCategory`에 `qr_doc_id` 필드 추가:
+
+```ts
+export interface ChecklistReportCategory {
+  category: 'MECH' | 'ELEC' | 'TM';
+  phase?: number;              // ELEC 전용: 1 또는 2
+  phase_label?: string;        // ELEC: "1차 배선"/"2차 배선", TM DUAL: "L Tank"/"R Tank"
+  qr_doc_id?: string;          // NEW: TM DUAL — "DOC_xxx-L" / "DOC_xxx-R"
+  items: ChecklistReportItem[];
+  summary: {
+    total: number;
+    completed: number;
+    percent: number;
+  };
+}
+```
+
+### D-4. VIEW FE: 카테고리 라벨 — TM DUAL 렌더링
+
+Phase B-3의 라벨 분기가 이미 `phase_label`을 사용하므로 TM DUAL도 자동 적용됨:
+
+```tsx
+{CATEGORY_LABEL[cat.category] ?? cat.category}
+{cat.phase_label && ` — ${cat.phase_label}`}
+```
+
+결과 예시:
+- SINGLE TM: `TM (모듈)` (phase_label 없음)
+- DUAL TM-L: `TM (모듈) — L Tank`
+- DUAL TM-R: `TM (모듈) — R Tank`
+
+> **추가 FE 변경 불필요** — `phase_label` 필드가 BE에서 내려오면 기존 B-3 로직으로 자동 표시.
+> 단, `qr_doc_id` 필드가 내려와도 FE에서 직접 사용하는 곳은 없음 (디버깅/확장용).
+
+---
+
+## BE 응답 구조 — TM DUAL 추가
+
+### SINGLE 모델 (기존):
+```json
+{
+  "serial_number": "TEST-1111",
+  "model": "GAIA-I",
+  "categories": [
+    { "category": "ELEC", "phase": 1, "phase_label": "1차 배선", ... },
+    { "category": "ELEC", "phase": 2, "phase_label": "2차 배선", ... },
+    {
+      "category": "TM",
+      "items": [ /* TM items — qr_doc_id 없음 */ ],
+      "summary": { "total": 10, "checked": 5, "percent": 50.0 }
+    }
+  ]
+}
+```
+
+### DUAL 모델 (변경 후):
+```json
+{
+  "serial_number": "TEST-2222",
+  "model": "GAIA-I DUAL",
+  "categories": [
+    { "category": "ELEC", "phase": 1, "phase_label": "1차 배선", ... },
+    { "category": "ELEC", "phase": 2, "phase_label": "2차 배선", ... },
+    {
+      "category": "TM",
+      "phase_label": "L Tank",
+      "qr_doc_id": "DOC_TEST-2222-L",
+      "items": [
+        {
+          "item_group": "TANK",
+          "item_name": "Cir Pump Spec 확인",
+          "item_type": "CHECK",
+          "check_result": "PASS",
+          "checked_by_name": "ADMIN",
+          "checked_at": "2026-04-10T15:30:00"
+        }
+        /* ... L Tank 체크리스트 items */
+      ],
+      "summary": { "total": 10, "checked": 7, "percent": 70.0 }
+    },
+    {
+      "category": "TM",
+      "phase_label": "R Tank",
+      "qr_doc_id": "DOC_TEST-2222-R",
+      "items": [
+        /* ... R Tank 체크리스트 items (별도 record) */
+      ],
+      "summary": { "total": 10, "checked": 3, "percent": 30.0 }
+    }
+  ]
+}
+```
+
+---
+
+## DB → API → FE 데이터 매핑 표 — TM DUAL 추가행
+
+| DB 테이블.컬럼 | BE API 응답 필드 | VIEW FE 타입 필드 | 렌더링 |
+|---|---|---|---|
+| `app_task_details.qr_doc_id` (TMS) | `qr_doc_id` | `ChecklistReportCategory.qr_doc_id` | DUAL 디버깅용 (UI 미표시) |
+| (BE 생성: `-L`→`L Tank`, `-R`→`R Tank`) | `phase_label` | `ChecklistReportCategory.phase_label` | TM 카테고리 헤더 라벨 |
+| `checklist_record.qr_doc_id` | (조회 파라미터) | — | L/R record 분리 기준 |
+| `product_info.model` → `'DUAL' in split` | (BE 내부 판단) | — | DUAL 여부 → L/R 분기 트리거 |
+
+---
+
+## TM DUAL 데이터 흐름
+
+```
+1. product_info.model = 'GAIA-I DUAL'
+   ↓
+2. task_seed: _is_dual_model() → True
+   → app_task_details에 TMS 태스크 2벌 생성
+     qr_doc_id = 'DOC_xxx-L' (TANK_MODULE, PRESSURE_TEST)
+     qr_doc_id = 'DOC_xxx-R' (TANK_MODULE, PRESSURE_TEST)
+   ↓
+3. AXIS-OPS FE: TM 체크리스트 → qr_doc_id 전달
+   → checklist_record에 qr_doc_id별 독립 저장
+   ↓
+4. VIEW 성적서 API: get_checklist_report()
+   → model에서 DUAL 감지
+   → app_task_details에서 DISTINCT qr_doc_id (TMS) 조회
+   → _get_checklist_by_category(qr_doc_id='DOC_xxx-L') → L Tank 데이터
+   → _get_checklist_by_category(qr_doc_id='DOC_xxx-R') → R Tank 데이터
+   → categories에 TM 2개 추가 (phase_label: 'L Tank' / 'R Tank')
+   ↓
+5. VIEW FE: CategoryTable 렌더링
+   → "TM (모듈) — L Tank" 테이블
+   → "TM (모듈) — R Tank" 테이블
+```
+
+---
+
+## 테스트 체크리스트 — Phase D (TM DUAL)
+
+```
+Phase D — TM DUAL L/R 분기
+
+BE 수정
+
+[ ] SINGLE 모델 S/N: TM 카테고리 1개 반환 (기존 동작, regression 없음)
+[ ] DUAL 모델 S/N: TM 카테고리 2개 반환 (L Tank + R Tank)
+[ ] L Tank: phase_label='L Tank', qr_doc_id='DOC_xxx-L'
+[ ] R Tank: phase_label='R Tank', qr_doc_id='DOC_xxx-R'
+[ ] L Tank items: L 탱크 체크리스트 record만 매칭 (R 혼입 없음)
+[ ] R Tank items: R 탱크 체크리스트 record만 매칭 (L 혼입 없음)
+[ ] L/R 각각 summary 독립 집계 (total, checked, percent)
+[ ] DUAL이지만 TMS 태스크 없는 S/N: TM 카테고리 미표시 (빈 결과)
+[ ] ELEC 카테고리: DUAL 여부 무관, 기존 Phase 1/2 동작 유지
+[ ] _is_report_dual_model: 'GAIA-I DUAL' → True, 'GAIA-I' → False
+
+VIEW FE 수정
+
+[ ] SINGLE 모델: "TM (모듈)" 테이블 1개 (기존과 동일)
+[ ] DUAL 모델: "TM (모듈) — L Tank" + "TM (모듈) — R Tank" 테이블 2개
+[ ] L/R 테이블 각각 독립 summary 표시 (n/10 완료)
+[ ] L/R 테이블 items: 각 탱크 체크 결과만 표시
+[ ] PDF 다운로드: L/R 테이블 모두 포함하여 정상 출력
+[ ] 타입 에러 없음 (qr_doc_id optional 필드)
+```
+
