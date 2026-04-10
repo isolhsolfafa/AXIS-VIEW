@@ -727,6 +727,9 @@ export default function QrManagementPage() {
                         {formatDate(item.mech_start)}
                       </td>
                       <td style={{ padding: '11px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--gx-slate)' }}>
+                        {formatDate(item.elec_start)}
+                      </td>
+                      <td style={{ padding: '11px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--gx-slate)' }}>
                         {formatDate(item.module_start)}
                       </td>
                       <td style={{ padding: '11px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--gx-slate)' }}>
