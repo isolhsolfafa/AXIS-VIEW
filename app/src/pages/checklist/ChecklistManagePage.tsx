@@ -29,7 +29,14 @@ export default function ChecklistManagePage() {
   const createMaster = useCreateMaster();
   const toggleMaster = useToggleMaster();
 
-  const items = data?.items ?? [];
+  const items = useMemo(() => {
+    const raw = data?.items ?? [];
+    return [...raw].sort((a, b) => {
+      const groupCmp = a.item_group.localeCompare(b.item_group);
+      if (groupCmp !== 0) return groupCmp;
+      return a.item_order - b.item_order;
+    });
+  }, [data?.items]);
 
   const existingGroups = useMemo(() => {
     const groups = new Set(items.map(i => i.item_group));
