@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-04-09 (#55 비활성화 BUG, #56 체크리스트 필수 토글 연동)
+> 마지막 업데이트: 2026-04-10 (#57 성적서 ELEC Phase + TM DUAL 분기)
 
 ---
 
@@ -3867,3 +3867,60 @@ if checklist_required:
 **우선순위**: 🟡 MEDIUM — Sprint 57 (ELEC 체크리스트) 완료 후 연동이 현실적. TM 단독으로 먼저 연동 가능.
 
 **VIEW 영향**: FE 수정 없음. BE가 `confirmable` 판정에 반영하면 기존 UI 그대로 동작.
+
+---
+
+### #57 성적서 API — ELEC Phase 분리 + TM DUAL L/R 분기 — PENDING (2026-04-10)
+
+**배경**: Sprint 30에서 체크리스트 성적서에 ELEC 2차 배선 누락 + TM DUAL 모델 L/R 체크리스트 미매칭 발견. `get_checklist_report()`가 단일 phase, 단일 qr_doc_id로만 조회하여 데이터 누락.
+
+**엔드포인트**: `GET /api/admin/checklist/report/{serial_number}`
+
+**수정 요청 3건**:
+
+#### #57-A. ELEC Phase 1/2 분리 조회
+
+현재 `get_checklist_report()`에서 모든 카테고리에 동일 `judgment_phase`(기본 1) 적용.
+ELEC만 Phase 1 + Phase 2 각각 조회하여 `categories` 배열에 2개 추가.
+
+```
+변경 후 categories:
+  { category: 'ELEC', phase: 1, phase_label: '1차 배선', items: [...17개], summary: {...} }
+  { category: 'ELEC', phase: 2, phase_label: '2차 배선', items: [...31개], summary: {...} }
+```
+
+- Phase 1: JIG 그룹 제외 (17항목: PANEL 11 + 조립 6)
+- Phase 2: 전체 (31항목: PANEL 11 + 조립 6 + JIG 14)
+- Phase별 summary 독립 집계
+- TM/MECH는 기존대로 단일 phase
+
+#### #57-B. TM DUAL L/R 탱크별 분리 조회
+
+DUAL 모델(`model`에 'DUAL' 포함)일 때 TM 카테고리를 `qr_doc_id`별로 분리 조회.
+
+```
+변경 후 categories (DUAL):
+  { category: 'TM', phase_label: 'L Tank', qr_doc_id: 'DOC_xxx-L', items: [...], summary: {...} }
+  { category: 'TM', phase_label: 'R Tank', qr_doc_id: 'DOC_xxx-R', items: [...], summary: {...} }
+```
+
+- `app_task_details`에서 `DISTINCT qr_doc_id WHERE task_category='TMS'` 조회
+- 각 `qr_doc_id`별로 `_get_checklist_by_category(qr_doc_id=tank_qr)` 호출
+- `-L` → `L Tank`, `-R` → `R Tank` 라벨 생성
+- SINGLE 모델: 기존 동작 유지 (qr_doc_id 미전달)
+
+#### #57-C. 진행률 합산 — `get_checklist_report_orders()`
+
+O/N 검색 시 S/N별 `overall_percent` 계산에서:
+- ELEC: Phase 1 + Phase 2 합산
+- TM DUAL: L + R 합산
+
+현재 SQL이 단일 phase만 집계하는지 확인 후 수정 필요.
+
+**`summary` 필드명 주의**: BE가 `checked`로 반환하면 VIEW FE 타입 `completed`와 불일치. FE 매핑에서 보정하거나 BE에서 `completed`로 통일 필요.
+
+**VIEW FE 수정 (BE 반영 후)**:
+- `types/checklist.ts`: `ChecklistReportCategory`에 `phase?`, `phase_label?`, `qr_doc_id?` 추가, `ChecklistReportItem`에 `selected_value?`, `checker_role?` 추가, `item_type`에 `'SELECT'` 유니온
+- `api/checklist.ts`: 필드 매핑에 `selected_value`, `checker_role` 추가
+- `ChecklistReportView.tsx`: 카테고리 라벨에 `phase_label` 표시, SELECT 타입 판정 분기, QI 배지, `resultColor` SELECT 분기
+- **FE 추가 로직 최소**: `phase_label`이 BE에서 내려오면 기존 `CategoryTable` 자동 적용
