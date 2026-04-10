@@ -178,14 +178,20 @@ export async function getChecklistReport(serialNumber: string): Promise<Checklis
   );
 
   // BE→FE 필드 매핑 보정
-  // BE: check_result, checked_by_name → FE: result, worker_name
   if (data.categories) {
     for (const cat of data.categories) {
+      // summary: BE checked → FE completed
+      if (cat.summary && cat.summary.checked != null && cat.summary.completed == null) {
+        (cat.summary as any).completed = cat.summary.checked;
+      }
+      // items 매핑
       cat.items = (cat.items ?? []).map((item: any) => ({
         ...item,
         result: item.result ?? item.check_result ?? null,
         worker_name: item.worker_name ?? item.checked_by_name ?? null,
         input_value: item.input_value ?? item.value ?? null,
+        selected_value: item.selected_value ?? null,
+        checker_role: item.checker_role ?? null,
       }));
     }
   }

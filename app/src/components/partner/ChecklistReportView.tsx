@@ -211,12 +211,13 @@ function CategoryTable({ cat }: { cat: ChecklistReportCategory }) {
       }}>
         <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--gx-charcoal)' }}>
           {CATEGORY_LABEL[cat.category] ?? cat.category}
+          {cat.phase_label && ` — ${cat.phase_label}`}
         </span>
         <span style={{
           fontSize: '13px', fontWeight: 600,
           color: cat.summary.percent === 100 ? 'var(--gx-success)' : 'var(--gx-steel)',
         }}>
-          {cat.summary.completed} / {cat.summary.total} 완료 ({cat.summary.percent}%)
+          {cat.summary.completed ?? cat.summary.checked ?? 0} / {cat.summary.total} 완료 ({cat.summary.percent}%)
         </span>
       </div>
 
@@ -240,14 +241,25 @@ function CategoryTable({ cat }: { cat: ChecklistReportCategory }) {
             return (
             <tr key={idx} style={{ borderBottom: '1px solid var(--gx-cloud)' }}>
               <td style={tdStyle}>{idx + 1}</td>
-              <td style={tdStyle}>{item.item_group}</td>
+              <td style={tdStyle}>
+                {item.item_group}
+                {item.checker_role === 'QI' && (
+                  <span style={{
+                    fontSize: '10px', fontWeight: 600,
+                    background: 'rgba(124, 58, 237, 0.08)', color: '#7C3AED',
+                    padding: '1px 5px', borderRadius: '3px', marginLeft: '5px',
+                  }}>QI</span>
+                )}
+              </td>
               <td style={tdStyle}>{item.item_name}</td>
               <td style={tdStyle}>{spec}</td>
               <td style={tdStyle}>{method}</td>
               <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 600, color: resultColor(item) }}>
                 {item.item_type === 'INPUT'
                   ? (item.input_value ?? '—')
-                  : (item.result ?? '—')}
+                  : item.item_type === 'SELECT'
+                    ? (item.selected_value ?? '—')
+                    : (item.result ?? '—')}
               </td>
               <td style={tdStyle}>
                 <span data-fullname={item.worker_name ?? ''}>
@@ -266,8 +278,9 @@ function CategoryTable({ cat }: { cat: ChecklistReportCategory }) {
   );
 }
 
-function resultColor(item: { result: string | null; item_type: string }): string {
+function resultColor(item: { result: string | null; item_type: string; selected_value?: string | null }): string {
   if (item.item_type === 'INPUT') return 'var(--gx-charcoal)';
+  if (item.item_type === 'SELECT') return item.selected_value ? 'var(--gx-accent)' : 'var(--gx-silver)';
   if (item.result === 'PASS') return 'var(--gx-success)';
   if (item.result === 'NA') return 'var(--gx-steel)';
   return 'var(--gx-silver)';

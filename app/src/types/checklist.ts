@@ -89,11 +89,15 @@ export interface ChecklistReportData {
 
 export interface ChecklistReportCategory {
   category: 'MECH' | 'ELEC' | 'TM';
-  label: string;                  // 기구 / 전장 / TM
+  label?: string;                 // 기구 / 전장 / TM
+  phase?: number;                 // ELEC 전용: 1 또는 2
+  phase_label?: string;           // ELEC: "1차 배선"/"2차 배선", TM DUAL: "L Tank"/"R Tank"
+  qr_doc_id?: string;             // TM DUAL: "DOC_xxx-L" / "DOC_xxx-R"
   items: ChecklistReportItem[];
   summary: {
     total: number;
     completed: number;
+    checked?: number;             // BE 반환 필드 (completed 대체)
     percent: number;
   };
 }
@@ -101,10 +105,12 @@ export interface ChecklistReportCategory {
 export interface ChecklistReportItem {
   item_group: string;
   item_name: string;
-  item_type: 'CHECK' | 'INPUT';
+  item_type: 'CHECK' | 'INPUT' | 'SELECT';
   description: string | null;
   result: 'PASS' | 'NA' | null;         // CHECK 타입
   input_value: string | null;            // INPUT 타입 (MECH)
+  selected_value: string | null;         // SELECT 타입 (TUBE 색상)
+  checker_role?: string | null;          // 'WORKER' | 'QI'
   worker_name: string | null;
   checked_at: string | null;
 }
