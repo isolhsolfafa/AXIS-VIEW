@@ -40,8 +40,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 루트 → 로그인으로 */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* 루트 → 공장 대시보드 (미인증 시 ProtectedRoute가 /login으로 리다이렉트) */}
+        <Route path="/" element={<Navigate to="/factory" replace />} />
 
         {/* 로그인 (비인증 전용 처리는 LoginPage 내부 useEffect에서) */}
         <Route path="/login" element={<LoginPage />} />
