@@ -20,10 +20,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
-      // GST 일반직원 (is_admin=false, is_manager=false) → 공장 대시보드
-      // admin/manager → 협력사 관리
-      const isGstRegular = user.company === 'GST' && !user.is_admin && !user.is_manager;
-      navigate(isGstRegular ? '/factory' : '/partner', { replace: true });
+      // 모든 역할 → 공장 대시보드 (Summary)
+      navigate('/factory', { replace: true });
     }
   }, [isAuthenticated, isLoading, navigate, user]);
 
