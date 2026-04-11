@@ -337,12 +337,14 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 |------|------|---------|
 | `handoff.md` | 세션 인계 (현재 상태, 대기 Sprint, 미해결 버그) | 매 세션 시작 시 |
 | `memory.md` | 누적 의사결정(ADR), 버그 분석, 아키텍처 판단 | 맥락 필요 시 |
-| `docs/sprints/DESIGN_FIX_SPRINT.md` | Sprint 1~28 메인 스프린트 문서 | 필수 |
-| `docs/OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#52) | 필수 |
+| `PROGRESS.md` | 완료된 Sprint 이력 (상세) | 참조 |
+| `DESIGN_FIX_SPRINT.md` | Sprint 1~30 메인 스프린트 문서 | 필수 |
+| `OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#57) | 필수 |
+| `CHANGELOG.md` | 릴리스 이력 | 릴리스 시 |
+| `BACKLOG.md` | 보류/계획/아이디어 + 디지털트윈 기획 | 기획 시 |
 | `docs/APS_LITE_PLAN.md` | APS Lite 차세대 기획 | 참조 |
 | `docs/AXIS_VIEW_ROADMAP.md` | 전체 로드맵 | 참조 |
-| `docs/sprints/RESPONSIVE_DESIGN_PLAN.md` | 반응형 설계 v2 (Sprint 21) | 참조 |
-| `docs/CHANGELOG.md` | 릴리스 이력 | 참조 |
+| `docs/sprints/RESPONSIVE_DESIGN_PLAN.md` | 반응형 설계 v2 | 참조 |
 | `docs/concepts/` | 디자인 컨셉 HTML | 디자인 기준 |
 
 ### AXIS-OPS 참조 (읽기 전용)

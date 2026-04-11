@@ -3788,6 +3788,144 @@ GET /api/admin/qr/list?date_field=elec_start&date_from=2026-04-01&date_to=2026-0
 
 ---
 
+### #56 ELEC 체크리스트 API 엔드포인트 확인 — PENDING (2026-04-11)
+
+> **배경**: ELEC 체크리스트 BE 구현 완료. VIEW FE에서 연동하기 위해 API 엔드포인트 패턴 확인 필요.
+> 현재 FE는 TM만 체크리스트 API 호출, ELEC은 빈 응답 리턴 중 (`getChecklistStatus`에서 TM/TMS 외 카테고리 조기 리턴).
+
+**확인 사항**: 아래 엔드포인트가 TM과 동일한 패턴으로 존재하는지 확인
+
+**1. 체크리스트 상태 조회**
+
+```
+GET /api/app/checklist/elec/{serial_number}/status
+```
+
+기대 응답 (TM과 동일 패턴):
+```json
+{
+  "total_count": 31,
+  "checked_count": 6
+}
+```
+
+**2. 체크리스트 상세 조회**
+
+```
+GET /api/app/checklist/elec/{serial_number}
+```
+
+기대 응답 (TM과 동일 패턴 — items 또는 groups):
+```json
+{
+  "groups": [
+    {
+      "group_name": "PANEL 검사",
+      "items": [
+        {
+          "id": 1,
+          "item_group": "PANEL 검사",
+          "item_name": "파트 사양확인 (라벨 포함)",
+          "item_type": "CHECK",
+          "description": "...",
+          "status": "PASS",
+          "checked_at": "2026-04-10T21:40:00Z",
+          "worker_name": "홍길동"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**추가 확인**: ELEC은 1차/2차(judgment_phase) 구분이 있는데, 위 API에서 phase 파라미터 지원 여부
+
+```
+GET /api/app/checklist/elec/{serial_number}/status?phase=1
+GET /api/app/checklist/elec/{serial_number}/status?phase=2
+```
+
+**VIEW FE 수정 (BE 확인 후)**:
+- `api/checklist.ts`: `getChecklistStatus()`에서 ELEC 카테고리 허용 + beCat 매핑 추가
+- ProcessStepCard/SNDetailPanel: 수정 불필요 (checklist prop 정상 전달되면 자동 표시)
+- `ChecklistManagePage.tsx`: BLUR_CATEGORIES에서 `'ELEC'` 제거 → 블러 해제
+
+**확인 사항 3 — 마스터 관리 API ELEC 지원 여부**:
+
+현재 TM 마스터 조회:
+```
+GET /api/admin/checklist/master?category=TM&product_code=COMMON
+→ 15개 항목 정상 반환
+```
+
+ELEC도 동일 패턴으로 동작하는지 확인:
+```
+GET /api/admin/checklist/master?category=ELEC&product_code=COMMON
+→ 31개 항목 반환 기대
+```
+
+마스터 항목 추가(POST), 활성/비활성 토글(PUT)도 category=ELEC으로 정상 동작하는지 확인.
+
+---
+
+### #57 checklist_master 테이블에 `remarks` 컬럼 추가 — PENDING (2026-04-11)
+
+> **배경**: 체크리스트 관리 페이지에 **비고** 컬럼 추가 요청. 항목별 개정이력/변경사유 등을 기록하기 위한 용도.
+> TM, ELEC, MECH 공통 적용.
+
+**요청 내용**:
+
+**1. DB 마이그레이션**
+
+```sql
+ALTER TABLE checklist.checklist_master
+ADD COLUMN remarks TEXT DEFAULT NULL;
+
+COMMENT ON COLUMN checklist.checklist_master.remarks IS '비고 — 개정이력, 변경사유 등';
+```
+
+**2. 마스터 CRUD API에 `remarks` 필드 포함**
+
+조회 응답:
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "product_code": "COMMON",
+      "category": "TM",
+      "item_group": "BURNER",
+      "item_name": "SUS Fitting 조임 상태",
+      "item_type": "CHECK",
+      "item_order": 1,
+      "description": "GAP GAUGE / 측수 검사",
+      "remarks": "2026-04 신규 추가",
+      "is_active": true
+    }
+  ]
+}
+```
+
+생성 요청:
+```
+POST /api/admin/checklist/master
+{ ..., "remarks": "초도 등록" }
+```
+
+수정 요청:
+```
+PUT /api/admin/checklist/master/{id}
+{ "remarks": "2026-04 검사방법 변경" }
+```
+
+**VIEW FE 수정 (BE 반영 후)**:
+- `types/checklist.ts`: `ChecklistMasterItem`에 `remarks: string | null` 추가
+- `CreateMasterPayload`, `UpdateMasterPayload`에 `remarks?: string` 추가
+- `ChecklistTable.tsx`: 헤더 + 셀에 비고 컬럼 추가
+- `ChecklistAddModal.tsx`: 비고 입력 필드 추가
+
+---
+
 ### #55 비활성화 API NO_CHANGE 오판 + 로그인 is_active 미검증 — ✅ DONE (2026-04-09)
 
 **배경**: VIEW 권한 관리에서 Admin이 활성 사용자를 비활성화 시도 → BE가 `422 NO_CHANGE` 반환. 해당 사용자(test5@naver.com)는 현재 로그인 가능한 상태.

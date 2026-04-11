@@ -86,21 +86,39 @@
 | ~~#53~~ | ~~monthly-summary weeks/totals 집계~~ | ✅ **DONE** | 월마감 캘린더 |
 | ~~#54~~ | ~~체크리스트 성적서 API 2건~~ | ✅ BE Sprint 54 완료·테스트 통과 | 체크리스트 페이지 |
 
-> 전체 목록: `docs/OPS_API_REQUESTS.md` (#1~#54)
+> 전체 목록: `OPS_API_REQUESTS.md` (#1~#57)
 
 ---
 
 ## 파일 참조 가이드
 
-| 파일 | 용도 | 읽는 시점 |
-|------|------|-----------|
-| `CLAUDE.md` | 프로젝트 고정 정보 (팀 구성, 기술 스택, 규칙) | 매 세션 시작 시 |
-| `memory.md` | 누적 의사결정, 버그 분석, 아키텍처 판단 | 맥락 필요 시 |
-| `handoff.md` | 현재 파일. 세션 인계용 | 매 세션 시작 시 |
-| `docs/sprints/DESIGN_FIX_SPRINT.md` | Sprint 1~28 메인 스프린트 문서 | Sprint 기획/실행 시 |
-| `docs/OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#54) | BE 의존 작업 시 |
-| `docs/APS_LITE_PLAN.md` | APS Lite 기획서 (차세대) | APS 작업 시 |
-| `docs/sprints/RESPONSIVE_DESIGN_PLAN.md` | 반응형 설계 v2 | 반응형 작업 시 |
+### 필수 (매 세션)
+| 파일 | 용도 |
+|------|------|
+| `CLAUDE.md` | 프로젝트 고정 정보 (팀 구성, 기술 스택, 규칙, 페이지 목록) |
+| `handoff.md` | 현재 파일. 세션 인계용 (현재 상태, 대기 Sprint, 미해결 버그) |
+| `memory.md` | 누적 의사결정(ADR), 버그 분석, 아키텍처 판단 |
+
+### Sprint 작업 시
+| 파일 | 용도 |
+|------|------|
+| `DESIGN_FIX_SPRINT.md` | Sprint 1~30 메인 스프린트 문서 |
+| `OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#57) |
+
+### 릴리스/문서 업데이트 시
+| 파일 | 용도 |
+|------|------|
+| `app/src/version.ts` | 버전 + 빌드 날짜 + 이력 주석 |
+| `CHANGELOG.md` | 릴리스별 변경 내역 |
+| `PROGRESS.md` | 완료된 Sprint 이력 (상세) |
+| `BACKLOG.md` | 보류/계획/아이디어 + 디지털트윈 기획 |
+
+### 참조
+| 파일 | 용도 |
+|------|------|
+| `docs/APS_LITE_PLAN.md` | APS Lite 기획서 (차세대) |
+| `docs/sprints/RESPONSIVE_DESIGN_PLAN.md` | 반응형 설계 v2 |
+| `docs/API_INTEGRATION_REVIEW.md` | API 통합 리뷰 |
 
 ---
 
