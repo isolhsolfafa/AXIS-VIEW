@@ -24,6 +24,7 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, ca
   // 그룹별 색상 교대
   let prevGroup = '';
   let groupIdx = 0;
+  let groupItemIdx = 0;
 
   const checkCount = filtered.filter(i => i.item_type === 'CHECK').length;
   const inputCount = filtered.filter(i => i.item_type === 'INPUT').length;
@@ -52,42 +53,25 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, ca
           </thead>
           <tbody>
             {filtered.map((item) => {
-              const isNewGroup = item.item_group !== prevGroup;
-              if (isNewGroup) {
+              if (item.item_group !== prevGroup) {
                 groupIdx++;
                 prevGroup = item.item_group;
+                groupItemIdx = 0;
               }
+              groupItemIdx++;
               const isEvenGroup = groupIdx % 2 === 0;
-              const groupItemCount = filtered.filter(i => i.item_group === item.item_group).length;
 
               return (
-                <>
-                  {isNewGroup && (
-                    <tr key={`group-${item.item_group}`} style={{
-                      background: 'var(--gx-cloud)',
-                      borderTop: groupIdx > 1 ? '2px solid var(--gx-mist)' : undefined,
-                    }}>
-                      <td colSpan={6} style={{
-                        padding: '8px 12px', fontSize: '12px', fontWeight: 700,
-                        color: 'var(--gx-charcoal)', letterSpacing: '0.3px',
-                      }}>
-                        {item.item_group}
-                        <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--gx-steel)', marginLeft: '8px' }}>
-                          ({groupItemCount}항목)
-                        </span>
-                      </td>
-                    </tr>
-                  )}
-                  <tr
-                    key={item.id}
-                    style={{
-                      borderBottom: '1px solid var(--gx-cloud)',
-                      background: !item.is_active ? 'var(--gx-cloud)' : isEvenGroup ? 'var(--gx-snow, #FAFBFD)' : 'var(--gx-white)',
-                      opacity: item.is_active ? 1 : 0.5,
-                    }}
-                  >
+                <tr
+                  key={item.id}
+                  style={{
+                    borderBottom: '1px solid var(--gx-cloud)',
+                    background: !item.is_active ? 'var(--gx-cloud)' : isEvenGroup ? 'var(--gx-snow, #FAFBFD)' : 'var(--gx-white)',
+                    opacity: item.is_active ? 1 : 0.5,
+                  }}
+                >
                   <td style={{ padding: '9px 12px', fontFamily: "'JetBrains Mono', monospace", color: 'var(--gx-steel)', fontSize: '11px' }}>
-                    {item.item_order}
+                    {groupItemIdx}
                   </td>
                   <td style={{ padding: '9px 12px', fontWeight: 600, color: 'var(--gx-charcoal)', whiteSpace: 'nowrap' }}>
                     {item.item_group}
@@ -126,7 +110,6 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, ca
                     </button>
                   </td>
                 </tr>
-                </>
               );
             })}
           </tbody>
