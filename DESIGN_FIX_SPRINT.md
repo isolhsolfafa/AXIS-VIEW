@@ -13531,25 +13531,27 @@ Phase 1 — 빌드
 [x] 타입 에러 없음
 
 Phase 2 — 상세뷰 ELEC 진행률 (FE-07 + FE-08)
-[ ] 생산현황 → ELEC 진행 중 S/N 세부페이지 진입
-[ ] ELEC ProcessStepCard에 "▶체크리스트 N/M 완료" 프로그레스바 표시
-[ ] Phase 1 일부 완료 S/N: checked_count가 Phase 1+2 합산으로 표시
-[ ] Phase 2 완료 S/N: total_count와 checked_count 일치 (100%)
-[ ] 체크리스트 미시작 S/N: 0/N 표시 (미표시 아님)
-[ ] TM 카테고리 기존 동작 regression 없음
+[x] 생산현황 → ELEC 진행 중 S/N 세부페이지 진입
+[x] ELEC ProcessStepCard에 "▶체크리스트 N/M 완료" 프로그레스바 표시
+[x] Phase 1 일부 완료 S/N: checked_count가 Phase 1+2 합산으로 표시
+[x] Phase 2 완료 S/N: total_count와 checked_count 일치 (100%)
+[x] 체크리스트 미시작 S/N: 0/N 표시 (미표시 아님)
+[x] TM 카테고리 기존 동작 regression 없음
 
 Phase 3 — 관리 페이지 ELEC 블러 해제 (FE-12)
-[ ] 체크리스트 관리 → ELEC 탭 선택 → 블러 해제 확인
-[ ] COMMON product_code 자동 적용 (TM과 동일 패턴 검토)
-[ ] 31항목 목록 표시 (WORKER 24 + QI 7)
-[ ] item_group별 정렬 확인
-[ ] 기존 항목 비활성화 토글 동작 (confirm 팝업 → 비활성 전환)
-[ ] 비활성 표시 토글 ON → 비활성 항목 회색 표시
-[ ] MECH 탭: 여전히 블러 처리 (regression 없음)
+[x] 체크리스트 관리 → ELEC 탭 선택 → 블러 해제 확인
+[x] COMMON product_code 자동 적용 (TM과 동일 패턴)
+[x] 31항목 목록 표시 (WORKER 24 + QI 7)
+[x] item_group별 정렬 확인 (BE 등장 순서: PANEL→조립→JIG)
+[x] 기존 항목 비활성화 토글 동작 (confirm 팝업 → 비활성 전환)
+[x] 비활성 표시 토글 ON → 비활성 항목 회색 표시
+[x] MECH 탭: 여전히 블러 처리 (regression 없음)
+[x] ELEC 자물쇠 아이콘 제거 + 활성 폰트 적용 (ChecklistFilterBar)
+[x] 그룹 내 순번 표시 (#컬럼: 1,2,3...)
 
 Phase 4 — 실환경 검증
-[ ] 실제 ELEC S/N 1건 진행률과 BE 응답 일치 (수동 쿼리 대조)
-[ ] 관리 페이지에서 항목 비활성화 → 앱 측 체크리스트에 미노출 확인
+[x] 실제 ELEC S/N 1건 진행률과 BE 응답 일치
+[x] 관리 페이지에서 항목 비활성화 → 앱 측 체크리스트에 미노출 확인
 ```
 
 ## 규칙
