@@ -31,17 +31,16 @@ export default function ChecklistManagePage() {
 
   const items = useMemo(() => {
     const raw = data?.items ?? [];
-    // 그룹 순서: 각 그룹 내 최소 item_order 기준 (BE seed 순서 유지)
-    const groupMinOrder = new Map<string, number>();
+    // 그룹 순서: BE 원본에서 처음 등장하는 순서 유지
+    const groupOrder = new Map<string, number>();
     for (const item of raw) {
-      const cur = groupMinOrder.get(item.item_group);
-      if (cur === undefined || item.item_order < cur) {
-        groupMinOrder.set(item.item_group, item.item_order);
+      if (!groupOrder.has(item.item_group)) {
+        groupOrder.set(item.item_group, groupOrder.size);
       }
     }
     return [...raw].sort((a, b) => {
-      const ga = groupMinOrder.get(a.item_group) ?? 0;
-      const gb = groupMinOrder.get(b.item_group) ?? 0;
+      const ga = groupOrder.get(a.item_group) ?? 0;
+      const gb = groupOrder.get(b.item_group) ?? 0;
       if (ga !== gb) return ga - gb;
       return a.item_order - b.item_order;
     });
