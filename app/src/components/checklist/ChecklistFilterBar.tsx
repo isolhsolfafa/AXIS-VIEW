@@ -11,7 +11,7 @@ interface ChecklistFilterBarProps {
 }
 
 const CATEGORIES = ['MECH', 'ELEC', 'TM'] as const;
-const BLUR_CATEGORIES = new Set(['MECH', 'ELEC']);
+const BLUR_CATEGORIES = new Set(['MECH']);
 
 export default function ChecklistFilterBar({
   productCodes,
