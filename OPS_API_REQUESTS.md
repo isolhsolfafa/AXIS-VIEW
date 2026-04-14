@@ -3793,56 +3793,61 @@ GET /api/admin/qr/list?date_field=elec_start&date_from=2026-04-01&date_to=2026-0
 > **배경**: ELEC 체크리스트 BE 구현 완료. VIEW FE에서 연동하기 위해 API 엔드포인트 패턴 확인 필요.
 > 현재 FE는 TM만 체크리스트 API 호출, ELEC은 빈 응답 리턴 중 (`getChecklistStatus`에서 TM/TMS 외 카테고리 조기 리턴).
 
+> ⚠️ **코드 검토 결과 (2026-04-11)**: 아래 3건의 문서 오류 확인됨
+
 **확인 사항**: 아래 엔드포인트가 TM과 동일한 패턴으로 존재하는지 확인
 
-**1. 체크리스트 상태 조회**
+**1. 체크리스트 상태 조회** ⚠️ 엔드포인트 미존재
 
 ```
-GET /api/app/checklist/elec/{serial_number}/status
+GET /api/app/checklist/elec/{serial_number}/status   ← BE에 존재하지 않음
 ```
+
+> **오류 1**: ELEC `/status` 엔드포인트는 BE에 구현되어 있지 않음.
+> TM은 `checklist.py L880-911`에 `/api/app/checklist/tm/<sn>/status` 존재하지만,
+> ELEC은 상세 조회(`/api/app/checklist/elec/<sn>`, L1076-1087)만 존재.
+> **BE 작업 필요**: ELEC status 엔드포인트 신규 생성, 또는 기존 상세 조회에서 count 파생.
 
 기대 응답 (TM과 동일 패턴):
 ```json
 {
-  "total_count": 31,
+  "total_count": 24,
   "checked_count": 6
 }
 ```
 
+> **오류 2**: `total_count`는 31이 아닌 **WORKER 항목만 카운트**해야 함.
+> Phase별: Phase 1 = 17건 (PANEL 11 + 조립 6, JIG 제외), Phase 2 = 24건 (PANEL 11 + 조립 6 + JIG WORKER 7).
+> QI 항목 (7건, `checker_role='QI'`)은 완료 판정에서 항상 제외.
+> 전체 완료 기준: Phase 1 (17) + Phase 2 (24) = **41건**.
+
 **2. 체크리스트 상세 조회**
 
 ```
-GET /api/app/checklist/elec/{serial_number}
+GET /api/app/checklist/elec/{serial_number}?phase=1
+GET /api/app/checklist/elec/{serial_number}?phase=2
 ```
 
-기대 응답 (TM과 동일 패턴 — items 또는 groups):
+> **오류 3**: 응답 구조는 `groups` 형식이 아닌 **flat items 배열** 형식.
+> TM status와 다른 패턴. 기존 BE 상세 조회(L1076-1087)는 `?phase=` 쿼리 파라미터 지원.
+
+기대 응답 (실제 BE 패턴):
 ```json
 {
-  "groups": [
+  "items": [
     {
-      "group_name": "PANEL 검사",
-      "items": [
-        {
-          "id": 1,
-          "item_group": "PANEL 검사",
-          "item_name": "파트 사양확인 (라벨 포함)",
-          "item_type": "CHECK",
-          "description": "...",
-          "status": "PASS",
-          "checked_at": "2026-04-10T21:40:00Z",
-          "worker_name": "홍길동"
-        }
-      ]
+      "master_id": 1,
+      "item_group": "PANEL 검사",
+      "item_name": "파트 사양확인 (라벨 포함)",
+      "item_type": "CHECK",
+      "description": "...",
+      "result": "PASS",
+      "checked_at": "2026-04-10T21:40:00Z",
+      "worker_name": "홍길동",
+      "checker_role": "WORKER"
     }
   ]
 }
-```
-
-**추가 확인**: ELEC은 1차/2차(judgment_phase) 구분이 있는데, 위 API에서 phase 파라미터 지원 여부
-
-```
-GET /api/app/checklist/elec/{serial_number}/status?phase=1
-GET /api/app/checklist/elec/{serial_number}/status?phase=2
 ```
 
 **VIEW FE 수정 (BE 확인 후)**:
@@ -3861,14 +3866,14 @@ GET /api/admin/checklist/master?category=TM&product_code=COMMON
 ELEC도 동일 패턴으로 동작하는지 확인:
 ```
 GET /api/admin/checklist/master?category=ELEC&product_code=COMMON
-→ 31개 항목 반환 기대
+→ 31개 항목 반환 기대 (WORKER 24 + QI 7)
 ```
 
 마스터 항목 추가(POST), 활성/비활성 토글(PUT)도 category=ELEC으로 정상 동작하는지 확인.
 
 ---
 
-### #57 checklist_master 테이블에 `remarks` 컬럼 추가 — PENDING (2026-04-11)
+### #58 checklist_master 테이블에 `remarks` 컬럼 추가 — PENDING (2026-04-11)
 
 > **배경**: 체크리스트 관리 페이지에 **비고** 컬럼 추가 요청. 항목별 개정이력/변경사유 등을 기록하기 위한 용도.
 > TM, ELEC, MECH 공통 적용.
@@ -3955,11 +3960,28 @@ SELECT id, name, email, is_active, deactivated_at FROM workers WHERE email = 'te
 
 **배경**: VIEW 생산실적 설정 패널에 "체크리스트 필수" 토글이 Sprint 25에서 추가됨. DB(`admin_settings`)에 `confirm_checklist_required` 키가 저장되고 GET/PUT 설정 API도 정상 동작하지만, **실적확인 `confirmable` 판정에 실제로 반영되지 않는 dead toggle 상태**.
 
-**현재 상태**:
+> ⚠️ **코드 검토 결과 (2026-04-11)**: confirmable 로직 전체 분석 완료. 아래 문제점 확인됨.
+
+**현재 상태 (코드 검토 확인)**:
 - DB: `admin_settings` 테이블에 키 존재 (migration 027)
 - BE 설정 API: `GET/PUT /api/admin/settings` — 읽기/쓰기 정상
-- BE 실적확인: `production_service.py`에서 `confirmable` 판정 시 **체크리스트 완료 여부 미참조**
+- BE 실적확인: `_is_process_confirmable()` (production.py L169-217)에서 `confirmable` 판정 시 **체크리스트 완료 여부 미참조** — `app_task_details.completed_at` 기반 task progress만 확인
+- `_is_sn_process_confirmable()` (production.py L220-243)도 동일 — 체크리스트 미참조
+- `completion_status.elec_completed`는 Dual-Trigger(task_service.py)에서 설정하지만 **confirmable 판정이 이 테이블을 읽지 않음**
+- `_CONFIRM_TASK_FILTER` (production.py L153-158): TMS:TANK_MODULE만 등록, **ELEC 미등록**
 - FE: `confirmable`은 BE 응답값 그대로 사용 — 토글 ON/OFF 무관
+
+**확인된 문제점 (2026-04-11)**:
+
+1. **Dead Toggle**: `confirm_checklist_required` 설정값을 confirmable 판정 코드에서 읽지 않음
+2. **completion_status 미연동**: `update_process_completion()`이 `elec_completed=TRUE` 설정하지만, confirmable은 `app_task_details` 직접 조회
+3. **`check_elec_completion()` 버그**: 단일 phase만 확인 (judgment_phase 파라미터 기준). Phase 1 + Phase 2 합산 41건 확인 필요
+   - Phase 1: 17건 (PANEL 11 + 조립 6, JIG 제외)
+   - Phase 2: 24건 (PANEL 11 + 조립 6 + JIG WORKER 7)
+   - QI 항목 (7건) 항상 제외
+   - 현재 Phase 1 단독 체크 시 JIG 마스터 항목(14개)이 포함되어 항상 False 반환 가능성
+4. **ELEC confirmable 미등록**: `_CONFIRM_TASK_FILTER`에 ELEC 카테고리 없음 → ELEC S/N은 confirmable 판정 대상 자체에서 누락
+5. **월별 집계 SQL** (production.py L746-769): `app_task_details` COUNT 직접 사용, `completion_status` 미참조
 
 **수정 요청**:
 
@@ -3967,25 +3989,33 @@ SELECT id, name, email, is_active, deactivated_at FROM workers WHERE email = 'te
 
 ```
 confirm_checklist_required = TRUE일 때:
-  - S/N별 공정 체크리스트 완료 여부 확인
-  - 미완료 시 confirmable = false
-  - 완료 시 기존 로직 유지 (공정 100% 등)
+  confirmable = progress 100% AND 체크리스트 완료
+  - progress 100%: 기존 로직 (app_task_details.completed_at 기반)
+  - 체크리스트 완료: 공정별 completion 함수 호출
 
 confirm_checklist_required = FALSE일 때:
-  - 기존 로직 그대로 (체크리스트 무관)
+  confirmable = progress 100% (기존 로직 그대로)
 ```
 
 **공정별 체크리스트 매핑**:
 
-| 공정 | 체크리스트 | BE 상태 | 비고 |
-|------|-----------|---------|------|
-| TM | `check_elec_completion()` 패턴 | ✅ Sprint 52 완료 | `checker_role` 조건 없음 |
-| ELEC | `check_elec_completion()` | 🔜 Sprint 57 예정 | `checker_role != 'QI'` (GST 제외) |
-| MECH | 미정 | ❌ 미구현 | MECH 체크리스트 BE 선행 필요 |
+| 공정 | 완료 함수 | 완료 기준 | BE 상태 | 비고 |
+|------|-----------|-----------|---------|------|
+| TM | `check_tm_completion()` | 마스터 전체 PASS | ✅ Sprint 52 완료 | `checker_role` 조건 없음 |
+| ELEC | `check_elec_completion()` | Phase 1(17) + Phase 2(24) = **41건** PASS | 🔧 버그 수정 필요 | QI 제외, 현재 단일 phase만 체크 |
+| MECH | 미정 | 미정 | ❌ 미구현 | MECH 체크리스트 BE 선행 필요 |
 
 **구현 제안**:
 ```python
-# production_service.py — confirmable 판정 내부
+# production.py — _is_process_confirmable() 수정
+
+# 1. _CONFIRM_TASK_FILTER에 ELEC 추가
+_CONFIRM_TASK_FILTER = {
+    'TMS': ['TANK_MODULE'],
+    'ELEC': [...]  # ELEC task 유형 정의 필요
+}
+
+# 2. confirmable 판정에 체크리스트 조건 추가
 from app.models.admin_settings import get_setting
 
 checklist_required = get_setting('confirm_checklist_required') == 'true'
@@ -3997,14 +4027,26 @@ if checklist_required:
             confirmable = False
     elif process_type == 'ELEC':
         from app.services.checklist_service import check_elec_completion
+        # check_elec_completion 수정 후: Phase 1+2 합산 41건 확인
         if not check_elec_completion(serial_number):
             confirmable = False
     # MECH: 체크리스트 BE 구현 후 추가
 ```
 
-**우선순위**: 🟡 MEDIUM — Sprint 57 (ELEC 체크리스트) 완료 후 연동이 현실적. TM 단독으로 먼저 연동 가능.
+**선행 작업**:
+- [x] `check_elec_completion()` Phase 1+2 합산 수정 (Sprint 58-BE 예정)
+- [ ] `_CONFIRM_TASK_FILTER`에 ELEC 카테고리 등록
+- [ ] confirmable 판정에 `confirm_checklist_required` 설정값 읽기 추가
+- [ ] TM `check_tm_completion()` 먼저 연동 (ELEC 수정 전에도 가능)
+
+**우선순위**: 🟡 MEDIUM → 🔴 HIGH — check_elec_completion 버그 수정은 Dual-Trigger 정상 동작에도 필요.
 
 **VIEW 영향**: FE 수정 없음. BE가 `confirmable` 판정에 반영하면 기존 UI 그대로 동작.
+
+**협의 사항**:
+- [ ] 체크리스트 필수 토글: 현재 전체 공정 일괄 on/off → 추후 공정별(MECH/ELEC/TM) 개별 토글로 분리 계획 있는지?
+- [ ] TM 단독 먼저 연동 vs ELEC 완료 후 동시 연동 — 어느 쪽으로 진행?
+- [ ] `completion_status` 테이블 활용 여부: confirmable에서 직접 참조할지, 아니면 매번 completion 함수 호출할지
 
 ---
 
@@ -4028,7 +4070,8 @@ ELEC만 Phase 1 + Phase 2 각각 조회하여 `categories` 배열에 2개 추가
 ```
 
 - Phase 1: JIG 그룹 제외 (17항목: PANEL 11 + 조립 6)
-- Phase 2: 전체 (31항목: PANEL 11 + 조립 6 + JIG 14)
+- Phase 2: 전체 포함 (24항목: PANEL 11 + 조립 6 + JIG WORKER 7, QI 7건 제외)
+- 마스터 기준 31항목 중 QI 7건은 성적서 표시만, 완료 판정 제외
 - Phase별 summary 독립 집계
 - TM/MECH는 기존대로 단일 phase
 

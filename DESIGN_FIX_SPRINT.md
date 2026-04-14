@@ -13414,3 +13414,155 @@ VIEW FE 수정
 [ ] 타입 에러 없음 (qr_doc_id optional 필드)
 ```
 
+---
+
+# Sprint 31 — ELEC 체크리스트 VIEW 연동 (상세뷰 진행률 + 관리 페이지 블러 해제) (2026-04-14)
+
+> 등록일: 2026-04-14
+> 트랙: VIEW FE (BE 추가 작업 없음 — Sprint 58-BE 활용)
+> 선행: AXIS-OPS Sprint 57-C ✅ (ELEC seed 31항목), Sprint 57-FE ✅, Sprint 58-BE ✅ (`check_elec_completion` Phase 1+2 합산 + `/api/app/checklist/elec/{sn}/status` 엔드포인트)
+> 난이도: 하 (단일 파일 2곳 + 1줄 수정)
+> 수정 파일: 2개
+> 신규 컴포넌트: 없음
+> 신규 API: 없음 (기존 활용)
+
+## 배경
+
+Sprint 58-BE 완료로 ELEC 체크리스트의 상태 조회 엔드포인트(`/api/app/checklist/elec/{sn}/status`)가 TM과 동일 패턴으로 제공되고, `check_elec_completion()`이 Phase 1+2 합산으로 수정됨. VIEW FE에서 미반영된 3가지 연동 포인트:
+
+1. **생산현황 세부페이지 ELEC 체크리스트 진행률 미표시**: `getChecklistStatus()`가 TM/TMS만 허용(L89-96 조기 리턴) → ELEC 상세뷰 `ProcessStepCard`에 "▶체크리스트 0/N 완료" 프로그레스바 미노출
+2. **체크리스트 관리 페이지 ELEC 블러 처리**: `BLUR_CATEGORIES = new Set(['MECH', 'ELEC'])` → ELEC seed 31항목이 DB에 존재함에도 UI에서 관리 불가
+3. **remarks(비고/개정이력) 컬럼**: OPS #58 BE 선행 대기 → **본 스프린트 범위 밖** (별도 FE-13)
+
+## 수정 대상 파일
+
+```
+1. app/src/api/checklist.ts                           (수정 — getChecklistStatus CAT_MAP 추가)
+2. app/src/pages/checklist/ChecklistManagePage.tsx    (수정 — BLUR_CATEGORIES에서 'ELEC' 제거)
+```
+
+## A. `getChecklistStatus()` ELEC 매핑 추가 — checklist.ts (L89-96)
+
+**현재 코드:**
+```typescript
+if (category !== 'TM' && category !== 'TMS') {
+  return { ...EMPTY_CHECKLIST, serial_number: serialNumber, category };
+}
+const beCat = 'tm';
+```
+
+**문제**: TM/TMS가 아닌 카테고리는 즉시 빈 응답 반환 → ELEC 상세뷰 프로그레스바 영구 미표시
+
+**수정 코드:**
+```typescript
+const CAT_MAP: Record<string, string> = {
+  TM: 'tm',
+  TMS: 'tm',
+  ELEC: 'elec',
+};
+
+const beCat = CAT_MAP[category];
+if (!beCat) {
+  return { ...EMPTY_CHECKLIST, serial_number: serialNumber, category };
+}
+```
+
+**호출 엔드포인트 (BE)**:
+- `GET /api/app/checklist/{beCat}/{serial_number}/status`
+- ELEC의 경우 `phase` 파라미터 생략 → Phase 1+2 합산 자동 반환 (Sprint 58-BE Task 3)
+- 응답: `{ total_count, checked_count }` — TM과 동일 스키마
+
+**연쇄 효과 (코드 변경 없음)**:
+- `ProcessStepCard.tsx`는 이미 category-agnostic
+- `hasChecklist = checklist && checklist.summary?.total_check > 0` 자동 평가
+- ELEC 공정 카드에 "▶체크리스트 N/M 완료" 프로그레스바 자동 렌더링 → **FE-08 자동 해소**
+
+## B. ELEC 블러 해제 — ChecklistManagePage.tsx (L14)
+
+**현재 코드:**
+```typescript
+const BLUR_CATEGORIES = new Set(['MECH', 'ELEC']);
+```
+
+**수정 코드:**
+```typescript
+const BLUR_CATEGORIES = new Set(['MECH']);
+```
+
+**동작 변경**:
+- ELEC 탭 선택 시 블러 오버레이 제거
+- `useChecklistMaster('ELEC', product_code, showInactive)` → `GET /api/admin/checklist/master?category=ELEC&product_code=COMMON` 호출
+- Sprint 57-C seed 31항목(WORKER 24 + QI 7) 표시 — 관리자는 항목 추가/비활성화 가능
+- TM과 동일: QI 항목도 목록에 표시 (마스터 관리 대상)
+
+## C. BE 응답 필드 부재 관련 주의사항
+
+`GET /api/admin/checklist/master` 현재 응답 필드 (checklist.py L318-346):
+```
+id, product_code, category, item_group, item_name, item_order, description, is_active
+```
+
+**ELEC 고유 속성 누락**:
+- `item_type` (CHECK/INPUT/SELECT) — 신규 항목 추가 시 타입 지정 불가
+- `checker_role` (WORKER/QI) — QI 여부 구분 불가
+- `phase1_na` (boolean) — JIG 그룹 Phase 1 자동 NA 불가
+- `select_options` (string[]) — TUBE 색상 선택지 편집 불가
+
+**영향 범위**:
+- ✅ **목록 조회/표시**: 정상 동작 (블러 해제 목적 달성)
+- ✅ **기존 항목 활성화/비활성화**: 정상 동작 (PATCH toggle)
+- ⚠️ **신규 항목 추가/편집**: WORKER/CHECK 타입으로만 생성 가능 — ELEC 고유 속성 설정 불가
+
+→ OPS_API_REQUESTS.md에 후속 요청 추가 필요 (마스터 GET/POST/PUT 응답에 ELEC 필드 확장). 본 스프린트는 "블러 해제 + 목록 확인" 수준까지.
+
+## 사용 API 정리 (기존 BE API — 신규 요청 없음)
+
+| 용도 | API | Sprint |
+|------|-----|--------|
+| ELEC 체크리스트 상태 조회 | `GET /api/app/checklist/elec/{sn}/status` | 58-BE Task 3 |
+| ELEC 마스터 목록 | `GET /api/admin/checklist/master?category=ELEC&product_code=COMMON` | 52 (category-agnostic) |
+| ELEC 마스터 비활성화 토글 | `PATCH /api/admin/checklist/master/{id}/toggle` | 52 |
+
+## 테스트 체크리스트
+
+```
+Phase 1 — 빌드
+[x] npm run build 성공
+[x] 타입 에러 없음
+
+Phase 2 — 상세뷰 ELEC 진행률 (FE-07 + FE-08)
+[ ] 생산현황 → ELEC 진행 중 S/N 세부페이지 진입
+[ ] ELEC ProcessStepCard에 "▶체크리스트 N/M 완료" 프로그레스바 표시
+[ ] Phase 1 일부 완료 S/N: checked_count가 Phase 1+2 합산으로 표시
+[ ] Phase 2 완료 S/N: total_count와 checked_count 일치 (100%)
+[ ] 체크리스트 미시작 S/N: 0/N 표시 (미표시 아님)
+[ ] TM 카테고리 기존 동작 regression 없음
+
+Phase 3 — 관리 페이지 ELEC 블러 해제 (FE-12)
+[ ] 체크리스트 관리 → ELEC 탭 선택 → 블러 해제 확인
+[ ] COMMON product_code 자동 적용 (TM과 동일 패턴 검토)
+[ ] 31항목 목록 표시 (WORKER 24 + QI 7)
+[ ] item_group별 정렬 확인
+[ ] 기존 항목 비활성화 토글 동작 (confirm 팝업 → 비활성 전환)
+[ ] 비활성 표시 토글 ON → 비활성 항목 회색 표시
+[ ] MECH 탭: 여전히 블러 처리 (regression 없음)
+
+Phase 4 — 실환경 검증
+[ ] 실제 ELEC S/N 1건 진행률과 BE 응답 일치 (수동 쿼리 대조)
+[ ] 관리 페이지에서 항목 비활성화 → 앱 측 체크리스트에 미노출 확인
+```
+
+## 규칙
+
+- BE 추가 요청 없음 — Sprint 58-BE가 모두 선제공
+- ELEC 마스터 신규 추가/편집 기능 범위 밖 (BE 응답 필드 확장 별도 요청)
+- FE-13 (remarks 컬럼)은 OPS #58 BE 선행 대기, 본 스프린트 미포함
+- `CAT_MAP` 유지보수: 향후 MECH 체크리스트 BE 구현 시 `MECH: 'mech'` 한 줄 추가만으로 확장
+
+## 후속 과제 (별도 트랙)
+
+1. **OPS 신규 요청**: `GET /api/admin/checklist/master` 응답에 `item_type`, `checker_role`, `phase1_na`, `select_options` 추가 + POST/PUT 입력 지원 → ELEC 마스터 편집 완전 활성화
+2. **FE-13 (OPS #58)**: `checklist_master.remarks` 컬럼 DB migration + API 반영 → 개정이력 관리
+3. **Sprint 30 (VIEW)**: Admin/Manager 비활성화 권한 분기 (독립 트랙, 이미 설계 완료)
+```
+

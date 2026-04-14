@@ -1,8 +1,24 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-04-10 (v1.26.0 — Sprint 30 성적서 ELEC Phase/TM DUAL)
+> 마지막 업데이트: 2026-04-14 (v1.27.0 — Sprint 31 ELEC 체크리스트 VIEW 연동)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.27.0: Sprint 31 — ELEC 체크리스트 VIEW 연동 — ✅ 완료 (2026-04-14)
+
+### 생산현황 ELEC 진행률
+- `getChecklistStatus()` CAT_MAP 패턴: `ELEC → 'elec'` 매핑 추가
+- S/N 상세뷰 ELEC ProcessStepCard에 체크리스트 프로그레스바 자동 표시
+- Phase 1+2 합산 진행률 (Sprint 58-BE 활용)
+
+### 체크리스트 관리 ELEC 블러 해제
+- `BLUR_CATEGORIES`에서 `'ELEC'` 제거 → 31항목 관리 가능
+- MECH 블러 유지
+
+### 기타
+- 로그인 후 첫화면: 모든 역할 → /factory
 
 ---
 

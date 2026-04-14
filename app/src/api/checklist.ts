@@ -90,12 +90,18 @@ export async function getChecklistStatus(
   serialNumber: string,
   category: string,
 ): Promise<ChecklistStatusResponse> {
-  // MECH/ELEC은 BE 미구현 — 빈 응답
-  if (category !== 'TM' && category !== 'TMS') {
+  // 카테고리 → BE 경로 매핑 (Sprint 31: ELEC 허용, Sprint 58-BE 엔드포인트 활용)
+  const CAT_MAP: Record<string, string> = {
+    TM: 'tm',
+    TMS: 'tm',
+    ELEC: 'elec',
+  };
+
+  const beCat = CAT_MAP[category];
+  if (!beCat) {
+    // MECH 등 미구현 카테고리 — 빈 응답
     return { ...EMPTY_CHECKLIST, serial_number: serialNumber, category };
   }
-
-  const beCat = 'tm';
 
   try {
     // status + 상세 병렬 호출

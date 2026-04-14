@@ -1,15 +1,15 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-04-10
+> 마지막 업데이트: 2026-04-14
 
 ---
 
 ## 현재 버전
 
-- **VIEW FE**: v1.26.0
-- **최근 Sprint**: 30 (비활성화 권한 + 성적서 ELEC Phase/TM DUAL)
-- **최근 완료**: Sprint 29 (QR 전장시작), Sprint 30 (비활성화 + 성적서 확장)
+- **VIEW FE**: v1.27.0
+- **최근 Sprint**: 31 (ELEC 체크리스트 VIEW 연동)
+- **최근 완료**: Sprint 30 (성적서 확장), Sprint 31 (ELEC 진행률 + 블러 해제)
 
 ---
 
@@ -85,8 +85,12 @@
 | #52 | ETL _FIELD_LABELS에 finishing_plan_end 누락 | PENDING | 마무리계획일 |
 | ~~#53~~ | ~~monthly-summary weeks/totals 집계~~ | ✅ **DONE** | 월마감 캘린더 |
 | ~~#54~~ | ~~체크리스트 성적서 API 2건~~ | ✅ BE Sprint 54 완료·테스트 통과 | 체크리스트 페이지 |
+| ~~#56~~ | ~~ELEC API 문서 오류 + confirmable dead toggle~~ | ✅ **BE Sprint 58-BE 완료** | 실적확인 체크리스트 연동 (FE 연동 대기) |
+| #57 | 성적서 API ELEC Phase + TM DUAL | ✅ BE Sprint 30-BE 완료 | 성적서 페이지 |
+| #58 | checklist_master remarks 컬럼 | PENDING | 체크리스트 관리 비고 |
 
-> 전체 목록: `OPS_API_REQUESTS.md` (#1~#57)
+> 전체 목록: `OPS_API_REQUESTS.md` (#1~#58)
+> FE 태스크: `VIEW_FE_Request.md` (FE-01~FE-14)
 
 ---
 
@@ -124,18 +128,19 @@
 
 ## 다음 세션에서 할 일 (제안)
 
-### 즉시 — BE #53 수정 후 월마감 캘린더 검증
-- weeks/totals 집계가 채워지면 대기/확인 카운트 정상 표시 확인
-- W14 6905 전장 완료건 → "대기 1" 표시 검증
+### 즉시 — VIEW FE 연동 (BE Sprint 58-BE 완료됨)
+- FE-12: ELEC 블러 해제 (`BLUR_CATEGORIES`에서 'ELEC' 제거)
+- FE-07: `getChecklistStatus()` ELEC beCat 매핑 + /status 엔드포인트 연동
+- FE-08: ProcessStepCard/SNDetailPanel 자동 동작 (FE-07 의존)
+- **테스트**: 실적확인 토글 OFF(progress 100%) / ON(progress+체크리스트) 동작 검증
 
-### 단기 — Defensive coding + 사용시간 변경
-- ProductionPerformancePage `?? []` 7개소
+### 단기 — 기타 FE 작업
+- Defensive coding `?? []` 7개소 (ProductionPerformancePage)
 - AnalyticsDashboardPage usage_minutes → last_access
+- FE-13: checklist_master remarks 컬럼 (BE #58 완료 후)
 
-### 중기 — MECH/ELEC 체크리스트 활성화
-- 항목 확정 후 블러 해제 (별도 Sprint)
-
-### 중기 — 사내서버 마이그레이션
+### 중기 — MECH 체크리스트 + 사내서버
+- MECH 체크리스트 BE 구현 → completion 함수 일괄 리팩토링 (TM/ELEC/MECH public 인터페이스)
 - Railway/Netlify → 사내서버 전환
 
 ### 장기 — APS Lite

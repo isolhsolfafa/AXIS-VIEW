@@ -11,7 +11,7 @@ import ChecklistSettingsPanel from '@/components/checklist/ChecklistSettingsPane
 import { useChecklistMaster, useProductCodes, useCreateMaster, useToggleMaster } from '@/hooks/useChecklistMaster';
 import type { CreateMasterPayload } from '@/types/checklist';
 
-const BLUR_CATEGORIES = new Set(['MECH', 'ELEC']);
+const BLUR_CATEGORIES = new Set(['MECH']);
 
 export default function ChecklistManagePage() {
   const [selectedProduct, setSelectedProduct] = useState('');
