@@ -31,9 +31,18 @@ export default function ChecklistManagePage() {
 
   const items = useMemo(() => {
     const raw = data?.items ?? [];
+    // 그룹 순서: 각 그룹 내 최소 item_order 기준 (BE seed 순서 유지)
+    const groupMinOrder = new Map<string, number>();
+    for (const item of raw) {
+      const cur = groupMinOrder.get(item.item_group);
+      if (cur === undefined || item.item_order < cur) {
+        groupMinOrder.set(item.item_group, item.item_order);
+      }
+    }
     return [...raw].sort((a, b) => {
-      const groupCmp = a.item_group.localeCompare(b.item_group);
-      if (groupCmp !== 0) return groupCmp;
+      const ga = groupMinOrder.get(a.item_group) ?? 0;
+      const gb = groupMinOrder.get(b.item_group) ?? 0;
+      if (ga !== gb) return ga - gb;
       return a.item_order - b.item_order;
     });
   }, [data?.items]);
@@ -78,7 +87,7 @@ export default function ChecklistManagePage() {
             onProductChange={setSelectedProduct}
             selectedCategory={selectedCategory}
             onCategoryChange={setSelectedCategory}
-            hideProductDropdown={selectedCategory === 'TM'}
+            hideProductDropdown={selectedCategory === 'TM' || selectedCategory === 'ELEC'}
           />
 
           <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center' }}>
