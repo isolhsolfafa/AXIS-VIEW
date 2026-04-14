@@ -20,8 +20,8 @@ export default function ChecklistManagePage() {
   const [showInactive, setShowInactive] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // TM → COMMON 자동 고정
-  const effectiveProduct = selectedCategory === 'TM' ? 'COMMON' : selectedProduct;
+  // TM/ELEC → COMMON 자동 고정 (Sprint 31: ELEC도 COMMON scope)
+  const effectiveProduct = (selectedCategory === 'TM' || selectedCategory === 'ELEC') ? 'COMMON' : selectedProduct;
   const isBlurred = BLUR_CATEGORIES.has(selectedCategory);
 
   const { data: productCodes } = useProductCodes();
