@@ -161,10 +161,24 @@ export default function ProductionPlanPage() {
   const [stageFilter, setStageFilter] = useState<string | null>(null);
   const [sortCol, setSortCol] = useState<DateType | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [mechPartnerFilter, setMechPartnerFilter] = useState('');
+  const [elecPartnerFilter, setElecPartnerFilter] = useState('');
   const [page, setPage] = useState(1);
 
   const { data, isLoading, dataUpdatedAt, isFetching, refetch } = useMonthlyDetail({ month, date_field: dateField, per_page: 500 });
   const monthOptions = useMemo(() => getMonthOptions(), []);
+
+  // 업체 목록 (드롭다운 옵션)
+  const { mechPartners, elecPartners } = useMemo(() => {
+    if (!data?.items) return { mechPartners: [] as string[], elecPartners: [] as string[] };
+    const mp = new Set<string>();
+    const ep = new Set<string>();
+    for (const item of data.items) {
+      if (item.mech_partner) mp.add(item.mech_partner);
+      if (item.elec_partner) ep.add(item.elec_partner);
+    }
+    return { mechPartners: [...mp].sort(), elecPartners: [...ep].sort() };
+  }, [data?.items]);
 
   /* ── 필터 + 정렬 + 공정 카운트 ── */
   const { items, stageCounts, totalFiltered } = useMemo(() => {
@@ -179,6 +193,14 @@ export default function ProductionPlanPage() {
         i.sales_order.toLowerCase().includes(q) ||
         i.model.toLowerCase().includes(q)
       );
+    }
+
+    // 1.5 업체 필터
+    if (mechPartnerFilter) {
+      filtered = filtered.filter((i: ProductionItem) => i.mech_partner === mechPartnerFilter);
+    }
+    if (elecPartnerFilter) {
+      filtered = filtered.filter((i: ProductionItem) => i.elec_partner === elecPartnerFilter);
     }
 
     // 2. 공정별 카운트 (quick filter 기간 내)
@@ -208,7 +230,7 @@ export default function ProductionPlanPage() {
     }
 
     return { items: filtered, stageCounts: counts, totalFiltered: filtered.length };
-  }, [data, search, quickFilter, stageFilter, sortCol, sortDir]);
+  }, [data, search, quickFilter, stageFilter, sortCol, sortDir, mechPartnerFilter, elecPartnerFilter]);
 
   /* ── 페이지네이션 ── */
   const PAGE_SIZE = 50;
@@ -326,6 +348,36 @@ export default function ProductionPlanPage() {
               {monthOptions.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
+            </select>
+
+            {/* 기구업체 */}
+            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-steel)' }}>기구:</span>
+            <select
+              value={mechPartnerFilter}
+              onChange={(e) => { setMechPartnerFilter(e.target.value); setPage(1); }}
+              style={{
+                padding: '7px 12px', borderRadius: '10px',
+                border: '1px solid var(--gx-mist)', background: 'var(--gx-white)',
+                fontSize: '12px', color: 'var(--gx-graphite)', cursor: 'pointer',
+              }}
+            >
+              <option value="">전체</option>
+              {mechPartners.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+
+            {/* 전장업체 */}
+            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-steel)' }}>전장:</span>
+            <select
+              value={elecPartnerFilter}
+              onChange={(e) => { setElecPartnerFilter(e.target.value); setPage(1); }}
+              style={{
+                padding: '7px 12px', borderRadius: '10px',
+                border: '1px solid var(--gx-mist)', background: 'var(--gx-white)',
+                fontSize: '12px', color: 'var(--gx-graphite)', cursor: 'pointer',
+              }}
+            >
+              <option value="">전체</option>
+              {elecPartners.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
 
             <div style={{ width: '1px', height: '28px', background: 'var(--gx-mist)' }} />
