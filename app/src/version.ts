@@ -1,8 +1,8 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.28.0';
-export const BUILD_DATE = '2026-04-15';
+export const APP_VERSION = 'v1.29.0';
+export const BUILD_DATE = '2026-04-16';
 
 // 버전 이력
 // v1.0.0 | 2026-03-06 | Sprint 1~3     | 초기 릴리스 (로그인, 출퇴근 대시보드, 실 API 연동)
@@ -45,3 +45,4 @@ export const BUILD_DATE = '2026-04-15';
 // v1.26.0| 2026-04-10 | Sprint 30+     | 성적서 ELEC Phase/TM DUAL/SELECT/QI + 체크리스트 그룹 정렬
 // v1.27.0| 2026-04-14 | Sprint 31      | ELEC 체크리스트 VIEW 연동 (상세뷰 진행률 + 관리 블러 해제)
 // v1.28.0| 2026-04-15 | Sprint 31+     | 생산일정 업체 필터 + 체크리스트 ELEC 정렬/UI 수정
+// v1.29.0| 2026-04-16 | QR 개선        | QR 관리 전장협력사 컬럼 + 필터
