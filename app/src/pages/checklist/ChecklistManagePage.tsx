@@ -1,5 +1,5 @@
 // src/pages/checklist/ChecklistManagePage.tsx
-// 체크리스트 관리 페이지 — Sprint 26 (TM 활성화 + MECH/ELEC 블러)
+// 체크리스트 관리 페이지 — Sprint 32 (EditModal 연동 + GROUP_POLICY)
 
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
@@ -7,16 +7,25 @@ import Layout from '@/components/layout/Layout';
 import ChecklistFilterBar from '@/components/checklist/ChecklistFilterBar';
 import ChecklistTable from '@/components/checklist/ChecklistTable';
 import ChecklistAddModal from '@/components/checklist/ChecklistAddModal';
+import ChecklistEditModal from '@/components/checklist/ChecklistEditModal';
 import ChecklistSettingsPanel from '@/components/checklist/ChecklistSettingsPanel';
-import { useChecklistMaster, useProductCodes, useCreateMaster, useToggleMaster } from '@/hooks/useChecklistMaster';
-import type { CreateMasterPayload } from '@/types/checklist';
+import { useChecklistMaster, useProductCodes, useCreateMaster, useToggleMaster, useUpdateMaster } from '@/hooks/useChecklistMaster';
+import type { CreateMasterPayload, UpdateMasterPayload, ChecklistMasterItem } from '@/types/checklist';
 
 const BLUR_CATEGORIES = new Set(['MECH']);
+
+// GROUP_POLICY — 소유권 단일화: ManagePage에서만 정의, 모달에 prop 전달
+const GROUP_POLICY: Record<string, { fixed: boolean; groups?: string[] }> = {
+  TM:   { fixed: true, groups: ['BURNER', 'REACTOR', 'Exhaust', 'TANK'] },
+  ELEC: { fixed: true, groups: ['PANEL 검사', '조립 검사', 'JIG 검사 및 특별관리 POINT'] },
+  MECH: { fixed: false },
+};
 
 export default function ChecklistManagePage() {
   const [selectedProduct, setSelectedProduct] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('TM');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<ChecklistMasterItem | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -28,6 +37,7 @@ export default function ChecklistManagePage() {
   const { data, isLoading, dataUpdatedAt } = useChecklistMaster(selectedCategory, effectiveProduct, showInactive);
   const createMaster = useCreateMaster();
   const toggleMaster = useToggleMaster();
+  const updateMaster = useUpdateMaster();
 
   const items = useMemo(() => {
     const raw = data?.items ?? [];
@@ -52,8 +62,21 @@ export default function ChecklistManagePage() {
   }, [items]);
 
   const handleAdd = (payload: CreateMasterPayload) => {
-    createMaster.mutate(payload);
+    createMaster.mutate(payload, {
+      onSuccess: () => toast.success('항목이 추가되었습니다'),
+      onError: () => toast.error('추가에 실패했습니다'),
+    });
     setShowAddModal(false);
+  };
+
+  const handleEdit = (id: number, data: UpdateMasterPayload) => {
+    updateMaster.mutate({ id, data }, {
+      onSuccess: () => {
+        toast.success('항목이 수정되었습니다');
+        setEditingItem(null);
+      },
+      onError: () => toast.error('수정에 실패했습니다'),
+    });
   };
 
   const handleToggleActive = (id: number, currentlyActive: boolean) => {
@@ -145,7 +168,7 @@ export default function ChecklistManagePage() {
         boxShadow: 'var(--shadow-card, 0 0 0 1px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.04))',
         padding: '16px 20px', position: 'relative',
       }}>
-        {/* MECH/ELEC 블러 오버레이 */}
+        {/* MECH 블러 오버레이 */}
         {isBlurred && (
           <div style={{
             position: 'absolute', inset: 0, zIndex: 10,
@@ -178,6 +201,7 @@ export default function ChecklistManagePage() {
             items={items}
             showInactive={showInactive}
             onToggleActive={handleToggleActive}
+            onEdit={(item) => setEditingItem(item)}
             category={selectedCategory}
           />
         )}
@@ -189,8 +213,19 @@ export default function ChecklistManagePage() {
           productCode={effectiveProduct}
           category={selectedCategory}
           existingGroups={existingGroups}
+          groupPolicy={GROUP_POLICY[selectedCategory]}
           onSubmit={handleAdd}
           onClose={() => setShowAddModal(false)}
+        />
+      )}
+
+      {/* 수정 모달 */}
+      {editingItem && (
+        <ChecklistEditModal
+          item={editingItem}
+          category={selectedCategory}
+          onSubmit={(data) => handleEdit(editingItem.id, data)}
+          onClose={() => setEditingItem(null)}
         />
       )}
     </Layout>

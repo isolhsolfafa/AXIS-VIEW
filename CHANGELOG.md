@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.29.0 (2026-04-16)
+> 최신 버전: v1.30.0 (2026-04-16)
 
 ---
 
@@ -70,6 +70,39 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.30.0 — 2026-04-16
+
+**Sprint 32 — 체크리스트 관리 ELEC 항목 추가/수정 + Sprint 60-BE 연동**
+
+### 체크리스트 관리 — 타입 확장
+- `ChecklistMasterItem`에 `phase1_applicable`, `qi_check_required`, `remarks`, `checker_role`, `select_options` 필드 추가
+- `item_type`에 `SELECT` 유니온 추가 (ELEC TUBE 색상 선택 등)
+- `ChecklistStatusItem`, `BeDetailItem`에도 SELECT 타입 전파
+
+### 체크리스트 관리 — 테이블 확장
+- ELEC 탭: "1차 배선" / "역할" 컬럼 2개 추가 (TM에는 미표시)
+- QI row 좌측 보라색 보더 + QI/WORKER 역할 뱃지
+- 행 클릭 → 수정 모달 열기 (활성 토글은 stopPropagation)
+- SELECT 타입 보라색 뱃지 추가
+
+### 체크리스트 관리 — 항목 추가 모달 개편
+- GROUP_POLICY: TM/ELEC 고정 그룹 (신규 그룹 버튼 숨김)
+- ELEC 그룹별 자동 추론 (PANEL→phase1 ON, JIG→qi ON) + 수동 토글 오버라이드
+- SELECT 타입 선택 시 선택지 입력란 (쉼표 구분 → 배열)
+- JIG 선택 시 "WORKER + QI 2행 자동 생성" 안내 표시
+
+### 체크리스트 관리 — 항목 수정 모달 (신규)
+- 수정 가능: 항목명, 기준/검사방법, 1차 배선, 선택지, 개정이력
+- 읽기 전용: 그룹, 타입, 역할, GST 확인 필요 (qi_check_required)
+- 변경된 필드만 payload에 포함하여 전송
+
+### BE 선행 조건 (Sprint 60-BE 후속)
+- #59-A: POST 시 JIG WORKER+QI 2 row 자동 생성 (PENDING)
+- #59-B: GET master 응답에 checker_role 포함 (PENDING)
+- #59-C: UNIQUE 키에 checker_role 포함 + 마이그레이션 (PENDING)
 
 ---
 

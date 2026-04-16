@@ -124,6 +124,88 @@ BE 마스터 API(`GET /api/admin/checklist/master?category=ELEC&product_code=COM
 
 ---
 
+## VIEW Sprint 31 — 미종료 작업 관리 (SNStatusPage 확장)
+
+> BE 선행: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 61-BE (Task 3: API 확장)
+> 목적: Admin/Manager가 VIEW 대시보드에서 미종료 + 미시작 task를 확인하고 강제 종료 가능
+> 관련 OPS 화면: `manager_pending_tasks_screen.dart` (OPS에만 존재, VIEW에는 미구현)
+
+### 배경
+
+- OPS에 "미종료 작업" 화면 존재 — 협력사 Manager가 본인 회사 task 강제 종료 가능
+- VIEW SNStatusPage(S/N 작업 현황)에서 이미 S/N별 task 상세 패널(SNDetailPanel) 제공 중
+- **현재 문제**: VIEW에서는 미종료 task 확인만 가능, 강제 종료 불가. 미시작 task는 표시조차 안 됨
+- Sprint 61-BE에서 `GET /admin/tasks/pending?include_not_started=true` API 확장 예정 → 이를 활용
+
+### FE-15. SNDetailPanel 미종료/미시작 task 강제 종료 기능 [BE 선행]
+
+**기존 SNDetailPanel 구조** (스크린샷 참조):
+```
+┌─ GBWS-6920 ─────────────────────────────┐
+│ GAIA-I DUAL · MICRON · 출하: 2026-04-20 │
+│ Progress: 62% (3/6 공정)                 │
+│                                          │
+│ MECH 기구                    ✅ 완료     │
+│  👤 이*석 자주검사 04/09 ...    33m      │
+│  👤 이*석 Tank Docking ...     0m       │
+│  ...                                     │
+│                                          │
+│ ELEC 전장                    🔵 진행중   │
+│  👤 최*한 배선 포설 03/31 ...   27h 6m   │
+│  👤 박*현 자주검사(검수) ...    —        │
+│  ...                                     │
+└──────────────────────────────────────────┘
+```
+
+**추가할 내용**:
+
+1. **미종료 경고 배너** (카테고리 헤더 옆)
+   - task 중 `started_at IS NOT NULL AND completed_at IS NULL`인 게 있고 경과 14h 초과 → 빨간 배지 `⚠️ 미종료 N건`
+   - task 중 `started_at IS NULL`인 게 있고 같은 S/N 다른 task 완료 → 노란 배지 `⏳ 미시작 N건`
+
+2. **강제 종료 버튼** (각 task row에)
+   - 조건: `completed_at IS NULL` + 현재 사용자가 Admin 또는 해당 company Manager
+   - 클릭 → 모달: 사유 입력 + 완료 시각 선택 (DateTimePicker)
+   - API: `PUT /api/admin/tasks/{id}/force-close` (기존 OPS API 재사용)
+   - 성공 → task row에 `🔒 강제종료` 배지 + 리스트 갱신
+
+3. **미시작 task 표시**
+   - 현재 SNDetailPanel은 `started_at IS NOT NULL`인 task만 표시 (work_log 기반)
+   - 추가: 미시작 task도 "미시작" 상태로 표시
+   - 데이터 소스: Sprint 61-BE `GET /admin/tasks/pending?include_not_started=true&serial_number={sn}` 또는 기존 task 목록 API에서 status 구분
+   - 표시 스타일: 배경 노란색 / 작업자 "-" / 경과시간 "미시작"
+
+**권한 매트릭스**:
+
+| 역할 | 미종료/미시작 확인 | 강제 종료 |
+|---|---|---|
+| Admin (GST) | ✅ 전체 S/N | ✅ 모든 task |
+| Manager (협력사) | ✅ 본인 공정만 | ✅ 본인 공정만 |
+| Worker | ✅ 읽기만 | ❌ |
+
+**수정 파일 (예상)**:
+
+| 파일 | 수정 내용 |
+|---|---|
+| `components/sn-status/SNDetailPanel.tsx` | 미시작 task 표시 + 강제종료 버튼 + 배지 |
+| `hooks/useSNTasks.ts` | pending API 호출 추가 or 기존 task 응답에서 status 구분 |
+| `api/admin.ts` (신규 or 기존) | `forceCloseTask(taskId, reason, completedAt)` API 함수 |
+| `types/snStatus.ts` | `SNTask`에 `status: 'IN_PROGRESS' \| 'NOT_STARTED' \| 'COMPLETED'` 추가 |
+
+### FE-16. 미종료 작업 전용 요약 페이지 (선택, 별도 Sprint 분리 가능) [BE 선행]
+
+SNStatusPage 와 별개로, 전체 S/N 통합 미종료/미시작 task 리스트 전용 페이지.
+
+- 경로: `/admin/pending-tasks`
+- 사이드바: 관리 > 미종료 작업
+- 테이블: S/N, O/N, 공정, 작업명, 작업자, 경과시간, 상태(진행중/미시작), 강제종료 버튼
+- 필터: 공정별, 회사별, 상태별 (IN_PROGRESS / NOT_STARTED)
+- API: `GET /api/admin/tasks/pending?include_not_started=true`
+- 강제종료: FE-15와 동일 모달 재사용
+- **우선순위**: FE-15 완료 후 검토. SNDetailPanel 만으로 충분하면 보류.
+
+---
+
 ## 기타 PENDING 항목
 
 (현재 없음)

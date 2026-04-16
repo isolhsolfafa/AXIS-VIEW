@@ -13568,3 +13568,427 @@ Phase 4 — 실환경 검증
 3. **Sprint 30 (VIEW)**: Admin/Manager 비활성화 권한 분기 (독립 트랙, 이미 설계 완료)
 ```
 
+---
+
+# Sprint 32 — 체크리스트 관리 ELEC 항목 추가/수정 + Sprint 60-BE 연동 (2026-04-16)
+
+> 등록일: 2026-04-16
+> 트랙: VIEW FE + OPS BE 패치 (Sprint 60-BE 후속)
+> 선행: Sprint 31-VIEW ✅ (ELEC 블러 해제), Sprint 60-BE ✅ (마스터 정규화 — phase1_applicable, qi_check_required, remarks 컬럼 추가)
+> 난이도: 중 (타입 갱신 + 테이블 확장 + AddModal 전면 개편 + EditModal 신규)
+> 수정 파일: 4개 (useChecklistMaster.ts는 useUpdateMaster 이미 존재 — 수정 불필요)
+> 신규 컴포넌트: 1개 (ChecklistEditModal)
+
+## 배경
+
+Sprint 60-BE 완료로 `checklist_master`에 분류 컬럼 3개(`phase1_applicable`, `qi_check_required`, `remarks`)가 추가되고, BE API 응답에도 포함됨.
+현재 VIEW 체크리스트 관리 페이지의 문제:
+
+1. **타입 미반영**: `ChecklistMasterItem` 인터페이스에 신규 3개 필드 없음 → 테이블/모달에서 사용 불가
+2. **항목 추가 모달이 Sprint 26(TM 15항목) 시절 기준**: ELEC 그룹별 분기 조건(phase1, QI) 입력 없음
+3. **항목 수정 기능 자체가 없음**: BE에 `PUT /api/admin/checklist/master/{id}` 있지만 FE 미구현
+4. **JIG QI 뱃지/구분 없음**: 31 row 전체 표시 시 관리자가 WORKER/QI 구분 어려움
+
+### 확정 사항 (사용자 결정)
+
+- **QI row 관리 페이지 표시**: 31개 전부 보이게 (관리자용 페이지이므로)
+- **TM 그룹 고정**: BURNER/REACTOR/EXHAUST/TANK 4개 고정, 신규 그룹 생성 버튼 숨김
+- **JIG 항목 추가 시 2 row 자동 생성**: 서버(BE)에서 WORKER + QI 동시 INSERT (BE 패치 필요)
+- **항목 수정(Edit) 기능**: 이번 Sprint에 같이 구현 (Add + Edit 동시)
+- **분기 조건 UI**: 그룹 선택 시 자동 채워지되, 토글로 수동 변경 가능
+
+## 수정 대상 파일
+
+```
+1. app/src/types/checklist.ts                           (수정 — 신규 필드 3개 + checker_role + SELECT 타입)
+2. app/src/components/checklist/ChecklistTable.tsx       (수정 — Phase/QI 뱃지 컬럼 + 행 클릭→수정)
+3. app/src/components/checklist/ChecklistAddModal.tsx    (수정 — 전면 개편: 그룹별 분기 자동추론 + 토글 + SELECT 타입)
+4. app/src/components/checklist/ChecklistEditModal.tsx   (신규 — 항목 수정 모달, qi_check_required 읽기 전용)
+5. app/src/pages/checklist/ChecklistManagePage.tsx       (수정 — EditModal 연동 + GROUP_POLICY 정의/전달)
+---
+※ app/src/hooks/useChecklistMaster.ts                   (수정 불필요 — useUpdateMaster L41-49 이미 존재)
+```
+
+## Task 1: 타입 갱신 — `types/checklist.ts`
+
+### 1-1. `ChecklistMasterItem` 확장
+
+```typescript
+// item_type 유니온 — SELECT 추가 (ELEC TUBE 색상 선택 등)
+type ItemType = 'CHECK' | 'INPUT' | 'SELECT';
+
+export interface ChecklistMasterItem {
+  id: number;
+  product_code: string;
+  category: 'MECH' | 'ELEC' | 'TM';
+  item_group: string;
+  item_name: string;
+  item_type: ItemType;              // ← SELECT 추가 (#1, Codex-A)
+  item_order: number;
+  description: string | null;
+  is_active: boolean;
+  // Sprint 60-BE 신규
+  phase1_applicable: boolean;      // 기본 true — 1차 단계 적용 여부
+  qi_check_required: boolean;      // 기본 false — GST 검수 필요 여부 (JIG만 true)
+  remarks: string | null;          // 개정이력
+  checker_role?: 'WORKER' | 'QI';  // ELEC JIG 이중 row 구분용 (BE #59-B로 요청)
+  select_options?: string[] | null; // SELECT 타입일 때 선택지 배열
+}
+```
+
+### 1-2. `CreateMasterPayload` 확장
+
+```typescript
+export interface CreateMasterPayload {
+  product_code: string;
+  category: string;
+  item_group: string;
+  item_name: string;
+  item_type: ItemType;             // ← SELECT 추가
+  description?: string;
+  item_order?: number;
+  // Sprint 60-BE 신규
+  phase1_applicable?: boolean;     // 미지정 시 BE 기본값 true
+  qi_check_required?: boolean;     // 미지정 시 BE 기본값 false
+  remarks?: string;
+  select_options?: string[];       // SELECT 타입일 때 필수
+}
+```
+
+### 1-3. `UpdateMasterPayload` 확장
+
+```typescript
+export interface UpdateMasterPayload {
+  item_group?: string;
+  item_name?: string;
+  item_type?: ItemType;            // ← SELECT 추가
+  description?: string;
+  item_order?: number;
+  is_active?: boolean;
+  // Sprint 60-BE 신규
+  phase1_applicable?: boolean;
+  qi_check_required?: boolean;     // EditModal에서는 읽기 전용 (#B — 수정 시 행 쌍 정책 미정의)
+  remarks?: string;
+  select_options?: string[];
+}
+```
+
+## Task 2: 테이블 확장 — `ChecklistTable.tsx`
+
+### 2-1. ELEC 전용 컬럼 2개 추가
+
+| 컬럼 | 표시 조건 | 내용 |
+|---|---|---|
+| **1차 배선** | category === 'ELEC' | `phase1_applicable` true → `✅ 적용` / false → `—` (2차 전용) |
+| **역할** | category === 'ELEC' | `checker_role === 'QI'` → `QI` 뱃지(보라색) / 없으면 `WORKER` 뱃지(파란색) |
+
+TM일 때는 두 컬럼 미표시 (기존과 동일).
+
+### 2-2. 행 클릭 → 수정 모달 열기
+
+```typescript
+interface ChecklistTableProps {
+  items: ChecklistMasterItem[];
+  showInactive: boolean;
+  onToggleActive: (id: number, currentlyActive: boolean) => void;
+  onEdit: (item: ChecklistMasterItem) => void;  // 신규 prop
+  category: string;
+}
+```
+
+각 행 클릭 시 `onEdit(item)` 호출. 단, 활성 토글 버튼 클릭은 기존 동작 유지 (이벤트 stopPropagation).
+
+### 2-3. QI row 시각 구분
+
+`checker_role === 'QI'`인 행은 왼쪽 보더에 보라색(`var(--gx-accent)`) 3px 표시 → 한눈에 WORKER/QI 구분.
+
+## Task 3: 항목 추가 모달 전면 개편 — `ChecklistAddModal.tsx`
+
+### 3-1. ELEC 그룹별 분기 자동 추론 로직
+
+```typescript
+// ELEC 그룹별 기본값 매핑
+const ELEC_GROUP_DEFAULTS: Record<string, { phase1: boolean; qi: boolean }> = {
+  'PANEL 검사':                     { phase1: true,  qi: false },
+  '조립 검사':                       { phase1: true,  qi: false },
+  'JIG 검사 및 특별관리 POINT':      { phase1: false, qi: true  },
+};
+```
+
+그룹 드롭다운 변경 시 → `phase1Applicable`, `qiCheckRequired` state 자동 세팅.
+
+### 3-2. 토글 UI (자동 + 수동 가능)
+
+그룹 선택 아래에 토글 2개 노출:
+
+```
+☑ 1차 배선 적용                    ← PANEL/조립 선택 시 자동 ON, JIG 시 OFF
+☐ GST 확인 필요 (QI 이중 체크)     ← JIG 선택 시 자동 ON, 나머지 OFF
+```
+
+관리자가 수동으로 끄거나 켤 수 있음.
+
+**예외 케이스**: 조립 검사 "버너 위 배선상태" 같은 항목 → 그룹은 "조립 검사"(기본 phase1=true)이지만, 수동으로 `☐ 1차 배선 적용` 토글 OFF 가능.
+
+### 3-3. SELECT 타입 지원 (#1, Codex-A)
+
+ELEC에는 TUBE 색상 선택 항목 등 `SELECT` 타입이 존재. AddModal에서 item_type 라디오에 SELECT 추가:
+
+```typescript
+// ELEC은 CHECK/SELECT, MECH은 CHECK/INPUT
+const TYPE_OPTIONS: Record<string, ItemType[]> = {
+  TM:   ['CHECK'],
+  ELEC: ['CHECK', 'SELECT'],
+  MECH: ['CHECK', 'INPUT'],
+};
+```
+
+`SELECT` 선택 시 `select_options` 입력란 표시 (쉼표 구분 → 배열 변환):
+```
+선택지 입력: RED, BLUE, GREEN  →  ["RED", "BLUE", "GREEN"]
+```
+
+### 3-4. GROUP_POLICY 정의 위치 (#4 — 소유권 명시)
+
+**소유권**: `ChecklistManagePage.tsx`에서 정의 → AddModal에 `groupPolicy` prop으로 전달.
+AddModal 내부에서는 하드코딩하지 않음. 변경이 필요할 때 ManagePage 한 곳만 수정.
+
+```typescript
+// ── ChecklistManagePage.tsx에서 정의 ──
+const GROUP_POLICY: Record<string, { fixed: boolean; groups?: string[] }> = {
+  TM:   { fixed: true, groups: ['BURNER', 'REACTOR', 'EXHAUST', 'TANK'] },
+  ELEC: { fixed: true, groups: ['PANEL 검사', '조립 검사', 'JIG 검사 및 특별관리 POINT'] },
+  MECH: { fixed: false },  // 미구현, 향후 확장
+};
+```
+
+- `fixed: true` → "신규 그룹" 버튼 숨김, 기존 그룹 드롭다운만 노출
+- `fixed: false` → 기존 동작 유지 (기존+신규 전환)
+
+### 3-4. 안내 텍스트
+
+JIG 그룹 선택 시:
+> `ℹ️ JIG 항목은 서버에서 WORKER + QI 2행이 자동 생성됩니다.`
+
+### 3-6. 페이로드 전송
+
+```typescript
+const handleSubmit = () => {
+  const payload: CreateMasterPayload = {
+    product_code: productCode,
+    category,
+    item_group: finalGroup,
+    item_name: itemName.trim(),
+    item_type: itemType,                         // CHECK | INPUT | SELECT
+    description: description.trim() || undefined,
+    phase1_applicable: phase1Applicable,
+    qi_check_required: qiCheckRequired,
+  };
+  // SELECT 타입이면 선택지 배열 포함
+  if (itemType === 'SELECT' && selectOptions.length > 0) {
+    payload.select_options = selectOptions;
+  }
+  onSubmit(payload);
+};
+```
+
+BE는 `qi_check_required=true`이면 **WORKER + QI 2 row 동시 INSERT** (BE 패치 #59-A).
+
+## Task 4: 항목 수정 모달 신규 — `ChecklistEditModal.tsx`
+
+### 4-1. 수정 가능 필드
+
+| 필드 | UI | 설명 |
+|---|---|---|
+| 항목명 (`item_name`) | text input | 기존 값 pre-fill |
+| 기준/검사방법 (`description`) | text input | 기존 값 pre-fill |
+| 1차 배선 적용 (`phase1_applicable`) | 토글 | ELEC만 노출 |
+| 선택지 (`select_options`) | 텍스트(쉼표 구분) | item_type=SELECT일 때만 노출 |
+| 개정이력 (`remarks`) | textarea | 자유 입력 (개정일자/사유) |
+
+### 4-2. 수정 불가 필드 (읽기 전용 표시)
+
+- 그룹 (`item_group`) — 변경 시 데이터 일관성 위험
+- 타입 (`item_type`) — CHECK/INPUT/SELECT 전환 시 기존 record 의미 불일치
+- 역할 (`checker_role`) — DB 레벨 식별자, UI 변경 대상 아님
+- **GST 확인 필요 (`qi_check_required`)** — **읽기 전용** (#2-B 합의: 수정 시 행 쌍 생성/삭제 정책이 미정의이므로 잠금. 생성 시에만 2 row 자동 생성, 사후 변경은 후속 과제)
+
+`qi_check_required` 값은 표시하되 disabled 토글로 렌더:
+```typescript
+<label style={{ opacity: 0.5 }}>
+  <input type="checkbox" checked={item.qi_check_required} disabled />
+  GST 확인 필요 (변경 불가 — 항목 추가 시에만 설정)
+</label>
+```
+
+### 4-3. JIG QI row 수정 시 주의
+
+QI row를 수정하면 대응하는 WORKER row도 같이 바꿔야 하는 경우가 있음 (동일 항목 이름 유지).
+→ **Phase 1**: 독립 수정만 허용. 쌍 동기화는 후속 과제.
+
+### 4-4. 호출 hook (기존 훅 재사용)
+
+`useChecklistMaster.ts`에 `useUpdateMaster` (L41-49) **이미 존재** — 신규 작성 불필요 (#3 합의).
+
+```typescript
+// ChecklistManagePage.tsx — 기존 훅 import에 useUpdateMaster 추가
+import { useChecklistMaster, useProductCodes, useCreateMaster, useToggleMaster, useUpdateMaster } from '@/hooks/useChecklistMaster';
+
+const updateMaster = useUpdateMaster();
+
+const handleEdit = (id: number, data: UpdateMasterPayload) => {
+  updateMaster.mutate({ id, data }, {
+    onSuccess: () => {
+      toast.success('항목이 수정되었습니다');
+      setEditingItem(null);
+    },
+    onError: () => toast.error('수정에 실패했습니다'),
+  });
+};
+```
+
+## Task 5: ManagePage 연동 — `ChecklistManagePage.tsx`
+
+### 5-1. EditModal state 추가
+
+```typescript
+const [editingItem, setEditingItem] = useState<ChecklistMasterItem | null>(null);
+```
+
+### 5-2. ChecklistTable에 onEdit prop 전달
+
+```typescript
+<ChecklistTable
+  items={items}
+  showInactive={showInactive}
+  onToggleActive={handleToggleActive}
+  onEdit={(item) => setEditingItem(item)}    // 신규
+  category={selectedCategory}
+/>
+```
+
+### 5-3. EditModal 렌더
+
+```typescript
+{editingItem && (
+  <ChecklistEditModal
+    item={editingItem}
+    category={selectedCategory}
+    onSubmit={(data) => handleEdit(editingItem.id, data)}
+    onClose={() => setEditingItem(null)}
+  />
+)}
+```
+
+### 5-4. GROUP_POLICY 정의 + AddModal/EditModal에 prop 전달 (#4 소유권)
+
+**GROUP_POLICY는 ManagePage에서만 정의** (소유권 단일화). AddModal/EditModal은 prop으로 받기만 함.
+
+```typescript
+// ── ManagePage 상단 ──
+const GROUP_POLICY: Record<string, { fixed: boolean; groups?: string[] }> = {
+  TM:   { fixed: true, groups: ['BURNER', 'REACTOR', 'EXHAUST', 'TANK'] },
+  ELEC: { fixed: true, groups: ['PANEL 검사', '조립 검사', 'JIG 검사 및 특별관리 POINT'] },
+  MECH: { fixed: false },
+};
+
+// ── AddModal에 전달 ──
+<ChecklistAddModal
+  productCode={effectiveProduct}
+  category={selectedCategory}
+  existingGroups={existingGroups}
+  groupPolicy={GROUP_POLICY[selectedCategory]}
+  onSubmit={handleAdd}
+  onClose={() => setShowAddModal(false)}
+/>
+
+// ── EditModal에도 동일 전달 (그룹 읽기 전용 표시용) ──
+<ChecklistEditModal
+  item={editingItem}
+  category={selectedCategory}
+  groupPolicy={GROUP_POLICY[selectedCategory]}
+  onSubmit={(data) => handleEdit(editingItem.id, data)}
+  onClose={() => setEditingItem(null)}
+/>
+```
+
+## BE 패치 필요 사항 → `OPS_API_REQUESTS.md #59` 참조
+
+Sprint 60-BE에는 포함되지 않았으나, 이번 VIEW Sprint에서 필요한 BE 변경 3건을 `OPS_API_REQUESTS.md`에 등록 완료:
+
+| 번호 | 내용 | 상태 |
+|---|---|---|
+| **#59-A** | POST 시 JIG WORKER+QI 2 row 자동 생성 | PENDING |
+| **#59-B** | GET 응답에 `checker_role` 필드 포함 (#C 합의) | PENDING |
+| **#59-C** | UNIQUE 키에 `checker_role` 포함 (#2 합의: ON CONFLICT 절도 동시 수정) | PENDING |
+
+**BE 패치 완료 전 FE 동작**:
+- #59-B 미완료 시: `checker_role` undefined → 테이블에서 모든 row가 WORKER로 표시 (기능 저하, 에러 없음)
+- #59-A 미완료 시: JIG 항목 추가 → 1 row만 생성 (QI row 미생성 — 관리자가 수동 추가 필요)
+- #59-C 미완료 시: JIG 항목 추가 시 UNIQUE 충돌 에러 → **#59-A보다 선행 필수**
+
+## 테스트 체크리스트
+
+```
+Phase 1 — 빌드
+[ ] npm run build 성공 (tsc -b --force)
+[ ] 타입 에러 없음
+
+Phase 2 — 타입 연동 (Task 1)
+[ ] ELEC 마스터 조회 → phase1_applicable, qi_check_required, remarks 값 정상 반환
+[ ] TM 마스터 조회 → 기본값(true, false, null) 정상 반환 (regression)
+[ ] checker_role 필드: ELEC JIG QI row에 'QI' 값 확인
+
+Phase 3 — 테이블 확장 (Task 2)
+[ ] ELEC 탭: "1차 배선" / "역할" 컬럼 2개 표시
+[ ] TM 탭: 추가 컬럼 미표시 (기존과 동일)
+[ ] JIG QI row: 보라색 좌측 보더 + QI 뱃지 표시
+[ ] JIG WORKER row: 파란색 WORKER 뱃지 표시
+[ ] PANEL/조립 row: 역할 미표시 또는 WORKER 기본 표시
+[ ] phase1_applicable=false 항목: "—" (2차 전용) 표시
+[ ] 행 클릭 → EditModal 열림
+
+Phase 4 — 항목 추가 (Task 3)
+[ ] ELEC 탭 → + 항목 추가 → 그룹 드롭다운에 3개 고정 그룹만 표시
+[ ] "신규 그룹" 버튼 숨김 (ELEC/TM)
+[ ] PANEL 검사 선택 → "1차 배선 적용" ON, "GST 확인 필요" OFF 자동
+[ ] JIG 검사 선택 → "1차 배선 적용" OFF, "GST 확인 필요" ON 자동 + 안내문 표시
+[ ] 조립 검사 선택 후 "1차 배선 적용" 토글 수동 OFF 가능
+[ ] 추가 완료 → 목록 새로고침 → 신규 항목 표시
+[ ] JIG 항목 추가 → 목록에 WORKER + QI 2 row 동시 생성 확인 (BE #59-A/C 필요)
+[ ] TM 탭 → + 항목 추가 → 그룹 드롭다운에 4개 고정 그룹만 표시
+[ ] TM 추가 시 phase1/qi 토글 미표시 (TM에는 불필요)
+[ ] ELEC 타입 라디오: CHECK/SELECT 선택 가능 (#1, Codex-A)
+[ ] SELECT 선택 시 select_options 입력란 표시 → 쉼표 구분 입력 → 배열 전송
+[ ] MECH 타입 라디오: CHECK/INPUT 선택 가능 (기존 유지)
+
+Phase 5 — 항목 수정 (Task 4)
+[ ] 행 클릭 → EditModal 열림 → 기존 값 pre-fill 확인
+[ ] 항목명 수정 → 저장 → 목록 반영
+[ ] 기준/검사방법 수정 → 저장 → 목록 반영
+[ ] ELEC: phase1_applicable 토글 변경 → 저장 → 반영
+[ ] ELEC: qi_check_required 토글은 **읽기 전용(disabled)** (#B 합의)
+[ ] SELECT 타입: select_options 수정 → 저장 → 반영
+[ ] remarks 입력 → 저장 → 반영
+[ ] 그룹/타입/역할은 읽기 전용 (편집 불가)
+[ ] TM 항목 수정 시 ELEC 전용 토글 미표시
+
+Phase 6 — Regression
+[ ] TM 기존 동작 모두 유지 (추가/비활성화/목록 표시)
+[ ] ELEC 블러 없음 유지 (Sprint 31)
+[ ] MECH 블러 유지
+[ ] 설정 패널(gear 아이콘) 정상 동작
+```
+
+## 주의사항
+
+- **BE 패치 선행 순서**: #59-C (UNIQUE 키 변경) → #59-A (JIG 2 row 자동) → #59-B (checker_role 응답). C가 없으면 A에서 UNIQUE 충돌 에러 발생. 이 순서가 **반드시** 지켜져야 함.
+- **UNIQUE 키 + ON CONFLICT 동시 수정** (#2 합의): UNIQUE 키에 `checker_role` 포함 시, 기존 seed의 `ON CONFLICT (product_code, category, item_group, item_name) DO NOTHING` 절도 5-key로 변경 필수. 미변경 시 seed 재실행에서 에러.
+- **TM 토글 미표시**: TM 카테고리에는 phase1/qi 개념이 없으므로 AddModal/EditModal에서 ELEC일 때만 토글 노출.
+- **qi_check_required 수정 시 행 쌍 정책** (#B 합의): 생성 시에만 2 row 자동 생성. 기존 항목의 qi_check_required 변경은 EditModal에서 **읽기 전용으로 잠금**. 사후 변경(true→false 시 QI row 삭제, false→true 시 QI row 생성)은 정책 미정의 → 후속 과제.
+- **SELECT 타입 지원** (#1, Codex-A): ELEC TUBE 색상 항목 등 SELECT 타입 추가/수정. AddModal에서 SELECT 선택 시 select_options 입력란 표시.
+- **checker_role BE 반환 미확인** (#C 합의): Sprint 60-BE에서 API 응답에 checker_role을 포함했는지 **실제 확인 필요**. 미포함 시 BE 요청 #59-B로 대응. FE는 `row.checker_role ?? 'WORKER'` fallback 처리.
+- **EditModal JIG 쌍 동기화**: 현재는 독립 수정만 지원. WORKER item_name 변경 시 대응 QI row와 이름 불일치 발생 가능 → Phase 1에서는 허용, 후속 과제로 쌍 동기화 구현.
+- **GROUP_POLICY 소유권** (#4 합의): ManagePage에서만 정의. AddModal/EditModal은 prop으로 수신. 변경 시 ManagePage 한 곳만 수정.
+- **useUpdateMaster 신규 작성 불필요** (#3 합의): `useChecklistMaster.ts` L41-49에 이미 존재. import 추가만 필요.
+

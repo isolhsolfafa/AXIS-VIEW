@@ -1,8 +1,37 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-04-16 (v1.29.0 — QR 관리 전장협력사 컬럼 + 필터)
+> 마지막 업데이트: 2026-04-16 (v1.30.0 — Sprint 32 체크리스트 관리 ELEC 항목 추가/수정)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.30.0: Sprint 32 — 체크리스트 관리 ELEC 항목 추가/수정 — ✅ 완료 (2026-04-16)
+
+### 타입 확장
+- ChecklistMasterItem: phase1_applicable, qi_check_required, remarks, checker_role, select_options
+- ItemType 유니온에 SELECT 추가 (ELEC TUBE 색상)
+- ChecklistStatusItem, BeDetailItem에도 SELECT 전파
+
+### 테이블 확장
+- ELEC 전용 "1차 배선" / "역할" 컬럼 (QI 보라색 보더 + 뱃지)
+- 행 클릭 → EditModal, 토글 stopPropagation
+
+### AddModal 개편
+- GROUP_POLICY: TM/ELEC 고정 그룹, MECH 자유
+- ELEC 자동 추론 (PANEL→phase1, JIG→qi) + 수동 토글
+- SELECT 타입 + 선택지 입력
+
+### EditModal 신규
+- qi_check_required 읽기 전용, 변경분만 전송
+
+### Codex 교차 검증 수정
+- mocks/checklist.ts 신규 필드 기본값 추가
+- ChecklistStatusItem, BeDetailItem SELECT 타입 추가
+- GROUP_POLICY TM Exhaust 케이싱 통일
+
+### BE 선행 (#59-A/B/C PENDING)
+- #59-C UNIQUE 키 → #59-A JIG 2 row → #59-B checker_role 응답
 
 ---
 

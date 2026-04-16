@@ -2,15 +2,15 @@
 // MECH 체크리스트 목업 데이터 — Sprint 20 (참고용, API 미연동 시 fallback)
 // Sprint 26: 타입 필드 매핑 업데이트 (item_group, description)
 
-import type { ChecklistMasterItem, ChecklistStatusItem } from '@/types/checklist';
+import type { ChecklistMasterItem, ChecklistStatusItem, ItemType } from '@/types/checklist';
 
 let nextId = 1;
 function item(
   group: string,
   name: string,
-  type: 'CHECK' | 'INPUT' = 'CHECK',
+  type: ItemType = 'CHECK',
   desc: string | null = null,
-): Omit<ChecklistMasterItem, 'id' | 'product_code' | 'category' | 'item_order' | 'is_active'> {
+): Omit<ChecklistMasterItem, 'id' | 'product_code' | 'category' | 'item_order' | 'is_active' | 'phase1_applicable' | 'qi_check_required' | 'remarks'> {
   return { item_group: group, item_name: name, item_type: type, description: desc };
 }
 
@@ -89,6 +89,9 @@ export const MOCK_MECH_ITEMS: ChecklistMasterItem[] = MECH_ITEMS_RAW.map((raw, i
   category: 'MECH' as const,
   item_order: i + 1,
   is_active: true,
+  phase1_applicable: true,
+  qi_check_required: false,
+  remarks: null,
   ...raw,
 }));
 
@@ -116,6 +119,9 @@ export const MOCK_TM_ITEMS: ChecklistMasterItem[] = TM_ITEMS_RAW.map((raw, i) =>
   category: 'TM' as const,
   item_order: i + 1,
   is_active: true,
+  phase1_applicable: true,
+  qi_check_required: false,
+  remarks: null,
   ...raw,
 }));
 

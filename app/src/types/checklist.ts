@@ -1,5 +1,8 @@
 // src/types/checklist.ts
-// 체크리스트 타입 — Sprint 26 (BE Sprint 52 필드 기준)
+// 체크리스트 타입 — Sprint 32 (Sprint 60-BE 필드 반영)
+
+// item_type 유니온 — SELECT 추가 (ELEC TUBE 색상 선택 등)
+export type ItemType = 'CHECK' | 'INPUT' | 'SELECT';
 
 // checklist_master 항목
 export interface ChecklistMasterItem {
@@ -8,10 +11,16 @@ export interface ChecklistMasterItem {
   category: 'MECH' | 'ELEC' | 'TM';
   item_group: string;
   item_name: string;
-  item_type: 'CHECK' | 'INPUT';
+  item_type: ItemType;
   item_order: number;
   description: string | null;
   is_active: boolean;
+  // Sprint 60-BE 신규
+  phase1_applicable: boolean;
+  qi_check_required: boolean;
+  remarks: string | null;
+  checker_role?: 'WORKER' | 'QI';
+  select_options?: string[] | null;
 }
 
 // 마스터 목록 응답
@@ -26,19 +35,29 @@ export interface CreateMasterPayload {
   category: string;
   item_group: string;
   item_name: string;
-  item_type: 'CHECK' | 'INPUT';
+  item_type: ItemType;
   description?: string;
   item_order?: number;
+  // Sprint 60-BE 신규
+  phase1_applicable?: boolean;
+  qi_check_required?: boolean;
+  remarks?: string;
+  select_options?: string[];
 }
 
 // 마스터 항목 수정 페이로드
 export interface UpdateMasterPayload {
   item_group?: string;
   item_name?: string;
-  item_type?: 'CHECK' | 'INPUT';
+  item_type?: ItemType;
   description?: string;
   item_order?: number;
   is_active?: boolean;
+  // Sprint 60-BE 신규
+  phase1_applicable?: boolean;
+  qi_check_required?: boolean;
+  remarks?: string;
+  select_options?: string[];
 }
 
 // checklist_record (S/N별 검사 결과)
@@ -70,7 +89,7 @@ export interface ChecklistStatusItem {
   master_id: number;
   item_group: string;
   item_name: string;
-  item_type: 'CHECK' | 'INPUT';
+  item_type: ItemType;
   description: string | null;
   record: ChecklistRecord | null;
 }

@@ -1,5 +1,5 @@
 // src/components/checklist/ChecklistTable.tsx
-// 체크리스트 마스터 항목 테이블 — Sprint 26 (BE 필드 기준)
+// 체크리스트 마스터 항목 테이블 — Sprint 32 (ELEC Phase/QI 뱃지 + 행 클릭 수정)
 
 import type { ChecklistMasterItem } from '@/types/checklist';
 
@@ -7,11 +7,20 @@ interface ChecklistTableProps {
   items: ChecklistMasterItem[];
   showInactive: boolean;
   onToggleActive: (id: number, currentlyActive: boolean) => void;
+  onEdit: (item: ChecklistMasterItem) => void;
   category: string;
 }
 
-export default function ChecklistTable({ items, showInactive, onToggleActive, category }: ChecklistTableProps) {
+// 타입별 뱃지 스타일
+const TYPE_STYLE: Record<string, { bg: string; color: string }> = {
+  CHECK:  { bg: 'rgba(59,130,246,0.08)',  color: 'var(--gx-info)' },
+  INPUT:  { bg: 'rgba(245,158,11,0.08)',  color: 'var(--gx-warning)' },
+  SELECT: { bg: 'rgba(139,92,246,0.08)',  color: '#7c3aed' },
+};
+
+export default function ChecklistTable({ items, showInactive, onToggleActive, onEdit, category }: ChecklistTableProps) {
   const filtered = showInactive ? items : items.filter(i => i.is_active);
+  const isElec = category === 'ELEC';
 
   if (filtered.length === 0) {
     return (
@@ -28,11 +37,15 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, ca
 
   const checkCount = filtered.filter(i => i.item_type === 'CHECK').length;
   const inputCount = filtered.filter(i => i.item_type === 'INPUT').length;
+  const selectCount = filtered.filter(i => i.item_type === 'SELECT').length;
   const activeCount = filtered.filter(i => i.is_active).length;
   const inactiveCount = filtered.filter(i => !i.is_active).length;
 
-  // TM/ELEC은 INPUT 없음
-  const showInput = category === 'MECH';
+  // 기본 컬럼
+  const headers = ['#', '그룹', '항목명', '타입', '기준/검사방법'];
+  // ELEC 전용 컬럼
+  if (isElec) headers.push('1차 배선', '역할');
+  headers.push('활성');
 
   return (
     <div>
@@ -40,7 +53,7 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, ca
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
           <thead>
             <tr style={{ background: 'var(--gx-cloud)' }}>
-              {['#', '그룹', '항목명', '타입', '기준/검사방법', '활성'].map(h => (
+              {headers.map(h => (
                 <th
                   key={h}
                   style={{
@@ -60,14 +73,24 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, ca
               }
               groupItemIdx++;
               const isEvenGroup = groupIdx % 2 === 0;
+              const isQI = item.checker_role === 'QI';
+              const typeCfg = TYPE_STYLE[item.item_type] ?? TYPE_STYLE.CHECK;
 
               return (
                 <tr
                   key={item.id}
+                  onClick={() => onEdit(item)}
                   style={{
                     borderBottom: '1px solid var(--gx-cloud)',
                     background: !item.is_active ? 'var(--gx-cloud)' : isEvenGroup ? 'var(--gx-snow, #FAFBFD)' : 'var(--gx-white)',
                     opacity: item.is_active ? 1 : 0.5,
+                    cursor: 'pointer',
+                    // QI row 좌측 보라색 보더
+                    borderLeft: isElec && isQI ? '3px solid var(--gx-accent)' : '3px solid transparent',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.04)'; }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = !item.is_active ? 'var(--gx-cloud)' : isEvenGroup ? 'var(--gx-snow, #FAFBFD)' : 'var(--gx-white)';
                   }}
                 >
                   <td style={{ padding: '9px 12px', fontFamily: "'JetBrains Mono', monospace", color: 'var(--gx-steel)', fontSize: '11px' }}>
@@ -82,8 +105,7 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, ca
                   <td style={{ padding: '9px 12px' }}>
                     <span style={{
                       padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 600,
-                      background: item.item_type === 'CHECK' ? 'rgba(59,130,246,0.08)' : 'rgba(245,158,11,0.08)',
-                      color: item.item_type === 'CHECK' ? 'var(--gx-info)' : 'var(--gx-warning)',
+                      background: typeCfg.bg, color: typeCfg.color,
                     }}>
                       {item.item_type}
                     </span>
@@ -91,9 +113,27 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, ca
                   <td style={{ padding: '9px 12px', color: 'var(--gx-slate)', fontSize: '11px' }}>
                     {item.description ?? '—'}
                   </td>
+                  {/* ELEC 전용: 1차 배선 */}
+                  {isElec && (
+                    <td style={{ padding: '9px 12px', fontSize: '11px', color: 'var(--gx-slate)' }}>
+                      {item.phase1_applicable ? '✅ 적용' : '—'}
+                    </td>
+                  )}
+                  {/* ELEC 전용: 역할 */}
+                  {isElec && (
+                    <td style={{ padding: '9px 12px' }}>
+                      <span style={{
+                        padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 600,
+                        background: isQI ? 'rgba(139,92,246,0.1)' : 'rgba(59,130,246,0.08)',
+                        color: isQI ? '#7c3aed' : 'var(--gx-info)',
+                      }}>
+                        {isQI ? 'QI' : 'WORKER'}
+                      </span>
+                    </td>
+                  )}
                   <td style={{ padding: '9px 12px' }}>
                     <button
-                      onClick={() => onToggleActive(item.id, item.is_active)}
+                      onClick={(e) => { e.stopPropagation(); onToggleActive(item.id, item.is_active); }}
                       style={{
                         width: '36px', height: '20px', borderRadius: '10px', border: 'none',
                         background: item.is_active ? 'var(--gx-success)' : 'var(--gx-mist)',
@@ -122,7 +162,8 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, ca
       }}>
         <span>총 <b style={{ color: 'var(--gx-charcoal)' }}>{filtered.length}</b>개 항목</span>
         <span>CHECK <b style={{ color: 'var(--gx-info)' }}>{checkCount}</b></span>
-        {showInput && inputCount > 0 && <span>INPUT <b style={{ color: 'var(--gx-warning)' }}>{inputCount}</b></span>}
+        {inputCount > 0 && <span>INPUT <b style={{ color: 'var(--gx-warning)' }}>{inputCount}</b></span>}
+        {selectCount > 0 && <span>SELECT <b style={{ color: '#7c3aed' }}>{selectCount}</b></span>}
         <span>활성 <b style={{ color: 'var(--gx-success)' }}>{activeCount}</b></span>
         {inactiveCount > 0 && <span>비활성 <b style={{ color: 'var(--gx-steel)' }}>{inactiveCount}</b></span>}
       </div>

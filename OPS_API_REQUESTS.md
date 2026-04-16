@@ -4105,3 +4105,104 @@ O/N 검색 시 S/N별 `overall_percent` 계산에서:
 - `api/checklist.ts`: 필드 매핑에 `selected_value`, `checker_role` 추가
 - `ChecklistReportView.tsx`: 카테고리 라벨에 `phase_label` 표시, SELECT 타입 판정 분기, QI 배지, `resultColor` SELECT 분기
 - **FE 추가 로직 최소**: `phase_label`이 BE에서 내려오면 기존 `CategoryTable` 자동 적용
+
+---
+
+### #59 체크리스트 마스터 ELEC 항목 추가 시 JIG 2 row 자동 생성 — PENDING (2026-04-16)
+
+**요청 배경**: Sprint 32-VIEW (체크리스트 관리 ELEC 항목 추가/수정) 구현 중 필요.
+**선행 완료**: Sprint 60-BE ✅ (마스터 정규화 — `phase1_applicable`, `qi_check_required`, `remarks` 컬럼 추가)
+
+**요청 사항 2건**:
+
+#### #59-A. `POST /api/admin/checklist/master` — JIG 그룹 WORKER + QI 2 row 동시 INSERT
+
+**현재 동작**: 1회 POST → 1 row INSERT
+
+**요청 동작**: `qi_check_required=true` + `category=ELEC`이면 **자동으로 2 row 생성**
+
+| row | checker_role | phase1_applicable | qi_check_required |
+|-----|-------------|-------------------|-------------------|
+| 1 (WORKER) | WORKER | 요청값 사용 | true |
+| 2 (QI) | QI | 요청값 사용 | true |
+
+**요청 페이로드 예시**:
+```json
+{
+  "product_code": "COMMON",
+  "category": "ELEC",
+  "item_group": "JIG 검사 및 특별관리 POINT",
+  "item_name": "신규 JIG 항목",
+  "item_type": "CHECK",
+  "description": "육안 검사",
+  "phase1_applicable": false,
+  "qi_check_required": true
+}
+```
+
+**BE 처리 흐름**:
+1. WORKER row INSERT (기존 로직 그대로, `checker_role='WORKER'`)
+2. `qi_check_required=true` + `category='ELEC'` 감지
+3. QI row 추가 INSERT (`checker_role='QI'`, 나머지 값 동일)
+4. 응답: `{ "id": 신규_WORKER_id, "qi_row_id": 신규_QI_id, "qi_row_created": true }`
+
+**UNIQUE 제약 주의**: 현재 `(product_code, category, item_group, item_name)` UNIQUE 제약이 있음. 같은 `item_name`으로 WORKER + QI 2 row를 넣으면 **충돌 발생**. 해결 방안 선택 필요:
+
+- **방안 A**: UNIQUE 제약에 `checker_role` 포함 → `(product_code, category, item_group, item_name, checker_role)` — 가장 깔끔
+- **방안 B**: 기존 UNIQUE 유지하고 QI row에만 `item_name` 접미사 부여 (예: "신규 JIG 항목 [QI]") — 지저분하지만 무변경
+
+→ **방안 A 권장** (migration 048 또는 별도 패치에서 UNIQUE 키 변경)
+
+**VIEW FE 현황**: Sprint 32-VIEW Task 3에서 AddModal UI 완성 대기. POST 1회 호출로 JIG 항목 추가 → BE가 2 row 자동 생성.
+
+#### #59-B. `GET /api/admin/checklist/master` 응답에 `checker_role` 포함
+
+**현재 응답 필드**: `id, product_code, category, item_group, item_name, item_order, description, is_active, item_type, phase1_applicable, qi_check_required, remarks, select_options`
+
+**추가 요청 필드**: `checker_role` (VARCHAR, 'WORKER' or 'QI')
+
+Sprint 60-BE에서 API 응답에 `phase1_applicable`, `qi_check_required`, `remarks`는 이미 추가됨. `checker_role`만 추가되면 VIEW에서 WORKER/QI row 구분 뱃지 표시 가능.
+
+```python
+# 응답 dict에 추가
+'checker_role': row.get('checker_role', 'WORKER'),
+```
+
+**VIEW FE 현황**: Sprint 32-VIEW Task 2에서 테이블에 QI 뱃지 표시 구현 대기. `checker_role` 필드가 응답에 포함되면 즉시 연동.
+
+#### #59-C. UNIQUE 제약 키 변경 + ON CONFLICT 절 동시 수정 (필수)
+
+**현재**: `checklist_master_product_category_group_name_key (product_code, category, item_group, item_name)`
+
+**변경**: `(product_code, category, item_group, item_name, checker_role)` — JIG WORKER/QI 동명 row 공존 허용
+
+```sql
+-- 1. checker_role NULL → 'WORKER' 일괄 치환 (COALESCE 불필요하도록)
+UPDATE checklist.checklist_master
+   SET checker_role = 'WORKER'
+ WHERE checker_role IS NULL;
+
+-- 2. checker_role DEFAULT 설정 (향후 INSERT 시 명시 안 해도 'WORKER')
+ALTER TABLE checklist.checklist_master
+    ALTER COLUMN checker_role SET DEFAULT 'WORKER';
+
+-- 3. UNIQUE 키 교체
+ALTER TABLE checklist.checklist_master
+    DROP CONSTRAINT IF EXISTS checklist_master_product_category_group_name_key;
+
+ALTER TABLE checklist.checklist_master
+    ADD CONSTRAINT checklist_master_product_cat_group_name_role_key
+    UNIQUE (product_code, category, item_group, item_name, checker_role);
+```
+
+**동시 수정 필수 — ON CONFLICT 절** (Codex 리뷰 #2 합의):
+
+UNIQUE 키 변경 시 아래 파일들의 `ON CONFLICT` 절도 **5-key로 동시 수정**해야 함. 미변경 시 seed 재실행/신규 INSERT에서 에러 발생.
+
+| 파일 | 현재 ON CONFLICT | 변경 |
+|---|---|---|
+| `seed_elec_checklist.py` | `(product_code, category, item_group, item_name)` | `(product_code, category, item_group, item_name, checker_role)` |
+| `migrations/043a_tm_checklist_seed.sql` | 동일 4-key | 5-key (TM은 전부 WORKER, 충돌 안 나지만 일관성 위해 변경) |
+| `routes/checklist.py` create_checklist_master | 해당 없음 (INSERT 시 ON CONFLICT 미사용) | #59-A에서 QI row INSERT 시 5-key ON CONFLICT 적용 |
+
+**실행 순서**: #59-C → #59-A → #59-B (C가 A보다 선행 필수)

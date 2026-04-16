@@ -7,25 +7,30 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.29.0
-- **최근 Sprint**: QR 개선 (전장협력사 컬럼 + 필터)
-- **최근 완료**: v1.28.0 (생산일정 업체 필터 + 체크리스트 ELEC), v1.29.0 (QR 전장협력사)
+- **VIEW FE**: v1.30.0
+- **최근 Sprint**: Sprint 32 (체크리스트 관리 ELEC 항목 추가/수정)
+- **최근 완료**: v1.29.0 (QR 전장협력사), v1.30.0 (Sprint 32)
 
 ---
 
 ## 직전 세션 작업 내용 (2026-04-16)
 
-### QR 관리 — 전장협력사
-1. **전장협력사 컬럼**: 테이블에 elec_partner 컬럼 추가 (고객사 뒤)
-2. **전장협력사 필터**: 드롭다운 필터 (TMS(E), P&S, C&A 등 데이터에서 자동 추출)
-3. **FE 필터**: 선택한 전장협력사만 테이블에 표시
-4. **초기화 연동**: 초기화 버튼 시 전장협력사 필터도 리셋
+### v1.29.0 — QR 관리 전장협력사
+1. **전장협력사 컬럼/필터**: QR 관리 테이블에 elec_partner 컬럼 + 드롭다운 필터
+
+### v1.30.0 — Sprint 32 체크리스트 관리 ELEC
+2. **타입 확장**: ChecklistMasterItem에 phase1_applicable, qi_check_required, remarks, checker_role, select_options 추가. ItemType에 SELECT 추가
+3. **테이블 확장**: ELEC 전용 "1차 배선"/"역할" 컬럼, QI row 보라색 보더, 행 클릭→수정
+4. **AddModal 개편**: GROUP_POLICY 고정 그룹, ELEC 자동 추론 + 토글, SELECT 선택지 입력
+5. **EditModal 신규**: 항목 수정 (qi_check_required 읽기 전용, 변경분만 전송)
+6. **ManagePage 연동**: GROUP_POLICY 소유권 단일화, useUpdateMaster 연동
+7. **Codex 교차 검증**: mock 필드 누락, StatusItem SELECT 누락, TM Exhaust 케이싱 수정
 
 ---
 
 ## 진행 중 Sprint
 
-없음 — v1.29.0 배포 완료
+없음 — v1.30.0 배포 완료
 
 ---
 
@@ -61,8 +66,11 @@
 | ~~#56~~ | ~~ELEC API 문서 오류 + confirmable dead toggle~~ | ✅ **BE Sprint 58-BE 완료** | 실적확인 체크리스트 연동 (FE 연동 대기) |
 | #57 | 성적서 API ELEC Phase + TM DUAL | ✅ BE Sprint 30-BE 완료 | 성적서 페이지 |
 | #58 | checklist_master remarks 컬럼 | PENDING | 체크리스트 관리 비고 |
+| #59-A | POST 시 JIG WORKER+QI 2 row 자동 생성 | PENDING | Sprint 32 AddModal |
+| #59-B | GET master 응답에 checker_role 포함 | PENDING | Sprint 32 테이블 역할 뱃지 |
+| #59-C | UNIQUE 키에 checker_role 포함 | PENDING | #59-A 선행 조건 |
 
-> 전체 목록: `OPS_API_REQUESTS.md` (#1~#58)
+> 전체 목록: `OPS_API_REQUESTS.md` (#1~#59)
 > FE 태스크: `VIEW_FE_Request.md` (FE-01~FE-14)
 
 ---
@@ -101,11 +109,9 @@
 
 ## 다음 세션에서 할 일 (제안)
 
-### 즉시 — VIEW FE 연동 (BE Sprint 58-BE 완료됨)
-- FE-12: ELEC 블러 해제 (`BLUR_CATEGORIES`에서 'ELEC' 제거)
-- FE-07: `getChecklistStatus()` ELEC beCat 매핑 + /status 엔드포인트 연동
-- FE-08: ProcessStepCard/SNDetailPanel 자동 동작 (FE-07 의존)
-- **테스트**: 실적확인 토글 OFF(progress 100%) / ON(progress+체크리스트) 동작 검증
+### 즉시 — Sprint 32 BE 패치 대기
+- #59-C → #59-A → #59-B 순서로 BE 패치 완료 후 Sprint 32 전체 기능 검증
+- JIG 2 row 자동 생성, checker_role 뱃지 실데이터 확인
 
 ### 단기 — 기타 FE 작업
 - Defensive coding `?? []` 7개소 (ProductionPerformancePage)

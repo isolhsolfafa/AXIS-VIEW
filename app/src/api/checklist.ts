@@ -73,7 +73,7 @@ interface BeDetailItem {
   id?: number;
   item_group: string;
   item_name: string;
-  item_type: 'CHECK' | 'INPUT';
+  item_type: 'CHECK' | 'INPUT' | 'SELECT';
   description?: string | null;
   status?: 'PASS' | 'NA' | null;
   checked_at?: string | null;
