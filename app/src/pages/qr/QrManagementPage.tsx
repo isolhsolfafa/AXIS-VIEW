@@ -273,6 +273,7 @@ export default function QrManagementPage() {
   const [modelFilter, setModelFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
+  const [elecPartnerFilter, setElecPartnerFilter] = useState('');
   const [sortBy, setSortBy] = useState('mech_start');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const perPage = 30;
@@ -326,6 +327,7 @@ export default function QrManagementPage() {
     setSearchInput('');
     setModelFilter('');
     setStatusFilter('');
+    setElecPartnerFilter('');
     setDateField('mech_start');
     setDateFrom(defaultRange.from);
     setDateTo(defaultRange.to);
@@ -392,6 +394,7 @@ export default function QrManagementPage() {
     { key: 'model', label: '모델', sortable: true, width: '130px' },
     { key: 'sales_order', label: 'O/N', sortable: true, width: '120px' },
     { key: 'customer', label: '고객사', sortable: false, width: '100px' },
+    { key: 'elec_partner', label: '전장협력사', sortable: false, width: '100px' },
     { key: 'mech_start', label: '기구시작', sortable: true, width: '110px' },
     { key: 'elec_start', label: '전장시작', sortable: true, width: '110px' },
     { key: 'module_start', label: '모듈시작', sortable: true, width: '110px' },
@@ -405,11 +408,22 @@ export default function QrManagementPage() {
   const totalPages = data?.total_pages ?? 1;
   const total = data?.total ?? 0;
 
-  // 테스트 S/N 숨김 (설정 연동) + 기구시작: TANK QR 숨김 / 모듈시작: S/N 기준 그룹핑 정렬
+  // 전장협력사 목록 추출
+  const elecPartners = useMemo(() => {
+    const set = new Set<string>();
+    rawItems.forEach(item => { if (item.elec_partner) set.add(item.elec_partner); });
+    return Array.from(set).sort();
+  }, [rawItems]);
+
+  // 테스트 S/N 숨김 (설정 연동) + 기구시작: TANK QR 숨김 / 모듈시작: S/N 기준 그룹핑 정렬 + 전장협력사 필터
   const items = useMemo(() => {
-    const filtered = settings.showTestSN
+    let filtered = settings.showTestSN
       ? rawItems
       : rawItems.filter(item => !TEST_SN_PREFIXES.some(pfx => item.serial_number.startsWith(pfx)));
+    // 전장협력사 필터
+    if (elecPartnerFilter) {
+      filtered = filtered.filter(item => item.elec_partner === elecPartnerFilter);
+    }
     if (dateField === 'mech_start' || dateField === 'elec_start') {
       return filtered.filter(item => resolveQrType(item.qr_type, item.qr_doc_id) === 'PRODUCT');
     }
@@ -417,7 +431,7 @@ export default function QrManagementPage() {
     return [...filtered].sort((a, b) =>
       a.serial_number.localeCompare(b.serial_number) || a.qr_doc_id.localeCompare(b.qr_doc_id)
     );
-  }, [rawItems, dateField, settings.showTestSN]);
+  }, [rawItems, dateField, settings.showTestSN, elecPartnerFilter]);
 
   /* ── 공통 input 스타일 ── */
   const selectStyle: React.CSSProperties = {
@@ -527,6 +541,16 @@ export default function QrManagementPage() {
               <option value="">전체 상태</option>
               <option value="active">진행 중</option>
               <option value="shipped">출하완료</option>
+            </select>
+
+            {/* 전장협력사 필터 */}
+            <select
+              value={elecPartnerFilter}
+              onChange={e => { setElecPartnerFilter(e.target.value); setPage(1); }}
+              style={selectStyle}
+            >
+              <option value="">전장:</option>
+              {elecPartners.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
 
             {/* 검색 */}
@@ -723,6 +747,7 @@ export default function QrManagementPage() {
                       <td style={{ padding: '11px 14px', color: 'var(--gx-charcoal)' }}>{item.model || '—'}</td>
                       <td style={{ padding: '11px 14px', color: 'var(--gx-slate)' }}>{item.sales_order || '—'}</td>
                       <td style={{ padding: '11px 14px', color: 'var(--gx-slate)' }}>{item.customer || '—'}</td>
+                      <td style={{ padding: '11px 14px', color: 'var(--gx-slate)', fontSize: '12px' }}>{item.elec_partner || '—'}</td>
                       <td style={{ padding: '11px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'var(--gx-slate)' }}>
                         {formatDate(item.mech_start)}
                       </td>
