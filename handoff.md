@@ -69,8 +69,10 @@
 | #59-A | POST 시 JIG WORKER+QI 2 row 자동 생성 | PENDING | Sprint 32 AddModal |
 | #59-B | GET master 응답에 checker_role 포함 | PENDING | Sprint 32 테이블 역할 뱃지 |
 | #59-C | UNIQUE 키에 checker_role 포함 | PENDING | #59-A 선행 조건 |
+| #60 | S/N task 응답에 company 필드 추가 | PENDING | Sprint 33 행 레벨 권한 |
+| #61 | S/N task 응답에 force_closed 필드 추가 | PENDING | Sprint 33 강제종료 뱃지 |
 
-> 전체 목록: `OPS_API_REQUESTS.md` (#1~#59)
+> 전체 목록: `OPS_API_REQUESTS.md` (#1~#61)
 > FE 태스크: `VIEW_FE_Request.md` (FE-01~FE-14)
 
 ---

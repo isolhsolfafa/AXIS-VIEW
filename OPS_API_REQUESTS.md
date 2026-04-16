@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-04-10 (#57 성적서 ELEC Phase + TM DUAL 분기)
+> 마지막 업데이트: 2026-04-17 (#60-61 미종료 작업 관리 — company/force_closed 필드)
 
 ---
 
@@ -4206,3 +4206,87 @@ UNIQUE 키 변경 시 아래 파일들의 `ON CONFLICT` 절도 **5-key로 동시
 | `routes/checklist.py` create_checklist_master | 해당 없음 (INSERT 시 ON CONFLICT 미사용) | #59-A에서 QI row INSERT 시 5-key ON CONFLICT 적용 |
 
 **실행 순서**: #59-C → #59-A → #59-B (C가 A보다 선행 필수)
+
+---
+
+## 미종료 작업 관리 (`/api/admin/tasks`, `/api/app/tasks`)
+
+### #60 S/N task 응답에 `company` 필드 추가 — PENDING (2026-04-17)
+
+**교차 검증**: Claude × Codex 합의 #6 (M등급)
+
+**배경**:
+VIEW Sprint 33에서 미종료 task 강제 종료 기능 구현 예정.
+Manager(협력사)는 **본인 회사 task만** 강제 종료 가능해야 하지만, 현재 S/N task/worker 응답에 `company` 필드가 없어 FE에서 행 레벨 권한 판단 불가.
+
+**대상 엔드포인트**:
+
+| 엔드포인트 | 현재 응답 | 추가 요청 |
+|-----------|----------|----------|
+| `GET /api/app/tasks/{sn}` | `workers[].worker_name`, `workers[].status` 등 | `workers[].company` 추가 |
+| `GET /api/admin/tasks/pending` | `worker_name`, `task_name` 등 | `company` 추가 |
+
+**응답 예시 (변경 후)**:
+```json
+{
+  "workers": [
+    {
+      "worker_id": 42,
+      "worker_name": "김태영",
+      "company": "TMS(E)",
+      "started_at": "2026-04-15T08:30:00",
+      "completed_at": null,
+      "status": "in_progress"
+    }
+  ]
+}
+```
+
+**FE 활용**:
+```typescript
+// Manager 행 레벨 권한 필터
+const canForceClose = user.is_admin || (user.is_manager && worker.company === user.company);
+```
+
+**VIEW FE 현황**: Sprint 33 FE-15에서 `company` 필드 기반 강제 종료 버튼 표시/숨김 구현 대기.
+
+---
+
+### #61 S/N task 응답에 `force_closed` 필드 추가 — PENDING (2026-04-17)
+
+**교차 검증**: Claude × Codex 합의 #7 (M등급, 범위 한정)
+
+**배경**:
+강제 종료된 task와 정상 완료 task가 동일하게 렌더링됨 (`completed_at` 존재 → 완료 표시).
+S/N 상세 패널에서 강제종료 뱃지(`🔒`) 표시를 위해 구분 필드 필요.
+
+> pending 목록(`GET /api/admin/tasks/pending`)에서는 불필요 — `WHERE force_closed=FALSE` 조건으로 이미 제외됨.
+
+**대상 엔드포인트**:
+
+| 엔드포인트 | 추가 필드 | 설명 |
+|-----------|----------|------|
+| `GET /api/app/tasks/{sn}` | `force_closed: boolean` | task_detail 레벨, 기본값 `false` |
+
+**데이터 소스**: `app_task_details.force_closed` 컬럼 (기존 `PUT /api/admin/tasks/{id}/force-close`에서 설정하는 값)
+
+**응답 예시 (변경 후)**:
+```json
+{
+  "id": 1234,
+  "task_name": "배선 포설",
+  "task_category": "ELEC",
+  "workers": [...],
+  "force_closed": true
+}
+```
+
+**FE 활용**:
+```typescript
+// ProcessStepCard 내 완료 task 중 강제종료 구분
+{worker.status === 'completed' && task.force_closed && (
+  <span className="badge-locked">🔒 강제종료</span>
+)}
+```
+
+**VIEW FE 현황**: Sprint 33 FE-15에서 `force_closed` 기반 뱃지 렌더링 구현 대기.

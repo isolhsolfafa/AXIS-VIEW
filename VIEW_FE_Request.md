@@ -2,7 +2,7 @@
 
 > VIEW(React) 프론트엔드에서 구현해야 할 작업 목록.
 > BE 수정 완료 후 진행하는 항목은 **BE 선행** 표기.
-> 마지막 업데이트: 2026-04-11
+> 마지막 업데이트: 2026-04-17
 
 ---
 
@@ -124,11 +124,40 @@ BE 마스터 API(`GET /api/admin/checklist/master?category=ELEC&product_code=COM
 
 ---
 
-## VIEW Sprint 31 — 미종료 작업 관리 (SNStatusPage 확장)
+## VIEW Sprint 33 — 미종료 작업 관리 (SNStatusPage 확장)
 
 > BE 선행: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 61-BE (Task 3: API 확장)
 > 목적: Admin/Manager가 VIEW 대시보드에서 미종료 + 미시작 task를 확인하고 강제 종료 가능
 > 관련 OPS 화면: `manager_pending_tasks_screen.dart` (OPS에만 존재, VIEW에는 미구현)
+
+### 교차 검증 결과 (Claude × Codex, 2026-04-17)
+
+**M 등급 (필수 수정) — 2건 BE 선행**:
+
+| # | 이슈 | 검증 결과 | 조치 |
+|---|------|-----------|------|
+| 1 | BE force-close API 미확인 | ✅ **이미 존재**: `PUT /api/admin/tasks/<int:task_id>/force-close` (admin.py L1061) | BE 신규 불필요. FE 연결만 |
+| 2 | task_detail_id 모호 | ⚠️ 라우트 파라미터명은 `task_id` (= app_task_details.id) | 설계서에 `{task_id}` = app_task_details.id 명시 |
+| 4 | 미시작 task 데이터 소스 | ✅ `GET /api/app/tasks/{sn}` 이미 전체 task 반환 (workers=[] 포함) | **BE 수정 불필요**. FE flatMap 처리만 (M→A 하향) |
+| 6 | 행 레벨 권한 (company) 미지원 | ❌ pending 응답에 company 필드 없음 | **BE 추가 필요**: 응답에 `company` 또는 `can_force_close` 필드 |
+| 7 | 강제종료 상태 구분 불가 | ⚠️ pending은 `WHERE force_closed=FALSE`라 불필요. S/N 상세에서만 필요 | **BE 추가 필요**: S/N task 응답에 `force_closed` 필드 추가 (범위 한정) |
+
+**A 등급 (권고)**:
+
+| # | 이슈 | 조치 |
+|---|------|------|
+| 3 | DateTimePicker 없음 | `<input type="datetime-local">` 네이티브로 대체 |
+| 5 | FE-16 범위 혼재 | Sprint 33 = FE-15만. FE-16은 별도 Sprint으로 분리 |
+| 8 | ProcessStepCard status enum 호환 | 현재 `'completed' \| 'in_progress' \| 'waiting'` 3종. `'not_started'` → `'waiting'`으로 매핑하는 정규화 어댑터 필요 |
+
+**BE 선행 조건 정리 (실제 2건)**:
+
+| # | BE 요청 | 상세 |
+|---|---------|------|
+| 1 | pending/task 응답에 `company` 필드 추가 | Manager 행 레벨 권한 필터용 |
+| 2 | S/N task 응답에 `force_closed` 필드 추가 | 🔒 강제종료 뱃지 렌더용 (pending 목록에선 불필요) |
+
+> ⚠️ force-close API, 미시작 task API는 이미 존재 → BE 신규 생성 불필요 (기존 합의 4건에서 2건으로 축소)
 
 ### 배경
 
@@ -137,7 +166,7 @@ BE 마스터 API(`GET /api/admin/checklist/master?category=ELEC&product_code=COM
 - **현재 문제**: VIEW에서는 미종료 task 확인만 가능, 강제 종료 불가. 미시작 task는 표시조차 안 됨
 - Sprint 61-BE에서 `GET /admin/tasks/pending?include_not_started=true` API 확장 예정 → 이를 활용
 
-### FE-15. SNDetailPanel 미종료/미시작 task 강제 종료 기능 [BE 선행]
+### FE-15. SNDetailPanel 미종료/미시작 task 강제 종료 기능 [BE 선행 2건]
 
 **기존 SNDetailPanel 구조** (스크린샷 참조):
 ```
@@ -165,22 +194,28 @@ BE 마스터 API(`GET /api/admin/checklist/master?category=ELEC&product_code=COM
 
 2. **강제 종료 버튼** (각 task row에)
    - 조건: `completed_at IS NULL` + 현재 사용자가 Admin 또는 해당 company Manager
-   - 클릭 → 모달: 사유 입력 + 완료 시각 선택 (DateTimePicker)
-   - API: `PUT /api/admin/tasks/{id}/force-close` (기존 OPS API 재사용)
+   - 권한 확인: BE 응답의 `company` 필드로 Manager 본인 회사 task만 버튼 표시
+   - 클릭 → 모달: 사유 입력 + `<input type="datetime-local">` 완료 시각 선택 (네이티브)
+   - API: `PUT /api/admin/tasks/{task_id}/force-close` (기존 OPS API 재사용, `{task_id}` = app_task_details.id)
    - 성공 → task row에 `🔒 강제종료` 배지 + 리스트 갱신
 
 3. **미시작 task 표시**
    - 현재 SNDetailPanel은 `started_at IS NOT NULL`인 task만 표시 (work_log 기반)
    - 추가: 미시작 task도 "미시작" 상태로 표시
-   - 데이터 소스: Sprint 61-BE `GET /admin/tasks/pending?include_not_started=true&serial_number={sn}` 또는 기존 task 목록 API에서 status 구분
+   - 데이터 소스: 기존 `GET /api/app/tasks/{sn}` 응답에 workers=[] task가 이미 포함됨 → FE에서 flatMap 시 소실되지 않도록 처리
+   - status 매핑: `'not_started'` → ProcessStepCard의 `'waiting'`으로 정규화 (어댑터 필요)
    - 표시 스타일: 배경 노란색 / 작업자 "-" / 경과시간 "미시작"
+
+4. **강제종료 완료 구분** (S/N 상세)
+   - BE 응답에 `force_closed` 필드 추가 후, 완료 task 중 `force_closed=true`에 `🔒 강제종료` 배지 표시
+   - pending 목록에서는 불필요 (`WHERE force_closed=FALSE`로 이미 제외)
 
 **권한 매트릭스**:
 
 | 역할 | 미종료/미시작 확인 | 강제 종료 |
 |---|---|---|
 | Admin (GST) | ✅ 전체 S/N | ✅ 모든 task |
-| Manager (협력사) | ✅ 본인 공정만 | ✅ 본인 공정만 |
+| Manager (협력사) | ✅ 본인 공정만 | ✅ 본인 공정만 (BE `company` 필드 기반 판단) |
 | Worker | ✅ 읽기만 | ❌ |
 
 **수정 파일 (예상)**:
@@ -188,11 +223,14 @@ BE 마스터 API(`GET /api/admin/checklist/master?category=ELEC&product_code=COM
 | 파일 | 수정 내용 |
 |---|---|
 | `components/sn-status/SNDetailPanel.tsx` | 미시작 task 표시 + 강제종료 버튼 + 배지 |
-| `hooks/useSNTasks.ts` | pending API 호출 추가 or 기존 task 응답에서 status 구분 |
+| `components/sn-status/ProcessStepCard.tsx` | status 정규화 어댑터 (`'not_started'` → `'waiting'`) |
+| `hooks/useSNTasks.ts` | flatMap에서 workers=[] task 소실 방지 |
 | `api/admin.ts` (신규 or 기존) | `forceCloseTask(taskId, reason, completedAt)` API 함수 |
-| `types/snStatus.ts` | `SNTask`에 `status: 'IN_PROGRESS' \| 'NOT_STARTED' \| 'COMPLETED'` 추가 |
+| `types/snStatus.ts` | `SNTask`에 `force_closed?: boolean` 추가 |
 
-### FE-16. 미종료 작업 전용 요약 페이지 (선택, 별도 Sprint 분리 가능) [BE 선행]
+### FE-16. 미종료 작업 전용 요약 페이지 — **별도 Sprint으로 분리** [BE 선행]
+
+> ⚠️ Sprint 33 범위 외. FE-15 완료 후 별도 Sprint 배정.
 
 SNStatusPage 와 별개로, 전체 S/N 통합 미종료/미시작 task 리스트 전용 페이지.
 
