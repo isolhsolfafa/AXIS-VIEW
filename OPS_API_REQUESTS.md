@@ -4250,6 +4250,8 @@ const canForceClose = user.is_admin || (user.is_manager && worker.company === us
 
 **VIEW FE 현황**: Sprint 33 FE-15에서 `company` 필드 기반 강제 종료 버튼 표시/숨김 구현 대기.
 
+**구현 참고**: BUG-44 수정 시 `work_start_log LATERAL JOIN` → `LEFT JOIN workers w`로 변경되므로, `w.company`를 SELECT에 추가하면 자연스럽게 해결. BUG-44와 동시 처리 권장.
+
 ---
 
 ### #61 S/N task 응답에 `force_closed` 필드 추가 — PENDING (2026-04-17)
