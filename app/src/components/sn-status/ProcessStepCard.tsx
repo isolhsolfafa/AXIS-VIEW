@@ -177,51 +177,9 @@ export default function ProcessStepCard({
         </span>
       </div>
 
-      {/* 작업자 목록 */}
+      {/* 작업자 목록 — workers=[] 경로: SNDetailPanel이 placeholder worker 주입하므로 일반적으로 도달하지 않음 (방어적 fallback) */}
       {workers.length === 0 && !hasChecklist && (
-        task?.force_closed ? (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '8px',
-            padding: '6px 4px',
-            fontSize: '12px',
-            background: 'rgba(239,68,68,0.04)',
-            borderRadius: '4px',
-          }}>
-            <span style={{ color: 'var(--gx-slate)', fontWeight: 500 }}>
-              👤 (강제 종료 · 작업 이력 없음)
-            </span>
-            {task.closed_by_name && (
-              <span style={{ color: 'var(--gx-steel)', fontSize: '11px' }}>
-                처리: {maskName(task.closed_by_name)}
-              </span>
-            )}
-            {task.completed_at && (
-              <span style={{
-                color: 'var(--gx-steel)',
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: '11px',
-                marginLeft: 'auto',
-              }}>
-                {formatDateTime(task.completed_at)}
-              </span>
-            )}
-            {task.close_reason && (
-              <span style={{
-                color: 'var(--gx-silver)',
-                fontSize: '11px',
-                width: '100%',
-                marginTop: '4px',
-              }}>
-                사유: {task.close_reason}
-              </span>
-            )}
-          </div>
-        ) : (
-          <div style={{ fontSize: '12px', color: 'var(--gx-silver)' }}>대기중</div>
-        )
+        <div style={{ fontSize: '12px', color: 'var(--gx-silver)' }}>대기중</div>
       )}
       {workers.length > 0 && (
         <div style={{ marginBottom: hasChecklist ? '10px' : '0' }}>
@@ -260,18 +218,26 @@ export default function ProcessStepCard({
                     </span>
                   )}
                 </span>
-                <span style={{
-                  color: isOverdue ? 'var(--gx-danger)' : 'var(--gx-steel)',
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: '11px',
-                  fontWeight: isOverdue ? 600 : 400,
-                }}>
-                  {displayStatus === 'waiting'
-                    ? '미시작'
-                    : `${formatTime(w.started_at)} → ${w.completed_at ? formatTime(w.completed_at) : '진행중'}`
+                <span
+                  style={{
+                    color: (w.force_closed || isOverdue) ? 'var(--gx-danger)' : 'var(--gx-steel)',
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: '11px',
+                    fontWeight: (w.force_closed || isOverdue) ? 600 : 400,
+                    cursor: w.force_closed ? 'help' : 'default',
+                  }}
+                  title={w.force_closed
+                    ? `사유: ${w.close_reason ?? '—'}\n처리: ${w.closed_by_name ? maskName(w.closed_by_name) : '—'}\n종료: ${w.force_closed_at ? formatDateTime(w.force_closed_at) : '—'}`
+                    : undefined}
+                >
+                  {w.force_closed
+                    ? `🔒 강제종료${w.force_closed_at ? ' ' + formatTime(w.force_closed_at) : ''}`
+                    : (displayStatus === 'waiting'
+                        ? '미시작'
+                        : `${formatTime(w.started_at)} → ${w.completed_at ? formatTime(w.completed_at) : '진행중'}`)
                   }
                 </span>
                 <span style={{ color: 'var(--gx-steel)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', marginLeft: 'auto' }}>
-                  {displayStatus === 'waiting' ? '—' : formatDuration(w.duration_minutes)}
+                  {(w.force_closed || displayStatus === 'waiting') ? '—' : formatDuration(w.duration_minutes)}
                 </span>
                 {/* 재활성화 버튼 */}
                 {w.completed_at && canReactivate && w.task_detail_id && (
@@ -292,8 +258,8 @@ export default function ProcessStepCard({
                     <RotateCcw size={13} />
                   </button>
                 )}
-                {/* 강제종료 버튼 — completed_at 없고 권한 있을 때 */}
-                {!w.completed_at && w.task_detail_id && canForceCloseWorker(w.company) && (
+                {/* 강제종료 버튼 — completed_at 없고 권한 있을 때 (이미 force_closed면 숨김) */}
+                {!w.completed_at && !w.force_closed && w.task_detail_id && canForceCloseWorker(w.company) && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

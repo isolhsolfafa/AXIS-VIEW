@@ -196,10 +196,22 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
 
             // 같은 카테고리의 모든 task workers를 병합하여 1개 카드로 렌더링
             // Sprint 33: workers=[]인 미시작 task도 포함 (flatMap 소실 방지)
+            // FE-19.1 (v1.32.1): 부모 task의 force_closed 관련 필드 4개를 각 worker row에 전파 → per-row 🔒 표시
             const allWorkers: TaskWorker[] = [];
             for (const t of catTasks) {
+              const forceClosedFields = {
+                force_closed: t.force_closed,
+                close_reason: t.close_reason,
+                closed_by_name: t.closed_by_name,
+                force_closed_at: t.force_closed ? t.completed_at ?? null : null,
+              };
               if (t.workers.length > 0) {
-                allWorkers.push(...t.workers.map(w => ({ ...w, task_name: t.task_name, task_detail_id: t.id })));
+                allWorkers.push(...t.workers.map(w => ({
+                  ...w,
+                  task_name: t.task_name,
+                  task_detail_id: t.id,
+                  ...forceClosedFields,
+                })));
               } else {
                 // workers=[] 미시작 task → placeholder worker row 주입
                 allWorkers.push({
@@ -212,6 +224,7 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
                   status: 'not_started',
                   task_name: t.task_name,
                   task_detail_id: t.id,
+                  ...forceClosedFields,
                 });
               }
             }

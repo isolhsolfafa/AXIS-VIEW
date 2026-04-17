@@ -1,8 +1,8 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.32.0';
-export const BUILD_DATE = '2026-04-17';
+export const APP_VERSION = 'v1.32.1';
+export const BUILD_DATE = '2026-04-18';
 
 // 버전 이력
 // v1.0.0 | 2026-03-06 | Sprint 1~3     | 초기 릴리스 (로그인, 출퇴근 대시보드, 실 API 연동)
@@ -49,3 +49,4 @@ export const BUILD_DATE = '2026-04-17';
 // v1.30.0| 2026-04-16 | Sprint 32      | 체크리스트 관리 ELEC 항목 추가/수정 + Sprint 60-BE 연동
 // v1.31.0| 2026-04-17 | Sprint 33      | 미종료 작업 관리 (강제종료 + 미시작 표시 + 권한)
 // v1.32.0| 2026-04-17 | HOTFIX-04/FE-19| ProcessStepCard 강제종료 placeholder 렌더 + formatDateTime 유틸 승격
+// v1.32.1| 2026-04-18 | FE-19.1 후속   | per-row 강제종료 표시 — 상태 컬럼 '🔒 강제종료 mm/dd hh:mm' 대체 + 툴팁 + 데드 코드 정리

@@ -35,6 +35,11 @@ export interface TaskWorker {
   status: 'completed' | 'in_progress' | 'not_started';
   task_name?: string;        // 병합 시 주입 — 상세뷰에서 작업 구분용
   task_detail_id?: number;   // 병합 시 주입 — 재활성화 API 호출용 (Sprint 23)
+  // FE-19.1 (v1.32.1): per-row 강제종료 표시용 — SNDetailPanel 병합 시 부모 task에서 전파
+  force_closed?: boolean;
+  close_reason?: string;
+  closed_by_name?: string;
+  force_closed_at?: string | null;  // 부모 task.completed_at (force_closed=true일 때 표시용)
 }
 
 export interface SNTaskDetail {

@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-04-17 | 버전: v1.32.0
+> 최종 갱신: 2026-04-18 | 버전: v1.32.1
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -432,6 +432,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | 32 | 체크리스트 관리 ELEC 항목 추가/수정 + Sprint 60-BE 연동 | ✅ 완료 |
 | 33 | 미종료 작업 관리 (강제종료 + 미시작 표시 + 권한) | ✅ 완료 |
 | HOTFIX-04 / FE-19 | ProcessStepCard 강제종료 placeholder 렌더 (Case 2) + `formatDateTime` 유틸 승격 (v1.32.0) | ✅ 완료 |
+| FE-19.1 후속 | per-row 강제종료 표시 (상태 컬럼 대체 + 툴팁) + v1.32.0 데드 코드 정리 (v1.32.1) | ✅ 완료 |
 
 ### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)
 

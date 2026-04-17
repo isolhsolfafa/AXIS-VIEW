@@ -344,9 +344,17 @@ mutationFn: ({ taskId, reason, completedAt }: ForceClosePayload) =>
 > **FE 영향 없음(키 계약 불변)**: BE 내부 구현이 후처리 루프 → 모델 필드 + SELECT JOIN(옵션 C')으로 바뀌었으나 VIEW가 받는 응답 키는 `close_reason`/`closed_by`/`closed_by_name` 동일 → 본 FE-19 JSX·타입 변경 없음
 > **구현 전제 (2026-04-17 결정)**: `formatDateTime` 공통 유틸 — `ChecklistReportView.tsx` L25 로컬 함수를 `utils/format.ts`로 **선승격 완료** (Codex 지적 #1 옵션 A 채택). FE-19 구현 시 `import { formatDateTime } from '@/utils/format'` 사용. REFACTOR-FMT-01 나머지 2건(`formatDate` in QrManagementPage / InactiveWorkersPage)은 BACKLOG 유지.
 
-### FE-19. ProcessStepCard 강제종료 placeholder 렌더 — ✅ DONE (2026-04-17, v1.32.0)
+### FE-19. ProcessStepCard 강제종료 표시 보정 — ✅ DONE (2026-04-17 v1.32.0 + 2026-04-18 v1.32.1)
 
-> **구현 완료 (2026-04-17, v1.32.0)**: `ProcessStepCard.tsx` 2곳(`taskStatus()` L55 분기 + L178 workers=[] placeholder JSX) + `types/snStatus.ts` 3필드(`close_reason?` / `closed_by_name?` / `completed_at?`) 추가 + `formatDateTime` util import. 빌드 GREEN 확인. BE HOTFIX-04 v2.9.8와 동시 동작 검증 대기 (스테이징 배포 후 Case 2 육안 확인 예정).
+> **v1.32.0 (2026-04-17)** — 1차 구현: `taskStatus()` L55 분기 + `workers.length === 0` placeholder JSX + `SNTaskDetail` 3필드 추가 + `formatDateTime` 유틸 승격.
+>
+> **v1.32.1 (2026-04-18)** — 후속 보정: 실사용 스크린샷으로 v1.32.0의 placeholder JSX가 **데드 코드**임 확인 (SNDetailPanel 병합 로직이 항상 placeholder worker 주입 → `workers.length > 0` 경로로 진입). per-row 전파 방식으로 재설계:
+> - `TaskWorker` 타입에 `force_closed?`/`close_reason?`/`closed_by_name?`/`force_closed_at?` 4필드 추가
+> - `SNDetailPanel` 병합 시 부모 task의 force_closed 관련 필드를 각 worker row(실제 + placeholder)에 전파
+> - `ProcessStepCard` 상태 컬럼: `force_closed` 시 `🔒 강제종료 mm/dd hh:mm`으로 대체 + `title` 툴팁(사유/처리자/종료)
+> - 강제종료 버튼 이중 노출 방지(`!w.force_closed` guard), duration 컬럼도 '—'로 통일, v1.32.0 데드 코드 제거
+>
+> **Sprint 기록**: `DESIGN_FIX_SPRINT.md` `HOTFIX-04 — FE-19 ProcessStepCard 강제종료 표시 보정` 섹션 참조.
 
 **배경**: HOTFIX-04 BE가 task 응답에 `close_reason`, `closed_by_name` 2키를 추가. 이로써 VIEW에서 두 가지 케이스를 동시 해소.
 

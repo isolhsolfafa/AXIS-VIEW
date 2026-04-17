@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.32.0 (2026-04-17)
+> 최신 버전: v1.32.1 (2026-04-18)
 
 ---
 
@@ -70,6 +70,27 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.32.1 — 2026-04-18
+
+**FE-19.1 후속 보정 — per-row 강제종료 표시**
+
+### 생산현황 S/N 상세 — row별 강제종료 식별
+- `TaskWorker` 타입에 `force_closed?` / `close_reason?` / `closed_by_name?` / `force_closed_at?` 4필드 추가
+- `SNDetailPanel.tsx` 병합 로직: 부모 task의 force_closed 관련 필드를 각 worker row(실제 + placeholder)에 전파
+- `ProcessStepCard.tsx` 상태 컬럼: `force_closed` 시 `미시작` → `🔒 강제종료 mm/dd hh:mm`으로 대체
+- `title` 툴팁으로 사유/처리자(마스킹)/종료 시각 표시
+- 강제종료 버튼 이중 노출 방지 (`!w.force_closed` 가드)
+- duration 컬럼도 force_closed면 '—'로 통일
+
+### 데드 코드 정리
+- v1.32.0 FE-19의 `workers.length === 0` placeholder JSX 제거 — SNDetailPanel이 항상 placeholder worker를 주입하여 해당 경로 도달 불가 확인
+
+### 회고
+- v1.32.0 설계 단계에서 SNDetailPanel 병합 방식(placeholder worker 주입)을 간과 → 실제 렌더링 경로는 `workers.length > 0`
+- per-row 전파 방식으로 재설계, TM 모듈·SI 마무리 카드에서 task별 강제종료 여부 명확 식별 가능
 
 ---
 

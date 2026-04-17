@@ -1,19 +1,29 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-04-17
+> 마지막 업데이트: 2026-04-18
 
 ---
 
 ## 현재 버전
 
-- **VIEW FE**: v1.32.0
-- **최근 작업**: HOTFIX-04 연계 FE-19 (강제종료 placeholder 렌더)
-- **최근 완료**: v1.31.0 (Sprint 33), v1.32.0 (HOTFIX-04/FE-19)
+- **VIEW FE**: v1.32.1
+- **최근 작업**: FE-19.1 후속 보정 (per-row 강제종료 표시)
+- **최근 완료**: v1.31.0 (Sprint 33), v1.32.0 (HOTFIX-04/FE-19), v1.32.1 (FE-19.1 후속)
 
 ---
 
-## 직전 세션 작업 내용 (2026-04-17 후반부)
+## 직전 세션 작업 내용 (2026-04-18)
+
+### v1.32.1 — FE-19.1 후속 (per-row 강제종료 표시)
+1. **문제**: v1.32.0의 `workers.length === 0` placeholder JSX가 실제 렌더 경로(SNDetailPanel 항상 placeholder 주입)에서 데드 코드로 확인됨 → 카드 레벨 `🔒 강제종료` 뱃지만 표시되어 row별 식별 불가
+2. **TaskWorker 타입 확장**: `force_closed?` / `close_reason?` / `closed_by_name?` / `force_closed_at?` 4필드 추가
+3. **SNDetailPanel 병합 로직**: 실제 worker + placeholder worker 양쪽에 부모 task의 force_closed 필드 전파
+4. **ProcessStepCard 상태 컬럼**: `force_closed` 시 `미시작`/`시간 범위` → `🔒 강제종료 mm/dd hh:mm`으로 대체 + `title` 툴팁(사유/처리자/종료)
+5. **강제종료 버튼 guard**: `!w.force_closed` 조건 추가 — 이미 종료된 row에서 버튼 중복 방지
+6. **데드 코드 제거**: v1.32.0의 workers=[] placeholder JSX 삭제
+7. **Sprint 기록**: `DESIGN_FIX_SPRINT.md`에 HOTFIX-04 — FE-19 섹션 작성 (v1.32.0 + v1.32.1 2단계 회고 포함)
+8. **빌드 GREEN**: 3279 modules, 2.53s
 
 ### v1.32.0 — HOTFIX-04 / FE-19 강제종료 표시 누락 보정
 1. **선행 리팩토링**: `ChecklistReportView.tsx` 로컬 `formatDateTime` → `utils/format.ts`로 승격 (REFACTOR-FMT-01 1/3)

@@ -14102,3 +14102,168 @@ Phase 3 — 기능 검증 (코드 기반)
 [x] BE 미배포 시 graceful (optional 필드)
 ```
 
+---
+
+# HOTFIX-04 — FE-19 ProcessStepCard 강제종료 표시 보정 ✅ 완료
+
+> 등록일: 2026-04-17 (v1.32.0) · 후속 보정: 2026-04-18 (v1.32.1)
+> 트랙: VIEW FE (BE HOTFIX-04 v2.9.8 선행 완료)
+> 설계서: `VIEW_FE_Request.md` FE-19 섹션
+> BE 연계: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` HOTFIX-04 섹션
+
+## 배경
+
+Sprint 33 배포 이후 실사용 중 발견된 2가지 UX 이슈:
+
+**Case 1 — Orphan `work_start_log` (wsl 있음 + wcl 없음)**
+- 현장: ELEC 전장 상세뷰에서 박*현/김*욱 행이 "진행중"으로 끝까지 남음
+- 원인: worker가 시작만 찍고 종료 미입력, 관리자가 강제 종료 처리해도 BE 응답에서 `status='in_progress'` 그대로 반환
+- 영향: 실제 종료됐는데 진행중으로 보임 → 운영 혼선
+
+**Case 2 — 미시작 강제종료 (wsl 자체 없음)**
+- 현장: TM 모듈/SI 마무리 카드에서 강제종료 발생한 task도 "미시작 —"으로 표시
+- 원인: SNDetailPanel 병합 로직이 `force_closed` 여부를 카드 레벨 뱃지(`🔒 강제종료`)로만 집계, 개별 row에는 전파 안 됨
+- 영향: 카드 내 다수 task 중 어느 것이 강제종료인지 구분 불가
+
+## 해결 접근
+
+**BE (HOTFIX-04 v2.9.8, 2026-04-17 배포 완료)**: task 응답에 `close_reason`/`closed_by`/`closed_by_name` 3키 추가 + Orphan wsl 케이스 자동 `completed` 반환.
+
+**FE (v1.32.0 → v1.32.1 2단계)**:
+- v1.32.0: 선행 리팩토링(`formatDateTime` 유틸 승격) + 타입 확장 + workers=[] placeholder JSX
+- v1.32.1: v1.32.0의 placeholder JSX가 실제 렌더 경로(`workers.length > 0`)에서 도달하지 않는 문제 발견 → per-row 전파 방식으로 재구현
+
+## 구현 내용
+
+### v1.32.0 (2026-04-17) — 1차 구현
+
+#### 1-1. 선행 리팩토링 — `utils/format.ts`
+```typescript
+// ChecklistReportView.tsx 로컬 함수 → 공통 유틸 승격 (REFACTOR-FMT-01 1/3)
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  // ISO 8601 → YYYY-MM-DD HH:mm (로컬 타임존, 초 생략)
+}
+```
+- null/undefined 가드 추가
+- `ChecklistReportView.tsx` import 교체
+- 나머지 2건(`formatDate` in QrManagementPage / InactiveWorkersPage) BACKLOG(TECH-REFACTOR-FMT-01) 유지
+
+#### 1-2. 타입 확장 — `types/snStatus.ts` SNTaskDetail
+```typescript
+force_closed?: boolean;       // Sprint 33에서 이미 추가
+close_reason?: string;        // FE-19 신규
+closed_by_name?: string;      // FE-19 신규 (마스킹 전 원문)
+completed_at?: string | null; // FE-19 신규 (force_closed task 종료 시각)
+```
+
+#### 1-3. ProcessStepCard `taskStatus()` 분기 확장 (L55)
+```typescript
+if (!task || task.workers.length === 0) {
+  if (task?.force_closed) return 'completed';   // 미시작 강제종료 → 카드 완료 판정
+  return 'waiting';
+}
+```
+
+#### 1-4. workers=[] 블록에 placeholder JSX 추가 (2026-04-18 제거됨 — 하단 참조)
+
+### v1.32.1 (2026-04-18) — Case 2 렌더 이슈 재수정
+
+#### 2-1. 문제 진단
+- SNDetailPanel L195-231 병합 로직이 `workers=[]`인 미시작 task에 **placeholder worker row**(`worker_name:'-'`, `status:'not_started'`)를 이미 주입 중
+- 결과: `ProcessStepCard`는 **항상 `workers.length > 0`** 경로로 진입 → v1.32.0의 `workers.length === 0` placeholder JSX는 데드 코드
+- 사용자 피드백: "강제종료 태깅이 task 옆에 바로 보이지 않음, 확인 어려움"
+
+#### 2-2. per-row 전파 방식으로 재설계 — `types/snStatus.ts` TaskWorker 확장
+```typescript
+// FE-19.1: 부모 task의 force_closed 관련 필드를 각 worker row에 전파
+force_closed?: boolean;
+close_reason?: string;
+closed_by_name?: string;
+force_closed_at?: string | null;  // 부모 task.completed_at (force_closed=true일 때만)
+```
+
+#### 2-3. SNDetailPanel 병합 로직 — 각 worker에 전파
+```typescript
+const forceClosedFields = {
+  force_closed: t.force_closed,
+  close_reason: t.close_reason,
+  closed_by_name: t.closed_by_name,
+  force_closed_at: t.force_closed ? t.completed_at ?? null : null,
+};
+// 실제 worker + placeholder worker 양쪽에 주입
+```
+
+#### 2-4. ProcessStepCard worker row 상태 컬럼 대체
+```typescript
+// Before: 미시작 | 04/10 08:52 → 04/10 10:30
+// After (w.force_closed=true): 🔒 강제종료 04/17 14:28
+{w.force_closed
+  ? `🔒 강제종료${w.force_closed_at ? ' ' + formatTime(w.force_closed_at) : ''}`
+  : (displayStatus === 'waiting'
+      ? '미시작'
+      : `${formatTime(w.started_at)} → ${w.completed_at ? formatTime(w.completed_at) : '진행중'}`)}
+```
+
+- `title` 속성 툴팁: `사유: ... / 처리: 이*만 / 종료: 2026-04-17 14:28`
+- 색상: `--gx-danger` + `fontWeight: 600` 강조
+- duration 컬럼: force_closed면 '—' 표시
+- 강제종료 버튼 숨김: `!w.force_closed` 조건 추가 (이미 종료된 row에서 버튼 중복 방지)
+
+#### 2-5. v1.32.0 데드 코드 제거
+- `workers.length === 0 && force_closed` placeholder JSX 삭제 → 단순 '대기중' fallback만 유지
+- SNDetailPanel 항상 placeholder 주입하므로 실질적으로 도달 불가 경로
+
+## 교차 검증 (Codex 2026-04-17)
+
+### 설계 단계 지적 (v1.32.0 반영)
+1. **M (Must fix)** — `formatDateTime` 유틸 부재: 설계서 L435 "기존 util 사용"이나 실제로는 ChecklistReportView 로컬 함수 → 옵션 A(승격) 채택
+2. **A (Advisory)** — `force_closed` 중복 기재: 설계서 주석 개선 ("기존 유지, Sprint 33 L46에 이미 존재")
+3. **A (Advisory)** — HOTFIX-04 BE 배포 상태 미반영: `🔴 OPEN` → `🟢 BE READY` 갱신
+
+### 실사용 단계 지적 (v1.32.1 반영)
+4. **M (Must fix)** — placeholder JSX 데드 코드: SNDetailPanel 병합 방식 재확인 필요 → per-row 전파로 재설계
+
+## 검증 체크리스트
+
+### 코드 검증
+```
+[x] 타입 확장 — TaskWorker 4필드 (force_closed/close_reason/closed_by_name/force_closed_at)
+[x] SNDetailPanel 병합 로직 — 실제 worker + placeholder 양쪽에 force_closed 필드 전파
+[x] ProcessStepCard 상태 컬럼 — force_closed 시 '🔒 강제종료 mm/dd hh:mm' 대체
+[x] title 툴팁 — 사유/처리자/종료 시각 표시
+[x] 강제종료 버튼 이중 노출 방지 — !w.force_closed 조건 추가
+[x] duration 컬럼 정규화 — force_closed면 '—'
+[x] 데드 코드 제거 — workers.length === 0 placeholder JSX
+[x] formatTime import — 기존 (변경 없음)
+[x] formatDateTime import — FE-19에서 추가된 상태 유지
+[x] maskName import — 기존 (변경 없음)
+[x] 빌드 GREEN (2.53s, 3279 modules)
+```
+
+### 스테이징 검증 (배포 후)
+```
+[ ] TM 모듈 카드: 미시작 2 row가 '🔒 강제종료 04/17 14:28'으로 대체됨
+[ ] SI 마무리 카드: 동일 형태 확인
+[ ] ELEC 전장: 박*현/김*욱 Case 1 → BE가 'completed' 반환 시 기존 경로 정상 동작
+[ ] 툴팁 hover: 사유/처리자 마스킹/종료 시각 3줄 표시
+[ ] 강제종료 버튼 중복 노출 없음
+[ ] 재활성화 버튼 정상 동작 (force_closed task도 관리자 되돌리기 허용)
+```
+
+## 영향 범위
+
+| 파일 | v1.32.0 | v1.32.1 |
+|---|---|---|
+| `types/snStatus.ts` | SNTaskDetail 3필드 추가 | TaskWorker 4필드 추가 |
+| `components/sn-status/ProcessStepCard.tsx` | taskStatus 분기 + workers=[] JSX + import | 상태 컬럼 대체 + 버튼 guard + 데드 코드 제거 |
+| `components/sn-status/SNDetailPanel.tsx` | 변경 없음 | 병합 로직에 force_closed 전파 |
+| `utils/format.ts` | formatDateTime 신규 export | 변경 없음 |
+| `components/partner/ChecklistReportView.tsx` | 로컬 함수 제거 + import 교체 | 변경 없음 |
+
+## 회고
+
+- **설계 단계에서 놓친 점**: placeholder 주입 로직(SNDetailPanel)과 FE-19 설계 스코프(ProcessStepCard workers=[])가 서로 배타적이라는 사실을 설계서에서 간과. 병합 방식을 먼저 확인했어야 함.
+- **교차 검증 한계**: Codex 설계 리뷰는 `workers=[]`일 때의 JSX 논리를 검증했지만, "실제로 그 경로로 진입하는지"는 런타임 관찰이 필요한 영역. 코드 정적 분석만으로는 데드 코드 판정이 어려움.
+- **교훈**: 병합/정규화 계층이 있는 컴포넌트에 대해서는 "상위 컴포넌트가 하위에 어떤 데이터를 전달하는지" 실경로 추적이 선행되어야 함.
+
