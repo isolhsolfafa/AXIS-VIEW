@@ -1,7 +1,7 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.31.0';
+export const APP_VERSION = 'v1.32.0';
 export const BUILD_DATE = '2026-04-17';
 
 // 버전 이력
@@ -48,3 +48,4 @@ export const BUILD_DATE = '2026-04-17';
 // v1.29.0| 2026-04-16 | QR 개선        | QR 관리 전장협력사 컬럼 + 필터
 // v1.30.0| 2026-04-16 | Sprint 32      | 체크리스트 관리 ELEC 항목 추가/수정 + Sprint 60-BE 연동
 // v1.31.0| 2026-04-17 | Sprint 33      | 미종료 작업 관리 (강제종료 + 미시작 표시 + 권한)
+// v1.32.0| 2026-04-17 | HOTFIX-04/FE-19| ProcessStepCard 강제종료 placeholder 렌더 + formatDateTime 유틸 승격

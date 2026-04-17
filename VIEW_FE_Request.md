@@ -98,10 +98,12 @@ CategoryTable 헤더에 `phase_label` 표시:
 > ⚠️ **주의**: ELEC `/status` 엔드포인트는 현재 BE에 미존재. Sprint 58-BE Task 4에서 신규 생성 예정.
 > 대안: 기존 상세 조회(`/api/app/checklist/elec/{sn}?phase=`)에서 FE가 count 파생.
 
-### FE-08. ProcessStepCard ELEC 체크리스트 표시 [BE 선행]
+### FE-08. ProcessStepCard ELEC 체크리스트 표시 [BE 선행] — ✅ DONE (2026-04-17 DOC-SYNC-01 검증)
 
 BE에서 ELEC status API 정상 반환 확인 후, 기존 checklist prop 전달 로직으로 자동 표시.
 추가 FE 수정 불필요 (확인만).
+
+> **검증 결과**: `frontend/app/src/api/checklist.ts:L89-L104` — `getChecklistStatus()` 함수에 ELEC 카테고리 처리 로직 포함 (CAT_MAP). `ProcessStepCard.tsx`는 checklist prop 전달로 자동 표시.
 
 ### FE-12. 체크리스트 관리 ELEC 블러 해제 — `ChecklistManagePage.tsx` ✅ DONE (2026-04-17 상태 확인)
 
@@ -259,9 +261,10 @@ curl -s ... | grep -c '"checker_role"'
 | `api/admin.ts` (신규 or 기존) | `forceCloseTask(taskId, reason, completedAt)` API 함수 |
 | `types/snStatus.ts` | `SNTask`에 `force_closed?: boolean` 추가 |
 
-### FE-16. 미종료 작업 전용 요약 페이지 — **별도 Sprint으로 분리** [BE 선행]
+### FE-16. 미종료 작업 전용 요약 페이지 — **별도 Sprint으로 분리** [BE 선행] — 🟡 BACKLOG (2026-04-17 DOC-SYNC-01 재확인)
 
 > ⚠️ Sprint 33 범위 외. FE-15 완료 후 별도 Sprint 배정.
+> **검증 결과 (2026-04-17)**: BE `GET /api/admin/tasks/pending?include_not_started=true` 엔드포인트 미존재 확인. FE 페이지(`/admin/pending-tasks`)도 미구현. 의도대로 **보류 상태 유지** — FE-15 운영 상황 본 후 필요성 재판단.
 
 SNStatusPage 와 별개로, 전체 S/N 통합 미종료/미시작 task 리스트 전용 페이지.
 
@@ -331,6 +334,121 @@ mutationFn: ({ taskId, reason, completedAt }: ForceClosePayload) =>
 - Sprint 33 FE-15의 모달(사유 입력 + `datetime-local`)은 이미 올바르게 `{ taskId, reason, completedAt }` 형태로 호출 중 — FE-17 1곳 수정만으로 전체 복구
 
 **작업 주체**: VSCode 터미널 (Claude + Codex 교차검증 후 pytest + VIEW 빌드)
+
+---
+
+## HOTFIX-04 연계 — 강제종료 표시 누락 보정
+
+> BE 설계: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` HOTFIX-04 섹션 (방안 B + 확장 A 통합, M2 옵션 C' 재확정)
+> 등록: 2026-04-17 · Codex 재검증 M1/M2/A1/A2 반영: 2026-04-17 · **배포 완료: v2.9.8 (2026-04-17)**
+> **FE 영향 없음(키 계약 불변)**: BE 내부 구현이 후처리 루프 → 모델 필드 + SELECT JOIN(옵션 C')으로 바뀌었으나 VIEW가 받는 응답 키는 `close_reason`/`closed_by`/`closed_by_name` 동일 → 본 FE-19 JSX·타입 변경 없음
+> **구현 전제 (2026-04-17 결정)**: `formatDateTime` 공통 유틸 — `ChecklistReportView.tsx` L25 로컬 함수를 `utils/format.ts`로 **선승격 완료** (Codex 지적 #1 옵션 A 채택). FE-19 구현 시 `import { formatDateTime } from '@/utils/format'` 사용. REFACTOR-FMT-01 나머지 2건(`formatDate` in QrManagementPage / InactiveWorkersPage)은 BACKLOG 유지.
+
+### FE-19. ProcessStepCard 강제종료 placeholder 렌더 — ✅ DONE (2026-04-17, v1.32.0)
+
+> **구현 완료 (2026-04-17, v1.32.0)**: `ProcessStepCard.tsx` 2곳(`taskStatus()` L55 분기 + L178 workers=[] placeholder JSX) + `types/snStatus.ts` 3필드(`close_reason?` / `closed_by_name?` / `completed_at?`) 추가 + `formatDateTime` util import. 빌드 GREEN 확인. BE HOTFIX-04 v2.9.8와 동시 동작 검증 대기 (스테이징 배포 후 Case 2 육안 확인 예정).
+
+**배경**: HOTFIX-04 BE가 task 응답에 `close_reason`, `closed_by_name` 2키를 추가. 이로써 VIEW에서 두 가지 케이스를 동시 해소.
+
+| Case | 기존 동작 | 기대 동작 |
+|---|---|---|
+| Case 1 — Orphan `work_start_log` (wsl 있음 + wcl 없음) | worker row "진행중" 표시 (BE가 `in_progress` 반환) | BE 쪽에서 자동 `completed` 반환 → **VIEW 수정 불필요** |
+| Case 2 — 미시작 강제종료 (wsl 자체 없음) | 상단 `🔒 강제종료` 뱃지 + 하단 "대기중" 텍스트 (시각/사유 소실) | 상단 뱃지 `✅ 완료` + placeholder row (처리자 마스킹 + 종료 시각 + 사유 표시) |
+
+본 FE-19는 **Case 2 전용**. Case 1은 BE 배포 시점에 기존 렌더링 로직 그대로 정상 동작.
+
+**수정 — `app/src/components/sn-status/ProcessStepCard.tsx`** (단일 파일, 2곳):
+
+1. **L55 `taskStatus()` 분기 확장**:
+```typescript
+// Before
+if (!task || task.workers.length === 0) return 'waiting';
+
+// After
+if (!task || task.workers.length === 0) {
+  if (task?.force_closed) return 'completed';   // 미시작 강제종료 케이스
+  return 'waiting';
+}
+```
+
+2. **L178~L180 workers=[] 블록 확장**:
+```tsx
+// Before
+{workers.length === 0 && status === 'waiting' && !hasChecklist && (
+  <div style={{ fontSize: '12px', color: 'var(--gx-silver)' }}>대기중</div>
+)}
+
+// After
+{workers.length === 0 && !hasChecklist && (
+  task?.force_closed ? (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '8px',
+      padding: '6px 4px', fontSize: '12px',
+      background: 'rgba(239,68,68,0.04)', borderRadius: '4px',
+    }}>
+      <span style={{ color: 'var(--gx-slate)', fontWeight: 500 }}>
+        👤 (강제 종료 · 작업 이력 없음)
+      </span>
+      {task.closed_by_name && (
+        <span style={{ color: 'var(--gx-steel)', fontSize: '11px' }}>
+          처리: {maskName(task.closed_by_name)}
+        </span>
+      )}
+      {task.completed_at && (
+        <span style={{
+          color: 'var(--gx-steel)', fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '11px', marginLeft: 'auto',
+        }}>
+          {formatDateTime(task.completed_at)}
+        </span>
+      )}
+      {task.close_reason && (
+        <span style={{ color: 'var(--gx-silver)', fontSize: '11px', width: '100%', marginTop: '4px' }}>
+          사유: {task.close_reason}
+        </span>
+      )}
+    </div>
+  ) : (
+    <div style={{ fontSize: '12px', color: 'var(--gx-silver)' }}>대기중</div>
+  )
+)}
+```
+
+**보조 수정 — `app/src/types/snStatus.ts`**: `SNTaskDetail` 인터페이스에 선택 필드 2개 추가.
+
+```typescript
+export interface SNTaskDetail {
+  // ... 기존 필드
+  force_closed?: boolean;     // 기존 유지 (Sprint 33 #61에서 L46에 이미 추가됨)
+  close_reason?: string;      // 신규
+  closed_by_name?: string;    // 신규 (마스킹 전 원문, VIEW에서 maskName() 적용)
+}
+```
+
+**영향 범위**:
+- 파일: `ProcessStepCard.tsx` + `types/snStatus.ts` 2개
+- 예상 diff: 약 30~40줄 (placeholder JSX 포함)
+- `workers.length > 0` 기존 경로 영향 없음 (조건 분기 neutral)
+- Case 1(Orphan wsl) 은 본 FE-19와 독립적으로 BE 배포 시점에 자동 정상화
+
+**검증 방법**:
+1. 스테이징 배포 후 `TM 모듈` 가압검사 Card 에 placeholder row 가 렌더되는지 육안 확인
+2. 처리자 이름이 `maskName()` 규칙에 따라 `김*규` 형태로 마스킹되는지 확인
+3. `close_reason` 원문 그대로(마스킹 없음) 표시 확인
+4. `completed_at` 이 KST(+09:00) 기준으로 표시되는지 확인 (`utils/format.ts` 의 `formatDateTime` 공통 유틸 사용 — 2026-04-17 선승격 완료)
+5. Case 1 회귀: 박*현/김*욱이 `ELEC 전장` 상세뷰에서 KST 종료 시각 + "완료" 뱃지 표시 (FE 변경 불필요, 자동 정상화 확인)
+
+**의존 관계**:
+- 🟢 **BE 배포 완료 (v2.9.8, 2026-04-17)** — `AGENT_TEAM_LAUNCH.md` HOTFIX-04 BE 반영 완료 → FE 착수 가능
+- BE 응답 키 누락 시 `task?.force_closed`만 true, 나머지 필드 undefined → placeholder가 처리자/사유 미표시 상태로 안전하게 degrade (Guard 조건 `task.closed_by_name &&` / `task.close_reason &&` 로 조건부 렌더)
+- **TC-FORCECLOSE-NS-04 (Codex A1) 대응**: legacy 강제종료 레코드(`closed_by IS NULL`)는 BE LEFT JOIN 결과 `closed_by_name` undefined → `{task.closed_by_name && ...}` guard 에서 처리자 span 자동 생략, "처리: ?" 같은 깨진 문구 나오지 않음 (backward-compat 보장, 추가 FE 변경 불필요)
+
+**교차 검증 합의 포인트**:
+- BE가 `closed_by_name`을 미리 마스킹해서 보내지 않음 — VIEW에서 기존 `maskName()` 재사용 (다른 worker 이름 마스킹과 일관)
+- `close_reason`은 관리자 자유 텍스트 → 마스킹 대상 아님 (일반 표시)
+- Case 1 FE 분기 추가 시도 금지 — BE 계약에서 이미 `status='completed'` 반환하므로 기존 렌더링 경로 활용
+
+**작업 주체**: VSCode 터미널 (Claude + Codex 교차검증, BE HOTFIX-04 배포 직후 FE 적용)
 
 ---
 

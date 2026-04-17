@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-04-17 | 버전: v1.31.0
+> 최종 갱신: 2026-04-17 | 버전: v1.32.0
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -431,6 +431,18 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | 40-C+ | Manager 비활성화 요청 기능 | ✅ 완료 |
 | 32 | 체크리스트 관리 ELEC 항목 추가/수정 + Sprint 60-BE 연동 | ✅ 완료 |
 | 33 | 미종료 작업 관리 (강제종료 + 미시작 표시 + 권한) | ✅ 완료 |
+| HOTFIX-04 / FE-19 | ProcessStepCard 강제종료 placeholder 렌더 (Case 2) + `formatDateTime` 유틸 승격 (v1.32.0) | ✅ 완료 |
+
+### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)
+
+| 항목 | 내용 | 상태 |
+|---|---|---|
+| REFACTOR-FMT-01 (나머지) | `formatDate` 2건(QrManagementPage / InactiveWorkersPage) 공통 유틸 승격 + fallback 인자 옵션 + invalid Date 가드 | 🟡 BACKLOG (우선순위 낮음, 리팩토링 건) |
+
+**참조**:
+- FE-19 구현 상세: `VIEW_FE_Request.md` L340~ (HOTFIX-04 연계 섹션)
+- REFACTOR-FMT-01 BACKLOG 상세: `AXIS-OPS/BACKLOG.md` TECH-REFACTOR-FMT-01 행
+- HOTFIX-04 BE 설계·배포 상세: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` HOTFIX-04 섹션
 
 ---
 

@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.31.0 (2026-04-17)
+> 최신 버전: v1.32.0 (2026-04-17)
 
 ---
 
@@ -70,6 +70,28 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.32.0 — 2026-04-17
+
+**HOTFIX-04 / FE-19 — 강제종료 표시 누락 보정 + formatDateTime 유틸 승격**
+
+### 생산현황 — 미시작 강제종료 placeholder 렌더 (FE-19)
+- `ProcessStepCard.tsx`: `taskStatus()` 분기 확장 — `force_closed && workers=[]`면 `'completed'`로 판정 (상단 뱃지 `✅ 완료`)
+- workers=[] 블록 확장: 기존 "대기중" 텍스트 → placeholder row (처리자 마스킹 + 종료 시각 + 사유 표시)
+- Guard 조건 (`task.closed_by_name && ...`, `task.close_reason && ...`)로 legacy 데이터(`closed_by IS NULL`) 안전 degrade
+- BE 선행: `AXIS-OPS` HOTFIX-04 v2.9.8 배포 완료 (task 응답에 `close_reason`/`closed_by`/`closed_by_name` 3키 추가)
+
+### 타입 확장 — `SNTaskDetail`
+- `close_reason?: string` — 강제종료 사유
+- `closed_by_name?: string` — 처리자 원문(마스킹 전)
+- `completed_at?: string | null` — placeholder row 종료 시각
+
+### 리팩토링 — `formatDateTime` 공통 유틸 승격
+- `ChecklistReportView.tsx` 로컬 함수 → `utils/format.ts`로 이관 (옵션 A 채택)
+- null/undefined 가드 추가 (`string | null | undefined`)
+- `formatDate` 2건(QrManagementPage / InactiveWorkersPage) 일괄 승격은 BACKLOG(TECH-REFACTOR-FMT-01) 유지
 
 ---
 

@@ -1,19 +1,28 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-04-16
+> 마지막 업데이트: 2026-04-17
 
 ---
 
 ## 현재 버전
 
-- **VIEW FE**: v1.31.0
-- **최근 Sprint**: Sprint 33 (미종료 작업 관리)
-- **최근 완료**: v1.30.0 (Sprint 32), v1.31.0 (Sprint 33)
+- **VIEW FE**: v1.32.0
+- **최근 작업**: HOTFIX-04 연계 FE-19 (강제종료 placeholder 렌더)
+- **최근 완료**: v1.31.0 (Sprint 33), v1.32.0 (HOTFIX-04/FE-19)
 
 ---
 
-## 직전 세션 작업 내용 (2026-04-17)
+## 직전 세션 작업 내용 (2026-04-17 후반부)
+
+### v1.32.0 — HOTFIX-04 / FE-19 강제종료 표시 누락 보정
+1. **선행 리팩토링**: `ChecklistReportView.tsx` 로컬 `formatDateTime` → `utils/format.ts`로 승격 (REFACTOR-FMT-01 1/3)
+2. **타입 확장**: `SNTaskDetail`에 `close_reason?`, `closed_by_name?`, `completed_at?` 3필드 추가
+3. **ProcessStepCard.tsx**: `taskStatus()` L55 force_closed 분기, L178 workers=[] placeholder JSX (처리자 마스킹 + 종료시각 + 사유) + `formatDateTime` import
+4. **Guard 조건**: `task.closed_by_name && ...`, `task.close_reason && ...` — legacy(`closed_by IS NULL`) 안전 degrade
+5. **문서 정리**: VIEW_FE_Request.md FE-19 DONE 마킹 + CLAUDE.md Sprint 이력 등재 + CHANGELOG v1.32.0 섹션
+6. **BE 선행**: AXIS-OPS HOTFIX-04 v2.9.8 배포 완료 (task 응답에 3키 추가)
+7. **검증 대기**: 스테이징 배포 후 Case 2(미시작 강제종료) placeholder 육안 확인
 
 ### v1.31.0 — Sprint 33 미종료 작업 관리
 1. **타입 확장**: TaskWorker.company, SNTaskDetail.force_closed 추가

@@ -8,7 +8,7 @@ import type { SNTaskDetail } from '@/types/snStatus';
 import type { ChecklistStatusResponse } from '@/types/checklist';
 import { useTaskReactivate } from '@/hooks/useTaskReactivate';
 import { useForceClose } from '@/hooks/useForceClose';
-import { maskName } from '@/utils/format';
+import { maskName, formatDateTime } from '@/utils/format';
 
 interface ProcessStepCardProps {
   task: SNTaskDetail | null;
@@ -52,7 +52,10 @@ function taskStatus(
     if (categoryPercent > 0) return 'in_progress';
     return 'waiting';
   }
-  if (!task || task.workers.length === 0) return 'waiting';
+  if (!task || task.workers.length === 0) {
+    if (task?.force_closed) return 'completed';   // FE-19: 미시작 강제종료 케이스
+    return 'waiting';
+  }
   if (task.workers.every(w => w.status === 'completed')) return 'completed';
   if (task.workers.some(w => w.status === 'in_progress' || w.status === 'completed')) return 'in_progress';
   return 'waiting';
@@ -175,8 +178,50 @@ export default function ProcessStepCard({
       </div>
 
       {/* 작업자 목록 */}
-      {workers.length === 0 && status === 'waiting' && !hasChecklist && (
-        <div style={{ fontSize: '12px', color: 'var(--gx-silver)' }}>대기중</div>
+      {workers.length === 0 && !hasChecklist && (
+        task?.force_closed ? (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '8px',
+            padding: '6px 4px',
+            fontSize: '12px',
+            background: 'rgba(239,68,68,0.04)',
+            borderRadius: '4px',
+          }}>
+            <span style={{ color: 'var(--gx-slate)', fontWeight: 500 }}>
+              👤 (강제 종료 · 작업 이력 없음)
+            </span>
+            {task.closed_by_name && (
+              <span style={{ color: 'var(--gx-steel)', fontSize: '11px' }}>
+                처리: {maskName(task.closed_by_name)}
+              </span>
+            )}
+            {task.completed_at && (
+              <span style={{
+                color: 'var(--gx-steel)',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '11px',
+                marginLeft: 'auto',
+              }}>
+                {formatDateTime(task.completed_at)}
+              </span>
+            )}
+            {task.close_reason && (
+              <span style={{
+                color: 'var(--gx-silver)',
+                fontSize: '11px',
+                width: '100%',
+                marginTop: '4px',
+              }}>
+                사유: {task.close_reason}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div style={{ fontSize: '12px', color: 'var(--gx-silver)' }}>대기중</div>
+        )
       )}
       {workers.length > 0 && (
         <div style={{ marginBottom: hasChecklist ? '10px' : '0' }}>

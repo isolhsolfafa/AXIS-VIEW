@@ -44,4 +44,7 @@ export interface SNTaskDetail {
   workers: TaskWorker[];
   my_status: string;
   force_closed?: boolean;    // Sprint 33: 강제종료 뱃지 (#61)
+  close_reason?: string;     // FE-19 (HOTFIX-04): 강제종료 사유
+  closed_by_name?: string;   // FE-19 (HOTFIX-04): 처리자 원문(마스킹 전) — VIEW에서 maskName() 적용
+  completed_at?: string | null; // FE-19 (HOTFIX-04): placeholder row 종료 시각 표시
 }

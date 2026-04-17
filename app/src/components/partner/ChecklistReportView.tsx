@@ -2,7 +2,7 @@
 // 체크리스트 성적서 뷰 — Sprint 28
 
 import { Download } from 'lucide-react';
-import { maskName } from '@/utils/format';
+import { maskName, formatDateTime } from '@/utils/format';
 import type { ChecklistReportData, ChecklistReportCategory } from '@/types/checklist';
 
 // GST 로고
@@ -20,17 +20,6 @@ function splitDescription(desc: string | null): [string, string] {
   const idx = desc.indexOf(' / ');
   if (idx >= 0) return [desc.slice(0, idx), desc.slice(idx + 3)];
   return [desc, '—'];
-}
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
-  return `${y}-${m}-${dd} ${hh}:${mi}`;
 }
 
 // ── PDF Export ──
