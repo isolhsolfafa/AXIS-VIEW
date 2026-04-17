@@ -7,13 +7,21 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.32.1
-- **최근 작업**: FE-19.1 후속 보정 (per-row 강제종료 표시)
-- **최근 완료**: v1.31.0 (Sprint 33), v1.32.0 (HOTFIX-04/FE-19), v1.32.1 (FE-19.1 후속)
+- **VIEW FE**: v1.32.2
+- **최근 작업**: FE-19.2 후속 (툴팁 즉시 반응)
+- **최근 완료**: v1.32.0 (HOTFIX-04/FE-19), v1.32.1 (per-row 표시), v1.32.2 (툴팁 즉시 반응)
 
 ---
 
-## 직전 세션 작업 내용 (2026-04-18)
+## 직전 세션 작업 내용 (2026-04-18 후반부)
+
+### v1.32.2 — FE-19.2 후속 (툴팁 즉시 반응)
+1. **이슈**: v1.32.1 툴팁이 HTML 기본 `title` 속성 기반이라 500~700ms 딜레이
+2. **해결**: CSS `.fc-tooltip` + `data-tooltip` 패턴 — `:hover::after/::before`로 즉시 렌더
+3. **index.css**: 재사용 가능 공통 툴팁 CSS 추가 (--gx-charcoal 배경 + 화살표 + pre-line)
+4. **ProcessStepCard 강제종료 상태 컬럼**: `title` → `className="fc-tooltip"` + `data-tooltip` 교체
+
+---
 
 ### v1.32.1 — FE-19.1 후속 (per-row 강제종료 표시)
 1. **문제**: v1.32.0의 `workers.length === 0` placeholder JSX가 실제 렌더 경로(SNDetailPanel 항상 placeholder 주입)에서 데드 코드로 확인됨 → 카드 레벨 `🔒 강제종료` 뱃지만 표시되어 row별 식별 불가

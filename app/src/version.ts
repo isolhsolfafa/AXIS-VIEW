@@ -1,7 +1,7 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.32.1';
+export const APP_VERSION = 'v1.32.2';
 export const BUILD_DATE = '2026-04-18';
 
 // 버전 이력
@@ -50,3 +50,4 @@ export const BUILD_DATE = '2026-04-18';
 // v1.31.0| 2026-04-17 | Sprint 33      | 미종료 작업 관리 (강제종료 + 미시작 표시 + 권한)
 // v1.32.0| 2026-04-17 | HOTFIX-04/FE-19| ProcessStepCard 강제종료 placeholder 렌더 + formatDateTime 유틸 승격
 // v1.32.1| 2026-04-18 | FE-19.1 후속   | per-row 강제종료 표시 — 상태 컬럼 '🔒 강제종료 mm/dd hh:mm' 대체 + 툴팁 + 데드 코드 정리
+// v1.32.2| 2026-04-18 | FE-19.2 후속   | 강제종료 툴팁 즉시 반응 (browser title 딜레이 회피) — CSS .fc-tooltip + data-tooltip 패턴

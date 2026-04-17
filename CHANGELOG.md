@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.32.1 (2026-04-18)
+> 최신 버전: v1.32.2 (2026-04-18)
 
 ---
 
@@ -70,6 +70,19 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.32.2 — 2026-04-18
+
+**FE-19.2 후속 — 강제종료 툴팁 즉시 반응**
+
+### 생산현황 S/N 상세 — 툴팁 UX 개선
+- 브라우저 기본 `title` 속성 500~700ms 딜레이 회피
+- CSS `.fc-tooltip` + `data-tooltip` 패턴으로 즉시 반응 툴팁 구현
+- 디자인: `--gx-charcoal` 배경 + 흰색 텍스트, 상단 화살표, `pre-line` 줄바꿈, 180~320px 폭
+- `index.css` 하단에 재사용 가능한 공통 CSS 추가 (`.fc-tooltip[data-tooltip]:hover::after/::before`)
+- `ProcessStepCard` 강제종료 row 상태 컬럼: `title` 속성 → `className` + `data-tooltip` 교체
 
 ---
 

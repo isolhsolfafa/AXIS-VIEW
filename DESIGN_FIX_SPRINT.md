@@ -14267,3 +14267,37 @@ const forceClosedFields = {
 - **교차 검증 한계**: Codex 설계 리뷰는 `workers=[]`일 때의 JSX 논리를 검증했지만, "실제로 그 경로로 진입하는지"는 런타임 관찰이 필요한 영역. 코드 정적 분석만으로는 데드 코드 판정이 어려움.
 - **교훈**: 병합/정규화 계층이 있는 컴포넌트에 대해서는 "상위 컴포넌트가 하위에 어떤 데이터를 전달하는지" 실경로 추적이 선행되어야 함.
 
+---
+
+### v1.32.2 (2026-04-18) — FE-19.2 툴팁 즉시 반응
+
+#### 배경
+v1.32.1 배포 후 사용자 피드백: "hover 뜨는게 좀 늦네" — 브라우저 기본 `title` 속성이 500~700ms 딜레이를 가짐 (OS/브라우저 레벨 제어, CSS/JS로 조정 불가).
+
+#### 해결 — CSS 기반 즉시 반응 툴팁
+- **`index.css`**: `.fc-tooltip[data-tooltip]:hover::after/::before` 공통 CSS 추가
+  - `::after`: 내용 표시 (--gx-charcoal 배경, 흰색 텍스트, `pre-line` 줄바꿈, 180~320px)
+  - `::before`: 상단 화살표 (border triangle)
+  - `z-index: 1000`, `pointer-events: none`
+- **`ProcessStepCard.tsx`**: 강제종료 row 상태 컬럼
+  - 기존 `title={...}` 속성 제거
+  - `className="fc-tooltip"` + `data-tooltip="사유: ...\n처리: ...\n종료: ..."` 속성 교체
+  - `cursor: 'help'` 유지 (force_closed일 때만)
+
+#### 장점
+- 호버 즉시 반응 (브라우저 딜레이 0ms)
+- 커스텀 스타일링 (G-AXIS 디자인 시스템 컬러 적용)
+- `pre-line` CSS로 `\n` 줄바꿈 유지
+- 재사용 가능한 공통 패턴 (다른 곳에서도 `fc-tooltip` 클래스로 활용 가능)
+
+#### 검증 체크리스트
+```
+[x] CSS 추가 (index.css 말미)
+[x] ProcessStepCard 속성 교체 (title → className + data-tooltip)
+[x] 빌드 GREEN (2.81s)
+[ ] 스테이징: hover 즉시 반응 확인
+[ ] 스테이징: 툴팁 위치(row 상단) + 화살표 표시
+[ ] 스테이징: 3줄 줄바꿈 (사유/처리/종료) 정상
+[ ] non-force_closed row는 기존 동작 유지 (툴팁 없음)
+```
+
