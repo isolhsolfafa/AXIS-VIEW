@@ -28,6 +28,7 @@ export interface SNProgressResponse {
 export interface TaskWorker {
   worker_id: number;
   worker_name: string;
+  company?: string | null;   // Sprint 33: Manager 행 레벨 권한 (#60)
   started_at: string | null;
   completed_at: string | null;
   duration_minutes: number | null;
@@ -37,9 +38,10 @@ export interface TaskWorker {
 }
 
 export interface SNTaskDetail {
-  id: number;
+  id: number;                // = app_task_details.id
   task_name: string;
   task_category: string;
   workers: TaskWorker[];
   my_status: string;
+  force_closed?: boolean;    // Sprint 33: 강제종료 뱃지 (#61)
 }

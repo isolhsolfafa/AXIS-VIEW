@@ -529,7 +529,7 @@ export default function ProductionPlanPage() {
                         <td style={{ padding: '11px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px', color: 'var(--gx-graphite)' }}>{row.sales_order}</td>
                         <td style={{ padding: '11px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px', color: 'var(--gx-graphite)' }}>{row.product_code}</td>
                         <td style={{ padding: '11px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px', color: 'var(--gx-graphite)' }}>{row.serial_number}</td>
-                        <td style={{ padding: '11px 14px', fontWeight: 600, color: 'var(--gx-charcoal)', whiteSpace: 'nowrap' }}>{row.model}</td>
+                        <td style={{ padding: '11px 14px', fontWeight: 600, color: 'var(--gx-charcoal)', maxWidth: '180px', wordBreak: 'keep-all', lineHeight: '1.4' }}>{row.model}</td>
                         <td style={{ padding: '11px 14px', color: 'var(--gx-graphite)', fontSize: '12.5px' }}>{row.customer}</td>
                         <td style={{ padding: '11px 14px', color: 'var(--gx-graphite)', fontSize: '12.5px' }}>{row.line}</td>
                         <td style={{ padding: '11px 14px', color: 'var(--gx-graphite)', fontSize: '12.5px' }}>{row.mech_partner}</td>

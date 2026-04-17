@@ -1,7 +1,7 @@
 // src/components/sn-status/SNDetailPanel.tsx
-// S/N 상세 사이드 패널 — Sprint 18 + Sprint 20 체크리스트 연동
+// S/N 상세 사이드 패널 — Sprint 33 (미종료/미시작 관리 + 강제종료)
 
-import type { SNProduct, SNTaskDetail } from '@/types/snStatus';
+import type { SNProduct, SNTaskDetail, TaskWorker } from '@/types/snStatus';
 import { PROCESS_ORDER, PROCESS_LABEL } from './constants';
 import ProcessStepCard from './ProcessStepCard';
 import { useChecklist } from '@/hooks/useChecklist';
@@ -9,13 +9,44 @@ import { useChecklist } from '@/hooks/useChecklist';
 // 체크리스트 대상 카테고리 (MECH/ELEC/TMS만)
 const CHECKLIST_CATEGORIES = new Set(['MECH', 'ELEC', 'TMS']);
 
+// 미종료 경고 기준 (14시간)
+const OVERDUE_HOURS = 14;
+
 interface SNDetailPanelProps {
   serialNumber: string;
   product: SNProduct;
   tasks: SNTaskDetail[];
   isLoading: boolean;
   onClose: () => void;
-  canReactivate?: boolean;  // Sprint 23: 재활성화 버튼 표시 여부
+  canReactivate?: boolean;
+  canForceClose?: boolean;     // Sprint 33: 강제종료 버튼 표시 여부 (Admin 또는 Manager)
+  currentUserCompany?: string; // Sprint 33: Manager 행 레벨 권한 판단용
+  isAdmin?: boolean;           // Sprint 33: Admin은 모든 task 강제종료 가능
+}
+
+// 카테고리별 미종료/미시작 건수 계산
+// allTasks: S/N 전체 tasks (미시작 판단용 — "같은 S/N 다른 task 완료" 조건)
+function getPendingCounts(catTasks: SNTaskDetail[], allTasks: SNTaskDetail[]) {
+  const now = Date.now();
+
+  // 미종료: task_detail 단위 dedup (같은 task에 여러 worker가 있어도 1건)
+  const overdueTaskIds = new Set<number>();
+  for (const t of catTasks) {
+    for (const w of t.workers) {
+      if (w.started_at && !w.completed_at) {
+        const elapsed = (now - new Date(w.started_at).getTime()) / (1000 * 60 * 60);
+        if (elapsed > OVERDUE_HOURS) overdueTaskIds.add(t.id);
+      }
+    }
+  }
+
+  // 미시작: workers=[]인 task (S/N 전체에서 완료 task 있을 때만)
+  const hasCompletedAnywhere = allTasks.some(t => t.workers.some(w => w.status === 'completed'));
+  const notStartedCount = hasCompletedAnywhere
+    ? catTasks.filter(t => t.workers.length === 0).length
+    : 0;
+
+  return { overdueCount: overdueTaskIds.size, notStartedCount };
 }
 
 // 각 카테고리별 체크리스트 hook wrapper
@@ -25,12 +56,20 @@ function ChecklistProcessCard({
   task,
   categoryPercent,
   canReactivate,
+  canForceClose,
+  currentUserCompany,
+  isAdmin,
+  pendingBadges,
 }: {
   cat: string;
   serialNumber: string;
   task: SNTaskDetail | null;
   categoryPercent?: number;
   canReactivate?: boolean;
+  canForceClose?: boolean;
+  currentUserCompany?: string;
+  isAdmin?: boolean;
+  pendingBadges?: React.ReactNode;
 }) {
   const { data: checklist, isLoading: clLoading } = useChecklist(serialNumber, cat);
   return (
@@ -41,11 +80,15 @@ function ChecklistProcessCard({
       checklist={checklist}
       checklistLoading={clLoading}
       canReactivate={canReactivate}
+      canForceClose={canForceClose}
+      currentUserCompany={currentUserCompany}
+      isAdmin={isAdmin}
+      pendingBadges={pendingBadges}
     />
   );
 }
 
-export default function SNDetailPanel({ serialNumber, product, tasks, isLoading, onClose, canReactivate }: SNDetailPanelProps) {
+export default function SNDetailPanel({ serialNumber, product, tasks, isLoading, onClose, canReactivate, canForceClose, currentUserCompany, isAdmin }: SNDetailPanelProps) {
   const completedCount = PROCESS_ORDER.filter(cat => {
     const catData = product.categories[cat];
     return catData && catData.percent === 100;
@@ -152,19 +195,67 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
             const catTasks = tasks.filter(t => t.task_category === cat);
 
             // 같은 카테고리의 모든 task workers를 병합하여 1개 카드로 렌더링
+            // Sprint 33: workers=[]인 미시작 task도 포함 (flatMap 소실 방지)
+            const allWorkers: TaskWorker[] = [];
+            for (const t of catTasks) {
+              if (t.workers.length > 0) {
+                allWorkers.push(...t.workers.map(w => ({ ...w, task_name: t.task_name, task_detail_id: t.id })));
+              } else {
+                // workers=[] 미시작 task → placeholder worker row 주입
+                allWorkers.push({
+                  worker_id: 0,
+                  worker_name: '-',
+                  company: null,
+                  started_at: null,
+                  completed_at: null,
+                  duration_minutes: null,
+                  status: 'not_started',
+                  task_name: t.task_name,
+                  task_detail_id: t.id,
+                });
+              }
+            }
+
             const mergedTask: SNTaskDetail | null = catTasks.length > 0
               ? {
                   id: catTasks[0].id,
                   task_name: catTasks[0].task_name,
                   task_category: cat,
-                  workers: catTasks.flatMap(t =>
-                    t.workers.map(w => ({ ...w, task_name: t.task_name, task_detail_id: t.id }))
-                  ),
+                  workers: allWorkers,
                   my_status: catTasks.some(t => t.my_status === 'in_progress') ? 'in_progress'
                     : catTasks.some(t => t.my_status === 'completed') ? 'completed'
                     : 'not_started',
+                  // Sprint 33: 강제종료 여부 (하나라도 force_closed면 표시)
+                  force_closed: catTasks.some(t => t.force_closed),
                 }
               : null;
+
+            // 미종료/미시작 건수 계산 (allTasks=S/N 전체)
+            const { overdueCount, notStartedCount } = getPendingCounts(
+              catTasks,
+              tasks,
+            );
+
+            const pendingBadges = (
+              <span style={{ display: 'flex', gap: '4px' }}>
+                {overdueCount > 0 && (
+                  <span style={{
+                    fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '8px',
+                    background: 'rgba(239,68,68,0.1)', color: 'var(--gx-danger)',
+                  }}>
+                    ⚠️ 미종료 {overdueCount}건
+                  </span>
+                )}
+                {notStartedCount > 0 && (
+                  <span style={{
+                    fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '8px',
+                    background: 'rgba(245,158,11,0.1)', color: 'var(--gx-warning)',
+                  }}>
+                    ⏳ 미시작 {notStartedCount}건
+                  </span>
+                )}
+              </span>
+            );
 
             if (CHECKLIST_CATEGORIES.has(cat)) {
               return (
@@ -175,6 +266,10 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
                   task={mergedTask}
                   categoryPercent={product.categories[cat]?.percent}
                   canReactivate={canReactivate}
+                  canForceClose={canForceClose}
+                  currentUserCompany={currentUserCompany}
+                  isAdmin={isAdmin}
+                  pendingBadges={pendingBadges}
                 />
               );
             }
@@ -186,6 +281,10 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
                 displayLabel={PROCESS_LABEL[cat] ?? cat}
                 categoryPercent={product.categories[cat]?.percent}
                 canReactivate={canReactivate}
+                canForceClose={canForceClose}
+                currentUserCompany={currentUserCompany}
+                isAdmin={isAdmin}
+                pendingBadges={pendingBadges}
               />
             );
           })

@@ -7,30 +7,28 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.30.0
-- **최근 Sprint**: Sprint 32 (체크리스트 관리 ELEC 항목 추가/수정)
-- **최근 완료**: v1.29.0 (QR 전장협력사), v1.30.0 (Sprint 32)
+- **VIEW FE**: v1.31.0
+- **최근 Sprint**: Sprint 33 (미종료 작업 관리)
+- **최근 완료**: v1.30.0 (Sprint 32), v1.31.0 (Sprint 33)
 
 ---
 
-## 직전 세션 작업 내용 (2026-04-16)
+## 직전 세션 작업 내용 (2026-04-17)
 
-### v1.29.0 — QR 관리 전장협력사
-1. **전장협력사 컬럼/필터**: QR 관리 테이블에 elec_partner 컬럼 + 드롭다운 필터
-
-### v1.30.0 — Sprint 32 체크리스트 관리 ELEC
-2. **타입 확장**: ChecklistMasterItem에 phase1_applicable, qi_check_required, remarks, checker_role, select_options 추가. ItemType에 SELECT 추가
-3. **테이블 확장**: ELEC 전용 "1차 배선"/"역할" 컬럼, QI row 보라색 보더, 행 클릭→수정
-4. **AddModal 개편**: GROUP_POLICY 고정 그룹, ELEC 자동 추론 + 토글, SELECT 선택지 입력
-5. **EditModal 신규**: 항목 수정 (qi_check_required 읽기 전용, 변경분만 전송)
-6. **ManagePage 연동**: GROUP_POLICY 소유권 단일화, useUpdateMaster 연동
-7. **Codex 교차 검증**: mock 필드 누락, StatusItem SELECT 누락, TM Exhaust 케이싱 수정
+### v1.31.0 — Sprint 33 미종료 작업 관리
+1. **타입 확장**: TaskWorker.company, SNTaskDetail.force_closed 추가
+2. **useForceClose 신규**: PUT force-close mutation
+3. **SNDetailPanel**: 미시작 placeholder 주입, getPendingCounts (task dedup + allTasks), 배지 전달
+4. **ProcessStepCard**: 강제종료 모달 + 버튼, 행 레벨 권한, 🔒 뱃지, status 정규화
+5. **SNStatusPage**: canForceClose, currentUserCompany, isAdmin props 전달
+6. **모델명 레이아웃**: maxWidth 180px, wordBreak keep-all, lineHeight 1.4
+7. **Codex 교차 검증**: placeholder 미주입, 카운트 dedup, checklist 배지 미전달, 모달 form 잔존
 
 ---
 
 ## 진행 중 Sprint
 
-없음 — v1.30.0 배포 완료
+없음 — v1.31.0 배포 완료
 
 ---
 
@@ -111,9 +109,9 @@
 
 ## 다음 세션에서 할 일 (제안)
 
-### 즉시 — Sprint 32 BE 패치 대기
-- #59-C → #59-A → #59-B 순서로 BE 패치 완료 후 Sprint 32 전체 기능 검증
-- JIG 2 row 자동 생성, checker_role 뱃지 실데이터 확인
+### 즉시 — BE 패치 대기
+- Sprint 32: #59-C → #59-A → #59-B 순서로 BE 패치 → 체크리스트 ELEC 전체 기능 검증
+- Sprint 33: #60 (company) + #61 (force_closed) → 미종료 강제종료 실데이터 검증
 
 ### 단기 — 기타 FE 작업
 - Defensive coding `?? []` 7개소 (ProductionPerformancePage)

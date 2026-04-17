@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-04-17 (#60-61 미종료 작업 관리 — company/force_closed 필드)
+> 마지막 업데이트: 2026-04-17 (#60-61 미종료 작업 관리 ✅ 완료 — v2.9.5 반영)
 
 ---
 
@@ -4211,7 +4211,15 @@ UNIQUE 키 변경 시 아래 파일들의 `ON CONFLICT` 절도 **5-key로 동시
 
 ## 미종료 작업 관리 (`/api/admin/tasks`, `/api/app/tasks`)
 
-### #60 S/N task 응답에 `company` 필드 추가 — PENDING (2026-04-17)
+### #60 S/N task 응답에 `company` 필드 추가 — ✅ DONE (2026-04-17, v2.9.5)
+
+**구현 위치**:
+- `admin.py` L1713 — `w.company AS worker_company` SELECT
+- `admin.py` L1753 — 미시작 쿼리 `NULL AS worker_company` (B1)
+- `admin.py` L1802 — 응답 dict `'company': row.get('worker_company')`
+- `work.py` L597 — `/api/app/tasks/{sn}` SELECT에 `w.company AS worker_company`
+- `work.py` L617 — worker_entry dict `'company': row['worker_company']`
+- `work.py` L693 — legacy fallback `'company': None` (B2)
 
 **교차 검증**: Claude × Codex 합의 #6 (M등급)
 
@@ -4254,7 +4262,9 @@ const canForceClose = user.is_admin || (user.is_manager && worker.company === us
 
 ---
 
-### #61 S/N task 응답에 `force_closed` 필드 추가 — PENDING (2026-04-17)
+### #61 S/N task 응답에 `force_closed` 필드 추가 — ✅ DONE (2026-04-17, v2.9.5)
+
+**구현 위치**: `work.py` L93 — `'force_closed': getattr(task, 'force_closed', False)`
 
 **교차 검증**: Claude × Codex 합의 #7 (M등급, 범위 한정)
 

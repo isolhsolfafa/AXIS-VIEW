@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.30.0 (2026-04-16)
+> 최신 버전: v1.31.0 (2026-04-17)
 
 ---
 
@@ -70,6 +70,25 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.31.0 — 2026-04-17
+
+**Sprint 33 — 미종료 작업 관리 + 모델명 레이아웃 개선**
+
+### 생산현황 — 미종료/미시작 task 강제 종료
+- S/N 상세 패널에 미종료 경고 배지 (`⚠️ 미종료 N건`, 14h 초과) + 미시작 배지 (`⏳ 미시작 N건`)
+- 강제 종료 버튼: 사유 입력 + 완료 시각 선택 → `PUT /api/admin/tasks/{id}/force-close`
+- 행 레벨 권한: Admin=전체, Manager=본인 회사만 (BE `company` 필드 기반)
+- 미시작 task placeholder 표시: 배경 노란색, 작업자 "-", 시간 "미시작"
+- 강제종료 뱃지 (`🔒`): BE `force_closed` 필드 기반
+- BE 선행: OPS #60 (company 필드), #61 (force_closed 필드)
+
+### 생산현황 — 모델명 레이아웃 개선
+- 긴 모델명 (IVAS GAIA-I DUAL PUMP RACK 3CH 등) maxWidth 180px + 자연 줄바꿈
+- whiteSpace nowrap 제거, wordBreak keep-all, lineHeight 1.4
+- 나머지 컬럼 밀림 현상 해소
 
 ---
 

@@ -13992,3 +13992,113 @@ Phase 6 — Regression
 - **GROUP_POLICY 소유권** (#4 합의): ManagePage에서만 정의. AddModal/EditModal은 prop으로 수신. 변경 시 ManagePage 한 곳만 수정.
 - **useUpdateMaster 신규 작성 불필요** (#3 합의): `useChecklistMaster.ts` L41-49에 이미 존재. import 추가만 필요.
 
+---
+
+# Sprint 33 — 미종료 작업 관리 (SNStatusPage 확장) ✅ 완료
+
+> 등록일: 2026-04-17
+> 트랙: VIEW FE (BE Sprint 61-BE-B 선행)
+> 선행: Sprint 61-BE-B ✅ (company + force_closed 필드 추가)
+> 설계서: `VIEW_FE_Request.md` FE-15
+> 교차 검증: Claude × Codex (2026-04-17)
+
+## 배경
+
+OPS에 "미종료 작업" 화면 존재 — 협력사 Manager가 본인 회사 task 강제 종료 가능.
+VIEW SNStatusPage에서는 미종료 task 확인만 가능, 강제 종료 불가. 미시작 task는 표시조차 안 됨.
+
+## 구현 내용
+
+### 1. 타입 확장 — `types/snStatus.ts`
+
+```typescript
+// TaskWorker에 추가
+company?: string | null;     // #60: Manager 행 레벨 권한
+
+// SNTaskDetail에 추가
+force_closed?: boolean;      // #61: 강제종료 뱃지
+```
+
+### 2. 강제종료 API — `hooks/useForceClose.ts` (신규)
+
+```typescript
+// PUT /api/admin/tasks/{taskId}/force-close
+// payload: { reason, completed_at }
+// 성공 → sn/progress, sn/tasks 쿼리 무효화
+```
+
+### 3. SNDetailPanel 확장
+
+- **미시작 task placeholder 주입**: `workers=[]`인 task → placeholder worker row 생성 (`status: 'not_started'`)
+- **미종료/미시작 배지**: `getPendingCounts()` — task 단위 dedup (Set), S/N 전체 tasks 참조
+- **force_closed 병합**: catTasks 중 하나라도 `force_closed=true` → mergedTask에 반영
+- **pendingBadges**: 모든 카테고리(체크리스트 포함)에 전달
+
+### 4. ProcessStepCard 확장
+
+- **강제종료 버튼** (StopCircle): `completed_at IS NULL` + 권한 있을 때 표시
+- **강제종료 모달**: 사유 textarea + `<input type="datetime-local">` (네이티브)
+- **행 레벨 권한**: `canForceCloseWorker()` — Admin=전체, Manager=본인 company만
+- **🔒 강제종료 뱃지**: `task.force_closed === true` → 공정명 옆 표시
+- **status 정규화**: `'not_started'` → `'waiting'` 매핑 (기존 렌더링 호환)
+- **미시작 row 스타일**: 배경 노란색, 작업자 "-", 시간 "미시작"
+- **미종료 14h 초과**: 빨간 글씨 강조
+
+### 5. SNStatusPage props 전달
+
+```typescript
+canForceClose={user?.is_admin || user?.is_manager || false}
+currentUserCompany={user?.company}
+isAdmin={user?.is_admin || false}
+```
+
+## 교차 검증 수정 (Codex 발견)
+
+| # | 이슈 | 분류 | 조치 |
+|---|------|------|------|
+| 1 | workers=[] 미시작 task placeholder 미주입 | M | placeholder row 생성 추가 |
+| 2 | 미종료 카운트 worker 중복 + scope 오류 | M | task 단위 Set dedup + allTasks 참조 |
+| 3 | Checklist 카테고리 pendingBadges 미전달 | M | ChecklistProcessCard에 prop 추가 |
+| 4 | 모달 닫기 시 form 값 잔존 | A | backdrop/취소 시 초기화 |
+
+## 수정 파일
+
+```
+1. app/src/types/snStatus.ts                              (수정 — company, force_closed 추가)
+2. app/src/hooks/useForceClose.ts                          (신규 — 강제종료 mutation)
+3. app/src/components/sn-status/SNDetailPanel.tsx           (수정 — placeholder 주입, 배지, props)
+4. app/src/components/sn-status/ProcessStepCard.tsx         (수정 — 강제종료 UI, 모달, 권한)
+5. app/src/pages/production/SNStatusPage.tsx                (수정 — 신규 props 전달)
+```
+
+## BE 선행 조건
+
+| # | BE 요청 | OPS # | 상태 |
+|---|---------|-------|------|
+| 1 | pending/task 응답에 `company` 필드 | #60 | Sprint 61-BE-B |
+| 2 | S/N task 응답에 `force_closed` 필드 | #61 | Sprint 61-BE-B |
+
+## 테스트 체크리스트
+
+```
+Phase 1 — 빌드
+[x] npx tsc --noEmit 성공
+[x] npx vite build 성공
+
+Phase 2 — 교차 검증
+[x] Codex M 등급 3건 수정 완료
+[x] Codex A 등급 1건 수정 완료
+
+Phase 3 — 기능 검증 (코드 기반)
+[x] 타입 안전성 (신규 필드 optional)
+[x] 강제종료 모달 (사유 + datetime-local)
+[x] 행 레벨 권한 (Admin=all, Manager=company, Worker=none)
+[x] 미종료 배지 (14h task dedup)
+[x] 미시작 배지 (S/N 전체 tasks 참조)
+[x] status 정규화 (not_started → waiting)
+[x] 재활성화 버튼 regression 없음
+[x] Checklist 카테고리 배지 표시
+[x] 강제종료 뱃지 (🔒)
+[x] BE 미배포 시 graceful (optional 필드)
+```
+

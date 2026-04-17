@@ -1,8 +1,19 @@
 # AXIS-VIEW 진행 이력
 
-> 마지막 업데이트: 2026-04-16 (v1.30.0 — Sprint 32 체크리스트 관리 ELEC 항목 추가/수정)
+> 마지막 업데이트: 2026-04-17 (v1.31.0 — Sprint 33 미종료 작업 관리)
 > 완료된 Sprint와 주요 변경사항을 기록합니다.
 > 미해결/보류/계획 항목은 BACKLOG.md에서 관리합니다.
+
+---
+
+## v1.31.0: Sprint 33 — 미종료 작업 관리 — ✅ 완료 (2026-04-17)
+
+- 미종료/미시작 배지 (⚠️/⏳) + 강제 종료 모달 (사유 + 완료 시각)
+- 행 레벨 권한: Admin=전체, Manager=본인 회사 (BE company 필드)
+- 미시작 task placeholder 주입 (workers=[] 소실 방지)
+- 강제종료 뱃지 (🔒, BE force_closed 필드)
+- 모델명 레이아웃: maxWidth 180px + wordBreak keep-all
+- Codex 교차 검증 M3건+A1건 수정
 
 ---
 
