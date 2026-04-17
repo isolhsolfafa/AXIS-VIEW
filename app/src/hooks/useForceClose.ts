@@ -21,7 +21,7 @@ export function useForceClose() {
   return useMutation({
     mutationFn: ({ taskId, reason, completedAt }: ForceClosePayload) =>
       apiClient.put<ForceCloseResponse>(`/api/admin/tasks/${taskId}/force-close`, {
-        reason,
+        close_reason: reason,
         completed_at: completedAt,
       }),
     onSuccess: () => {

@@ -244,6 +244,65 @@ SNStatusPage 와 별개로, 전체 S/N 통합 미종료/미시작 task 리스트
 
 ---
 
+### FE-17. 강제 종료 API 필드명 수정 — `useForceClose.ts` ✅ (BUG-45 연계)
+
+**등록**: 2026-04-17 · **동반 BE 수정**: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` BUG-45 섹션 · **상태**: ✅ 수정 완료 (2026-04-17)
+
+> ✅ **완료 기록**: `useForceClose.ts` L24 `close_reason: reason` 매핑 적용. BE 가드(admin.py L1185-1203) + pytest TC-FC-11~18 8/8 GREEN과 동시 반영. Sprint 33 FE-15 강제종료 경로 복구 확인.
+
+**증상**: VIEW SNDetailPanel(또는 Sprint 33 FE-15 구현부)에서 강제 종료 클릭 시 BE 400 반환.
+```json
+{"error": "INVALID_REQUEST", "message": "close_reason(강제 종료 사유)은 필수입니다."}
+```
+
+**원인**: FE 페이로드 필드명 불일치. BE는 `close_reason`을 읽지만 FE는 `reason`을 전송.
+
+| 쪽 | 파일 | 전송 필드 |
+|---|------|-----------|
+| OPS Flutter (정상) | `frontend/lib/screens/admin/admin_options_screen.dart` L716, `.../manager/manager_pending_tasks_screen.dart` L236 | `'close_reason': reason` |
+| VIEW (에러) | `app/src/hooks/useForceClose.ts` L24 | `reason` ❌ |
+| BE 검증 | `backend/app/routes/admin.py` L1104-1109 | `data.get('close_reason', '').strip()` → empty면 INVALID_REQUEST |
+
+**수정안** — `app/src/hooks/useForceClose.ts` L22-26:
+
+```typescript
+mutationFn: ({ taskId, reason, completedAt }: ForceClosePayload) =>
+  apiClient.put<ForceCloseResponse>(`/api/admin/tasks/${taskId}/force-close`, {
+    close_reason: reason,        // ← reason → close_reason (BE 계약)
+    completed_at: completedAt,
+  }),
+```
+
+- `ForceClosePayload` interface의 내부 이름(`reason`)은 **유지** — 호출부(useForceClose를 쓰는 모달 컴포넌트) 변경 불필요
+- 실제 body 전송 시에만 `close_reason`으로 매핑
+
+**검증 방법**:
+1. VIEW SNDetailPanel에서 task "강제 종료" 클릭 → 사유 + 완료 시각 입력 → 제출
+2. Network 탭: Request Payload에 `close_reason` 포함 확인
+3. 200 OK + task row에 `🔒 강제종료` 배지 표시
+4. OPS에서 동일 task 강제 종료 시 정상 동작 유지(regression)
+
+**의존 관계**:
+- 🔴 **BLOCKS Sprint 33 FE-15** — 본 FE-17 수정 전 상태로 배포 시 FE-15 강제종료 기능 전면 불능 (발견 당시 조건, 현재는 해소됨)
+- ✅ BE 측 `completed_at` 가드(BUG-45)는 **이미 배포 완료 (v2.9.6)** — `admin.py` L1187-1193 (미래 차단, 60초 clock skew 허용), L1200-1205 (과거 차단, started_at 이전 시각), L1207-1210 (NOT_STARTED task duration 스킵). 즉 L1212 `elapsed_minutes`와 L1255 pause 차감, L1257-1258 fallback은 모두 가드 **뒤**에서 실행되므로 음수 elapsed 또는 과대 duration 경로는 구조적으로 봉쇄됨.
+- **FE 단독 1줄 수정**(`useForceClose.ts` L24 `reason → close_reason`)으로 본 400 에러 완전 해소, 추가 BE 대기 없음.
+
+**수정 파일 (예상)**:
+
+| 파일 | 수정 내용 |
+|---|---|
+| `hooks/useForceClose.ts` | L24: `reason` → `close_reason` 필드명 변경 (1줄) |
+| `components/sn-status/SNDetailPanel.tsx` | 변경 없음 (useForceClose interface 유지) |
+
+**교차 검증 합의 포인트**:
+- FE interface를 통째로 `closeReason`으로 바꾸지 않는다 — 호출부 레거시 최소화, 전송 레이어에서만 정규화
+- `completedAt` (camelCase → snake_case) 매핑은 이미 정상이므로 동일 패턴 유지
+- Sprint 33 FE-15의 모달(사유 입력 + `datetime-local`)은 이미 올바르게 `{ taskId, reason, completedAt }` 형태로 호출 중 — FE-17 1곳 수정만으로 전체 복구
+
+**작업 주체**: VSCode 터미널 (Claude + Codex 교차검증 후 pytest + VIEW 빌드)
+
+---
+
 ## 기타 PENDING 항목
 
 (현재 없음)

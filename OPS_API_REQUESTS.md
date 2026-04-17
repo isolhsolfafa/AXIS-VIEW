@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-04-17 (#60-61 미종료 작업 관리 ✅ 완료 — v2.9.5 반영)
+> 마지막 업데이트: 2026-04-17 (#60-61 미종료 작업 관리 ✅ 완료 — v2.9.5 반영 / 과거 DONE 누락분 정리: #45 Sprint 38-B, #58 Sprint 60-BE 상태 동기화)
 
 ---
 
@@ -2988,7 +2988,7 @@ export async function getSNTasks(serialNumber: string): Promise<SNTaskDetail[]> 
 
 ---
 
-### #45 카드뷰 last_worker에 task 이름 추가 — PENDING (2026-03-27)
+### #45 카드뷰 last_worker에 task 이름 추가 — ✅ DONE (Sprint 38-B, VIEW v1.15.1 연동 완료)
 
 **시급도**: 🟡 중간 — 기능 동작에는 문제 없음, UX 개선
 **참조**: Sprint 18-B 이슈 3 (DESIGN_FIX_SPRINT.md)
@@ -3873,7 +3873,9 @@ GET /api/admin/checklist/master?category=ELEC&product_code=COMMON
 
 ---
 
-### #58 checklist_master 테이블에 `remarks` 컬럼 추가 — PENDING (2026-04-11)
+### #58 checklist_master 테이블에 `remarks` 컬럼 추가 — ✅ DONE (Sprint 60-BE, 2026-04-15)
+
+> ✅ **완료 기록 (2026-04-17 정리)**: BACKLOG.md Sprint 60-BE "ELEC 마스터 정규화"에 `remarks 컬럼` 추가 명시. migration 048 + 마스터 API 확장 포함. 42/43 passed.
 
 > **배경**: 체크리스트 관리 페이지에 **비고** 컬럼 추가 요청. 항목별 개정이력/변경사유 등을 기록하기 위한 용도.
 > TM, ELEC, MECH 공통 적용.
