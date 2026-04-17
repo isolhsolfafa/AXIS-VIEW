@@ -36,13 +36,13 @@
 
 > 비고: `types/checklist.ts`에 이미 반영 완료 (Sprint 28에서 선제 타입 정의)
 
-### FE-02. API 필드 매핑 보정 — `src/api/checklist.ts` [BE 선행]
+### FE-02. API 필드 매핑 보정 — `src/api/checklist.ts` ✅ DONE (2026-04-17 상태 확인)
 
 `getChecklistReport()` 매핑에 추가:
 - summary 필드명 불일치 보정: BE `checked` → FE `completed` (`rawSummary.completed ?? rawSummary.checked ?? 0`)
 - items: `selected_value`, `checker_role` 매핑 추가
 
-### FE-03. 카테고리 라벨 — `ChecklistReportView.tsx` [BE 선행]
+### FE-03. 카테고리 라벨 — `ChecklistReportView.tsx` ✅ DONE (2026-04-17 상태 확인)
 
 CategoryTable 헤더에 `phase_label` 표시:
 ```
@@ -51,7 +51,7 @@ CategoryTable 헤더에 `phase_label` 표시:
 ```
 결과: `전장 — 1차 배선`, `전장 — 2차 배선`, `TM (모듈) — L Tank`, `TM (모듈) — R Tank`
 
-### FE-04. SELECT 타입 판정 렌더링 — `ChecklistReportView.tsx` [BE 선행]
+### FE-04. SELECT 타입 판정 렌더링 — `ChecklistReportView.tsx` ✅ DONE (2026-04-17 상태 확인)
 
 판정 컬럼에 SELECT 분기 추가:
 - CHECK → PASS/NA
@@ -60,7 +60,7 @@ CategoryTable 헤더에 `phase_label` 표시:
 
 `resultColor` 함수에도 SELECT 분기 추가.
 
-### FE-05. QI 배지 표시 — `ChecklistReportView.tsx` [BE 선행]
+### FE-05. QI 배지 표시 — `ChecklistReportView.tsx` ✅ DONE (2026-04-17 상태 확인)
 
 `checker_role === 'QI'` 항목에 QI 배지 표시 (검사항목 컬럼).
 
@@ -70,7 +70,7 @@ CategoryTable 헤더에 `phase_label` 표시:
 
 > 참조: `OPS_API_REQUESTS.md` — 별도 번호 미배정 (BE 확인 후 배정)
 
-### FE-06. 현재 상태 확인 [BE 선행]
+### FE-06. 현재 상태 확인 ✅ DONE (2026-04-17 상태 확인)
 
 - 실적확인 설정 패널의 "체크리스트 필수" 토글: DB 저장/읽기 정상 동작 ✅
 - BE `confirmable` 판정에 체크리스트 완료 미반영 (dead toggle) → **BE 선행 필요**
@@ -89,7 +89,7 @@ CategoryTable 헤더에 `phase_label` 표시:
 
 > 참조: `OPS_API_REQUESTS.md` #56
 
-### FE-07. `getChecklistStatus()` ELEC 카테고리 허용 — `src/api/checklist.ts` [BE 선행]
+### FE-07. `getChecklistStatus()` ELEC 카테고리 허용 — `src/api/checklist.ts` ✅ DONE (2026-04-17 상태 확인)
 
 현재 TM/TMS만 허용, ELEC은 조기 리턴. beCat 매핑에 ELEC 추가 필요.
 - `GET /api/app/checklist/elec/{sn}/status?phase=1`
@@ -103,11 +103,42 @@ CategoryTable 헤더에 `phase_label` 표시:
 BE에서 ELEC status API 정상 반환 확인 후, 기존 checklist prop 전달 로직으로 자동 표시.
 추가 FE 수정 불필요 (확인만).
 
-### FE-12. 체크리스트 관리 ELEC 블러 해제 — `ChecklistManagePage.tsx` [BE 선행]
+### FE-12. 체크리스트 관리 ELEC 블러 해제 — `ChecklistManagePage.tsx` ✅ DONE (2026-04-17 상태 확인)
 
 현재 `BLUR_CATEGORIES = new Set(['MECH', 'ELEC'])` → ELEC 제거.
 BE 마스터 API(`GET /api/admin/checklist/master?category=ELEC&product_code=COMMON`) 정상 확인 후 진행.
 항목 추가/활성 토글도 TM과 동일 로직으로 동작 (FE 추가 수정 없음).
+
+### FE-18. JIG WORKER/QI 뱃지 분기 미동작 조사 노트 — ✅ BE 핫픽스 완료 (2026-04-17)
+
+> 연계: `OPS_API_REQUESTS.md` #59 DONE, `DESIGN_FIX_SPRINT.md` L13573 Sprint 32
+>
+> **결론**: OPS #59-B 원인 확인 후 BE 2줄 핫픽스(`backend/app/routes/checklist.py` `list_checklist_master()` SELECT 절 + 응답 dict) 적용 완료. FE는 수정 불필요, BE 배포 후 자동 정상화 예정.
+
+**증상**: 체크리스트 관리 ELEC 페이지 "JIG 검사 및 특별관리 POINT" 14 row 전원 `WORKER` 뱃지로 표시. 본래 7건 WORKER + 7건 QI(GST) 뱃지 구분 렌더 필요.
+
+**DB 실측 (정상)**: id 79~85 `checker_role='WORKER'` / id 86~92 `checker_role='QI'` (item_name `(GST)` 접미사 7건). 모두 `phase1_applicable=false`, `qi_check_required=true`, `is_active=true`.
+
+**방안 B 채택 기록**: item_name에 `(GST)` 접미사를 붙여 4-key UNIQUE 유지 — 2 row 공존 OK. 정식 방안 A(5-key UNIQUE + 동일 item_name 2 row) 이관은 별도 마이그레이션 건으로 추후 검토.
+
+**FE 렌더 로직 사전 검증 결과 (Codex 2026-04-17)**: `ChecklistTable.tsx` L76(`isQI` 판정), L89(QI 보더), L124-133(뱃지 분기) 모두 정상. `getChecklistMaster()`는 BE 응답을 타입 바인딩만 하므로, BE가 `checker_role` 키를 추가하면 FE 추가 수정 없이 즉시 동작.
+
+**API 응답 실측 결과 (Codex 2026-04-17, 조사 종결)**:
+- 엔드포인트: `GET /api/admin/checklist/master?category=ELEC&product_code=COMMON`
+- 총 item 수: 31
+- 응답 키: `category, description, id, is_active, item_group, item_name, item_order, phase1_applicable, product_code, qi_check_required, remarks`
+- `checker_role` 키: ❌ **0건 (전 item에서 누락)**
+- **→ OPS #59-B 미완 확정**. BE `routes/checklist.py` `get_checklist_master()` 응답 dict에 `'checker_role': row.get('checker_role', 'WORKER'),` 한 줄 추가로 해결. FE 수정 불필요.
+
+참고 — 사용한 판정 명령 (재현용):
+```bash
+# 1단계: 응답의 한 item 구조 확인
+curl -s -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  "https://<API_HOST>/api/admin/checklist/master?category=ELEC&product_code=COMMON" \
+  | python -m json.tool | sed -n '/"items"/,/^    }/p' | head -40
+# 2단계: checker_role 키 등장 횟수
+curl -s ... | grep -c '"checker_role"'
+```
 
 ---
 
@@ -115,7 +146,7 @@ BE 마스터 API(`GET /api/admin/checklist/master?category=ELEC&product_code=COM
 
 > 참조: `OPS_API_REQUESTS.md` #58
 
-### FE-13. 비고 컬럼 추가 [BE 선행]
+### FE-13. 비고 컬럼 추가 ✅ DONE (2026-04-17 상태 확인)
 
 - `types/checklist.ts`: `ChecklistMasterItem`에 `remarks: string | null` 추가
 - `CreateMasterPayload`, `UpdateMasterPayload`에 `remarks?: string` 추가
@@ -166,7 +197,7 @@ BE 마스터 API(`GET /api/admin/checklist/master?category=ELEC&product_code=COM
 - **현재 문제**: VIEW에서는 미종료 task 확인만 가능, 강제 종료 불가. 미시작 task는 표시조차 안 됨
 - Sprint 61-BE에서 `GET /admin/tasks/pending?include_not_started=true` API 확장 예정 → 이를 활용
 
-### FE-15. SNDetailPanel 미종료/미시작 task 강제 종료 기능 [BE 선행 2건]
+### FE-15. SNDetailPanel 미종료/미시작 task 강제 종료 기능 ✅ DONE (2026-04-17 상태 확인)
 
 **기존 SNDetailPanel 구조** (스크린샷 참조):
 ```
@@ -314,7 +345,7 @@ mutationFn: ({ taskId, reason, completedAt }: ForceClosePayload) =>
 > 설계: `AXIS-VIEW/docs/sprints/DESIGN_FIX_SPRINT.md` Sprint 30
 > BE 추가 요청 없음 (기존 API 활용)
 
-### FE-14. Admin/Manager 비활성화 분기 — `PermissionsPage.tsx` [PENDING]
+### FE-14. Admin/Manager 비활성화 분기 — `PermissionsPage.tsx` ✅ DONE (2026-04-17 상태 확인)
 
 - Admin: `confirm()` → `POST /api/admin/worker-status` (즉시 비활성화), 전체 사용자 대상
 - Manager: `prompt()` 사유 → `POST /api/app/work/request-deactivation` (admin 승인 대기), 같은 회사만
