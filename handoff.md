@@ -7,13 +7,24 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.32.3
-- **최근 작업**: FE-19.1 용어 정합 (툴팁 `종료:` → `종료 처리:`)
-- **최근 완료**: v1.32.0 (HOTFIX-04/FE-19), v1.32.1 (per-row 표시), v1.32.2 (툴팁 즉시 반응), v1.32.3 (용어 정합)
+- **VIEW FE**: v1.33.0
+- **최근 작업**: Sprint 34 — S/N 상세뷰·O/N 헤더 정보 보강 (FE-20 + FE-21, BE FIX-25 v4 연동)
+- **최근 완료**: v1.32.3 (용어 정합), v1.33.0 (Sprint 34)
 
 ---
 
 ## 직전 세션 작업 내용 (2026-04-20)
+
+### v1.33.0 — Sprint 34 S/N 상세뷰·O/N 헤더 정보 보강
+1. **FE-20 카테고리 담당 회사명**: ProcessStepCard 헤더에 `· {partner}` 접미 (MECH/ELEC/TMS만, NULL 방어)
+2. **FE-21 고객사 line 노출**: O/N 카드 헤더 + S/N 상세뷰 헤더. 혼재 O/N은 대표값 + "외 N" (NULL row 제외)
+3. **SNProduct flat 확장**: `mech_partner`/`elec_partner`/`module_outsourcing`/`line` 4필드 optional
+4. **SNStatusPage groupedByON**: `lineLabel` 집계 추가 (최빈값 + "외 N", NULL row 제외)
+5. **BE 미배포 안전 degrade**: 4필드 undefined 시 현행 UI와 동일 동작
+6. **교차검증**: Claude↔Codex 2라운드 합의 (v3 M1+A8, v4 M1+A6) 반영
+7. **빌드 GREEN**: 3279 modules, 2.96s
+
+---
 
 ### v1.32.3 — FE-19.1 용어 정합 (강제종료 툴팁 문구 보정)
 1. **원안 폐기**: placeholder row 접두어 추가 설계는 v1.32.1 데드 코드 정리 단계에서 타겟 JSX가 이미 제거됨 → 타겟 없음

@@ -60,6 +60,9 @@ function ChecklistProcessCard({
   currentUserCompany,
   isAdmin,
   pendingBadges,
+  mechPartner,
+  elecPartner,
+  moduleOutsourcing,
 }: {
   cat: string;
   serialNumber: string;
@@ -70,12 +73,19 @@ function ChecklistProcessCard({
   currentUserCompany?: string;
   isAdmin?: boolean;
   pendingBadges?: React.ReactNode;
+  mechPartner?: string | null;
+  elecPartner?: string | null;
+  moduleOutsourcing?: string | null;
 }) {
   const { data: checklist, isLoading: clLoading } = useChecklist(serialNumber, cat);
   return (
     <ProcessStepCard
       task={task}
       displayLabel={PROCESS_LABEL[cat] ?? cat}
+      category={cat}
+      mechPartner={mechPartner}
+      elecPartner={elecPartner}
+      moduleOutsourcing={moduleOutsourcing}
       categoryPercent={categoryPercent}
       checklist={checklist}
       checklistLoading={clLoading}
@@ -145,6 +155,13 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
           <span style={{ fontWeight: 600, color: 'var(--gx-charcoal)' }}>{product.model}</span>
           <span>·</span>
           <span>{product.customer}</span>
+          {/* Sprint 34 (FE-21, v1.33.0): 고객사 공정 라인 — BE FIX-25 progress API 확장 후 활성화, 미배포 시 undefined 자동 생략 */}
+          {product.line && product.line.trim().length > 0 && (
+            <>
+              <span>·</span>
+              <span>{product.line}</span>
+            </>
+          )}
           {product.ship_plan_date && (
             <>
               <span>·</span>
@@ -283,6 +300,9 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
                   currentUserCompany={currentUserCompany}
                   isAdmin={isAdmin}
                   pendingBadges={pendingBadges}
+                  mechPartner={product.mech_partner}
+                  elecPartner={product.elec_partner}
+                  moduleOutsourcing={product.module_outsourcing}
                 />
               );
             }
@@ -292,6 +312,10 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
                 key={cat}
                 task={mergedTask}
                 displayLabel={PROCESS_LABEL[cat] ?? cat}
+                category={cat}
+                mechPartner={product.mech_partner}
+                elecPartner={product.elec_partner}
+                moduleOutsourcing={product.module_outsourcing}
                 categoryPercent={product.categories[cat]?.percent}
                 canReactivate={canReactivate}
                 canForceClose={canForceClose}

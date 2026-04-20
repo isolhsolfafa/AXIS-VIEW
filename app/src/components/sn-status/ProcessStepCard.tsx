@@ -21,6 +21,26 @@ interface ProcessStepCardProps {
   currentUserCompany?: string;       // Sprint 33: Manager 행 레벨 권한
   isAdmin?: boolean;                 // Sprint 33
   pendingBadges?: React.ReactNode;   // Sprint 33: 미종료/미시작 배지
+  // Sprint 34 (FE-20, v1.33.0): 카테고리별 담당 회사명 헤더 노출
+  category?: string;                 // BE 카테고리 키 ('MECH' | 'ELEC' | 'TMS' | 'PI' | 'QI' | 'SI')
+  mechPartner?: string | null;
+  elecPartner?: string | null;
+  moduleOutsourcing?: string | null;
+}
+
+// Sprint 34 (FE-20): 카테고리 → partner 추출
+// ⚠️ task_category DB 값은 'TMS' (PROCESS_LABEL 키와 동일, 한국어 라벨은 "TM 모듈")
+function getCategoryPartner(
+  category: string | undefined,
+  props: Pick<ProcessStepCardProps, 'mechPartner' | 'elecPartner' | 'moduleOutsourcing'>,
+): string | null {
+  if (!category) return null;
+  switch (category) {
+    case 'MECH': return props.mechPartner ?? null;
+    case 'ELEC': return props.elecPartner ?? null;
+    case 'TMS':  return props.moduleOutsourcing ?? null;
+    default:     return null;  // PI / QI / SI: partner source 부재 — 라벨 미표시
+  }
 }
 
 function formatTime(isoStr: string | null): string {
@@ -70,8 +90,10 @@ const STATUS_CONFIG = {
 export default function ProcessStepCard({
   task, displayLabel, categoryPercent, checklist, checklistLoading,
   canReactivate, canForceClose, currentUserCompany, isAdmin, pendingBadges,
+  category, mechPartner, elecPartner, moduleOutsourcing,
 }: ProcessStepCardProps) {
   const status = taskStatus(task, categoryPercent);
+  const categoryPartner = getCategoryPartner(category, { mechPartner, elecPartner, moduleOutsourcing });
   const cfg = STATUS_CONFIG[status];
   const workers = task?.workers ?? [];
   const isMultiWorker = workers.length >= 2;
@@ -150,6 +172,12 @@ export default function ProcessStepCard({
           <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
             {displayLabel}
           </span>
+          {/* Sprint 34 (FE-20): 카테고리별 담당 회사명 — MECH/ELEC/TMS만 노출, NULL/빈 문자열 시 생략 */}
+          {categoryPartner && categoryPartner.trim().length > 0 && (
+            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-steel)' }}>
+              · {categoryPartner}
+            </span>
+          )}
           {/* 강제종료 뱃지 */}
           {task?.force_closed && (
             <span style={{

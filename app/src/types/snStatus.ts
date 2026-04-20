@@ -17,6 +17,12 @@ export interface SNProduct {
   last_activity_at: string | null;    // Sprint 38 이후
   last_task_name: string | null;      // Sprint 38-B 이후
   last_task_category: string | null;  // Sprint 38-B 이후
+  // Sprint 34 (FE-20 / FE-21, v1.33.0): BE FIX-25 progress API flat 확장
+  // BE 미배포 시 undefined → 현행 UI와 동일 동작 (안전 degrade)
+  mech_partner?: string | null;        // MECH 카테고리 담당 협력사 (예: "에스이엔지", "GST")
+  elec_partner?: string | null;        // ELEC 카테고리 담당 협력사
+  module_outsourcing?: string | null;  // TMS 카테고리 담당 (실질 고정값 "TMS")
+  line?: string | null;                // 고객사 공정 라인 (예: "TW(F16)", "JP(F15)")
 }
 
 export interface SNProgressResponse {

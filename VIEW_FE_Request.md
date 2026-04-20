@@ -2,7 +2,7 @@
 
 > VIEW(React) 프론트엔드에서 구현해야 할 작업 목록.
 > BE 수정 완료 후 진행하는 항목은 **BE 선행** 표기.
-> 마지막 업데이트: 2026-04-17
+> 마지막 업데이트: 2026-04-20 (v1.33.0 — Sprint 34 FE-20·FE-21 구현 DONE. BE FIX-25 v4 배포 대기 중(미배포 시 4필드 undefined 자동 생략·안전 degrade). 합의 근거: Claude↔Codex 2라운드 교차검증 M1+A8 (v3) + M1+A6 (v4) 전원 반영.)
 
 ---
 
@@ -514,6 +514,280 @@ title={`사유: ${w.close_reason ?? ''}\n처리: ${maskName(w.closed_by_name) ??
 **우선순위**: **낮음** (기능적 영향 없음, 용어 정합만)
 
 **예상 소요**: 구현 2분 + 스테이징 육안 검증 3분 = 총 5분
+
+---
+
+## S/N 상세뷰·O/N 리스트 헤더 정보 보강 (2026-04-20 요청)
+
+> **배경**: Twin파파 요청 — (1) 상세뷰 카테고리 헤더에 담당 회사명 동반 표시, (2) O/N 카드 헤더·상세뷰 헤더에 제품 `line`(고객사 공정 라인) 노출.
+> **설계 원칙 적용**: 데이터 소스는 `plan.product_info` 단일 원천 (모델/쿼리 레벨 일관성 — `feedback_system_design_principle.md`). NULL인 경우 "뭐라도 값을 넣자" 금지, 그대로 생략.
+> **BE 선행**: `AGENT_TEAM_LAUNCH.md` FIX-25 (**v4 — progress API 단일 확장**) 완료 후 진행.
+> **교차검증 합의 (2026-04-20 Claude↔Codex v1.32.5 = v4 기준)**:
+>   - **v4 핵심 전환**: BE가 tasks API(`work.py`) 무변경, `/api/app/product/progress` 응답 `SNProduct` 요소에 `mech_partner` / `elec_partner` / `module_outsourcing` / `line` 4필드를 **flat**으로 추가. FE는 이미 `SNStatusPage`가 progress API products 배열을 `selectedProduct`로 `SNDetailPanel`에 `product: SNProduct` prop 내려주는 상태 → 신규 API 호출·Hook 추가 불요.
+>   - **타입 구조 변경**: v3에서 설계했던 `ProductInfo` 별도 인터페이스 + `SNTaskDetailResponse.product_info` 중첩 구조 **폐기** → `SNProduct` 인터페이스에 4필드 직접 확장(snake_case flat). `ProcessStepCard`는 `product: SNProduct` 혹은 4필드 중 필요한 3개만 prop으로 받음.
+>   - v1.32.4 이미 확정된 사항 중 유지: ① `line_mixed_count`는 **BE 필드 아닌 FE 계산** (`groupedByON` 내부 `lineAgg` useMemo) ② 실제 페이지 경로 `app/src/pages/production/SNStatusPage.tsx` ③ `case 'TMS'` (DB 실측값) ④ 타입 snake_case 유지.
+>   - **API 검증 경로 변경**: v3 `curl /api/app/tasks/{sn}?all=true | jq '.product_info'` → **v4 `curl /api/app/product/progress | jq '.products[0] | {mech_partner,elec_partner,module_outsourcing,line}'`** + tasks API 회귀 확인용 `curl /api/app/tasks/{sn}?all=true | jq 'type'` → `"array"` 유지 확인 (v3 List→Dict breaking 방지 가드).
+
+### FE-20. 상세뷰 카테고리 헤더에 담당 회사명 표시 — `SNDetailPanel.tsx` / `ProcessStepCard.tsx` [BE 선행] — ✅ DONE (2026-04-20 v1.33.0 구현, BE FIX-25 배포 대기)
+
+**목적**: 협력사 작업자 이름(마스킹된 `박*현` 등)만 노출되는 현재 구조에서 **회사명**까지 함께 식별 가능하도록 상세뷰 카테고리 헤더를 보강. GST 자체생산 케이스도 동일하게 "GST"로 노출해 **자체 vs 협력사 구분**을 시각화.
+
+**전제 (DB 실측 — `DB_SCHEMA_MAP.md` + Twin파파 2026-04-20 확인)**:
+- `plan.product_info` 보유 컬럼: `mech_partner` / `elec_partner` / `module_outsourcing` / `line` (모두 `VARCHAR(255)`)
+- **대상 카테고리 3종 (회사명 라벨 표시)**: MECH / ELEC / TMS (partner 컬럼 보유)
+  - 주의: app_task_details.task_category 값은 `TMS` (FE `CATEGORY_LABEL`·carousel 로직 전반 동일). 한국어 라벨은 "TM 모듈"이지만 **분기 key는 `'TMS'`**.
+- **제외 카테고리 3종 (라벨 미표시)**:
+  - PI / QI — partner source 부재 (GST 자체검사 고정)
+  - **SI** — partner 컬럼 없음, GST 출하검사 고정 (Codex A7 명시)
+- **TM 특례**: `module_outsourcing` 실질 고정값 "TMS" (Twin파파: "module outsourcing값은 TMS에서 변경사항 없음"). DB 값 그대로 렌더.
+- **GST 자체생산**: `mech_partner`/`elec_partner`가 "GST"인 경우 존재 → 그대로 표시 (Twin파파: "gst도 자체 생산이 있어서 넣으면 될거 같음").
+- **NULL 빈도**: S/N 채번 시점에 협력사 배정 완료 (Twin파파: "SN번호가 채번된 경우는 협력사 배정은 완료, 추후에 변경은 될수 있음") → NULL 사실상 없으나 **방어 코드는 필수**.
+
+**표시 포맷 (카테고리 헤더 제목 옆에 중점 + 회사명)**:
+```
+MECH 기구 · 에스이엔지
+ELEC 전장 · GST
+TM 모듈 · TMS
+PI 검사              ← 변경 없음 (라벨 없음)
+QI 검사              ← 변경 없음
+SI 출하검사          ← 변경 없음
+```
+
+**NULL 처리 규칙 (클린 코어 원칙)**:
+- 회사명 값이 `null` / 빈 문자열 → 카테고리명만 단독 표시 (`MECH 기구`), 중점·빈값 표시 **금지**.
+- `"GST"` / `"TMS"` / 협력사명 → 그대로 문자열 삽입. 가공·번역 금지.
+
+**수정 파일 (예상 3개 — v4 기준: `SNProduct` flat 확장 + ProcessStepCard prop 확장 + SNDetailPanel 배선)**:
+1. `app/src/types/snStatus.ts` — **`SNProduct` 인터페이스에 4필드 flat 추가** (v3 `ProductInfo` 별도 인터페이스 + 중첩 구조 폐기. BE 응답 스키마와 동일하게 snake_case 유지 — Codex A3)
+   ```ts
+   // 기존 SNProduct 인터페이스 확장 (L5~20)
+   export interface SNProduct {
+     serial_number: string;
+     model: string;
+     customer: string;
+     ship_plan_date: string | null;
+     sales_order: string | null;
+     // ... 기존 필드들 유지
+     last_task_name: string | null;
+     last_task_category: string | null;
+     // ↓ FE-20 / FE-21 신규 (v4 — progress API 응답 flat 확장)
+     mech_partner: string | null;
+     elec_partner: string | null;
+     module_outsourcing: string | null;
+     line: string | null;
+   }
+   ```
+   > **v3 대비 변경**: `ProductInfo` 별도 인터페이스 신설 없음. `SNTaskDetailResponse.product_info` 중첩 구조 **미도입**. 타입은 BE `progress_service.py` dict 구조 1:1 반영이라 snake_case 유지. camelCase 변환 계층 여전히 없음 (Codex Q3 합의 유효).
+   >
+   > **tasks API 타입 무변경**: `SNTaskDetail` 인터페이스(L45~55) 는 v3 설계와 달리 **건드리지 않음**. `work.py` 응답 구조가 List 그대로라서 `getSNTasks()` (`Array.isArray(data) ? data : []`) 로직 그대로 유효.
+
+2. `app/src/components/sn-status/ProcessStepCard.tsx` — **prop 확장 + 카테고리별 회사명 선택 + 조건부 렌더 헬퍼 추가** (Codex M1: `case 'TMS'` 유지):
+   ```tsx
+   // Props 확장 — 신규 (v4: 중첩 객체 대신 4필드 중 필요 3개를 flat prop으로 받거나, product 일체 전달 중 택1)
+   // 옵션 A (권장) — 의존 축소: 필요한 3필드만 선택적 prop으로
+   interface ProcessStepCardProps {
+     // ...기존 props
+     mechPartner?: string | null;
+     elecPartner?: string | null;
+     moduleOutsourcing?: string | null;
+   }
+   // 옵션 B — 단순: product: SNProduct 통째 주입 (이미 부모 SNDetailPanel 이 보유)
+
+   // 카테고리 → partner 추출 헬퍼 (Codex M1: case 'TMS' 정정 반영)
+   const getCategoryPartner = (
+     category: string,
+     props: Pick<ProcessStepCardProps, 'mechPartner' | 'elecPartner' | 'moduleOutsourcing'>,
+   ): string | null => {
+     switch (category) {
+       case 'MECH': return props.mechPartner ?? null;
+       case 'ELEC': return props.elecPartner ?? null;
+       case 'TMS':  return props.moduleOutsourcing ?? null;  // ⚠️ task_category DB 값은 'TMS'
+       default:     return null;  // PI / QI / SI: 라벨 없음
+     }
+   };
+
+   const partner = getCategoryPartner(category, { mechPartner, elecPartner, moduleOutsourcing });
+   // 헤더 제목 JSX
+   <span className="category-header">
+     {CATEGORY_LABEL[category] ?? category}
+     {partner && partner.trim().length > 0 && (
+       <span className="category-partner"> · {partner}</span>
+     )}
+   </span>
+   ```
+   > **권고**: 옵션 A(flat 3 prop) 선택 — `SNProduct` 전체를 ProcessStepCard까지 전달하면 카드 단위 책임을 벗어남. 필요 3필드만 `Pick` 하여 배선.
+
+3. `app/src/components/sn-status/SNDetailPanel.tsx` — **이미 L17 `product: SNProduct` prop 보유**. `ProcessStepCard` 에 3필드 내려주는 JSX 1곳만 추가 (약 3줄):
+   ```tsx
+   <ProcessStepCard
+     // ...기존 props
+     mechPartner={product.mech_partner}
+     elecPartner={product.elec_partner}
+     moduleOutsourcing={product.module_outsourcing}
+   />
+   ```
+   > `SNStatusPage.tsx` L277에서 이미 `<SNDetailPanel product={selectedProduct} ... />` 배선 완료되어 있어, 상위 페이지 수정 불요.
+
+**스타일 가이드**:
+- 회사명은 카테고리 제목 대비 **약간 옅은 색** (기존 `phase_label` 유사 톤) — 주정보(카테고리) / 부정보(담당사) 위계 명확화.
+- 모바일·태블릿에서 제목 줄바꿈 발생 시 **회사명은 같은 줄 유지 우선** (wrap 방지 필요 시 `white-space: nowrap`).
+
+**영향 범위**:
+- 파일: 3개 (types 1 + 컴포넌트 2: ProcessStepCard + SNDetailPanel 배선)
+- 예상 diff: 타입 +4줄(SNProduct flat 4필드), 헬퍼 +10줄, JSX +5줄, 부모 prop 배선 +3줄 = 약 20~22줄
+- 기능 변경: UI 텍스트 **추가만**, 기존 렌더 경로 무변경
+- 회귀 위험: **매우 낮음** (순수 추가 JSX, null/undefined guard 완비, 기존 로직 touch 없음). **tasks API 타입 무변경**이라 `snStatus.ts getSNTasks()` / `SNTaskDetail` 소비처 전원 회귀 0. v4 전환으로 BE 변경이 progress API 응답 필드 추가 전용으로 축소되어 v3 대비 회귀 위험 등급 하향(Codex A6).
+
+**검증 방법 (v4 기준)**:
+1. BE FIX-25 배포 후 **`/api/app/product/progress`** 응답 products[n]에 `mech_partner` / `elec_partner` / `module_outsourcing` / `line` 4필드 포함 확인:
+   ```bash
+   curl -s '<host>/api/app/product/progress' -H 'Authorization: ...' \
+     | jq '.products[0] | {serial_number,mech_partner,elec_partner,module_outsourcing,line}'
+   ```
+2. **tasks API 회귀 가드**: `curl -s '<host>/api/app/tasks/<sn>?all=true' | jq 'type'` → `"array"` 그대로 (v3 List→Dict breaking 방지 확인).
+3. 스테이징에서 S/N 3개 샘플 상세뷰 접근:
+   - 일반 협력사 케이스: MECH/ELEC에 협력사명, TM 모듈 카드에 "TMS" 표시 (분기 key `'TMS'` 실제 동작 확인)
+   - GST 자체생산 케이스: "· GST" 접미 표시 (`mech_partner='GST'`)
+   - NULL 방어: 신규·테스트 S/N에 `mech_partner IS NULL` 인위적 세팅 → 카테고리명 단독 표시 확인
+4. PI/QI/SI 카테고리는 라벨 **미표시** 확인 (부가정보 누락 아님 — 의도된 동작)
+
+**의존 관계**:
+- 🔴 **BE 선행 필수**: FIX-25 (v4 — progress API 단일 확장) 배포 완료 후 FE 착수. BE 미배포 시 `product.mech_partner` 등이 undefined → 현행 UI와 동일 동작(안전, 점진 배포 가능).
+- 🟡 **FE-03 (성적서 ELEC Phase 라벨)과 무관**: FE-03은 성적서 페이지 전용 `phase_label`(1차/2차 배선) 렌더 건. 본 FE-20은 S/N 상세뷰(`SNDetailPanel`·`ProcessStepCard`) 헤더 수정이라 **다른 화면 · 다른 컴포넌트** — 병존 이슈 없음 (Codex 지적 반영).
+- ⏸️ **FE-21과 병합 권장**: 같은 `SNProduct` flat 확장 건(4필드 공용)이라 타입·상태관리 공용. 1 PR로 묶어 배포.
+
+**작업 주체**: VSCode 터미널 (Claude + Codex 교차검증)
+
+**우선순위**: **중간** (운영 개선, 데이터 정합 영향 없음)
+
+**예상 소요**: 구현 30분 + 스테이징 육안 검증 15분 = 총 45분
+
+---
+
+### FE-21. O/N 카드·상세뷰 헤더에 `line` 값 표시 — `SNStatusPage.tsx` / `SNDetailPanel.tsx` [BE 선행] — ✅ DONE (2026-04-20 v1.33.0 구현, BE FIX-25 배포 대기)
+
+**목적**: 생산현황 O/N 카드 헤더와 S/N 상세뷰 헤더에 **고객사 공정 라인(`plan.product_info.line`)** 노출. 동일 고객사 내 라인별 분류가 가능해 현장 대응력 강화.
+
+**전제 (Twin파파 2026-04-20 확인)**:
+- `plan.product_info.line`: `VARCHAR(255)`, 예시값 `TW(F16)`, `JP(F15)`, `FAB2`, `FOUNDRY`, `P4-D` 등 자유 문자열.
+- **O/N 내 S/N별 line 혼재 가능성**:
+  - 일반: O/N 단위로 line 동일 (S/N 4개 → 모두 같은 line)
+  - 변경 케이스: "4개중에 한개만 바뀌는 경우는 그냥 오더번호 변경없이 진행되는 경우가 있음" → **1개 O/N 내 다른 line 존재 가능**
+  - 계약 변경 수준: "전체적으로 line이 변경되면 오더번호가 계약 변경으로 바뀌지만" → O/N 자체가 분리되므로 혼재 아님
+
+**표시 위치 및 포맷**:
+
+#### 위치 1 — 생산현황 페이지 O/N 카드 헤더 (`SNStatusPage.tsx` `groupedByON` 렌더 블록)
+현재: `오더번호 · 모델명 · 고객사 · {댓수}대`
+변경: `오더번호 · 모델명 · 고객사 · **{line}** · {댓수}대`
+
+혼재 규칙 (O/N 내 S/N별 line이 서로 다름) — **FE 계산 (Codex A4 반영: BE는 S/N별 `line`만 반환, 혼재 집계는 FE `groupedByON` 로직에서 도출)**:
+- **대표값** = 최다 S/N의 line 값 (동률 시 사전순 1위)
+- 표기: `F16 외 {N-1}` (예: 4건 중 F16이 3건, F15가 1건 → `F16 외 1`)
+- 전부 NULL: 필드 자체 생략 (`오더번호 · 모델명 · 고객사 · {댓수}대`)
+
+#### 위치 2 — S/N 상세뷰 헤더
+현재: `고객사 · 출하일: YYYY-MM-DD` (혹은 유사 배치)
+변경: `고객사 · {line} · 출하일: YYYY-MM-DD`
+
+단일 S/N이라 혼재 처리 불필요. `line` NULL이면 해당 필드 생략.
+
+**NULL / 빈값 처리 (클린 코어 원칙)**:
+- `line IS NULL` / `""` → 렌더 자체 생략. "—" / "미정" 같은 placeholder **금지**.
+- 혼재 집계 시 NULL은 카운트에서 제외 (대표값 계산 시 NULL row 무시).
+
+**수정 파일 (예상 3개 — v4 기준: FE-20과 타입 공용, lineAgg FE 계산)**:
+1. `app/src/types/snStatus.ts` — **FE-20에서 이미 `SNProduct` flat 4필드 확장 시 `line` 포함**. 본 FE-21은 타입 **추가 수정 없음** (FE-20과 동일 커밋 시). snake_case 유지.
+   ```ts
+   // FE-20에서 확장된 SNProduct (재확인용)
+   export interface SNProduct {
+     // ...기존 필드
+     mech_partner: string | null;
+     elec_partner: string | null;
+     module_outsourcing: string | null;
+     line: string | null;   // ← 본 FE-21이 소비
+   }
+   ```
+   > **`line_mixed_count`는 BE 필드 아님** (Codex A4 / v4 유지). BE `progress_service.py`는 per-S/N `line` 문자열만 반환, O/N 카드 혼재 집계(최빈값 + "외 N")는 FE에서 계산.
+2. `app/src/pages/production/SNStatusPage.tsx` — O/N 카드 헤더 JSX + `groupedByON` 블록에 혼재 집계 로직 추가 (**Codex A2: 실제 경로 확정 / v4: `product.line` 직접 참조**)
+   ```tsx
+   // groupedByON 내부에 per-group line 집계 helper 추가
+   // ⚠️ v3 대비 변경: `s.product_info?.line` → `s.line` (SNProduct flat 참조)
+   // ⚠️ v4 보정 (Codex M7): 실측 SNStatusPage.tsx L90/L101/L107 그룹 스키마는 `products: SNProduct[]` → group.items 아닌 `group.products` 사용. NULL line row 는 혼재 카운트에서 제외.
+   const lineAgg = useMemo(() => {
+     const counts = new Map<string, number>();
+     let validCount = 0;                                         // ← NULL 제외 실카운트
+     group.products.forEach((s: SNProduct) => {                  // ← items 아님, products
+       const l = s.line?.trim();
+       if (l) {
+         counts.set(l, (counts.get(l) ?? 0) + 1);
+         validCount++;
+       }
+     });
+     if (counts.size === 0) return { label: null };              // 전체 NULL → 생략
+     const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+     const [topLine, topCount] = sorted[0];
+     const mixedCount = validCount - topCount;                   // ← group.products.length 아님 (NULL 오산 방지)
+     return { label: mixedCount > 0 ? `${topLine} 외 ${mixedCount}` : topLine };
+   }, [group.products]);                                         // ← deps 도 products
+   ```
+   > **NULL 혼재 처리 예시 (Codex M7 보정)**: `[F16, F16, F16, NULL]` → `validCount=3`, `topCount=3`, `mixedCount=0` → `"F16"` 만 표시 (NULL 은 "혼재"로 집계하지 않음). 반면 `[F16, F16, F16, F15]` → `validCount=4`, `topCount=3`, `mixedCount=1` → `"F16 외 1"`.
+3. `app/src/components/sn-status/SNDetailPanel.tsx` — 상세뷰 헤더 JSX에 `product.line` 조건부 렌더 (단일 S/N이라 혼재 집계 불필요). 이미 L17 `product: SNProduct` prop 보유 → `product.line` 직접 참조.
+   ```tsx
+   {product.line && product.line.trim().length > 0 && (
+     <span className="detail-line"> · {product.line}</span>
+   )}
+   ```
+4. (선택) `app/src/components/sn-status/SNCard.tsx` — O/N 카드 내부 S/N 개별 라인 툴팁/배지 노출이 필요하면 함께 업데이트 (2차 개선 범위, 본 FE-21에서는 제외)
+
+공용 포맷 헬퍼 (S/N 상세뷰용 — 혼재 없음):
+```tsx
+const formatLineLabel = (line: string | null | undefined): string | null => {
+  if (!line || line.trim().length === 0) return null;
+  return line;
+};
+```
+
+**스타일 가이드**:
+- 헤더 구분자는 기존과 동일 (중점 `·` 또는 세로선 `|`). 추가 규칙 없음.
+- 혼재 표기(`F16 외 1`)는 툴팁으로 **전체 라인 목록**(줄바꿈 구분) 노출 권장 (옵션, 2차 개선).
+
+**영향 범위**:
+- 파일: 3개 (types 1 — FE-20과 공용 / SNStatusPage 집계·JSX / SNDetailPanel JSX)
+- 예상 diff: 타입 +0줄(FE-20에서 이미 `line` 포함 확장), useMemo 집계 로직 +12줄, JSX +4줄 × 2 위치 = 약 20~24줄
+- 기능 변경: UI 텍스트 **추가만** + FE 집계 로직 (순수함수), 필터·정렬 로직 무변경
+- 회귀 위험: **매우 낮음** (타입 확장 + 순수 useMemo + 조건부 JSX, BE progress API 응답에 필드 1개 추가뿐 → 스테이징 육안 검증으로 해소 가능). **tasks API 타입·경로 무변경**. v3 대비 회귀 위험 등급 하향(Codex A6).
+
+**검증 방법 (v4 기준)**:
+1. BE FIX-25 배포 후 **`/api/app/product/progress`** 응답 products[n]에 `line` 필드 포함 확인 (v3 `/api/app/tasks/<sn>?all=true` → `product_info.line` 경로는 **폐기**):
+   ```bash
+   curl -s '<host>/api/app/product/progress' | jq '.products[] | {serial_number, sales_order, line}' | head -40
+   ```
+   (**BE 응답에는 `line_mixed_count` 필드 없음** — 혼재 집계는 FE `groupedByON` 내부 `lineAgg` useMemo에서 계산)
+2. **tasks API 회귀 가드**: `curl /api/app/tasks/<sn>?all=true | jq 'type'` → `"array"` 그대로 확인 (v4 전환으로 tasks API 응답 구조 무변경 확정).
+3. 스테이징에서:
+   - 단일 라인 O/N (S/N 4개 모두 `F16`) → `F16`만 표시 (mixedCount=0)
+   - 혼재 O/N (S/N 4개 중 3 `F16` / 1 `F15`) → `F16 외 1` 표시 (lineAgg 최빈값 + 차이수)
+   - 동률 케이스 (2/2 혼재) → 사전순 1위 + `외 2` 표시
+   - 전체 line NULL O/N → 필드 생략 확인
+   - S/N 상세뷰 3 케이스: 단일 line / NULL / GST 자체생산 S/N
+4. 고객사 필터링·O/N 정렬·페이지네이션 기존과 동일 동작 확인 (회귀)
+
+**의존 관계**:
+- 🔴 **BE 선행 필수**: FIX-25 (v4 — `progress_service.py` SELECT 확장 + pop 제거) 배포 완료 후 FE 착수.
+- 🟡 **FE-20과 공용**: `SNProduct` flat 4필드 타입·상태관리 공유 (`line`은 FE-21이 소비, `mech_partner`/`elec_partner`/`module_outsourcing` 은 FE-20이 소비). 1 PR 병합 권장.
+- ⏸️ **이력 추적 불요**: Twin파파 확인 — line 변경 이력 저장·표시 요구 없음 (DB 현재값만 표시).
+
+**스코프 아웃 (명시)**:
+- ❌ line 변경 이력 UI (감사 로그 탭 등) — **요구 아님**
+- ❌ line 필터링/정렬 기능 — 향후 별도 이슈로 분리
+- ❌ 혼재 라인 툴팁 전체 목록 표시 — 본 FE-21은 "외 N"만, 툴팁은 차후 개선
+
+**작업 주체**: VSCode 터미널 (Claude + Codex 교차검증)
+
+**우선순위**: **중간** (운영 가시성 개선)
+
+**예상 소요**: 구현 40분 + 스테이징 육안 검증 20분 = 총 1시간
 
 ---
 

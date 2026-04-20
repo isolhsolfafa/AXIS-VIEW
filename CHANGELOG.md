@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.32.3 (2026-04-20)
+> 최신 버전: v1.33.0 (2026-04-20)
 
 ---
 
@@ -70,6 +70,37 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.33.0 — 2026-04-20
+
+**Sprint 34 — S/N 상세뷰·O/N 헤더 정보 보강 (FE-20 / FE-21)**
+
+### 생산현황 — 카테고리 헤더 담당 회사명 (FE-20)
+- S/N 상세뷰의 MECH / ELEC / TMS 카테고리 카드 제목 옆에 담당 회사명 표시 (예: `MECH 기구 · 에스이엔지`, `ELEC 전장 · GST`, `TM 모듈 · TMS`)
+- GST 자체생산 케이스도 `· GST`로 표시하여 자체 vs 협력사 구분 시각화
+- PI / QI / SI 카테고리는 라벨 미표시 (GST 자체검사·출하검사 고정)
+- `SNProduct` 타입에 `mech_partner` / `elec_partner` / `module_outsourcing` 3필드 flat 추가
+- `ProcessStepCard` prop 확장 + `getCategoryPartner` 헬퍼 (`case 'TMS'` 주의)
+- NULL/빈 문자열 방어 — 카테고리명 단독 표시, placeholder 금지 (클린 코어 원칙)
+
+### 생산현황 — O/N 카드·상세뷰 헤더 line 노출 (FE-21)
+- O/N 카드 헤더에 고객사 공정 라인(`line`) 표시: `오더번호 · 모델명 · 고객사 · {line} · {댓수}대`
+- S/N 상세뷰 헤더에도 `line` 조건부 렌더: `고객사 · {line} · 출하일`
+- 1개 O/N 내 S/N별 line 혼재 시 대표값 + "외 N" 표기 (예: `F16 외 1`)
+  - 대표값 = 최다 S/N line (동률 시 사전순 1위)
+  - NULL row는 혼재 카운트에서 제외 (`[F16, F16, F16, NULL]` → `F16`만 표시)
+- 혼재 집계는 FE `groupedByON` 내부 `lineAgg` 로직 (BE는 per-S/N `line`만 반환)
+
+### BE 연동
+- **BE FIX-25 v4**: `/api/app/product/progress` 응답 `SNProduct` 요소에 `mech_partner` / `elec_partner` / `module_outsourcing` / `line` 4필드 flat 추가 (progress API 단일 확장)
+- tasks API (`work.py`) 무변경 — List→Dict breaking 회귀 0
+- BE 미배포 시 4필드 undefined → 현행 UI와 동일 동작 (안전 degrade, 점진 배포 가능)
+
+### 교차검증 이력
+- Claude ↔ Codex 2라운드 교차검증 합의 반영 (v3 M1+A8, v4 M1+A6)
+- v3 → v4 전환: BE 확장 범위를 tasks API → progress API flat 구조로 축소, 회귀 위험 등급 "매우 낮음~낮음" → "매우 낮음" 하향
 
 ---
 

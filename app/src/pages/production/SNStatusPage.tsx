@@ -86,8 +86,17 @@ export default function SNStatusPage() {
   }, [products, search, isAdminOrGst, user?.company, settings.showTestSN]);
 
   // O/N별 그룹핑 — Sprint 24
+  // Sprint 34 (FE-21, v1.33.0): lineLabel 집계 추가 — 최빈값 + "외 N" (NULL row는 혼재 카운트 제외)
   const groupedByON = useMemo(() => {
-    const groups: { key: string; salesOrder: string; model: string; customer: string; products: SNProduct[]; overallPercent: number }[] = [];
+    const groups: {
+      key: string;
+      salesOrder: string;
+      model: string;
+      customer: string;
+      products: SNProduct[];
+      overallPercent: number;
+      lineLabel: string | null;
+    }[] = [];
     const map = new Map<string, typeof groups[0]>();
 
     for (const p of sorted) {
@@ -100,6 +109,7 @@ export default function SNStatusPage() {
           customer: p.customer,
           products: [] as SNProduct[],
           overallPercent: 0,
+          lineLabel: null as string | null,
         };
         map.set(key, group);
         groups.push(group);
@@ -111,6 +121,23 @@ export default function SNStatusPage() {
       g.overallPercent = Math.round(
         g.products.reduce((sum, p) => sum + p.overall_percent, 0) / g.products.length
       );
+
+      // FE-21: line 혼재 집계 — NULL row는 validCount에서 제외 (혼재로 오산하지 않도록)
+      const counts = new Map<string, number>();
+      let validCount = 0;
+      for (const s of g.products) {
+        const l = s.line?.trim();
+        if (l) {
+          counts.set(l, (counts.get(l) ?? 0) + 1);
+          validCount++;
+        }
+      }
+      if (counts.size > 0) {
+        const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+        const [topLine, topCount] = sorted[0];
+        const mixedCount = validCount - topCount;
+        g.lineLabel = mixedCount > 0 ? `${topLine} 외 ${mixedCount}` : topLine;
+      }
     }
     return groups;
   }, [sorted]);
@@ -233,7 +260,9 @@ export default function SNStatusPage() {
                       O/N {group.salesOrder}
                     </span>
                     <span style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>
-                      {group.model} · {group.customer} · {group.products.length}대
+                      {group.model} · {group.customer}
+                      {group.lineLabel && ` · ${group.lineLabel}`}
+                      {' · '}{group.products.length}대
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
