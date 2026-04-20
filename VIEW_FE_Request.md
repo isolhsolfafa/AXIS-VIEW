@@ -462,6 +462,61 @@ export interface SNTaskDetail {
 
 ---
 
+### FE-19.1. 강제종료 시각 툴팁 용어 정합 — ✅ DONE (2026-04-20 v1.32.3 적용, Claude↔Codex 교차검증 합의 후 구현)
+
+> **베이스라인**: v1.32.2 (원안은 v1.32.0 기준 stale 상태로 작성되어 폐기, 본 재설계는 v1.32.2 실측 코드 기준)
+>
+> **원안 폐기 근거 (2026-04-20 Codex 교차검증)**: 초기 원안은 placeholder row의 `{task.completed_at && (<span>{formatDateTime(task.completed_at)}</span>)}` 블록에 `🔒 종료 처리:` 접두어를 추가하는 설계였으나, 해당 JSX 블록은 **v1.32.1 "데드 코드 정리" 단계에서 이미 제거됨** (grep `formatDateTime(task.completed_at)` 매치 0건 확인). 현재 v1.32.2 구조는 `SNDetailPanel.tsx:206`에서 `task.completed_at → w.force_closed_at` per-row 전파 후 `ProcessStepCard.tsx:234`에서 `🔒 강제종료 {formatTime(w.force_closed_at)}` 형태로 worker row 상태 컬럼에 노출 중. 이미 **`🔒 강제종료`** 텍스트가 "권한 액션·감사 시각"을 명시하므로 클린 코어 원칙 #4 UI 책임 **주요 요건은 이미 충족**. 다만 툴팁 문구에서 "종료:"만 단독 사용 중 → 원칙 문서(`AGENT_TEAM_LAUNCH.md` / `BACKLOG.md`)의 `🔒 종료 처리:` 용어와 **정합성 확보 차원**에서 소폭 보정만 잔여.
+
+**목적**: 툴팁 문구 용어를 원칙 문서(`🔒 종료 처리:`)와 일치시켜 grep·문서 참조 일관성 확보. "종료:"가 "작업 종료"로 오독될 여지 제거.
+
+**수정 — `app/src/components/sn-status/ProcessStepCard.tsx`** (단일 파일, 1곳):
+
+L224 부근 worker row 상태 컬럼의 tooltip `title` 속성 내 **"종료:"** → **"종료 처리:"** 1단어 추가.
+
+```tsx
+// Before (v1.32.2, L224 근처 tooltip 내부)
+title={`사유: ${w.close_reason ?? ''}\n처리: ${maskName(w.closed_by_name) ?? ''}\n종료: ${formatDateTime(w.force_closed_at)}`}
+
+// After (FE-19.1)
+title={`사유: ${w.close_reason ?? ''}\n처리: ${maskName(w.closed_by_name) ?? ''}\n종료 처리: ${formatDateTime(w.force_closed_at)}`}
+```
+
+> **실제 tooltip 문자열 템플릿은 현재 소스 구현에 따라 달라질 수 있음** — 본 설계의 고정점은 "`종료:` 라벨을 `종료 처리:`로 교체한다" 한 가지이고, 문자열 조합 방식(템플릿 리터럴 / `\n` 개행 / 필드 순서 등)은 VSCode 구현 시 현행 코드 그대로 유지.
+
+**원안 폐기 항목 (명시)**:
+- ❌ placeholder row `{task.completed_at && (<span>...</span>)}` 접두어 추가 → **해당 JSX 이미 제거됨, 대상 없음**
+- ❌ `SNTaskDetail` 인터페이스 신규 필드 추가 → **v1.32.1에서 `TaskWorker` 4필드(`force_closed?`/`close_reason?`/`closed_by_name?`/`force_closed_at?`)로 이미 처리됨**
+- ❌ span 별도 `title` 속성 추가 → **기존 상태 컬럼 title 하나로 통합되어 불필요**
+
+**영향 범위**:
+- 파일: `ProcessStepCard.tsx` 1개
+- 예상 diff: **텍스트 1단어 추가** (1줄 수정)
+- 기능 변경: 없음 (툴팁 문구만 조정)
+- 회귀 위험: **매우 낮음** (조건 분기·필드 접근·렌더 경로 무변경. 다만 현행 구현이 HTML `title` 속성이 아닌 CSS `::after { content: attr(data-tooltip) }` + `white-space: pre-line` + `min-width: 180px / max-width: 320px` 말풍선 방식이라, 1단어 증가가 **줄바꿈 위치·말풍선 폭에 최소 영향 가능성** 존재. 스테이징 육안 검증으로 해소 가능 수준.)
+
+**검증 방법**:
+1. 스테이징 배포 후 강제종료된 worker row(예: 박*현/김*욱 ELEC 전장, TM 가압검사) hover
+2. 툴팁에 `사유: ... / 처리: ... / 종료 처리: YYYY-MM-DD HH:MM` 형태 노출 확인
+3. 기존 상태 컬럼 `🔒 강제종료 {formatTime(...)}` 표시는 **변경 없이 유지** 확인
+
+**의존 관계**:
+- 🟢 **설계 원칙 문서화 완료**: `AGENT_TEAM_LAUNCH.md` HOTFIX-04 📐 설계 원칙 블록 (2026-04-20) — 원칙 #4 UI 책임의 **주요 요건은 현행 코드가 이미 충족**, 본 FE-19.1은 **문구 정합**에 한정.
+- 🟡 **회귀 가드 연계**: BACKLOG `TEST-CLEAN-CORE-01` pytest (force_close 호출 후 wsl/wcl row 0건 확인) — BE 레이어 회귀 가드는 본 FE-19.1과 독립적으로 진행 가능.
+- ⏸️ **Codex 재검증**: Option A+B 재설계본은 텍스트 1단어 변경이라 **추가 교차검증 생략 가능**. 단 실제 구현 시 tooltip 라인 번호·템플릿 구조가 본 설계서와 달라지면 그때 1회 확인 권장.
+
+**제외 대상 (Codex Option C, 명시적 스코프 아웃)**:
+- 상태 컬럼 `formatTime` → `formatDateTime` 전환 (수일 전 강제종료 식별 개선): 카드 폭 UX 영향 있어 **별도 이슈로 분리**, 본 FE-19.1 스코프 아님.
+- ChecklistReportView 등 다른 `formatDateTime(completed_at)` 사용처: 맥락이 달라 용어 정합 불필요.
+
+**작업 주체**: VSCode 터미널 (Claude + Codex 교차검증, 다음 스프린트 FE 작업 시 일괄 적용)
+
+**우선순위**: **낮음** (기능적 영향 없음, 용어 정합만)
+
+**예상 소요**: 구현 2분 + 스테이징 육안 검증 3분 = 총 5분
+
+---
+
 ## 기타 PENDING 항목
 
 (현재 없음)

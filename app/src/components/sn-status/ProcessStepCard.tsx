@@ -221,7 +221,7 @@ export default function ProcessStepCard({
                 <span
                   className={w.force_closed ? 'fc-tooltip' : undefined}
                   data-tooltip={w.force_closed
-                    ? `사유: ${w.close_reason ?? '—'}\n처리: ${w.closed_by_name ? maskName(w.closed_by_name) : '—'}\n종료: ${w.force_closed_at ? formatDateTime(w.force_closed_at) : '—'}`
+                    ? `사유: ${w.close_reason ?? '—'}\n처리: ${w.closed_by_name ? maskName(w.closed_by_name) : '—'}\n종료 처리: ${w.force_closed_at ? formatDateTime(w.force_closed_at) : '—'}`
                     : undefined}
                   style={{
                     color: (w.force_closed || isOverdue) ? 'var(--gx-danger)' : 'var(--gx-steel)',

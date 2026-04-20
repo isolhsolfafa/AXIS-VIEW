@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-04-18 | 버전: v1.32.2
+> 최종 갱신: 2026-04-20 | 버전: v1.32.3
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -434,6 +434,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | HOTFIX-04 / FE-19 | ProcessStepCard 강제종료 placeholder 렌더 (Case 2) + `formatDateTime` 유틸 승격 (v1.32.0) | ✅ 완료 |
 | FE-19.1 후속 | per-row 강제종료 표시 (상태 컬럼 대체 + 툴팁) + v1.32.0 데드 코드 정리 (v1.32.1) | ✅ 완료 |
 | FE-19.2 후속 | 강제종료 툴팁 즉시 반응 (CSS `.fc-tooltip` + `data-tooltip` — browser title 딜레이 회피) (v1.32.2) | ✅ 완료 |
+| FE-19.1 용어 정합 | 강제종료 툴팁 `종료:` → `종료 처리:` (클린 코어 원칙 #4 UI 책임 — Claude↔Codex 교차검증 합의, v1.32.3) | ✅ 완료 |
 
 ### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)
 
