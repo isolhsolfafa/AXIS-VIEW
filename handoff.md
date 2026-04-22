@@ -54,9 +54,10 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.34.1
-- **최근 작업**: Sprint 35 HOTFIX — monthly-detail date_field 복원 (BE Sprint 62-BE 대기)
-- **최근 완료**: v1.34.0 (Sprint 35), v1.34.1 (HOTFIX S2)
+- **VIEW FE**: v1.34.2
+- **최근 작업**: TEMP-HARDCODE 주간 11대 / 월간 76대 (actual_ship_date 기준, 손님 응대용)
+- **최근 완료**: v1.34.1 (HOTFIX S2), v1.34.2 (TEMP-HARDCODE)
+- **⚠️ BE Sprint 62-BE 배포 시 필수 제거**: `KpiSwipeDeck.tsx` L11~16 모듈 상수 + 4개 카드 value prop 원복
 
 ---
 

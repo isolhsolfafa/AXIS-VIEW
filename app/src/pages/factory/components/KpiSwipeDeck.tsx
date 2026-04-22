@@ -14,6 +14,12 @@ export interface KpiSwipeDeckProps {
   monthlyLoading?: boolean;
 }
 
+// TEMP-HARDCODE v1.34.2 (2026-04-22) — BE Sprint 62-BE 배포 후 제거
+// 손님 응대용 임시 값 — actual_ship_date 기준 SQL 직접 카운트 결과 반영
+// 주간: W17 (2026-04-20~26) / 월간: 2026-04 전체
+const TEMP_WEEKLY_COUNT = 11;
+const TEMP_MONTHLY_COUNT = 76;
+
 export default function KpiSwipeDeck({
   period, onPeriodChange, weekly, monthly, weeklyLoading, monthlyLoading,
 }: KpiSwipeDeckProps) {
@@ -91,7 +97,7 @@ export default function KpiSwipeDeck({
         }}>
           <KpiCard
             label="주간 생산량"
-            value={weekly?.production_count ?? '—'}
+            value={TEMP_WEEKLY_COUNT /* actual_ship_date 기준 */}
             unit="대"
             sub={weekLabel}
             color="var(--gx-info)"
@@ -114,9 +120,9 @@ export default function KpiSwipeDeck({
           />
           <KpiCard
             label="출하 완료"
-            value={weekly?.shipped_count ?? weekly?.pipeline?.shipped ?? '—'}
+            value={TEMP_WEEKLY_COUNT /* actual_ship_date 기준 동일 값 */}
             unit="대"
-            sub="금주 출하"
+            sub="금주 실제 출하"
             color="var(--gx-accent)"
             loading={weeklyLoading}
           />
@@ -130,7 +136,7 @@ export default function KpiSwipeDeck({
         }}>
           <KpiCard
             label="월간 생산량"
-            value={monthly?.production_count ?? '—'}
+            value={TEMP_MONTHLY_COUNT /* actual_ship_date 기준 */}
             unit="대"
             sub={monthLabel}
             color="var(--gx-info)"
@@ -153,9 +159,9 @@ export default function KpiSwipeDeck({
           />
           <KpiCard
             label="출하 완료"
-            value={monthly?.shipped_count ?? '—'}
+            value={TEMP_MONTHLY_COUNT /* actual_ship_date 기준 동일 값 */}
             unit="대"
-            sub="월간 출하"
+            sub="월간 실제 출하"
             color="var(--gx-accent)"
             loading={monthlyLoading}
           />

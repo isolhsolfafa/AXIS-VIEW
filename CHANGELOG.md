@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.34.1 (2026-04-22)
+> 최신 버전: v1.34.2 (2026-04-22)
 
 ---
 
@@ -70,6 +70,32 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.34.2 — 2026-04-22
+
+**TEMP-HARDCODE — 손님 응대용 actual_ship_date 기준 값 하드코딩 (BE 미배포)**
+
+### 배경
+- BE Sprint 62-BE 미배포 상태에서 손님 방문 예정
+- 공장 대시보드 주간/월간 카드에 실제 출하 기준 숫자 표시 필요
+
+### 하드코딩 값 (`plan.product_info.actual_ship_date` 기준 직접 SQL 집계)
+- **주간 (W17 2026-04-20~26)**: 11대
+  - 주간 생산량 카드: 11대
+  - 주간 출하 완료 카드: 11대 (동일 값)
+- **월간 (2026-04 전체)**: 76대
+  - 월간 생산량 카드: 76대
+  - 월간 출하 완료 카드: 76대 (동일 값)
+
+### 변경 파일
+- `app/src/pages/factory/components/KpiSwipeDeck.tsx`: 모듈 상수 `TEMP_WEEKLY_COUNT = 11`, `TEMP_MONTHLY_COUNT = 76` 선언 후 4개 카드에 적용
+- 주석에 `TEMP-HARDCODE v1.34.2` 마커 명시
+
+### 제거 조건
+- BE Sprint 62-BE 배포 후 `weekly-kpi.shipped_count` / `monthly-kpi.production_count` / `monthly-kpi.shipped_count` 실값 반환 시점에 즉시 하드코딩 제거
+- `KpiSwipeDeck.tsx` 모듈 상수 2개 + 4개 카드 `value` prop 원복 필요
 
 ---
 
