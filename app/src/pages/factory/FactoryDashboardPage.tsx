@@ -64,8 +64,10 @@ export default function FactoryDashboardPage() {
     return (h >= 8 && h < 20) ? 30 * 60 * 1000 : false;
   };
   const { data: kpi, isLoading: kpiLoading, dataUpdatedAt: kpiUpdatedAt, isFetching: kpiFetching, refetch: refetchKpi } = useWeeklyKpi({ refetchInterval: autoRefreshInterval });
-  // Sprint 35 Codex M2: 조회 기준은 finishing_plan_end 로 변경, 하단 테이블 정렬 키는 mech_start 유지
-  const { data: monthly, isLoading: monthlyLoading, refetch: refetchMonthly } = useMonthlyDetail({ per_page: 500, date_field: 'finishing_plan_end', refetchInterval: autoRefreshInterval });
+  // Sprint 35 HOTFIX v1.34.1: BE Sprint 62-BE 배포 전까지 date_field='mech_start' 유지
+  // (finishing_plan_end는 BE _ALLOWED_DATE_FIELDS 미등록 → 하단 테이블·월간 차트 전체 빈 응답 발생)
+  // BE 배포 후 'finishing_plan_end'로 재전환 예정
+  const { data: monthly, isLoading: monthlyLoading, refetch: refetchMonthly } = useMonthlyDetail({ per_page: 500, date_field: 'mech_start', refetchInterval: autoRefreshInterval });
   const { data: etlData, refetch: refetchEtl } = useEtlChanges({ days: 7, limit: 10 });
 
   // Sprint 35: KPI 덱 주간/월간 전환 state

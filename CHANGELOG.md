@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.34.0 (2026-04-22)
+> 최신 버전: v1.34.1 (2026-04-22)
 
 ---
 
@@ -70,6 +70,37 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.34.1 — 2026-04-22
+
+**Sprint 35 HOTFIX — monthly-detail date_field 복원 (S2 부분 장애)**
+
+### 증상
+- v1.34.0 배포 후 공장 대시보드 하단 3개 영역 동시 빈 상태:
+  - 생산 현황 상세 테이블 0건
+  - 월간 생산 지표 차트 "데이터 없음"
+  - 최근 활동은 정상 (영향 없음)
+
+### 원인
+- Sprint 35에서 `useMonthlyDetail`의 `date_field: 'mech_start'` → `'finishing_plan_end'` 전환
+- **BE Sprint 62-BE 미배포** 상태 → `_ALLOWED_DATE_FIELDS` 화이트리스트에 `finishing_plan_end` 미등록 → 파라미터 reject → 빈 응답
+- 설계 단계에서 "상단 스와이프 월간 차트만 영향"으로 간주했으나, **같은 `monthlyDetail` 데이터 소스가 하단 테이블·하단 월간 차트에도 쓰이는 점을 간과**
+
+### 복원
+- `FactoryDashboardPage.tsx` L65: `date_field: 'finishing_plan_end'` → `'mech_start'` 원복
+- 주석 보강: BE Sprint 62-BE 배포 후 재전환 예정 명시
+- `ProductionChart` 서브 라벨에서 "finishing_plan_end 기준" 문구 제거 (정직성)
+- **주간 출하 카드 fallback 추가**: `weekly?.shipped_count ?? weekly?.pipeline?.shipped ?? '—'` — BE Sprint 62-BE 미배포 상태에서도 기존 `pipeline.shipped`로 값 표시 (Sprint 35 설계 타입에 `pipeline.shipped` deprecated 유지는 이 fallback 용도였으나 FE에서 빠뜨림)
+
+### 후속
+- BE Sprint 62-BE 배포 후 FE HOTFIX 1줄로 다시 `finishing_plan_end` 전환
+- 설계 단계 교훈: 공유 데이터 소스 기준 변경 시 **모든 소비처 사용처 점검** 필수
+
+### 교차검증
+- S2 HOTFIX — Opus 단독 리뷰 후 즉시 배포 (CLAUDE.md 🚨 긴급 HOTFIX 예외 조항)
+- 다음 Sprint 시작 전 Codex 사후 검토 예정 (`POST-REVIEW-HOTFIX-v1.34.1`)
 
 ---
 

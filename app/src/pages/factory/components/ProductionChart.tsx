@@ -18,7 +18,8 @@ export default function ProductionChart({ period, weekly, monthlyDetail, isLoadi
   const maxCount = Math.max(...chartData.map(c => c.count), 1);
 
   const title = period === 'weekly' ? '주간 생산 지표' : '월간 생산 지표';
-  const sub = period === 'weekly' ? '모델별 생산량 (finishing_plan_end 기준)' : '모델별 생산량 (finishing_plan_end 기준)';
+  const sub = '모델별 생산량';
+  // NOTE: BE Sprint 62-BE 배포 후 주간·월간 모두 finishing_plan_end 기준으로 전환 예정
 
   return (
     <div style={{

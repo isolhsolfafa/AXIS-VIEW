@@ -1,7 +1,7 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.34.0';
+export const APP_VERSION = 'v1.34.1';
 export const BUILD_DATE = '2026-04-22';
 
 // 버전 이력
@@ -54,3 +54,4 @@ export const BUILD_DATE = '2026-04-22';
 // v1.32.3| 2026-04-20 | FE-19.1 용어정합| 강제종료 툴팁 '종료:' → '종료 처리:' (클린 코어 원칙 #4 UI 책임 — 감사 시각 명시)
 // v1.33.0| 2026-04-20 | Sprint 34      | S/N 상세뷰·O/N 헤더 정보 보강 (FE-20 카테고리 회사명 + FE-21 line) — BE FIX-25 v4 연동
 // v1.34.0| 2026-04-22 | Sprint 35      | 공장 대시보드 KPI 주간/월간 스와이프 덱 + KpiCard 공용화 + pipeline.shipped→shipped_count 마이그레이션 — OPS Sprint 62-BE 연동
+// v1.34.1| 2026-04-22 | Sprint 35 HOTFIX| monthly-detail date_field 'finishing_plan_end'→'mech_start' 복원 (BE Sprint 62-BE 미배포로 생산 현황 상세·월간 지표 0건 발생) — BE 배포 후 재전환 예정

@@ -114,7 +114,7 @@ export default function KpiSwipeDeck({
           />
           <KpiCard
             label="출하 완료"
-            value={weekly?.shipped_count ?? '—'}
+            value={weekly?.shipped_count ?? weekly?.pipeline?.shipped ?? '—'}
             unit="대"
             sub="금주 출하"
             color="var(--gx-accent)"

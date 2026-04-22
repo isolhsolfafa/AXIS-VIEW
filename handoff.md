@@ -54,9 +54,9 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.34.0
-- **최근 작업**: Sprint 35 — 공장 대시보드 KPI 주간/월간 스와이프 덱 (OPS Sprint 62-BE 연동 대기)
-- **최근 완료**: v1.33.0 (Sprint 34), v1.34.0 (Sprint 35)
+- **VIEW FE**: v1.34.1
+- **최근 작업**: Sprint 35 HOTFIX — monthly-detail date_field 복원 (BE Sprint 62-BE 대기)
+- **최근 완료**: v1.34.0 (Sprint 35), v1.34.1 (HOTFIX S2)
 
 ---
 
