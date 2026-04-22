@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.34.2 (2026-04-22)
+> 최신 버전: v1.34.3 (2026-04-22)
 
 ---
 
@@ -70,6 +70,35 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.34.3 — 2026-04-22
+
+**TEMP-HARDCODE 보정 — 주간 생산량 BE 동적 값 복원 + 월간 분리**
+
+### 배경
+- v1.34.2에서 "actual_ship_date 기준 통일" 지시를 과해석 → **이미 BE weekly-kpi로 정상 반환 중이던 주간 생산량까지 하드코딩(11)으로 덮음**
+- 실제로는 주간 생산량은 BE 동적 값(약 31대, ship_plan_date 기준)이 정상
+
+### 수정
+- `KpiSwipeDeck.tsx`:
+  - 주간 생산량 카드 value: `TEMP_WEEKLY_COUNT` → `weekly?.production_count ?? '—'` **원복**
+  - 월간 생산량/출하 상수 분리: `TEMP_MONTHLY_COUNT` → `TEMP_MONTHLY_PRODUCTION = 215` + `TEMP_MONTHLY_SHIPPED = 76`
+  - 주간 출하 상수 이름 변경: `TEMP_WEEKLY_COUNT` → `TEMP_WEEKLY_SHIPPED = 11` (명확성)
+
+### 최종 하드코딩 3곳 (BE 미지원만)
+| 상수 | 값 | 카드 |
+|---|---|---|
+| `TEMP_WEEKLY_SHIPPED` | 11 | 주간 출하 완료 (actual_ship_date W17) |
+| `TEMP_MONTHLY_PRODUCTION` | 215 | 월간 생산량 (2026-04 계획) |
+| `TEMP_MONTHLY_SHIPPED` | 76 | 월간 출하 완료 (actual_ship_date 2026-04) |
+
+### 건드리지 않은 BE 동적 값
+- 주간 생산량: `weekly?.production_count` (BE weekly-kpi)
+- 주간 완료율: `weekly?.completion_rate`
+- 월간 완료율: β'안대로 `—` + 서브텍스트
+- 불량 건수 (주/월): `—` (QMS 미연동)
 
 ---
 

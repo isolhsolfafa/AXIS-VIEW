@@ -54,10 +54,10 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.34.2
-- **최근 작업**: TEMP-HARDCODE 주간 11대 / 월간 76대 (actual_ship_date 기준, 손님 응대용)
-- **최근 완료**: v1.34.1 (HOTFIX S2), v1.34.2 (TEMP-HARDCODE)
-- **⚠️ BE Sprint 62-BE 배포 시 필수 제거**: `KpiSwipeDeck.tsx` L11~16 모듈 상수 + 4개 카드 value prop 원복
+- **VIEW FE**: v1.34.3
+- **최근 작업**: TEMP-HARDCODE 월간 생산량 215 / 월간 출하 76 / 주간 출하 11 (주간 생산량은 BE 동적 값 유지)
+- **최근 완료**: v1.34.2 (TEMP-HARDCODE), v1.34.3 (주간 생산량 복원 + 월간 분리)
+- **⚠️ BE Sprint 62-BE 배포 시 필수 제거**: `KpiSwipeDeck.tsx` 모듈 상수 3개(`TEMP_WEEKLY_SHIPPED=11` / `TEMP_MONTHLY_PRODUCTION=215` / `TEMP_MONTHLY_SHIPPED=76`) + 3개 카드 value prop 원복
 
 ---
 

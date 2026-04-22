@@ -14,11 +14,14 @@ export interface KpiSwipeDeckProps {
   monthlyLoading?: boolean;
 }
 
-// TEMP-HARDCODE v1.34.2 (2026-04-22) — BE Sprint 62-BE 배포 후 제거
-// 손님 응대용 임시 값 — actual_ship_date 기준 SQL 직접 카운트 결과 반영
-// 주간: W17 (2026-04-20~26) / 월간: 2026-04 전체
-const TEMP_WEEKLY_COUNT = 11;
-const TEMP_MONTHLY_COUNT = 76;
+// TEMP-HARDCODE v1.34.3 (2026-04-22) — BE Sprint 62-BE 배포 후 제거
+// 손님 응대용 임시 값 — 직접 SQL 집계 결과 반영
+// 주간 생산량: BE weekly-kpi.production_count 값 유지 (하드코딩 없음)
+// 주간 출하 (W17 2026-04-20~26): actual_ship_date 기준 = 11대
+// 월간 (2026-04):           생산량 215대 / 출하 76대 (actual_ship_date)
+const TEMP_WEEKLY_SHIPPED = 11;
+const TEMP_MONTHLY_PRODUCTION = 215;
+const TEMP_MONTHLY_SHIPPED = 76;
 
 export default function KpiSwipeDeck({
   period, onPeriodChange, weekly, monthly, weeklyLoading, monthlyLoading,
@@ -97,7 +100,7 @@ export default function KpiSwipeDeck({
         }}>
           <KpiCard
             label="주간 생산량"
-            value={TEMP_WEEKLY_COUNT /* actual_ship_date 기준 */}
+            value={weekly?.production_count ?? '—'}
             unit="대"
             sub={weekLabel}
             color="var(--gx-info)"
@@ -120,7 +123,7 @@ export default function KpiSwipeDeck({
           />
           <KpiCard
             label="출하 완료"
-            value={TEMP_WEEKLY_COUNT /* actual_ship_date 기준 동일 값 */}
+            value={TEMP_WEEKLY_SHIPPED /* actual_ship_date 기준 */}
             unit="대"
             sub="금주 실제 출하"
             color="var(--gx-accent)"
@@ -136,7 +139,7 @@ export default function KpiSwipeDeck({
         }}>
           <KpiCard
             label="월간 생산량"
-            value={TEMP_MONTHLY_COUNT /* actual_ship_date 기준 */}
+            value={TEMP_MONTHLY_PRODUCTION /* ship_plan_date 기준 4월 계획 */}
             unit="대"
             sub={monthLabel}
             color="var(--gx-info)"
@@ -159,7 +162,7 @@ export default function KpiSwipeDeck({
           />
           <KpiCard
             label="출하 완료"
-            value={TEMP_MONTHLY_COUNT /* actual_ship_date 기준 동일 값 */}
+            value={TEMP_MONTHLY_SHIPPED /* actual_ship_date 기준 */}
             unit="대"
             sub="월간 실제 출하"
             color="var(--gx-accent)"

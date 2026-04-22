@@ -1,7 +1,7 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.34.2';
+export const APP_VERSION = 'v1.34.3';
 export const BUILD_DATE = '2026-04-22';
 
 // 버전 이력
@@ -56,3 +56,4 @@ export const BUILD_DATE = '2026-04-22';
 // v1.34.0| 2026-04-22 | Sprint 35      | 공장 대시보드 KPI 주간/월간 스와이프 덱 + KpiCard 공용화 + pipeline.shipped→shipped_count 마이그레이션 — OPS Sprint 62-BE 연동
 // v1.34.1| 2026-04-22 | Sprint 35 HOTFIX| monthly-detail date_field 'finishing_plan_end'→'mech_start' 복원 (BE Sprint 62-BE 미배포로 생산 현황 상세·월간 지표 0건 발생) — BE 배포 후 재전환 예정
 // v1.34.2| 2026-04-22 | TEMP-HARDCODE   | 손님 응대용 임시 하드코딩 — 주간 11대 / 월간 76대 (W17 / 2026-04 actual_ship_date 기준) — BE Sprint 62-BE 배포 후 제거 필수
+// v1.34.3| 2026-04-22 | TEMP-HARDCODE fix| 주간 생산량 BE 동적 값 복원 (v1.34.2에서 실수로 하드코딩 덮었음) + 월간 생산량 215 / 월간 출하 76 분리 유지
