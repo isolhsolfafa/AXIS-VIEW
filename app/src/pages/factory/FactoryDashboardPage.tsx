@@ -3,8 +3,10 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
-import { useWeeklyKpi, useMonthlyDetail } from '@/hooks/useFactory';
+import { useWeeklyKpi, useMonthlyDetail, useMonthlyKpi } from '@/hooks/useFactory';
 import { useEtlChanges } from '@/hooks/useEtlChanges';
+import KpiSwipeDeck from './components/KpiSwipeDeck';
+import ProductionChart from './components/ProductionChart';
 
 const MODEL_COLORS = [
   'linear-gradient(90deg, #6366F1, #818CF8)',
@@ -62,10 +64,18 @@ export default function FactoryDashboardPage() {
     return (h >= 8 && h < 20) ? 30 * 60 * 1000 : false;
   };
   const { data: kpi, isLoading: kpiLoading, dataUpdatedAt: kpiUpdatedAt, isFetching: kpiFetching, refetch: refetchKpi } = useWeeklyKpi({ refetchInterval: autoRefreshInterval });
-  const { data: monthly, isLoading: monthlyLoading, refetch: refetchMonthly } = useMonthlyDetail({ per_page: 500, date_field: 'mech_start', refetchInterval: autoRefreshInterval });
+  // Sprint 35 Codex M2: 조회 기준은 finishing_plan_end 로 변경, 하단 테이블 정렬 키는 mech_start 유지
+  const { data: monthly, isLoading: monthlyLoading, refetch: refetchMonthly } = useMonthlyDetail({ per_page: 500, date_field: 'finishing_plan_end', refetchInterval: autoRefreshInterval });
   const { data: etlData, refetch: refetchEtl } = useEtlChanges({ days: 7, limit: 10 });
 
-  const handleRefreshAll = () => { refetchKpi(); refetchMonthly(); refetchEtl(); };
+  // Sprint 35: KPI 덱 주간/월간 전환 state
+  const [period, setPeriod] = useState<'weekly' | 'monthly'>('weekly');
+  const { data: monthlyKpi, isLoading: monthlyKpiLoading, refetch: refetchMonthlyKpi } = useMonthlyKpi({
+    enabled: period === 'monthly',
+    refetchInterval: autoRefreshInterval,
+  });
+
+  const handleRefreshAll = () => { refetchKpi(); refetchMonthly(); refetchEtl(); refetchMonthlyKpi(); };
   const lastSync = kpiUpdatedAt ? new Date(kpiUpdatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '—';
 
   /* ── 카테고리 필터 (localStorage 저장) ── */
@@ -110,18 +120,7 @@ export default function FactoryDashboardPage() {
     return () => clearInterval(timer);
   }, [sortedItems.length, totalSlidePages, slideAutoPlay]);
 
-  const kpiCards = useMemo(() => {
-    if (!kpi) return [];
-    return [
-      { label: '주간 생산량', value: `${kpi.production_count}대`, color: 'var(--gx-info)', sub: `W${kpi.week} (${kpi.week_range.start.slice(5)} ~ ${kpi.week_range.end.slice(5)})` },
-      { label: '완료율', value: `${kpi.completion_rate}%`, color: 'var(--gx-success)', sub: '공정 평균 완료율' },
-      { label: '불량 건수', value: '—', color: 'var(--gx-danger)', sub: 'QMS 연동 대기' },
-      { label: '출하 완료', value: `${kpi.pipeline.shipped}대`, color: 'var(--gx-accent)', sub: '금주 출하' },
-    ];
-  }, [kpi]);
-
-  const chartData = kpi?.by_model ?? [];
-  const maxCount = Math.max(...chartData.map(c => c.count), 1);
+  // Sprint 35: 기존 kpiCards 배열 + chartData/maxCount는 KpiSwipeDeck / ProductionChart 컴포넌트로 이관 (공용화)
 
   const monthlyModels = useMemo(() => {
     if (!monthly?.by_model?.length) return [];
@@ -237,66 +236,25 @@ export default function FactoryDashboardPage() {
           </button>
         </div>
 
-        {/* KPI Cards */}
-        <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-          {isLoading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} style={{
-                background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
-                padding: '20px 24px', boxShadow: 'var(--shadow-card)', height: '100px',
-              }}>
-                <div style={{ fontSize: '12px', color: 'var(--gx-steel)' }}>로딩 중...</div>
-              </div>
-            ))
-          ) : (
-            kpiCards.map(k => (
-              <div key={k.label} style={{
-                background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
-                padding: '20px 24px', boxShadow: 'var(--shadow-card)',
-              }}>
-                <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-steel)', marginBottom: '12px' }}>{k.label}</div>
-                <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--gx-charcoal)', lineHeight: 1.1 }}>{k.value}</div>
-                <div style={{ fontSize: '11px', color: 'var(--gx-steel)', marginTop: '8px' }}>{k.sub}</div>
-              </div>
-            ))
-          )}
-        </div>
+        {/* KPI Swipe Deck (주간/월간) — Sprint 35 */}
+        <KpiSwipeDeck
+          period={period}
+          onPeriodChange={setPeriod}
+          weekly={kpi}
+          monthly={monthlyKpi}
+          weeklyLoading={kpiLoading}
+          monthlyLoading={monthlyKpiLoading}
+        />
 
         {/* Chart + Stage */}
         <div className="chart-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '24px' }}>
-          {/* Bar Chart */}
-          <div style={{
-            background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
-            boxShadow: 'var(--shadow-card)', padding: '24px',
-          }}>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--gx-charcoal)', marginBottom: '4px' }}>
-              주간 생산 지표 [Planned Finish]
-            </div>
-            <div style={{ fontSize: '11px', color: 'var(--gx-steel)', marginBottom: '24px' }}>모델별 생산 현황</div>
-            {chartData.length > 0 ? (
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', height: '180px' }}>
-                {chartData.map(c => (
-                  <div key={c.model} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gx-charcoal)', fontFamily: "'JetBrains Mono', monospace" }}>{c.count}</span>
-                    <div style={{
-                      width: '100%', maxWidth: '48px',
-                      height: `${Math.max((c.count / maxCount) * 150, 4)}px`,
-                      background: c.count === 0
-                        ? 'linear-gradient(180deg, var(--gx-mist) 0%, #D1D5E0 100%)'
-                        : 'linear-gradient(180deg, var(--gx-accent) 0%, #818CF8 100%)',
-                      borderRadius: '6px 6px 2px 2px',
-                      opacity: c.count === 0 ? 0.5 : 1,
-                    }} />
-                    <span style={{ fontSize: '9px', color: 'var(--gx-steel)', textAlign: 'center', lineHeight: 1.2 }}>{c.model}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gx-steel)', fontSize: '13px' }}>
-                {isLoading ? '로딩 중...' : '데이터 없음'}
-              </div>
-            )}
-          </div>
+          {/* Bar Chart — Sprint 35 period 연동 */}
+          <ProductionChart
+            period={period}
+            weekly={kpi}
+            monthlyDetail={monthly}
+            isLoading={isLoading}
+          />
 
           {/* Stage Completion */}
           <div style={{

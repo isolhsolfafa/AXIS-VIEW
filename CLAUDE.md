@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-04-20 | 버전: v1.33.0
+> 최종 갱신: 2026-04-22 | 버전: v1.34.0
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -23,22 +23,35 @@
 
 AXIS-OPS(현장 작업자용 Flutter PWA)와 별도 운영되는 **React 관리자 대시보드**.
 AXIS-OPS BE(Railway → 사내서버 마이그레이션 예정)의 API와 JWT를 공유하며, 별도 Backend 없이 프론트엔드만 개발.
-현재 19개 페이지, 월 170~200대 생산 규모의 공장 5개 설비 운용 중.
+현재 21개 페이지, 월 170~200대 생산 규모의 공장 5개 설비 운용 중.
 
 ---
 
 ## 팀 구성 & 모델 설정
 
 ### 리드 에이전트 (Lead — 설계 조율)
-- **모델**: Opus (claude-opus-4-6)
+- **모델**: Opus 최상위 — **2026-04-21 현재 `claude-opus-4-7`** ⚠️ 신 모델 출시 시 갱신
 - **역할**: 전체 아키텍처 설계, 에이전트 간 조율, 코드 리뷰, 의사결정
 - **모드**: Delegate 모드 (Shift+Tab) — 리드는 직접 코드 작성하지 않고 조율만 수행
 - **권한**: 모든 파일 읽기 가능, 직접 수정은 하지 않음
 
 ### 워커 에이전트 (Workers — 구현/테스트)
-- **모델**: Sonnet (claude-sonnet-4-5)
+- **모델**: Sonnet 최상위 — **2026-04-21 현재 `claude-sonnet-4-6`** ⚠️ 신 모델 출시 시 갱신
 - **역할**: 담당 영역의 코드 구현
 - **모드**: 사용자 승인 후 코드 수정 가능 (위임 모드)
+
+### ⚠️ 모델 버전 관리 규칙 (2026-04-21 추가)
+
+- **원칙**: 항상 각 티어의 **최상위 모델** 사용 (Opus = 리드, Sonnet = 워커)
+  - 리드는 설계·아키텍처 판단 역할 → 추론 성능 최우선 → Opus 최상위
+  - 워커는 대량 구현·테스트 → 처리량·비용 균형 → Sonnet 최상위
+  - 하위 모델 사용 금지 (설계 오류·컨텍스트 누락 리스크)
+- **업데이트 트리거**: 새 Claude 모델(Opus/Sonnet) 릴리스 감지 시 이 섹션 즉시 갱신
+- **세션 시작 체크**: Claude Code / Cowork 시작 시 현재 가용 모델 확인 → CLAUDE.md 기재 버전과 대조 → 신규 있으면 **먼저 갱신 후** 작업 시작
+- **갱신 시 업데이트 대상**:
+  - `AXIS-VIEW/CLAUDE.md` (이 파일) L33, L39
+  - `AXIS-OPS/CLAUDE.md` L10, L16
+  - `memory.md`에 ADR 추가 (모델 전환 이유·영향)
 
 ### 위임 모드 규칙
 1. 리드가 작업을 분배하고 워커에게 위임
@@ -48,40 +61,143 @@ AXIS-OPS BE(Railway → 사내서버 마이그레이션 예정)의 API와 JWT를
 
 ---
 
-## AI 검증 워크플로우 (Claude-Codex 교차 검증)
+## AI 검증 워크플로우 (Claude-Codex 교차 검증, 2026-04-21 개정 v2)
 
-### 스프린트 파이프라인
+### 3주체 용어 정의
+
+- **Claude Cowork**: Claude 기반 설계 환경 (대화형 설계 초안 md 산출)
+- **Claude Code**: Claude 기반 로컬 CLI (로컬 맥락 접근 + 코드 구현)
+- **Codex**: 외부 독립 모델 (Claude 견해 편향 제거용 교차 검증자)
+
+### 스프린트 파이프라인 (9단계 · ⑦.5 사용자 승인 게이트 포함)
 
 ```
-① Claude Code → Sprint 설계서 작성 (VIEW_FE_Request.md)
-  ↓
-② /codex:review → Codex 교차 검증 + 합의 결과 공유
-  ↓
-③ Cowork 또는 터미널(Claude) → 설계서 보정 반영
-  ↓
-④ Claude Code → Sprint 코드 구현
-  ↓
-⑤ npm run build → 빌드 + 동작 확인
-  ↓ 실패 시 → 수정 내용 Codex 합의 후 수정 → 빌드 재실행
-  ↓
-⑥ 테스트 결과 공유 → 전체 통과(GREEN) → 머지/배포
+① Claude Cowork → 설계 초안 md 작성 (VIEW_FE_Request.md)
+
+② Claude Code (Opus Lead) → 1차 리뷰 + 쟁점 압축
+   · 로컬 맥락(CLAUDE.md / memory / handoff) 대조
+   · 사소한 이슈(오타·서식·설계서 문구만)는 설계서 내 직접 수정
+   · ⚠️ 설계서의 **API 응답 필드·타입 정의·조건 로직·숫자 임계값** 변경은 "사소함" 불인정 → 사용자 승인 필수
+   · ⚠️ 코드 수정은 ⑥ 구현 단계 전까지 금지 (사용자 승인 필수)
+   · 중대 쟁점만 Codex용 프롬프트 생성
+   · Codex 프롬프트에 관련 ADR/원칙 원문 인용 첨부 (맥락 보완)
+
+③ /codex:review → 압축 프롬프트 전달 → Codex 독립 검증 + M/A 라벨
+
+④ Claude Code → Codex 지적 대조 (1라운드 상한)
+   · 수용/반박 의견 설계서 기록
+   · Codex 응답이 침묵 승인(예: "LGTM", "문제 없음" 류 한 줄 답변)이면
+     → 자동 재질문 ("구체적으로 검토한 부분과 잠재 리스크 재답변")
+   · ⚠️ 구체성 부족으로 인한 자동 재질문은 라운드 카운트 제외
+     (실질적 쟁점 교환이 아닌 "응답 품질 보강"이므로 1라운드 상한 무관)
+   · ⚠️ Claude가 Codex 지적을 **즉시 수용(1라운드 내)**하는 경우에도
+     "Claude 원안의 약점" 을 설계서에 한 줄 기록 — 맹목 동조 방지, 사후 trail 확보
+
+⑤ 합의 분기
+   · 합의 M(Must) → 구현 전 필수 해결
+   · 합의 A(Advisory) → BACKLOG 등록 (기본 🟡 LOW, Must 강등 시 🟠 MEDIUM 병기)
+   · **M→A 재라벨 정상 경로**: Claude-Codex 2자 합의로만 가능. Claude 단독 강등 금지
+   · 합의 실패 정의: Codex 반박 1회 + Claude 재반박 1회 후에도 불일치
+     → 사용자 최종 판정 (M 유지 / A 강등 / 기각)
+
+⑥ 확정 설계서 → 구현 (이 단계부터 코드 수정 허용)
+
+⑦ 빌드·테스트 GREEN 확인
+   · FE: `npm run build` (빌드 GREEN) + `vitest --run` (회귀 GREEN)
+   · 타입 에러·import 누락 확인
+   · 번들 크기 기준:
+     - 일반 Sprint (기능 추가): **±10%** 허용, 10% 초과 시 설계서에 증가 근거 명시
+     - 리팩토링 Sprint: **±5%** (기능 변경 없음 전제)
+   · 실패 항목 → Codex 합의 후 수정 → 재실행 (전건 GREEN까지 반복)
+
+⑦.5 사용자 배포 승인 (Twin파파)
+   · 빌드·테스트 GREEN ≠ 자동 배포. Netlify preview 실기기 검증 완료 후 Twin파파의 명시적 "배포 OK" 승인 필수
+   · HOTFIX S1 제외 (🚨 긴급 HOTFIX 예외 조항 참조)
+
+⑧ 머지/배포 (Netlify preview 실기기 검증 → prod)
 ```
 
-### 워크플로우 규칙
+### ⑦ FE 회귀 테스트 규칙 (Vitest = FE 쪽 pytest)
 
-1. **설계서 선행**: Sprint 코드 작성 전 반드시 `VIEW_FE_Request.md`에 설계 완료
-2. **설계 단계 교차 검증**: 코드 구현 전 `/codex:review`로 설계서 검증 — 구현 후 재작업 방지
-3. **합의 기반 보정**: Codex 지적 사항은 Claude와 대조하여 합의된 항목만 반영 (맹목 수용 금지)
-4. **빌드 확인 필수**: FE 코드 변경 후 `npm run build` 통과 확인
-5. **빌드 실패 시 합의 수정**: 수정 내용도 Codex 합의 후 진행
-6. **GREEN 판정 후 머지**: 전체 통과 확인 후에만 main 브랜치 머지
-7. **BE API 의존**: AXIS-OPS BE API 변경 시 타입/인터페이스 동기화 확인
+> 기존 "테스트 있으면" 조건부 표현 대신 명시적 규칙으로 강제력 확보.
+> 현재 VIEW 테스트 2개 파일 상태 → 점진적 도입.
+
+- **실행**: `npm run test --run` — Sprint 후 GREEN 필수
+- **점진적 커버 영역** (신규/변경 시 테스트 동반 필수):
+  - `utils/*` — 공통 유틸 (formatDate, validation 등)
+  - `hooks/*` — TanStack Query 훅
+  - API 응답 매핑 로직 (`api/*.ts`의 변환 함수)
+  - 핵심 로직 페이지 (생산실적·체크리스트 등)
+- **변경 파일 동반 규칙**: 해당 파일에 기존 테스트가 있으면 수정, 없으면 추가
+- **실패 → Codex 합의 수정** (상위 ⑦ 빌드·테스트 Codex 합의 규칙과 동일 — 본 문서 ⑦ 단계 참조)
+- **커버리지 감소 시** 설계서에 근거 명시 (예: "테스트 파일 삭제는 대상 컴포넌트 제거 때문")
+- **단계적 목표**:
+  - 1단계 (지금~3개월): 신규/변경 파일 100% 테스트 동반
+  - 2단계 (3~6개월): `utils/*` + 핵심 훅 전수 커버
+  - 3단계 (APS 연동 전): 핵심 로직 페이지 smoke test 전수 커버
+
+### ② 단계 Codex 이관 자동 체크리스트
+
+> Opus가 "사소함"으로 분류해서 Codex로 안 넘기는 누락 편향을 방지.
+> 아래 6가지 중 **1개라도 해당**되면 **자동 Codex 이관** (Opus 재량 제외).
+
+- [ ] AXIS-OPS BE API 응답 계약 변경 동반 (OPS_API_REQUESTS.md 신규 등록)
+- [ ] 타입 정의 변경 (types/**)
+- [ ] 인증·권한·ProtectedRoute 로직 변경
+- [ ] 전역 상태·TanStack Query 훅 구조 변경
+- [ ] 3개 이상 페이지/컴포넌트 touch
+- [ ] 클린 코어 데이터 원칙 영향 여부 (강제종료 표시·duration·force_closed 관련)
+      → 원칙 전문: `~/Desktop/GST/AXIS-OPS/BACKLOG.md` 📐 설계 원칙 § 클린 코어 데이터 원칙 (2026-04-20)
+
+> ⚠️ **판정 애매 시 = 자동 이관 (의심 시 포함)**: 위 6항목 중 "영향 여부 판정이 주관적으로 갈릴 여지"가 보이면 Opus는 이관 쪽으로 판단. 원래 막으려던 "사소함 편향" 재발 방지용.
+> **"touch" 정의**: 신규 파일 · 테스트 파일 · 3줄 이상 code 변경 파일 모두 포함. comment-only / 서식만 변경 / CSS 클래스명만 변경은 제외.
+
+### 핵심 규칙 7가지
+
+1. **설계서 선행** — 코드 작성 전 반드시 md 설계서 완료
+2. **설계 단계 교차 검증** — 구현 전 검증으로 재작업 방지
+3. **합의 기반 보정** — 맹목 수용 금지, 근거 없는 반박도 금지
+4. **Opus 1차 리뷰** — 쟁점 압축으로 Codex 응답 시간 단축
+5. **M/A 라벨링 = Codex 독립** — Claude 편향 제거
+6. **라운드 상한 1회** — 핑퐁 방지, 합의 실패는 즉시 사용자 에스컬레이션
+7. **빌드·테스트 실패 → Codex 합의 후 수정** — `npm run build` / `vitest` / 실기기 검증 전부 동일
+
+### 🚨 긴급 HOTFIX 예외 조항
+
+> 프로덕션 장애 시 정식 파이프라인 skip 허용. 사후 검토 필수 (Google SRE Book / Microsoft SDL 관례 준수).
+
+| Severity | 조건 | 프로세스 | 사후 조치 |
+|---|---|---|---|
+| **S1** 🚨 | 전체 VIEW 장애 (로그인 불가·모든 페이지 crash·CSP 오류 등) | **Codex만 skip** (Opus 자가 리뷰 필수: 로컬 맥락 대조 + 회귀 영향 1분 스캔) → 즉시 패치 배포 | **24h 이내** 사후 Codex 검토 + BACKLOG `POST-REVIEW-{HOTFIX-ID}` 등록 |
+| **S2** 🟠 | 부분 장애 (특정 페이지 crash·핵심 기능 오동작) | Opus 단독 리뷰 → 배포 | **7일 이내** 또는 다음 Sprint 시작 전 중 이른 시점 Codex 검토 필수 + BACKLOG `POST-REVIEW-{HOTFIX-ID}` 등록 |
+| **S3~** | 일반 버그·UX 이슈 | 정상 파이프라인 | — |
+
+**판정 기준**: S1/S2 여부는 Twin파파 단독 판정. 애매하면 S2로 처리 (보수적).
+
+### 우선순위 라벨 (4단계)
+
+- 🔴 **HIGH** — 배포 블로커 / 실데이터 장애 / 보안 이슈 (즉시 패치)
+- 🟠 **MEDIUM** — 다음 Sprint 내 해결 (기능 제약 있으나 우회 가능)
+- 🟡 **LOW** — BACKLOG, 여유 Sprint에 소화
+- 🟢 **INFO** — 변경 요청 아님, 참고/기록용
 
 ### 교차 검증 원칙
 
 - **전수 검증**: 설계서 전체를 코드/기존 시스템과 대조 — 특정 항목만 체크하지 않음
 - **맹목 수용 금지**: 지적 사항은 Claude와 대조하여 합의된 항목만 반영
-- **분류 기준**: 지적 사항은 M(Must fix), A(Advisory) 로 구분하여 공유
+- **M/A 분류**: Codex 지적은 M(Must fix), A(Advisory) 로 구분하여 공유
+- **침묵 승인 거부**: Codex가 구체성 없는 OK 응답 시 자동 재질문
+- **BE API 의존**: AXIS-OPS BE API 변경 시 타입/인터페이스 동기화 확인 (OPS_API_REQUESTS.md에 동시 반영)
+
+### 재검토 조건 (이 플로우는 완벽하지 않음)
+
+다음 조건 중 하나라도 충족 시 워크플로우 재개정:
+
+1. Codex가 로컬 파일 직접 접근 가능해지면 → ② 쟁점 압축 단계 단순화
+2. 제3의 독립 모델 도입 시 → 3자 검증 도입 검토
+3. 실제 합의 실패율 20%+ 관찰 시 → 라운드 상한 2회로 완화 검토
+   - **측정 정의**: 합의 실패율 = (사용자 판정 에스컬레이션 건수) / (Codex 검증 완료 설계서 수)
+   - **trail 기록 위치**: `memory.md` 또는 별도 `CROSS_VERIFY_LOG.md` 에 Sprint별 누적 기록
 
 ---
 
@@ -95,7 +211,7 @@ AXIS-VIEW/
 ├── app/                      ← React 프로젝트
 │   ├── package.json
 │   ├── src/
-│   │   ├── pages/            (19개 페이지)
+│   │   ├── pages/            (21개 페이지)
 │   │   │   ├── factory/      공장 대시보드
 │   │   │   ├── partner/      협력사 (대시보드, 평가, 배분)
 │   │   │   ├── production/   생산 (실적, 출하, 현황)
@@ -116,10 +232,10 @@ AXIS-VIEW/
 │   │   │   ├── checklist/    체크리스트 컴포넌트 4개 (+ChecklistSettingsPanel)
 │   │   │   ├── auth/         ProtectedRoute
 │   │   │   └── ui/           shadcn 기반 공통 UI 13개
-│   │   ├── api/              API 클라이언트 14개
-│   │   ├── hooks/            TanStack Query 훅 14개
+│   │   ├── api/              API 클라이언트 13개
+│   │   ├── hooks/            TanStack Query 훅 16파일 / 35함수
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.19.0 (2026-03-31)
+│   │   ├── version.ts        v1.34.0 (2026-04-22)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
@@ -129,7 +245,7 @@ AXIS-VIEW/
 │
 └── docs/                     ← 설계 문서
     ├── AXIS_VIEW_ROADMAP.md       전체 로드맵
-    ├── OPS_API_REQUESTS.md        BE API 요청사항 (#1~#52)
+    ├── OPS_API_REQUESTS.md        BE API 요청사항 (#1~#61)
     ├── APS_LITE_PLAN.md           APS Lite 기획서 (차세대)
     ├── API_INTEGRATION_REVIEW.md  API 통합 리뷰
     ├── BACKLOG.md                 백로그
@@ -175,7 +291,11 @@ AXIS-VIEW/
 ### AXIS-OPS BE 의존 규칙
 - AXIS-VIEW는 별도 BE 없음 — AXIS-OPS BE의 API만 호출
 - API 스펙 불일치 시 `OPS_API_REQUESTS.md`에 요청 등록
-- BE 요청 우선순위: 🔴 HIGH → 🟡 MEDIUM → 🟢 INFO
+- BE 요청 우선순위 (4단계):
+  - 🔴 **HIGH** — 배포 블로커 / 실데이터 연동 실패 / 보안·인증 이슈 (즉시 패치)
+  - 🟠 **MEDIUM** — 다음 Sprint 내 해결 목표 (기능 제약 있으나 우회 가능)
+  - 🟡 **LOW** — BACKLOG 등록, 여유 Sprint에 소화 (UX 개선·중복 제거 등)
+  - 🟢 **INFO** — 변경 요청 아님, 참고/기록용 (스펙 확인, 추후 검토 대상)
 
 ### 인증 규칙
 - AXIS-OPS JWT 공유 — `POST /api/auth/login` → JWT 발급
@@ -212,7 +332,187 @@ VITE_USE_MOCK=false
 
 ---
 
-## 페이지 구성 (21개, v1.24.0 기준)
+## 📏 코드 크기 원칙 (2026-04-21 확정)
+
+> **배경**: 2026-03-22 AXIS SYSTEM 점검 보고서에서 AttendancePage 700+ LOC, ChartSection 700+ LOC를 "God 컴포넌트"로 지적. 현재 ProductionPerformancePage 895줄, QrManagementPage 814줄로 기준 초과. 업계 표준(ESLint 300 / Airbnb 300 / React 공식 300) 기준으로 GST 현실에 맞춰 단계적 도입.
+
+### 파일당 최대 LOC (단계적 도입)
+
+| 단계 | 적용 시점 | 🟡 경고 (리팩토링 계획 수립) | 🔴 필수 분할 | ⛔ God File |
+|---|---|---|---|---|
+| **1단계 (현재)** | 2026-04-21 ~ | **500줄** | **800줄** | **1200줄** |
+| 2단계 | APS Lite 연동 전 (~2026 Q3) | 400줄 | 600줄 | 1000줄 |
+| 3단계 (업계 표준) | APS Lite 연동 후 | 300줄 | 500줄 | 800줄 |
+
+### 함수·컴포넌트 (1단계부터 엄격 적용)
+
+- 함수 1개: **60줄 이하** (권장 30줄, 절대 한도 100줄)
+- 컴포넌트 1개 JSX return: **100줄 이하** (넘으면 하위 컴포넌트 분해)
+- Custom Hook 1개: **80줄 이하**
+- 매개변수/props: **4개 이하** (5개 이상 → interface로 묶기)
+- 순환 복잡도 (Cyclomatic): **≤ 10**
+- 중첩 깊이: **≤ 3단계** (JSX 중첩은 5단계까지 허용)
+
+### 적용 규칙
+
+- 🟡 경고 임계 초과 시: Sprint 시작 전 BACKLOG에 `REFACTOR-{파일명}` 등록
+- 🔴 필수 분할 파일: **새 로직 추가 금지** → 분할 Sprint 선행 필수
+- ⛔ God File: 즉시 BACKLOG 최상단 + 분할 Sprint 우선순위 🔴 HIGH
+- 예외: 자동 생성 파일(`version.ts`, 타입 정의), 테스트 파일(`*.test.ts`, `*.spec.tsx`)
+
+### 측정 명령어 (Sprint 시작 전 체크 필수)
+
+```bash
+# 대상 파일 Top 10
+cd app && find src -name "*.tsx" -o -name "*.ts" | xargs wc -l | sort -rn | head -10
+
+# ESLint max-lines 검사 (package.json에 추가 권장)
+# "rules": { "max-lines": ["warn", 500], "max-lines-per-function": ["warn", 60] }
+```
+
+---
+
+## 🔄 재활용 원칙 — DRY (Don't Repeat Yourself)
+
+> **배경**: REFACTOR-FMT-01에서 `formatDateTime` 중복 2건 발견 후 `utils/format.ts` 승격으로 해결. `formatDate`는 여전히 QrManagementPage / InactiveWorkersPage 2곳에 중복(BACKLOG). 재활용은 Line 수를 **줄이지 절대 늘리지 않음**.
+
+### 코드 작성 전 필수 절차 (모든 Sprint 공통)
+
+```
+① 새 컴포넌트/훅/유틸 작성 전 → 기존 구현 존재 여부 grep 검색 필수
+   → 유사 로직 발견 시: 재활용 또는 공통 유틸로 승격
+
+② Rule of Three (3의 법칙)
+   - 같은 로직 2곳 반복: 의식적 선택 (용인 or 승격)
+   - 같은 로직 3곳 이상: 무조건 공통화 (Sprint 선행)
+
+③ 승격 위치 (VIEW)
+   - 범용 유틸: src/utils/ (format.ts, validation.ts, date.ts)
+   - 공통 훅: src/hooks/ (TanStack Query 훅은 여기로 통일)
+   - 재사용 UI: src/components/ui/ (shadcn 계열)
+   - 도메인 컴포넌트: src/components/{domain}/
+```
+
+### 검색 명령어 (Sprint 시작 전)
+
+```bash
+# 유사 함수 검색 예시
+cd app && grep -rn "formatDate\|format_date" src/
+cd app && grep -rn "const use[A-Z]" src/hooks/
+
+# 공통 유틸 현황
+ls app/src/utils/
+ls app/src/hooks/
+ls app/src/components/ui/
+```
+
+### 중복 발견 시 BACKLOG 등록 규칙
+
+- 2곳 중복: `REFACTOR-{함수명}` Advisory 등록 (낮은 우선순위)
+- 3곳+ 중복: Sprint 선행 (신규 기능보다 우선)
+
+### 🚫 금지 패턴
+
+- ❌ 비슷한 컴포넌트를 복사+수정 (예: `UserCard` → `UserCardSmall` → `UserCardWithBadge`)
+- ❌ 컴포넌트 내부 private 유틸 방치 (다른 컴포넌트에서도 또 만들게 됨)
+- ❌ "일단 구현하고 나중에 공통화" (나중은 안 옴)
+- ❌ TanStack Query 훅 복제 (api.ts 클라이언트 함수 재사용)
+
+### ✅ 권장 패턴
+
+- 공통 유틸 먼저 검색 → 없으면 `utils/`에 **먼저 만들고** → import 호출
+- Props variant로 변형 흡수 (`<Badge variant="success" />`, `formatDate(d, { withTime, fallback })`)
+- Custom Hook 재활용 (예: `useSNProgress`를 SNStatusPage·ProductionStatus 등에서 동일 import)
+- BE 응답 변환 로직은 api/{domain}.ts에 한 번만 (ADR-V010 패턴)
+
+### GST 기존 참조 사례
+
+- ✅ REFACTOR-FMT-01: `ChecklistReportView.tsx` 로컬 `formatDateTime` → `utils/format.ts` 승격 (v1.32.0)
+- ✅ ADR-V013: `categories` 배열 확장 패턴 — CategoryTable에서 `phase_label` 한 줄로 자동 적용 → BE가 필드 추가하면 FE 수정 0
+- ✅ ADR-V010: 체크리스트 성적서 BE 필드 매핑 보정 — `getChecklistReport()` 응답 후처리 한 곳에만, 컴포넌트에서 중복 변환 X
+
+---
+
+## 🛡️ 리팩토링 안전 규칙 (Regression 방지 7원칙)
+
+> **배경**: ProductionPerformancePage 895줄, QrManagementPage 814줄 등 God Component 다수. BE API 의존 때문에 Regression 리스크 최대. 안전장치 7원칙 필수 준수.
+
+### 7원칙 (리팩토링 Sprint는 일반 Sprint와 규칙이 다름)
+
+```
+1. 빌드/테스트 GREEN 선행
+   - 대상 파일의 `npm run build` GREEN 확인
+   - vitest 테스트가 있다면 전부 PASS 확인
+   - Sprint 28 이상 페이지: 최소 수동 회귀 시나리오 문서화
+
+2. 기능 변경 절대 금지
+   - 리팩토링 Sprint = "UI/UX·동작 100% 동일, 구조만 변경"
+   - 버그 수정·기능 추가·스타일 변경과 같은 커밋에 섞지 않기
+   - 커밋 메시지 prefix: [REFACTOR] 필수
+
+3. 작은 단위로 쪼개기
+   - 900줄+ 파일을 한 번에 4개로 쪼개지 않기
+   - 한 Sprint당 이동 줄 수 상한: 400줄
+   - 점진적 분할 (예: Custom Hook 추출 → 하위 컴포넌트 분해 → CSS 분리)
+
+4. Before/After 빌드·동작 증명
+   - Before: `npm run build` 결과 (modules 수, 번들 크기, build time)
+   - After: 동일 결과 **±5% 이내** (리팩토링 Sprint 전용 기준 — 기능 변경 없음 전제)
+   - ⚠️ 일반 기능 Sprint는 ±10%가 기본 기준 (⑦ 단계 참조)
+   - Netlify preview URL로 실기기/태블릿 수동 테스트
+   - Sprint PR에 명시 필수: "Before: 3279 modules 2.96s → After: 동일, 회귀 0"
+
+5. Claude×Codex 교차검증 필수 (1순위 대상)
+   - 리팩토링은 교차검증 대상 1순위 (기능 변경보다 엄격)
+   - Codex M(Must) 지적 전부 해결 후 머지
+   - 설계서 = diff 계획서 (이동 줄 수, 새 파일 경로, import 변경 목록)
+
+6. 단계적 배포 (Netlify Preview → Prod)
+   - PR 머지 전 Netlify preview URL 생성 → 실기기 검증
+   - 핵심 경로(로그인·생산현황·체크리스트) 수동 클릭 테스트
+   - GREEN 확인 후에만 prod 머지
+
+7. 롤백 플랜 사전 준비
+   - git 태그 `pre-refactor-{sprint}` 먼저 생성
+   - Netlify 이전 배포 rollback 1클릭 가능
+   - BE API 변경 금지 (VIEW 리팩토링은 FE only)
+```
+
+### 리팩토링 Sprint 체크리스트 (PR 머지 전 필수)
+
+- [ ] 대상 파일 `npm run build` GREEN (Before)
+- [ ] 리팩토링 완료 후 동일 빌드 GREEN (After)
+- [ ] modules 수·번들 크기 ±5% 이내
+- [ ] `[REFACTOR]` 커밋 prefix 적용
+- [ ] Netlify preview URL 실기기 검증 완료
+- [ ] git 태그 `pre-refactor-{sprint}` 생성됨
+- [ ] Codex 교차검증 M 해결됨
+- [ ] BACKLOG 해당 REFACTOR 항목 체크
+
+### 상세 리팩토링 계획
+
+→ **`BACKLOG.md` 🔧 리팩토링 Sprint 계획 섹션 참조** (파일별·단계별 Sprint 일정)
+
+---
+
+## 버전 관리 기준 (Semantic Versioning, 2026-04-21 확정)
+
+### 버전 형식: `MAJOR.MINOR.PATCH`
+
+| 구분 | 올리는 시점 | AXIS-VIEW 실정 예시 |
+|------|-----------|---------------------|
+| **MAJOR** (X.0.0) | 아키텍처 전환 (BE 교체·SAP 연동·디자인 시스템 전면 개편) | v1→v2: OPS BE→사내서버 전환, SAP RFC 연동 |
+| **MINOR** (0.X.0) | Sprint 단위 기능 추가 (신규 페이지·훅·API 연동, 하위 호환 유지) | v1.33→v1.34: Sprint 35 신규 페이지 |
+| **PATCH** (0.0.X) | HOTFIX·용어 정합·데드 코드 정리·버그 수정 (기능 변경 없음) | v1.32.2→v1.32.3: 툴팁 문구 정정 |
+
+**릴리스 시 동시 업데이트 필수 (3곳)**:
+1. `app/src/version.ts` (VERSION 상수)
+2. `CHANGELOG.md` (변경 요약)
+3. `git tag v{X.Y.Z}` (Netlify 배포 시점 고정)
+
+---
+
+## 페이지 구성 (21개, v1.33.0 기준)
 
 ### 사이드바 메뉴 구조
 
@@ -247,7 +547,7 @@ CT 분석            /ct                            [admin, gst] (preparing)
 
 ---
 
-## API 클라이언트 (14개)
+## API 클라이언트 (13개)
 
 | 파일 | 주요 함수 | BE 엔드포인트 |
 |------|----------|-------------|
@@ -267,7 +567,7 @@ CT 분석            /ct                            [admin, gst] (preparing)
 
 ---
 
-## 훅 (18개 — TanStack Query 기반)
+## 훅 (16파일 / 35함수 — TanStack Query 기반)
 
 | 훅 | 용도 | staleTime |
 |----|------|-----------|
@@ -289,6 +589,7 @@ CT 분석            /ct                            [admin, gst] (preparing)
 | useChecklistMaster | 체크리스트 마스터 CRUD | 5분 |
 | useAdminSettings | 관리 설정 | 5분 |
 | useTaskReactivate | Task 재활성화 mutation (완료 작업 되돌리기) | — |
+| useForceClose | 미종료 task 강제종료 mutation (Sprint 33) | — |
 | useSettings | 로컬 UI 설정 (테마 등) | — |
 
 ---
@@ -376,7 +677,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | `memory.md` | 누적 의사결정(ADR), 버그 분석, 아키텍처 판단 | 맥락 필요 시 |
 | `PROGRESS.md` | 완료된 Sprint 이력 (상세) | 참조 |
 | `DESIGN_FIX_SPRINT.md` | Sprint 1~30 메인 스프린트 문서 | 필수 |
-| `OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#57) | 필수 |
+| `OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#61) | 필수 |
 | `CHANGELOG.md` | 릴리스 이력 | 릴리스 시 |
 | `BACKLOG.md` | 보류/계획/아이디어 + 디지털트윈 기획 | 기획 시 |
 | `docs/APS_LITE_PLAN.md` | APS Lite 차세대 기획 | 참조 |
@@ -436,6 +737,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | FE-19.2 후속 | 강제종료 툴팁 즉시 반응 (CSS `.fc-tooltip` + `data-tooltip` — browser title 딜레이 회피) (v1.32.2) | ✅ 완료 |
 | FE-19.1 용어 정합 | 강제종료 툴팁 `종료:` → `종료 처리:` (클린 코어 원칙 #4 UI 책임 — Claude↔Codex 교차검증 합의, v1.32.3) | ✅ 완료 |
 | 34 | S/N 상세뷰·O/N 헤더 정보 보강 — FE-20(카테고리 담당 회사명) + FE-21(고객사 line) BE FIX-25 v4 연동 (v1.33.0) | ✅ 완료 |
+| 35 | 공장 대시보드 KPI 주간/월간 스와이프 덱 — KpiSwipeDeck/KpiCard/ProductionChart 추출 + β'안 완료율 + monthly-detail finishing_plan_end 전환 + pipeline.shipped→shipped_count (v1.34.0, OPS Sprint 62-BE 연동 대기) | ✅ 완료 |
 
 ### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)
 

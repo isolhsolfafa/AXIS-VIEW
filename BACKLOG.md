@@ -1,7 +1,129 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-03-19
+> 마지막 업데이트: 2026-04-21 (코드 크기 원칙 + 리팩토링 Sprint 계획 등록)
 > 관련: AXIS_VIEW_ROADMAP.md, OPS_API_REQUESTS.md
+
+---
+
+## 🔧 리팩토링 Sprint 계획 (2026-04-21 등록)
+
+> **근거**: CLAUDE.md § 📏 코드 크기 원칙 + 🛡️ 리팩토링 안전 규칙 7원칙
+> **트리거**: 2026-03-22 AXIS SYSTEM 점검 보고서에서 AttendancePage 700+ LOC·ChartSection 700+ LOC "God 컴포넌트" 지적
+> **실측 기준일**: 2026-04-21
+
+### 📊 현재 위반 현황 (1단계 기준: 🟡 500 / 🔴 800 / ⛔ 1200)
+
+| 파일 | LOC | 등급 | 주요 책임 혼재 |
+|---|---|---|---|
+| `pages/production/ProductionPerformancePage.tsx` | 895 | 🔴 필수 분할 | 월간 캘린더 + 주차 테이블 + 실적확인 다이얼로그 + O/N 그룹핑 + 필터 |
+| `pages/qr/QrManagementPage.tsx` | 814 | 🔴 필수 분할 | QR 목록 + 필터 + 정렬 + elec_start + 테스트 S/N 토글 |
+| `components/layout/Sidebar.tsx` | 627 | 🟡 경고 | 반응형 분기 + 접힘 상태 + children 그룹 + hover popover |
+| `pages/plan/ProductionPlanPage.tsx` | 617 | 🟡 경고 | 생산일정 테이블 + 날짜 필터 + 모델 필터 |
+| `pages/factory/FactoryDashboardPage.tsx` | 591 | 🟡 경고 | 주간 KPI + 월간 상세 + 차트 병합 |
+| `pages/admin/PermissionsPage.tsx` | 535 | 🟡 경고 | 권한 테이블 + 매니저 토글 + 비활성 요청 |
+| `pages/qr/EtlChangeLogPage.tsx` | 514 | 🟡 경고 | 변경 이력 + 필드 라벨 맵 + 필터 |
+
+> 참고: AttendancePage(375줄)·ChartSection(456줄)은 감사 시점(700+) 대비 이미 분리 완료. 공통 유틸(REFACTOR-FMT-01) 효과 확인됨.
+
+---
+
+### 📋 리팩토링 Sprint 전체 로드맵
+
+> **총 7개 Sprint, 각 1주 전후 예상 + Netlify preview 수동 검증 1~2일**
+> **원칙**: Sprint 간 독립 배포 가능. 중간에 기능 Sprint 끼워넣기 허용. BE API 의존 변경 0.
+
+#### Phase 1 — 공통 유틸 선행 (REFACTOR-FMT-01 완성)
+
+| Sprint ID | 대상 | 작업 | 예상 LOC 절감 |
+|---|---|---|---|
+| **REF-V-00-UTIL** | `formatDate` 중복 2건 | `utils/format.ts` 승격 (QrManagementPage / InactiveWorkersPage) — BACKLOG REFACTOR-FMT-01 완성 | ~40줄 |
+
+**Why**: 리팩토링 7원칙 + DRY 원칙. 큰 파일 분할 전에 공통 유틸 먼저 추출하면 감소 효과 누적.
+
+#### Phase 2 — 🔴 필수 분할 (2 Sprint)
+
+##### REF-V-01: ProductionPerformancePage.tsx 895줄 → 분할
+
+| 단계 | 작업 | 이동 LOC |
+|---|---|---|
+| 1-1 | Custom Hook 추출 → `hooks/useProductionPerformance.ts` (데이터 페칭·필터 상태) | ~200줄 |
+| 1-2 | `components/production/MonthlyCalendarView.tsx` 분리 | ~180줄 |
+| 1-3 | `components/production/WeeklyPerformanceTable.tsx` 분리 | ~200줄 |
+| 1-4 | `components/production/ConfirmDialog.tsx` + `ConfirmSettingsPanel.tsx` 분리 | ~150줄 |
+
+**결과**: ProductionPerformancePage.tsx 895 → ~200줄 (🟢 OK)
+**리스크**: 사용자 가장 많이 쓰는 페이지 → Netlify preview에서 월마감·실적확인 시나리오 수동 검증 필수
+
+##### REF-V-02: QrManagementPage.tsx 814줄 → 분할
+
+| 단계 | 작업 | 이동 LOC |
+|---|---|---|
+| 2-1 | Custom Hook 추출 → `hooks/useQrManagement.ts` (검색·정렬·필터) | ~180줄 |
+| 2-2 | `components/qr/QrFilterBar.tsx` 분리 | ~150줄 |
+| 2-3 | `components/qr/QrTable.tsx` 분리 (정렬·페이지네이션) | ~200줄 |
+| 2-4 | `components/qr/QrDetailPanel.tsx` 분리 (DUAL L/R 렌더) | ~150줄 |
+
+**결과**: QrManagementPage.tsx 814 → ~150줄 (🟢 OK)
+**의존**: Sprint 56(elec_start 필드) 이후 작업. BE API 변경 0.
+
+#### Phase 3 — 🟡 경고 파일 정리 (4 Sprint)
+
+| Sprint ID | 대상 | 분할 전략 |
+|---|---|---|
+| **REF-V-03** | `Sidebar.tsx` 627 | `SidebarItem`, `SidebarGroup`, `SidebarToggle` 위젯 추출 + 반응형 로직 → `useResponsiveSidebar` 훅 |
+| **REF-V-04** | `ProductionPlanPage.tsx` 617 | `PlanFilterBar` + `PlanTable` + `usePlanFilters` 훅 |
+| **REF-V-05** | `FactoryDashboardPage.tsx` 591 | `WeeklyKpiSection` + `MonthlyDetailSection` + `useFactoryDashboard` 훅 |
+| **REF-V-06** | `PermissionsPage.tsx` 535 + `EtlChangeLogPage.tsx` 514 | 각각 테이블·필터·다이얼로그 분리 |
+
+---
+
+### 🔄 리팩토링 부산물 — 재활용 가능 컴포넌트 (신규 `components/ui/`)
+
+리팩토링 중 공통화 가능한 패턴 → 공통 UI로 승격:
+
+| 컴포넌트 | 추출 소스 | 재사용처 |
+|---|---|---|
+| `FilterBar` | QR·생산실적·생산일정·권한 | 7+ 페이지 |
+| `DataTable` (with sort + pagination) | QR·권한·ETL | 5+ 페이지 |
+| `DateRangePicker` | 생산실적·근태·분석 | 4+ 페이지 |
+| `ConfirmDialog` | 생산실적·강제종료·권한 | 5+ 페이지 |
+| `EmptyState` | 전체 페이지 공통 | 전 페이지 |
+
+→ Rule of Three 충족 시 즉시 `components/ui/`로 승격
+
+---
+
+### 🛡️ 공통 안전장치 (모든 REFACTOR Sprint 적용)
+
+1. Sprint 시작 전 `git tag pre-refactor-{sprint-id}` 생성
+2. `npm run build` 결과 스냅샷 저장 (modules 수·번들 크기·build time)
+3. `[REFACTOR]` 커밋 prefix
+4. **Netlify preview URL 실기기/태블릿 수동 검증 필수** (데스크톱 + 1024px 태블릿 + 768px 모바일)
+5. BE API 변경 0 (VIEW only — OPS_API_REQUESTS.md에 추가 항목 없어야 함)
+6. Codex 교차검증 M 전부 해결
+7. 한 Sprint 이동 LOC 상한 400줄
+
+### 📈 진행 추적
+
+| 항목 | 시작 LOC | 목표 LOC | 현재 LOC | 상태 |
+|---|---|---|---|---|
+| ProductionPerformancePage.tsx | 895 | ≤ 300 | 895 | 🔴 미착수 |
+| QrManagementPage.tsx | 814 | ≤ 300 | 814 | 🔴 미착수 |
+| Sidebar.tsx | 627 | ≤ 400 | 627 | 🟡 미착수 |
+| ProductionPlanPage.tsx | 617 | ≤ 400 | 617 | 🟡 미착수 |
+| FactoryDashboardPage.tsx | 591 | ≤ 400 | 591 | 🟡 미착수 |
+
+### 🚧 리팩토링 Sprint 우선순위 (권장 순서)
+
+1. **REF-V-00-UTIL** (`formatDate` 공통화 — 30분 작업, 선행)
+2. **REF-V-01** (ProductionPerformancePage — 사용 빈도 최고, 분할 효과 최대)
+3. **REF-V-02** (QrManagementPage — 🔴 두 번째)
+4. **REF-V-03 ~ 06** (🟡 병행 가능, 우선순위 낮음)
+
+### 📌 REFACTOR-FMT-01 (기존 BACKLOG 연계)
+
+- ✅ 완료: `formatDateTime` → `utils/format.ts` 승격 (v1.32.0)
+- 🟡 잔여: `formatDate` 2건(QrManagementPage / InactiveWorkersPage) 승격 + fallback 인자 옵션 + invalid Date 가드 → **REF-V-00-UTIL에 통합**
 
 ---
 

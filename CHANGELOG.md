@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.33.0 (2026-04-20)
+> 최신 버전: v1.34.0 (2026-04-22)
 
 ---
 
@@ -70,6 +70,49 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.34.0 — 2026-04-22
+
+**Sprint 35 — 공장 대시보드 KPI 주간/월간 스와이프 덱**
+
+### 공장 대시보드 — 4카드 주간/월간 period 스와이프
+- KPI 4카드(생산량·완료율·불량·출하) 주간 ↔ 월간 스와이프 전환 도입
+- 세그먼트 토글 버튼 + CSS scroll-snap 스와이프 덱 + 점 indicator (의존성 0)
+- 월간 완료율은 β'안 — 메인 값 `—` + 서브텍스트 `"주간 값: 68% (W14)"` (오독 방지, Codex M1 반영)
+- `useMonthlyKpi` 훅 신규 — `enabled: period === 'monthly'` 지연 로딩 + `placeholderData: keepPreviousData` (첫 스와이프 빈 카드 완화, Codex M3)
+
+### 생산 지표 차트 — 기준 통일 & period 연동
+- `monthly-detail` 조회 기준 `mech_start` → `finishing_plan_end` 전환 (생산량은 완료 기준이 합리적, Codex M2)
+- 하단 테이블 정렬 키는 `mech_start` 유지 (조회 기준과 정렬 기준 분리, 현업 익숙도 고려)
+- 주간/월간 모델별 막대 차트를 `ProductionChart` 컴포넌트로 추출 + period prop 연동
+- 기존 `주간 생산 지표 [Planned Finish]` 라벨 제거 — WHERE 절 교정으로 라벨 drift 해소
+
+### 공용 컴포넌트 추출 (DRY)
+- `KpiCard.tsx` 신규 — 기존 `FactoryDashboardPage` 인라인 KPI 렌더 공용화 (props: label, value, unit, sub, subtext, color, disabled, loading)
+- `KpiSwipeDeck.tsx` 신규 — 스와이프 덱 컨테이너
+- `ProductionChart.tsx` 신규 — 기존 인라인 바 차트 추출
+- 유사 `KpiCard` 패턴이 QrManagementPage / AnalyticsDashboardPage 에도 존재 — 이번엔 factory 전용으로 한정 (공용 promote 여지 BACKLOG)
+
+### 타입 & API
+- `WeeklyKpiResponse` 에 `shipped_count` / `defect_count` 필드 추가 (Sprint 62-BE 신규)
+- `MonthlyKpiResponse` 타입 + `getMonthlyKpi()` API 신규 (`by_model` 미포함 — monthly-detail 재활용)
+- `MonthlyDetailParams.date_field` 에 `'finishing_plan_end'` 추가
+- `pipeline.shipped` (deprecated) → `shipped_count` 마이그레이션 (L119 교체, Codex H3)
+
+### 안전 degrade & 배포 순서
+- BE Sprint 62-BE 미배포 시 `getMonthlyKpi()` 404 → 월간 카드 `—` 표시, runtime error 없음
+- `shipped_count` / `defect_count` undefined 시 `—` fallback
+- 권장 배포 순서: BE Sprint 62-BE 먼저 → FE Sprint 35 (실데이터 정합 확보)
+
+### 교차검증 이력
+- Codex 7건 이슈 전건 반영 (H1 `--gx-neutral-300` → `--gx-mist/--gx-steel` 재매핑, H2 FactoryDashboardPage 경고 크기 정책 A안, H3 pipeline.shipped 마이그레이션, M1/M2/M3 β'안·정렬 유지·keepPreviousData)
+- Claude 추가 발견: KpiCard props 확장 필요 → 신규 컴포넌트로 추출 + 인라인 렌더 교체
+- 빌드 GREEN (3282 modules, 2.34s) + Vitest GREEN (2 files, 30 tests, 414ms)
+
+### 후속 BACKLOG
+- `REFACTOR-FactoryDashboardPage` — 현재 596줄 (경고 500 초과, 필수 분할 800 미만). Sprint 35 이후 KPI/테이블/ETL 3분할 검토
 
 ---
 

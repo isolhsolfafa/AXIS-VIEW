@@ -7,7 +7,7 @@ import apiClient from './client';
 
 export interface MonthlyDetailParams {
   month?: string;
-  date_field?: 'pi_start' | 'mech_start';
+  date_field?: 'pi_start' | 'mech_start' | 'finishing_plan_end';
   page?: number;
   per_page?: number;
 }
@@ -98,8 +98,25 @@ export interface WeeklyKpiResponse {
     pi: number;
     qi: number;
     si: number;
-    shipped: number;
+    shipped: number;           // ⚠️ deprecated — Sprint 35부터 FE 사용 금지, shipped_count 참조
   };
+  shipped_count: number;       // Sprint 62-BE 신규 — SI_SHIPMENT UNION actual_ship_date
+  defect_count: number | null; // Sprint 62-BE 신규 — QMS 미연동 동안 null
+}
+
+/* ── Sprint 35: 월간 KPI (신규) ── */
+
+export interface MonthlyKpiParams {
+  month?: string;  // YYYY-MM (기본: 현재 달)
+}
+
+export interface MonthlyKpiResponse {
+  month: string;                  // "YYYY-MM"
+  month_range: { start: string; end: string };
+  production_count: number;       // finishing_plan_end 기반 COUNT
+  shipped_count: number;
+  defect_count: number | null;
+  // by_model 미포함 — 월간 차트는 monthly-detail 엔드포인트 재활용
 }
 
 /* ── API 호출 ── */
@@ -125,5 +142,15 @@ export async function getWeeklyKpi(params: WeeklyKpiParams = {}): Promise<Weekly
   const query = searchParams.toString();
   const url = `/api/admin/factory/weekly-kpi${query ? `?${query}` : ''}`;
   const { data } = await apiClient.get<WeeklyKpiResponse>(url);
+  return data;
+}
+
+export async function getMonthlyKpi(params: MonthlyKpiParams = {}): Promise<MonthlyKpiResponse> {
+  const searchParams = new URLSearchParams();
+  if (params.month) searchParams.set('month', params.month);
+
+  const query = searchParams.toString();
+  const url = `/api/admin/factory/monthly-kpi${query ? `?${query}` : ''}`;
+  const { data } = await apiClient.get<MonthlyKpiResponse>(url);
   return data;
 }

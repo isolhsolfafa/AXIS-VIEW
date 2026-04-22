@@ -14679,3 +14679,465 @@ BE FIX-25 미배포 상태에서도 FE 코드는 정상 동작:
 - **SNCard.tsx**(O/N 카드 내부 S/N 개별 라인 배지) — 2차 개선 범위, 별도 이슈로 분리
 - **line 필터링/정렬 기능** — 향후 별도 스프린트에서 검토 (요구 시)
 
+
+
+
+
+# Sprint 35 — Factory 대시보드 KPI 주간/월간 스와이프 덱 (2026-04-22 등록, 🟢 Codex 교차검증 반영)
+
+> 등록일: 2026-04-22 | 상태: **Codex 교차검증 7건 + 2차 L3 발견 반영 (2026-04-22)** → 구현 착수 가능
+> 트랙: VIEW FE (OPS BE Sprint 62-BE 동반 설계)
+> 선행: OPS BE Sprint 62-BE — `weekly-kpi` WHERE 교정 + `monthly-kpi` 신설 + `_ALLOWED_DATE_FIELDS` 확장
+> 설계서: 본 엔트리 + `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 62-BE
+> 교차검증: Claude Cowork → Claude Code Opus Lead → **Codex (2026-04-22 1차 7건 + 2차 L3(KpiCard 추출) → 전건 반영)**
+> 병합 전략: Sprint 35 단일 PR — 4필드 공유 `period` state, 스와이프 덱·차트·월간 엔드포인트 한 번에
+> 선행 BACKLOG: `REFACTOR-FactoryDashboardPage` (현재 591줄 → Sprint 35 후 ~606줄, CLAUDE.md 경고 500줄 초과 but 필수 분할 800줄 미만 → Sprint 35 진행 허용, 후속 분할 별도 스프린트)
+
+## 배경
+
+Twin파파 스크린샷 제보: 공장 대시보드 "주간 생산량 31대" 카드 + "주간 생산 지표 [Planned Finish]" 차트가 시각적으로 일치(18+9+2+1+1=31)하지만, 실제 집계 기준이 **`ship_plan_date`** 인 상태. 라벨 `[Planned Finish]` 와 의미 drift.
+
+Twin파파 요구:
+1. **KPI 섹션 스와이프** — 출하 완료를 주간/월간 둘 다 보고 싶음 → 드래그로 전체 KPI 섹션 전환
+2. **4카드 전체 period 토글** — route 코드 몇 줄로 가능하면 4개 다
+3. **완료율은 주간 전용** — 월간에서는 값을 "—" 로 비우고 서브텍스트로 주간 값 참고 (β'안, 오독 방지)
+4. **주간 생산 지표 막대그래프도 주간 생산량과 같아야** — `by_model` 이 카드와 같은 rows 기반이므로 자동 보장
+5. **월간 생산 지표 차트**도 주간과 동일한 기준 원칙 적용 — 현재 `mech_start` 기반 → `finishing_plan_end` 기반으로 전환
+6. **주간/월간 생산량 모두 `finishing_plan_end`로 통일** — mech_start는 착수일이라 월 걸침 → 생산량은 완료 기준이 합리적
+7. **출하 실시간 push 데이터 우선 + fallback path** — SI_SHIPMENT.completed_at (1차) UNION actual_ship_date (2차)
+8. **자동 새로고침(`autoRefreshInterval`) 유지** — 기존 "근무시간 08~20시 / 30분 간격" 함수 그대로 유지, 신규 `useMonthlyKpi` 에도 동일 적용. 공장 대시보드 전체 refresh 정책이라 KPI 개별 cron 불필요 (리소스 차이 미미).
+
+## 결정 사항 (2026-04-22 Twin파파 확정 + Codex 반영)
+
+| # | 항목 | 확정 | 이유 |
+|---|---|---|---|
+| 1 | 스와이프 방향 | **좌→우 (주간→월간)** | 리딩 방향 자연스러움, 주간 디폴트, 좁은→넓은 범위 확장 UX |
+| 2 | Auto-refresh 정책 | **기존 `autoRefreshInterval` 유지 (08~20시 30분 간격)** + `useMonthlyKpi` 에도 동일 `refetchInterval: autoRefreshInterval` 적용 | 공장 대시보드 전체 refresh 정책이라 KPI만 별도 cron 하는 리소스 차이 미미, 단일 소스 유지, 토글 UI 불필요 |
+| 3 | β' 카드 토큰 | **`--gx-mist` (배경) + `--gx-steel` (텍스트)** — 기존 G-AXIS Design System 중립 계열 재사용 (`--gx-neutral-300` 은 미존재 토큰) | 신규 토큰 추가 없이 기존 패턴 일치, Silver/Mist/Steel 체계 유지 |
+| 4 | 월간 차트 데이터 소스 | **`monthlyDetail.by_model` 재활용** + `MonthlyKpiResponse.by_model` 필드 **제거** + `date_field: 'finishing_plan_end'` 로 변경 | 이미 호출 중인 `monthly-detail` 테이블 데이터 재활용 (중복 호출 제거), BE 화이트리스트 확장만으로 기준 전환 |
+| 5 | 월간 완료율 카드 UI | **β'안 — 값 `—` + 서브텍스트 `"주간 값: {week_rate}% ({week_label})"`** | Codex M1 반영. β안(큰 숫자 68%)은 옆 "월간 124대" 카드와 연결돼 "124대의 68%" 오독 위험. 메인 값 비우고 서브텍스트로 참고 안내 → 정보 위계 명확 |
+| 6 | 하단 테이블 정렬 키 | **`mech_start` 유지** (date_field 변경과 독립) | Codex M2 확인. 조회 기준(`date_field`)과 테이블 정렬은 분리 개념 — 현업이 착수일 순서에 익숙, 정렬 변경 시 혼란 |
+| 7 | 월간 뷰 프리페치 | **`placeholderData: keepPreviousData`** (TanStack Query v5) | Codex M3 반영. 첫 스와이프 시 빈 카드 → 스피너 깜빡임 UX 완화, 기존 값 유지하며 백그라운드 refetch |
+| 8 | FactoryDashboardPage 크기 정책 | **A안 — Sprint 35 진행 + `REFACTOR-FactoryDashboardPage` BACKLOG 등록** | Codex H2 반영. 현재 591줄, Sprint 35 후 ~606줄. CLAUDE.md 경고 500줄 초과 but 필수 분할 800줄 미만 → 허용, 후속 분할 별도 스프린트 |
+
+**자동 새로고침 팩트 노트**: 현재 `FactoryDashboardPage.tsx` L58~65 의 `autoRefreshInterval` 은 UI 토글이 아니라 **"근무시간 08~20시 사이 30분 간격" 하드코딩된 함수**. 이 함수를 `useWeeklyKpi` / `useMonthlyDetail` / 신규 `useMonthlyKpi` 3개 쿼리의 `refetchInterval` 에 동일하게 전달 — 공장 대시보드 전체 새로고침 정책 유지.
+
+## 설계 진화 이력
+
+| 버전 | 핵심 전략 | 채택/폐기 사유 |
+|---|---|---|
+| v1 | 출하 카드 단독 스와이프 | 폐기 — Twin파파: "4개 다 스와이프" |
+| v2 | 4카드 전체 스와이프, 생산량 기준 `finishing_plan_end` / 월간 `mech_start` | 부분 채택 후 수정 — "mech_start는 시작일이라 생산량 기준 부적절" |
+| v3 (α) | 월간 뷰에서 완료율 카드 숨김 (3카드 그리드) | 폐기 — 레이아웃 변형 부자연 |
+| v4 (β) | 월간 뷰에서 완료율 카드 유지 + `68%` 값 노출 + disabled + "주간 기준" 배지 | 폐기 — Codex M1 지적: 옆 "월간 124대" 카드와 연결돼 "124대의 68%" 오독 위험 |
+| **v5 (β', 채택)** | 월간 뷰에서 완료율 카드 유지 + 메인 값 `—` + 서브텍스트 `"주간 값: 68% (W14)"` | **채택** — 정보 위계 명확, 오독 방지. 주간 참고 기능 유지 |
+
+## Codex 교차검증 결과 반영 (2026-04-22)
+
+### HIGH (3건, 전건 반영)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| H1 | `--gx-neutral-300` 토큰 미존재 (index.css 미정의) | **결정 #3 반영** — `--gx-mist` 배경 + `--gx-steel` 텍스트 조합으로 재매핑. 신규 토큰 추가 없음 |
+| H2 | FactoryDashboardPage.tsx 591줄 (경고 500줄 초과) | **결정 #8 반영** — A안 채택. Sprint 35 진행 + BACKLOG `REFACTOR-FactoryDashboardPage` 등록 |
+| H3 | `pipeline.shipped` 마이그레이션 누락 (L119 사용 중) | **수정 파일 #3 (f)항 추가** — L119 `kpi.pipeline.shipped` → `kpi.shipped_count` 교체 |
+
+### MEDIUM (3건, 전건 반영)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| M1 | 월간 완료율 β안 오독 위험 ("124대의 68%") | **결정 #5 반영** — β'안 채택. 메인 `—` + 서브텍스트 |
+| M2 | date_field 변경 시 테이블 정렬 파급 | **결정 #6 반영** — 조회 기준과 정렬 키 분리, 정렬은 `mech_start` 유지 |
+| M3 | `enabled: monthly` 첫 스와이프 빈 카드 UX | **결정 #7 반영** — `placeholderData: keepPreviousData` 적용 |
+
+### LOW (2건, 정보성 확인)
+
+- **L1**: KpiSwipeDeck.tsx ~95줄 (KpiCard 추출 후 더 가벼움) — 원칙(Custom Hook 80줄 / 컴포넌트 JSX 100줄) 범위 내 ✅
+- **L2**: CSS scroll-snap 호환성 — iPad 최신 환경 확인됨, 위험 낮음 ✅
+
+### 추가 미세 발견 (2026-04-22 Codex 2차 검토)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| L3 | KpiCard 컴포넌트 미존재 — 설계서가 `<KpiCard />` JSX 전제지만 현재 `FactoryDashboardPage` L113~120/L252~264 는 인라인 `<div>` 렌더링 중 | **수정 파일 #4 신규 추가** — `components/KpiCard.tsx` 추출. 수정 파일 5 → **6개**. KpiSwipeDeck 및 기존 인라인 렌더 2곳 교체로 공용화 |
+
+## 확정 설계 — 4카드 × period 매트릭스 (β'안)
+
+| 카드 | Weekly | Monthly |
+|---|---|---|
+| 생산량 | `weekly-kpi.production_count` (finishing_plan_end 기반) | `monthly-kpi.production_count` (finishing_plan_end 기반) |
+| 완료율 | `weekly-kpi.completion_rate` | **메인 값 `—` + 서브텍스트 `"주간 값: {weekly.completion_rate}% (W{week})"` (β')** |
+| 불량 건수 | `—` (QMS 대기, `defect_count: null`) | `—` (동일) |
+| 출하 완료 | `weekly-kpi.shipped_count` (SI_SHIPMENT UNION actual_ship_date) | `monthly-kpi.shipped_count` (동일 소스, 월 윈도우) |
+
+## 구현 범위
+
+### 수정 파일 6개
+
+| # | 파일 | 변경 | 라인수 |
+|---|---|---|---|
+| 1 | `app/src/api/factory.ts` | `MonthlyKpiResponse` 타입 + `getMonthlyKpi()` 추가. `WeeklyKpiResponse.shipped_count` / `defect_count` 필드 추가. **`MonthlyKpiResponse.by_model` 미포함** | +30 |
+| 2 | `app/src/hooks/useFactory.ts` | `useMonthlyKpi(params, options)` 추가 (TanStack Query, `refetchInterval` + `placeholderData: keepPreviousData` 옵션) | +20 |
+| 3 | `app/src/pages/factory/FactoryDashboardPage.tsx` | (a) `period` state 페이지 레벨 (b) 기존 `autoRefreshInterval` 함수 유지 — `useWeeklyKpi` + 신규 `useMonthlyKpi` (enabled: monthly) + `useMonthlyDetail` 3곳 모두 `refetchInterval: autoRefreshInterval` 전달 (c) `monthly-detail` 의 `date_field: 'mech_start'` → `'finishing_plan_end'` 변경 (d) 하단 테이블 정렬 키는 `mech_start` 유지 (e) `<KpiSwipeDeck>` + `<ProductionChart>` 렌더링 **(f) L119 `kpi.pipeline.shipped` → `kpi.shipped_count` 교체 (H3)** **(g) 기존 L113~120 `kpiCards` 배열 + L252~264 인라인 `<div>` 렌더링을 신규 `<KpiCard />` 컴포넌트 사용으로 교체 (Codex 추가 발견)** | +25, -20 |
+| 4 | `app/src/pages/factory/components/KpiCard.tsx` (신규) | **공용 KPI 카드 컴포넌트** — props: `{ label, value, unit?, subtext?, color?, disabled? }`. G-AXIS 기존 스타일(`--gx-white` 배경, `--gx-charcoal` 값, `--gx-steel` 라벨/서브, `--gx-mist` 서브텍스트 박스). `disabled` 시 `opacity-60`. `subtext` 조건부 렌더. 기존 인라인 스타일(L252~264)과 동일 디자인 | +70 |
+| 5 | `app/src/pages/factory/components/KpiSwipeDeck.tsx` (신규) | 4카드 스와이프 덱 — CSS scroll-snap + segment toggle + 점 indicator. 각 카드는 `<KpiCard />` 재사용 (자체 구현 없음). β' 완료율 카드는 `subtext` prop으로 주간 값 노출 | +95 |
+| 6 | `app/src/pages/factory/components/ProductionChart.tsx` (신규, 추출) | `period` prop 기반 `by_model` 차트 — 주간은 `weekly.by_model`, 월간은 `monthlyDetail.by_model` 분기 | +65 |
+
+**순 증분: ~285 LOC** (각 신규 컴포넌트 JSX 100줄 이내 — CLAUDE.md 코드 크기 원칙 1단계 준수).
+
+**KpiCard 추출 배경 (Codex 추가 발견, 2026-04-22)**: 현재 `FactoryDashboardPage.tsx` L113~120 `kpiCards` 배열은 `{ label, value, color, sub }` 구조로 L252~264 인라인 `<div>` 렌더링 중. 별도 컴포넌트 파일 부재. Sprint 35 가 `<KpiCard />` JSX 를 전제로 설계됐으나 실제 컴포넌트 미존재 → **신규 `components/KpiCard.tsx` 추출로 (a) KpiSwipeDeck 에서 재사용, (b) 기존 인라인 렌더 교체로 공용화**. 유사 로컬 `KpiCard` 패턴이 `QrManagementPage.tsx:201` / `AnalyticsDashboardPage.tsx:45` 에 존재하나 각 페이지 scope — 이번엔 factory 전용으로 한정 (향후 공용 promote 여지 열어둠).
+
+**후속 선행 BACKLOG**: `REFACTOR-FactoryDashboardPage` — Sprint 35 이후 필수 분할 임계(800줄) 근접 시 추출 대상 섹션 식별(KPI 영역 + 테이블 + ETL 피드 3분할 검토).
+
+## 타입 확장 — `api/factory.ts`
+
+```typescript
+// 기존 WeeklyKpiResponse 확장
+export interface WeeklyKpiResponse {
+  week: number;
+  year: number;
+  week_range: { start: string; end: string };
+  production_count: number;
+  completion_rate: number;
+  by_model: ModelCount[];
+  by_stage: {
+    mech: number; elec: number; tm: number;
+    pi: number; qi: number; si: number;
+  };
+  pipeline: {
+    pi: number; qi: number; si: number;
+    shipped: number;           // ⚠️ deprecated — FE 교체 완료 후 차후 제거, shipped_count 참조
+  };
+  shipped_count: number;       // ← Sprint 62-BE 신규 (SI_SHIPMENT UNION actual_ship_date)
+  defect_count: number | null; // ← Sprint 62-BE 신규 (QMS 미연동 동안 null)
+}
+
+// 신규 MonthlyKpiResponse (by_model 미포함)
+export interface MonthlyKpiParams {
+  month?: string;  // YYYY-MM (기본: 현재 달)
+}
+
+export interface MonthlyKpiResponse {
+  month: string;                        // "YYYY-MM"
+  month_range: { start: string; end: string };
+  production_count: number;             // finishing_plan_end 기반 COUNT
+  shipped_count: number;
+  defect_count: number | null;
+  // ⚠️ by_model 미포함 — 월간 차트는 기존 monthly-detail 엔드포인트 재활용 (2026-04-22 결정)
+}
+
+export async function getMonthlyKpi(params: MonthlyKpiParams = {}): Promise<MonthlyKpiResponse> {
+  const searchParams = new URLSearchParams();
+  if (params.month) searchParams.set('month', params.month);
+  const query = searchParams.toString();
+  const url = `/api/admin/factory/monthly-kpi${query ? `?${query}` : ''}`;
+  const { data } = await apiClient.get<MonthlyKpiResponse>(url);
+  return data;
+}
+```
+
+## 훅 — `hooks/useFactory.ts`
+
+```typescript
+import { keepPreviousData } from '@tanstack/react-query';
+
+export function useMonthlyKpi(
+  params: MonthlyKpiParams & {
+    enabled?: boolean;
+    refetchInterval?: UseQueryOptions['refetchInterval'];
+  } = {},
+) {
+  const { enabled, refetchInterval, ...apiParams } = params;
+  return useQuery({
+    queryKey: ['factory', 'monthly-kpi', apiParams],
+    queryFn: () => getMonthlyKpi(apiParams),
+    enabled: enabled ?? true,
+    refetchInterval,                  // 페이지 레벨에서 autoRefreshInterval 함수 주입
+    placeholderData: keepPreviousData, // Codex M3: 첫 스와이프 시 빈 카드 깜빡임 완화
+  });
+}
+```
+
+> 기존 `useWeeklyKpi` / `useMonthlyDetail` 의 `refetchInterval` 시그니처와 동일 패턴 (일관성 유지).
+
+## 페이지 레벨 — `FactoryDashboardPage.tsx`
+
+```tsx
+// ✅ L58~63 기존 autoRefreshInterval 함수 그대로 유지
+const autoRefreshInterval = () => {
+  const h = new Date().getHours();
+  return (h >= 8 && h < 20) ? 30 * 60 * 1000 : false;
+};
+
+const [period, setPeriod] = useState<'weekly' | 'monthly'>('weekly');
+
+const { data: weekly } = useWeeklyKpi({
+  refetchInterval: autoRefreshInterval,
+});
+
+const { data: monthly } = useMonthlyKpi({
+  enabled: period === 'monthly',          // 월간 뷰 진입 시에만 호출
+  refetchInterval: autoRefreshInterval,   // ← 기존 정책 동일 적용
+  // placeholderData: keepPreviousData 는 훅 내부에서 처리 (Codex M3)
+});
+
+// 차트용 monthly-detail — 조회 기준(date_field)만 변경, 하단 테이블 정렬 키는 mech_start 유지 (Codex M2)
+const { data: monthlyDetail } = useMonthlyDetail({
+  per_page: 500,
+  date_field: 'finishing_plan_end',       // ← 기존 'mech_start' 에서 변경 (조회 범위 기준)
+  refetchInterval: autoRefreshInterval,
+});
+
+const { data: etlData } = useEtlChanges({ days: 7, limit: 10 });
+
+// ⚠️ H3: L119 shipped 표시는 shipped_count 로 교체
+// 기존: kpi.pipeline.shipped
+// 교체: kpi.shipped_count
+
+return (
+  <>
+    <KpiSwipeDeck
+      period={period}
+      onPeriodChange={setPeriod}
+      weekly={weekly}
+      monthly={monthly}
+    />
+    <ProductionChart
+      period={period}
+      weekly={weekly}
+      monthlyDetail={monthlyDetail}
+    />
+    {/* 하단 테이블 — 정렬 키 mech_start 유지 (Codex M2 확정) */}
+    {/* ... 기존 테이블 영역 */}
+  </>
+);
+```
+
+## 신규 컴포넌트 — `KpiSwipeDeck.tsx` (β'안)
+
+### 스와이프 메커니즘 — CSS scroll-snap (의존성 0)
+
+```tsx
+interface KpiSwipeDeckProps {
+  period: 'weekly' | 'monthly';
+  onPeriodChange: (p: 'weekly' | 'monthly') => void;
+  weekly?: WeeklyKpiResponse;
+  monthly?: MonthlyKpiResponse;
+}
+
+export function KpiSwipeDeck({ period, onPeriodChange, weekly, monthly }: KpiSwipeDeckProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 스와이프 → period state 싱크 (debounce 50ms)
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, clientWidth } = scrollRef.current;
+    const next = scrollLeft / clientWidth > 0.5 ? 'monthly' : 'weekly';
+    if (next !== period) onPeriodChange(next);
+  }, [period, onPeriodChange]);
+
+  // period state 외부 변경 → 스크롤 위치 싱크
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const targetLeft = period === 'weekly' ? 0 : scrollRef.current.clientWidth;
+    scrollRef.current.scrollTo({ left: targetLeft, behavior: 'smooth' });
+  }, [period]);
+
+  return (
+    <div>
+      {/* Segment toggle — 접근성/키보드 fallback */}
+      <div className="flex gap-2 mb-4">
+        <button onClick={() => onPeriodChange('weekly')}
+                aria-pressed={period === 'weekly'}>주간</button>
+        <button onClick={() => onPeriodChange('monthly')}
+                aria-pressed={period === 'monthly'}>월간</button>
+      </div>
+
+      {/* 스와이프 덱 (좌→우: 주간→월간) */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="overflow-x-auto snap-x snap-mandatory flex scroll-smooth"
+        style={{ scrollbarWidth: 'none' }}
+      >
+        <section className="snap-start shrink-0 w-full grid grid-cols-4 gap-4">
+          <KpiCard label="주간 생산량" value={weekly?.production_count} unit="대" />
+          <KpiCard label="완료율" value={weekly?.completion_rate} unit="%" />
+          <KpiCard label="불량 건수" value={weekly?.defect_count ?? '—'} />
+          <KpiCard label="출하 완료 (주간)" value={weekly?.shipped_count} unit="대" />
+        </section>
+        <section className="snap-start shrink-0 w-full grid grid-cols-4 gap-4">
+          <KpiCard label="월간 생산량" value={monthly?.production_count} unit="대" />
+          {/* β': 메인 값 '—' + 서브텍스트로 주간 참고값 노출 */}
+          <KpiCard
+            label="완료율"
+            value="—"
+            subtext={weekly ? `주간 값: ${weekly.completion_rate}% (W${weekly.week})` : undefined}
+            disabled
+          />
+          <KpiCard label="불량 건수" value={monthly?.defect_count ?? '—'} />
+          <KpiCard label="출하 완료 (월간)" value={monthly?.shipped_count} unit="대" />
+        </section>
+      </div>
+
+      {/* 점 indicator */}
+      <div className="flex justify-center gap-2 mt-2">
+        <span className={period === 'weekly' ? 'dot-active' : 'dot'} />
+        <span className={period === 'monthly' ? 'dot-active' : 'dot'} />
+      </div>
+    </div>
+  );
+}
+```
+
+### β' 서브텍스트 스타일 (G-AXIS Design System 기존 토큰)
+
+```tsx
+// KpiCard 내부 — disabled + subtext prop 처리 (배지 방식 폐기)
+<div className={cn(
+  'kpi-card',
+  disabled && 'opacity-60 cursor-not-allowed',
+)}>
+  <div className="label-row">
+    <span>{label}</span>
+  </div>
+  <div className="value">{value}{unit && <small>{unit}</small>}</div>
+  {subtext && (
+    <div
+      className="text-xs mt-1 px-2 py-0.5 rounded inline-block"
+      style={{
+        background: 'var(--gx-mist)',    // Codex H1: 기존 토큰 재매핑
+        color: 'var(--gx-steel)',
+      }}
+    >
+      {subtext}
+    </div>
+  )}
+</div>
+```
+
+## 신규 컴포넌트 — `ProductionChart.tsx`
+
+```tsx
+interface ProductionChartProps {
+  period: 'weekly' | 'monthly';
+  weekly?: WeeklyKpiResponse;
+  monthlyDetail?: MonthlyDetailResponse;  // ← 월간 차트는 monthly-detail 재활용
+}
+
+export function ProductionChart({ period, weekly, monthlyDetail }: ProductionChartProps) {
+  const data = period === 'weekly'
+    ? (weekly?.by_model ?? [])
+    : (monthlyDetail?.by_model ?? []);   // monthly-kpi.by_model 미포함 — monthly-detail 재활용
+
+  const title = period === 'weekly' ? '주간 생산 지표' : '월간 생산 지표';
+  // ⚠️ 기존 "[Planned Finish]" 라벨 제거 — WHERE 절이 finishing_plan_end 로 교정되어 당연해짐
+
+  return (
+    <div>
+      <h3>{title} <small>({period === 'weekly' ? '주간' : '월간'} 모델별 생산량)</small></h3>
+      <BarChart data={data}>
+        {/* Recharts 기존 설정 유지 */}
+      </BarChart>
+    </div>
+  );
+}
+```
+
+## UX 플로우 (β'안)
+
+```
+[주간 뷰 (기본)]
+┌────────┬────────┬────────┬────────┐
+│ 주간   │ 완료율 │ 불량   │ 출하   │
+│ 생산량 │ 68%    │ —      │ 주간   │
+│ 31대   │        │        │ 5대    │
+└────────┴────────┴────────┴────────┘
+       ● ○ (주간 활성)
+┌─────────────────────────────────┐
+│ 주간 생산 지표 (모델별)          │
+│ [막대그래프 18+9+2+1+1=31]      │
+└─────────────────────────────────┘
+
+         ← 좌→우 스와이프 or 세그먼트 토글 →
+
+[월간 뷰 — β' 적용]
+┌────────┬───────────────┬────────┬────────┐
+│ 월간   │ 완료율        │ 불량   │ 출하   │
+│ 생산량 │ —             │ —      │ 월간   │
+│ 124대  │ [주간값:68%   │        │ 22대   │
+│        │  (W14)]       │        │        │
+└────────┴───────────────┴────────┴────────┘
+       ○ ● (월간 활성)
+┌─────────────────────────────────┐
+│ 월간 생산 지표 (모델별)          │
+│ [막대그래프 월간 집계]          │
+└─────────────────────────────────┘
+
+Auto-refresh: 기존 정책 유지 — 근무시간 08~20시 / 30분 간격 (autoRefreshInterval)
+```
+
+## 안전 degrade 설계 (BE 미배포 상태)
+
+Sprint 62-BE 미배포 시:
+- `getMonthlyKpi()` 호출 → 404/500 → `useMonthlyKpi` 데이터 undefined
+- 월간 뷰 카드들 → `—` 또는 로딩 스피너 (+ `keepPreviousData` 로 깜빡임 완화)
+- 주간 뷰는 기존 `weekly-kpi` 호출 → 단, WHERE 절이 아직 `ship_plan_date` → 숫자 그대로 (이전 동작 유지)
+- `monthly-detail date_field: 'finishing_plan_end'` → BE 화이트리스트 미확장 시 400 → `monthlyDetail` undefined → 월간 차트 빈 배열
+- `autoRefreshInterval` 기존 유지 → FE 단독 배포 시에도 동작 영향 없음
+- **H3 교체 주의**: L119 `kpi.pipeline.shipped` → `kpi.shipped_count` 은 BE Sprint 62-BE 배포 **이후** 에만 교체. BE 미배포 시 `shipped_count` 필드 미존재 → 런타임 undefined. 배포 순서 BE → FE 준수.
+
+→ **점진 배포**: BE 먼저 → FE 배포 (권장). 또는 FE 먼저 배포 + 월간 뷰 사용 시만 에러 노출 (비권장).
+
+## 교차검증 필수 항목 (Codex 이관 체크리스트)
+
+- ✅ API 응답 계약 변경 (`WeeklyKpiResponse.shipped_count` + `defect_count` 필드 추가, 신규 `MonthlyKpiResponse`)
+- ✅ 타입 변경 (`MonthlyKpiParams`, `MonthlyKpiResponse` 신규 export)
+- ✅ 3파일 이상 touch (6파일 — factory.ts, useFactory.ts, FactoryDashboardPage.tsx, KpiCard.tsx, KpiSwipeDeck.tsx, ProductionChart.tsx)
+- ✅ **Codex 교차검증 완료 (2026-04-22) — 7건 이슈 전건 반영 + 2차 L3 발견(KpiCard 추출) 반영**
+
+## 검증 기준
+
+### 설계 단계 (Codex 완료)
+
+- [x] H1: `--gx-neutral-300` 실존 토큰 확인 → 부재 확인, `--gx-mist` / `--gx-steel` 로 재매핑
+- [x] H2: FactoryDashboardPage 크기 정책 → A안 + BACKLOG 등록
+- [x] H3: `pipeline.shipped` 교체 계획 → 파일 #3 (f)항 추가
+- [x] M1: 월간 완료율 오독 리스크 → β'안 채택
+- [x] M2: 테이블 정렬 키 → `mech_start` 유지
+- [x] M3: 첫 스와이프 UX → `keepPreviousData`
+
+### 구현 단계
+
+- [ ] `npm run build` GREEN
+- [ ] TypeScript 0 에러
+- [ ] 주간/월간 스와이프 부드러움 (60fps)
+- [ ] 세그먼트 토글 클릭 → 스크롤 애니메이션 동기화
+- [ ] 점 indicator 실시간 업데이트
+- [ ] β' 서브텍스트 표시 정확 (월간 뷰에서 완료율 카드만 `—` + "주간 값" 서브텍스트)
+- [ ] `autoRefreshInterval` 함수가 08~20시 범위에서 30분마다 정상 refetch 실행되는지 DevTools 확인
+- [ ] L119 `shipped_count` 교체 후 주간 카드 출하 수치 정상 노출
+- [ ] 하단 테이블 정렬이 여전히 `mech_start` 기준인지 (오름/내림 모두)
+
+### 배포 후 (Twin파파 현업)
+
+- [ ] 주간 생산량 카드 숫자 = 주간 생산 지표 차트 합계 (finishing_plan_end 기반 재집계 후에도 일치)
+- [ ] 월간 생산량 카드 숫자 = 월간 생산 지표 차트 합계 (monthly-detail finishing_plan_end 기준)
+- [ ] 출하 완료 (주간/월간) 숫자가 실제 출하 실적과 일치 (SI_SHIPMENT task 또는 actual_ship_date 기준)
+- [ ] 스와이프 제스처가 iPad/터치 환경에서 원활
+- [ ] 월간 뷰 완료율 카드: 메인 `—` + 서브텍스트 `"주간 값: X% (W..)"` 명확하게 읽힘
+- [ ] 하단 "생산 현황 상세" 테이블이 기존과 동일한 `mech_start` 순서로 보임
+
+## 연계
+
+- BE: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 62-BE (weekly-kpi 교정 + monthly-kpi 신설 + monthly-detail 화이트리스트 확장)
+- 원칙: `CLAUDE.md` 코드 크기 1단계 (각 신규 컴포넌트 JSX 100줄 이내), AI 워크플로우 v2 (Codex 교차검증 필수), 클린 코어 데이터 원칙 (force_closed=false)
+- 디자인: 기존 `KpiCard` 스타일 재사용, `G-AXIS Design System` **기존 토큰** (`--gx-mist` + `--gx-steel`)
+- 선행 BACKLOG: `REFACTOR-FactoryDashboardPage` (Sprint 35 이후 분할 검토)
+
+### 다음 응용 포인트
+
+- **Quarterly (분기) 뷰** 향후 확장 — `quarterly-kpi` 엔드포인트 + 3번째 스와이프 섹션 추가 (스와이프 덱 구조 그대로 활용)
+- **Year-over-Year 비교** — 같은 period의 전년 동기 값 overlay 카드 (추후 요구 시)
+- **Defect count QMS 연동 시** — `defect_count` placeholder 가 실제 값으로 치환되는 즉시 반영 (타입·UI 이미 준비됨)
+- **완료율 월간 산출식 정의 시** — β' 서브텍스트를 실제 월간 completion_rate 값으로 치환 (`MonthlyKpiResponse.completion_rate` 필드 추가)
