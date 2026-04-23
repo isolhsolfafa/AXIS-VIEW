@@ -14685,11 +14685,13 @@ BE FIX-25 미배포 상태에서도 FE 코드는 정상 동작:
 
 # Sprint 35 — Factory 대시보드 KPI 주간/월간 스와이프 덱 (2026-04-22 등록, 🟢 Codex 교차검증 반영)
 
-> 등록일: 2026-04-22 | 상태: **구현 완료 (v1.34.0) + HOTFIX (v1.34.1~3) + 문서정정 (v1.34.4, 2026-04-23)**
-> 트랙: VIEW FE (OPS BE Sprint 62-BE 동반 설계)
-> 선행: OPS BE Sprint 62-BE — `weekly-kpi` 확장 + `monthly-kpi` 신설 (date_field 파라미터 지원 권장)
+> 등록일: 2026-04-22 | 상태: **Phase 1 완료 (v1.34.0~v1.34.6) / Phase 2 준비 (v1.35.0 예정)**
+> 트랙: VIEW FE (OPS BE Sprint 62-BE v2.2 동반 배포)
+> 선행: OPS BE Sprint 62-BE v2.2 — weekly-kpi 확장 + monthly-kpi 신설 + 출하 3필드 + 화이트리스트 분리
 
-> ⚠️ **v1.34.4 재결정 (2026-04-23)**: 결정 #4의 "monthly-detail `date_field: 'finishing_plan_end'`로 변경" 조항 **폐기**. 생산 현황 상세 테이블 / 월간 생산 지표 차트 / 상단 스와이프 월간 ProductionChart **3영역은 `mech_start` 기준 영구 유지**. 월간 생산량 카드의 기준만 Sprint 36 옵션 토글로 사용자 선택 가능하게 제공 예정. 자세한 내용은 CHANGELOG v1.34.4 참조.
+> ⚠️ **v1.34.4 재결정 (2026-04-23)**: 결정 #4의 "monthly-detail `date_field: 'finishing_plan_end'`로 변경" 조항 **폐기**. 생산 현황 상세 테이블 / 월간 생산 지표 차트 / 상단 스와이프 월간 ProductionChart **3영역은 `mech_start` 기준 영구 유지**. 월간 생산량 카드의 기준만 Sprint 35 Phase 2 옵션 토글로 사용자 선택 가능하게 제공. 자세한 내용은 CHANGELOG v1.34.4 참조.
+
+> 🆕 **Phase 2 통합 결정 (2026-04-23)**: Sprint 36으로 분리하려던 출하/월간 기준 토글 작업을 **Sprint 35 Phase 2로 통합**. BE Sprint 62-BE v2.2 배포와 동시 반영하여 단일 v1.35.0 릴리스. 상세는 본 문서 "Phase 2" 섹션 참조.
 > 설계서: 본 엔트리 + `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 62-BE
 > 교차검증: Claude Cowork → Claude Code Opus Lead → **Codex (2026-04-22 1차 7건 + 2차 L3(KpiCard 추출) → 전건 반영)**
 > 병합 전략: Sprint 35 단일 PR — 4필드 공유 `period` state, 스와이프 덱·차트·월간 엔드포인트 한 번에
@@ -15143,3 +15145,121 @@ Sprint 62-BE 미배포 시:
 - **Year-over-Year 비교** — 같은 period의 전년 동기 값 overlay 카드 (추후 요구 시)
 - **Defect count QMS 연동 시** — `defect_count` placeholder 가 실제 값으로 치환되는 즉시 반영 (타입·UI 이미 준비됨)
 - **완료율 월간 산출식 정의 시** — β' 서브텍스트를 실제 월간 completion_rate 값으로 치환 (`MonthlyKpiResponse.completion_rate` 필드 추가)
+
+---
+
+## Phase 2 — BE Sprint 62-BE v2.2 연동 + 출하/월간 기준 토글 (2026-04-23 통합, v1.35.0 예정)
+
+> 등록일: 2026-04-23 | 상태: 설계 확정 → BE 배포 대기 → Phase 2 착수
+> 트리거: OPS BE Sprint 62-BE v2.2 배포 완료
+> 버전: v1.34.6 → **v1.35.0** (MINOR — 신기능 토글 추가)
+> 통합 근거: Sprint 36으로 분리하려던 토글 작업이 BE 배포와 동시에 진행하는 게 효율적 + Twin파파 지시 (2026-04-23)
+
+### Phase 2 범위 (4개 작업)
+
+#### (a) TEMP-HARDCODE 3개 제거 + BE 필드 매핑 원복
+```diff
+- const TEMP_WEEKLY_SHIPPED = 11;
+- const TEMP_MONTHLY_PRODUCTION = 215;
+- const TEMP_MONTHLY_SHIPPED = 76;
+
+  주간 출하    TEMP_WEEKLY_SHIPPED    → weekly?.[shippedBasis 키] ?? '—'
+  월간 생산량  TEMP_MONTHLY_PRODUCTION → monthly?.production_count ?? '—'
+  월간 출하    TEMP_MONTHLY_SHIPPED   → monthly?.[shippedBasis 키] ?? '—'
+```
+
+#### (b) 타입 확장 — `api/factory.ts`
+```ts
+// WeeklyKpiResponse / MonthlyKpiResponse 양쪽에 3필드 추가 (shipped_count UNION 폐기)
+shipped_plan:   number;   // ship_plan_date 기준
+shipped_actual: number;   // actual_ship_date 기준 (FE 기본값)
+shipped_ops:    number;   // SI_SHIPMENT.completed_at 기준
+
+// MonthlyKpiParams (신규)
+export interface MonthlyKpiParams {
+  month?: string;
+  date_field?: 'mech_start' | 'finishing_plan_end' | 'ship_plan_date' | 'actual_ship_date';
+  // ⚠️ pi_start 제외 (BE monthly-kpi 화이트리스트 4값)
+}
+```
+
+#### (c) 신규 컴포넌트 — `FactoryDashboardSettingsPanel.tsx`
+기존 `SNStatusSettingsPanel` 패턴 재활용 (~80 LOC)
+
+```tsx
+// 2개 토글 (localStorage 저장)
+- 출하 완료 기준 (3옵션):
+   · 실시간 (shipped_ops)    — app 데이터, 베타 100% 전까진 loss 가능
+   · 실적   (shipped_actual) — actual_ship_date, ⭐ 기본값
+   · 계획   (shipped_plan)   — ship_plan_date + si_completed
+
+- 월간 생산량 기준 (4옵션):
+   · 기구 착수      (mech_start) — ⭐ 기본값
+   · 완료 계획      (finishing_plan_end)
+   · 출하 계획      (ship_plan_date)
+   · 실제 출하      (actual_ship_date)
+```
+
+**저장 키 (localStorage)**:
+- `axis_view_factory_shipped_basis`      → `'plan' | 'actual' | 'ops'`
+- `axis_view_factory_monthly_date_field` → `'mech_start' | 'finishing_plan_end' | 'ship_plan_date' | 'actual_ship_date'`
+
+#### (d) KpiSwipeDeck + FactoryDashboardPage 연동
+- `FactoryDashboardPage`: 설정 아이콘(⚙️) → Panel 오픈 + 상태 읽기 → KpiSwipeDeck에 props 전달
+- `KpiSwipeDeck`: shippedBasis prop 추가 → 출하 카드 value 동적 매핑
+- `useMonthlyKpi(params)` 호출 시 `date_field: monthlyDateField` 주입
+
+### 저장 방식 결정 근거: localStorage (BE admin_settings 대비)
+
+| 비교 | localStorage ⭐ | BE admin_settings |
+|---|---|---|
+| BE 작업 필요 | ❌ 없음 | ✅ 마이그레이션 + API 필요 |
+| 구현 복잡도 | 낮음 (useState + useEffect) | 중간 (useAdminSettings 훅 + PUT API) |
+| 모니터별 개별 설정 | ✅ 가능 | ❌ 전체 공유 |
+| 대형 모니터 1설비 1세팅 시나리오 | ✅ 적합 | ⚠️ 부적합 |
+
+→ **localStorage 채택**. 공장 대시보드 특성상 설비/모니터별 개별 운영이 자연스러움.
+
+### 수정/신규 파일 (5)
+
+| # | 파일 | 변경 | LOC |
+|---|---|---|---|
+| 1 | `app/src/api/factory.ts` | WeeklyKpiResponse/MonthlyKpiResponse 3필드 추가, MonthlyKpiParams date_field 타입 | +10, -3 |
+| 2 | `app/src/pages/factory/components/KpiSwipeDeck.tsx` | TEMP-HARDCODE 3개 제거 + shippedBasis prop 추가 + 매핑 | +15, -10 |
+| 3 | `app/src/pages/factory/components/FactoryDashboardSettingsPanel.tsx` (신규) | 2개 토글 모달 + localStorage | +90 |
+| 4 | `app/src/pages/factory/FactoryDashboardPage.tsx` | 설정 아이콘 + Panel state + KpiSwipeDeck/useMonthlyKpi에 props 전달 | +30, -5 |
+| 5 | version.ts / CHANGELOG / handoff | v1.35.0 릴리스 기록 | — |
+
+**순 증분: ~130 LOC**. CLAUDE.md 코드 크기 원칙 1단계 범위 내.
+
+### 검증 체크리스트 (Phase 2)
+
+#### 설계 단계 (Codex 교차검증 대기)
+- [ ] Phase 2 설계가 BE v2.2 응답 스펙과 정합
+- [ ] 토글 기본값 3가지 UX 판단 (shipped_actual / mech_start / 설비별 개별)
+- [ ] localStorage 키 네임스페이스 충돌 없음 (`axis_view_*` 접두사 일관)
+
+#### 구현 단계
+- [ ] `npm run build` GREEN
+- [ ] TypeScript 0 에러 (새 3필드 + MonthlyKpiParams.date_field 타입 추가 후)
+- [ ] TEMP-HARDCODE 완전 제거 확인 (`grep TEMP_` 0건)
+- [ ] `FactoryDashboardSettingsPanel` JSX 100줄 이하 준수
+- [ ] 토글 상태 변경 → 카드 숫자 즉시 반영
+- [ ] localStorage 저장/복원 정상
+- [ ] 30초 자동 전환 + 토글 동시 동작 (v1.34.6 HOTFIX 기능 유지)
+
+#### 배포 후 (Twin파파 현업)
+- [ ] 3가지 출하 기준별 숫자 차이 납득 가능한 범위
+- [ ] 월간 생산량 기준 4가지 토글 → 카드 숫자 BE 기대치와 일치
+- [ ] 설정 아이콘 발견성 OK (UX 검증)
+- [ ] 설비별 모니터에서 각기 다른 토글 유지되는지
+
+### 연계 BACKLOG
+- `BIZ-KPI-SHIPPING-01` — 3필드 차이 기반 이행률/정합성 분석 (app 베타 100% 후 착수)
+- `REFACTOR-FactoryDashboardPage` — Phase 2 후 예상 ~620줄 → 경고 상태 유지, 필수 분할 800 미만
+
+### 판정 기준 (Phase 2 종료)
+- BE v2.2 응답 필드 정상 수신 → 3가지 출하 토글 모두 동작
+- 월간 date_field 토글 → 4가지 기준 모두 BE에서 COUNT 반환
+- TEMP-HARDCODE 0건 (설비/모니터 간 유지 확인)
+- v1.35.0 릴리스 (CHANGELOG + version.ts + git tag)

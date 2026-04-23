@@ -1,7 +1,39 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-04-23 (LOCAL-BUILD-ICLOUD-OR-MIGRATION 등록)
+> 마지막 업데이트: 2026-04-23 (BIZ-KPI-SHIPPING-01 + LOCAL-BUILD-ICLOUD-OR-MIGRATION 등록)
 > 관련: AXIS_VIEW_ROADMAP.md, OPS_API_REQUESTS.md
+
+---
+
+## 📊 BIZ-KPI-SHIPPING-01 — 출하 이행률/정합성 분석 (🟡 LOW, 2026-04-23 등록)
+
+### 배경
+- Sprint 62-BE v2.2 확정안에서 출하 UNION `shipped_count` 폐기, **3필드(`shipped_plan` / `shipped_actual` / `shipped_ops`)만 제공**
+- 3필드 차이 기반 비즈니스 지표는 본 BACKLOG 항목으로 이관 결정 (Twin파파 2026-04-23)
+
+### 분석 대상 지표 (예시)
+1. **계획 대비 실적 이행률**: `shipped_actual / shipped_plan * 100%` — 출하 계획이 실제 얼마나 지켜졌는가
+2. **실시간 vs 실적 정합성**: `shipped_ops / shipped_actual * 100%` — app 실시간 데이터가 ETL 실적과 얼마나 일치하는가 (app 보급률 간접 지표)
+3. **app 보급률 추이**: 시간에 따라 `shipped_ops / shipped_actual` 비율이 증가해야 정상
+4. **누락 감지**: `shipped_actual - shipped_ops`가 이상치로 크면 app 사용 누락 의심
+
+### 전제 조건 (착수 트리거)
+- **AXIS-OPS 앱 베타 100% 배포 완료** (현재 일부 미사용 worker 존재)
+- `shipped_ops` 값이 신뢰할 만한 수준으로 누적된 뒤에만 의미 있음
+- 데이터 2~4주 누적 후 착수 검토
+
+### 구현 범위 (예상)
+- FE: 공장 대시보드 또는 분석 페이지에 "출하 이행률" / "app 보급률" 위젯 추가
+- BE: 추가 API 없이 기존 weekly-kpi / monthly-kpi 3필드 재활용
+- 또는 별도 `/api/admin/factory/shipping-compliance` 엔드포인트 신설
+
+### 우선순위: 🟡 LOW
+- 앱 베타 100% 완료 전까지 데이터 불안정 → 착수 부적합
+- 비즈니스 요구 강도에 따라 우선순위 재조정
+
+### 연관
+- OPS BE Sprint 62-BE v2.2 출하 3필드 제공
+- VIEW Sprint 35 Phase 2 출하 기준 토글 UI (토글 선택이 곧 "어떤 기준으로 분석 중인가" 표시 역할)
 
 ---
 

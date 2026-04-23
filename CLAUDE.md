@@ -737,7 +737,8 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | FE-19.2 후속 | 강제종료 툴팁 즉시 반응 (CSS `.fc-tooltip` + `data-tooltip` — browser title 딜레이 회피) (v1.32.2) | ✅ 완료 |
 | FE-19.1 용어 정합 | 강제종료 툴팁 `종료:` → `종료 처리:` (클린 코어 원칙 #4 UI 책임 — Claude↔Codex 교차검증 합의, v1.32.3) | ✅ 완료 |
 | 34 | S/N 상세뷰·O/N 헤더 정보 보강 — FE-20(카테고리 담당 회사명) + FE-21(고객사 line) BE FIX-25 v4 연동 (v1.33.0) | ✅ 완료 |
-| 35 | 공장 대시보드 KPI 주간/월간 스와이프 덱 — KpiSwipeDeck/KpiCard/ProductionChart 추출 + β'안 완료율 + monthly-detail finishing_plan_end 전환 + pipeline.shipped→shipped_count (v1.34.0, OPS Sprint 62-BE 연동 대기) | ✅ 완료 |
+| 35 Phase 1 | 공장 대시보드 KPI 주간/월간 스와이프 덱 — KpiSwipeDeck/KpiCard/ProductionChart 추출 + β'안 완료율 + pipeline.shipped→shipped_count + v1.34.6 transform 재설계 (v1.34.0~v1.34.6) | ✅ 완료 |
+| 35 Phase 2 | BE Sprint 62-BE v2.2 연동 — TEMP-HARDCODE 3개 제거 + 출하 3필드(plan/actual/ops) + 월간 date_field 토글 + FactoryDashboardSettingsPanel (v1.35.0 예정, BE 배포 후 착수) | 🟡 대기 |
 
 ### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)
 

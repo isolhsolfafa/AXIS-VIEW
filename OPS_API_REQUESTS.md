@@ -4384,22 +4384,36 @@ ORDER BY id
 
 ## 공장 대시보드 Sprint 62-BE — 주간/월간 KPI 확장 + 출하 UNION fallback + 토글 지원 (2026-04-23 등록)
 
-### #62 weekly-kpi 응답 확장 + monthly-kpi 신설 + monthly-detail 화이트리스트 확장 — **🟡 PROPOSAL (BE 합의 전)**
+### #62 weekly-kpi 응답 확장 + monthly-kpi 신설 + monthly-detail 화이트리스트 확장 — **✅ AGREED v2.2 (2026-04-23 축소 확정)**
 
-> ⚠️ **본 v2 설계안은 FE 측 제안서 (2026-04-23 작성)**
-> - FE v1.34.4 확정 기준(mech_start 영구 유지 + Sprint 36 옵션 토글) 반영
-> - OPS `AGENT_TEAM_LAUNCH.md` L29099 원안(v1) 대비 5개 항목 변경 요청
-> - **구현 착수 전 필수 절차**:
->   1. Twin파파 최종 승인 (v2 방향)
->   2. OPS BE 측 검토 (실현 가능성 / 성능 / DB 스키마 호환)
->   3. Codex 교차검증 (CLAUDE.md AI 워크플로우 ② 자동 이관 체크리스트 4/6 해당 — API 계약/타입/파일 수/클린 코어)
->   4. M/A 합의 후 AGENT_TEAM_LAUNCH L29099 본 설계 갱신
-> - **이 문서는 합의를 위한 기초 자료이며, 변경될 수 있음**
+> ✅ **v2.2 축소 확정 (2026-04-23)** — BE + FE 합의 완료, BE 구현 진행 중
+> - Codex 3차 교차검증 M=0 / A=4 승인
+> - Twin파파 피드백(자동 합산 폐기) 반영
+> - FE 측 전체 수용 (Sprint 35 Phase 2 통합 진행)
+> - 상세: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` "Sprint 62-BE v2.2" 섹션
+
+#### v2 → v2.2 축소 변경점 (2개 항목)
+
+| 조항 | v2 (FE 제안) | **v2.2 (최종 합의)** |
+|---|---|---|
+| `_ALLOWED_DATE_FIELDS` | 5값 통합 | **2개 상수 분리** — monthly-kpi 4값(pi_start 제외) / monthly-detail 5값 유지 |
+| 출하 응답 필드 | 4필드 (`shipped_count` UNION + `shipped_realtime/actual/plan`) | **3필드 축소** — `shipped_plan` / `shipped_actual` / `shipped_ops` (UNION `shipped_count` **폐기**) |
+
+**폐기 근거**: `shipped_count` UNION 자동 합산은 비즈니스 관점 의미 없음. 이행률/정합성 분석은 `BACKLOG-BIZ-KPI-SHIPPING-01` 이관 (App 베타 100% 배포 후 진행).
+
+#### 유지되는 조항 (v2 그대로)
+
+| 조항 | 상태 |
+|---|---|
+| weekly-kpi WHERE 절 | ✅ ship_plan_date 유지 (변경 없음) |
+| monthly-kpi `date_field` 파라미터 | ✅ 필수 (기본 mech_start) |
+| monthly-detail 화이트리스트 | ✅ 5값 유지 (pi_start 포함) |
+| `pipeline.shipped` | ✅ deprecated 유지 (backward compat) |
 
 **연관 Sprint**:
 - VIEW FE Sprint 35 (v1.34.4 배포 완료, BE 미배포 상태로 v1.34.2~3 TEMP-HARDCODE 임시 운영 중)
 - VIEW FE Sprint 36 (예정) — 공장 대시보드 옵션 토글 (출하 완료 / 월간 생산량 기준)
-- OPS BE `AGENT_TEAM_LAUNCH.md` L29099 Sprint 62-BE 원안 → **본 문서 v2 수정 제안 (합의 전)**
+- OPS BE `AGENT_TEAM_LAUNCH.md` "Sprint 62-BE v2.2" → ✅ 합의 완료 (FE 측 Sprint 35 Phase 2 통합)
 
 **심각도**: 🟡 MEDIUM — 공장 대시보드 주간 KPI 라벨/기준 drift + 월간 생산량·출하 엔드포인트 부재
 
@@ -4440,24 +4454,25 @@ ORDER BY id
 
 ### 2. API 시그니처
 
-#### `GET /api/admin/factory/weekly-kpi` (기존 확장, breaking 없음)
+#### `GET /api/admin/factory/weekly-kpi` (기존 확장, breaking 없음) — v2.2 최종
 
-파라미터 기존 유지 (`week`, `year`). 응답에 신규 필드만 추가:
+파라미터 기존 유지 (`week`, `year`). 응답에 신규 3필드 추가 (UNION `shipped_count` 폐기):
 
 ```python
 {
   ... 기존 필드 전부 유지 (week, year, week_range, production_count, completion_rate,
       by_model, by_stage, pipeline) ...,
   "pipeline": { ..., "shipped": int },  # deprecated (기존 숫자 유지 — FE backward compat)
-  "shipped_count":    int,   # UNION (권장 기본 — FE 토글 기본값)
-  "shipped_realtime": int,   # SI_SHIPMENT.completed_at 만
-  "shipped_actual":   int,   # actual_ship_date 만
-  "shipped_plan":     int,   # ship_plan_date + si_completed (기존 pipeline.shipped 로직과 유사, 단 주간 범위 전체 집계 — today 제한 없음)
-  "defect_count":     null   # placeholder (QMS 미연동)
+  "shipped_plan":   int,   # ship_plan_date + si_completed (주간 범위 전체 집계, today 제한 없음)
+  "shipped_actual": int,   # actual_ship_date 만 (실적 기준, FE 기본값)
+  "shipped_ops":    int,   # SI_SHIPMENT.completed_at 만 (app 실시간 기준, app 베타 100% 전까지 loss 가능성)
+  "defect_count":   null   # placeholder (QMS 미연동)
 }
 ```
 
-#### `GET /api/admin/factory/monthly-kpi` (신설)
+> 🚫 **`shipped_count` UNION 폐기**: 자동 합산은 비즈니스 의미 없음. 3필드 차이 기반 이행률/정합성 분석은 `BACKLOG-BIZ-KPI-SHIPPING-01` 이관.
+
+#### `GET /api/admin/factory/monthly-kpi` (신설) — v2.2 최종
 
 ```python
 # 파라미터
@@ -4465,6 +4480,7 @@ ORDER BY id
 ?date_field=<4옵션>             # 기본: 'mech_start'
                                 # 허용: mech_start | finishing_plan_end
                                 #     | ship_plan_date | actual_ship_date
+                                # ⚠️ pi_start 제외 (monthly-kpi 전용 화이트리스트)
 
 # 응답
 {
@@ -4472,83 +4488,83 @@ ORDER BY id
   "month_range": { "start": "2026-04-01", "end": "2026-05-01" },   # [1일, 다음달 1일)
   "date_field_used": "mech_start",     # 클라이언트 토글 값 검증용
   "production_count": int,              # date_field 기준 COUNT
-  "shipped_count":    int,              # UNION
-  "shipped_realtime": int,
-  "shipped_actual":   int,
-  "shipped_plan":     int,
-  "defect_count":     null
+  "shipped_plan":   int,                # ship_plan_date 기준 (월간 범위 전체)
+  "shipped_actual": int,                # actual_ship_date 기준 (FE 기본값)
+  "shipped_ops":    int,                # SI_SHIPMENT.completed_at 기준 (app 실시간)
+  "defect_count":   null
 }
 # completion_rate / by_stage / pipeline / by_model 미포함
 # (FE β'안 주간 값 재활용 + monthly-detail 엔드포인트가 테이블/차트용 담당)
 ```
 
-#### `GET /api/admin/factory/monthly-detail` (화이트리스트만 확장)
+#### `GET /api/admin/factory/monthly-detail` (화이트리스트만 확장) — v2.2 최종
 
 ```python
-# 기존 호출 방식 그대로 유지 (breaking 없음)
-_ALLOWED_DATE_FIELDS = {
+# v2.2: 2개 상수 분리 — monthly-kpi vs monthly-detail 화이트리스트 독립
+
+# monthly-kpi 전용 (신규) — 4값 (pi_start 제외)
+_MONTHLY_KPI_DATE_FIELDS = {
+  'mech_start',          # 기본값
+  'finishing_plan_end',
+  'ship_plan_date',
+  'actual_ship_date',
+}
+
+# monthly-detail 기존 (확장) — 5값 (pi_start 포함)
+_MONTHLY_DETAIL_DATE_FIELDS = {
   'pi_start',            # 기존 (ProductionPlanPage 토글)
   'mech_start',          # 기존 + FE v1.34.4 영구 기본
-  'finishing_plan_end',  # 신규 (Sprint 36 토글 옵션)
-  'ship_plan_date',      # 신규 (Sprint 36 토글 옵션)
-  'actual_ship_date',    # 신규 (Sprint 36 토글 옵션)
+  'finishing_plan_end',  # 신규 (확장)
+  'ship_plan_date',      # 신규 (확장)
+  'actual_ship_date',    # 신규 (확장)
 }
 ```
 
+**의도**: monthly-kpi는 월간 생산량 KPI 전용이라 pi_start가 의미 없음 → 4값으로 제한. monthly-detail은 ProductionPlanPage에서도 호출 → pi_start 하위 호환 유지.
+
 ---
 
-### 3. SQL — `_count_shipped(conn, start, end, basis='union')`
+### 3. SQL — 3개 개별 COUNT 헬퍼 (v2.2 — UNION 폐기)
 
 ```python
-def _count_shipped(conn, start, end, basis='union'):
-    """basis: 'union' | 'realtime' | 'actual' | 'plan'"""
-    cur = conn.cursor()
-    if basis == 'realtime':
-        cur.execute("""
-            SELECT COUNT(DISTINCT serial_number)
-            FROM app_task_details
-            WHERE task_id = 'SI_SHIPMENT'
-              AND completed_at IS NOT NULL
-              AND completed_at >= %s AND completed_at < %s
-              AND force_closed = false
-        """, (start, end))
-    elif basis == 'actual':
-        cur.execute("""
-            SELECT COUNT(*)
-            FROM plan.product_info
-            WHERE actual_ship_date >= %s AND actual_ship_date < %s
-        """, (start, end))
-    elif basis == 'plan':
-        # 기존 pipeline.shipped 로직과 유사 (si_completed AND ship_plan_date 범위)
-        # 단, 기존 pipeline.shipped는 today 제한 있음 → shipped_plan은 주간/월간 범위 전체 집계로 의미 차이 있음
-        cur.execute("""
-            SELECT COUNT(*)
-            FROM plan.product_info p
-            LEFT JOIN completion_status cs ON p.serial_number = cs.serial_number
-            WHERE p.ship_plan_date >= %s AND p.ship_plan_date < %s
-              AND cs.si_completed = TRUE
-        """, (start, end))
-    else:  # union (기본)
-        cur.execute("""
-            SELECT COUNT(DISTINCT serial_number) FROM (
-              SELECT serial_number FROM app_task_details
-              WHERE task_id = 'SI_SHIPMENT'
-                AND completed_at IS NOT NULL
-                AND completed_at >= %s AND completed_at < %s
-                AND force_closed = false
-              UNION
-              SELECT serial_number FROM plan.product_info
-              WHERE actual_ship_date IS NOT NULL
-                AND actual_ship_date >= %s AND actual_ship_date < %s
-            ) AS u
-        """, (start, end, start, end))
-    return cur.fetchone()[0]
+# v2.2: 3개 개별 헬퍼 (BE 구현자 재량으로 단일 함수 + basis 분기 가능)
+# 예시 시그니처: _count_shipped(conn, start, end, basis='actual')
+#                basis: 'ops' | 'actual' | 'plan'  (UNION 폐기)
+
+def _count_shipped_ops(conn, start, end):
+    """SI_SHIPMENT task 기준 (app 실시간 — app 베타 100% 전까진 loss 가능)"""
+    cur.execute("""
+        SELECT COUNT(DISTINCT serial_number)
+        FROM app_task_details
+        WHERE task_id = 'SI_SHIPMENT'
+          AND completed_at IS NOT NULL
+          AND completed_at >= %s AND completed_at < %s
+          AND force_closed = false
+    """, (start, end))
+
+def _count_shipped_actual(conn, start, end):
+    """actual_ship_date 기준 (ETL 실적)"""
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM plan.product_info
+        WHERE actual_ship_date >= %s AND actual_ship_date < %s
+    """, (start, end))
+
+def _count_shipped_plan(conn, start, end):
+    """ship_plan_date + si_completed 기준 (계획 + 실적 교집합, today 제한 없음)"""
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM plan.product_info p
+        LEFT JOIN completion_status cs ON p.serial_number = cs.serial_number
+        WHERE p.ship_plan_date >= %s AND p.ship_plan_date < %s
+          AND cs.si_completed = TRUE
+    """, (start, end))
 ```
 
 **설계 원칙**:
 - 반개구간 `[start, end)` 사용 — 경계 중복 제거
-- `UNION` (not `UNION ALL`) — 양쪽 모두 채워진 S/N은 1건으로 카운트
 - `force_closed = false` — BACKLOG `CLEAN-CORE` 원칙 (강제종료 task row 제외)
+- UNION 폐기 → **FE에서 토글로 3가지 중 선택** (현재 FE 기본값: `shipped_actual`)
 
 ---
 
@@ -4585,23 +4601,23 @@ tests/backend/test_factory_kpi.py (신규)
 
 ---
 
-### 6. FE Sprint 36 연동 관계 (참고 — BE 구현 범위 아님)
+### 6. FE Sprint 35 Phase 2 연동 (v2.2 — 3필드 축소 반영)
 
 ```tsx
-// Sprint 36 FE 예상 구현
-const shippedBasis = useSettings<'union'|'realtime'|'actual'|'plan'>(
-  'factory_shipped_basis', 'union'
+// Sprint 35 Phase 2 FE 구현 (v1.35.0 예정)
+// localStorage 기반 (BE admin_settings 불필요)
+const [shippedBasis, setShippedBasis] = useState<'plan'|'actual'|'ops'>(() =>
+  (localStorage.getItem('axis_view_factory_shipped_basis') as any) || 'actual'
 );
-const monthlyDateField = useSettings<string>(
-  'factory_monthly_date_field', 'mech_start'
+const [monthlyDateField, setMonthlyDateField] = useState<string>(() =>
+  localStorage.getItem('axis_view_factory_monthly_date_field') || 'mech_start'
 );
 
-// 주간 출하 카드 (API 재호출 불필요 — 응답 필드 중 선택)
+// 주간 출하 카드 (API 재호출 불필요 — 응답 3필드 중 선택)
 const weeklyShipped = {
-  union:    weekly?.shipped_count,
-  realtime: weekly?.shipped_realtime,
-  actual:   weekly?.shipped_actual,
-  plan:     weekly?.shipped_plan,
+  plan:   weekly?.shipped_plan,
+  actual: weekly?.shipped_actual,
+  ops:    weekly?.shipped_ops,
 }[shippedBasis] ?? '—';
 
 // 월간 KPI 호출 (date_field 변경 시 재호출)
@@ -4611,7 +4627,9 @@ const { data: monthly } = useMonthlyKpi({
 });
 ```
 
-**설계 장점**: BE가 4필드 **동시 제공**이라 출하 토글은 API 재호출 없이 프론트 상태만 바꿔서 즉시 전환 가능. 월간 date_field 토글만 쿼리 파라미터로 재호출.
+**설계 장점**: BE가 3필드 **동시 제공**이라 출하 토글은 API 재호출 없이 프론트 상태만 바꿔서 즉시 전환 가능. 월간 date_field 토글만 쿼리 파라미터로 재호출.
+
+**토글 UI 배치**: `FactoryDashboardSettingsPanel.tsx` 신규 컴포넌트 (기존 `SNStatusSettingsPanel` 패턴 재활용) — 헤더 ⚙️ 아이콘 클릭 시 모달 오픈.
 
 ---
 
@@ -4639,21 +4657,32 @@ const { data: monthly } = useMonthlyKpi({
 
 ---
 
-### 8. FE 영향 / 원복 작업 (BE 배포 후)
+### 8. FE 영향 / 원복 작업 (BE 배포 후, Sprint 35 Phase 2로 통합)
 
-BE Sprint 62-BE 배포 완료 시 **FE 원복 작업** (VIEW `KpiSwipeDeck.tsx` 1파일):
+BE Sprint 62-BE v2.2 배포 완료 시 **Sprint 35 Phase 2 작업** (v1.35.0 릴리스):
 
+#### (a) TEMP-HARDCODE 제거 + 3필드 매핑 원복
 ```ts
 // 삭제할 모듈 상수 (v1.34.2/3 TEMP-HARDCODE)
 const TEMP_WEEKLY_SHIPPED = 11;
 const TEMP_MONTHLY_PRODUCTION = 215;
 const TEMP_MONTHLY_SHIPPED = 76;
 
-// 원복할 카드 value prop 3곳
-주간 출하       TEMP_WEEKLY_SHIPPED       → weekly?.shipped_count ?? '—'
+// 원복할 카드 value prop 3곳 (v2.2 — shipped_actual 기본값)
+주간 출하       TEMP_WEEKLY_SHIPPED       → weekly?.[shippedBasis field] ?? '—'    // 토글 연동
 월간 생산량     TEMP_MONTHLY_PRODUCTION   → monthly?.production_count ?? '—'
-월간 출하       TEMP_MONTHLY_SHIPPED      → monthly?.shipped_count ?? '—'
+월간 출하       TEMP_MONTHLY_SHIPPED      → monthly?.[shippedBasis field] ?? '—'   // 토글 연동
 ```
+
+#### (b) 신규 컴포넌트 — `FactoryDashboardSettingsPanel.tsx`
+- 2개 토글: 출하 기준(3옵션) / 월간 생산량 기준(4옵션)
+- localStorage 저장 (`axis_view_factory_shipped_basis` / `axis_view_factory_monthly_date_field`)
+- 기존 `SNStatusSettingsPanel` 패턴 재활용 (~80 LOC)
+
+#### (c) 타입 확장 (`api/factory.ts`)
+- `WeeklyKpiResponse`: `shipped_plan` / `shipped_actual` / `shipped_ops` 3필드 추가
+- `MonthlyKpiResponse`: 동일 3필드 추가
+- `MonthlyKpiParams.date_field`: 4옵션 union 타입 (pi_start 제외)
 
 `useMonthlyDetail` date_field는 **`mech_start` 유지 (v1.34.4 확정)** — 건드리지 않음.
 
@@ -4670,7 +4699,7 @@ const TEMP_MONTHLY_SHIPPED = 76;
 
 ---
 
-**OPS 측 반영 위치**: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` L29099 Sprint 62-BE 섹션 — **Codex 교차검증 + BE 합의 후 본 v2를 반영**
-**FE 상태**: v1.34.4 (2026-04-23) — mech_start 영구 기준 확정, BE 배포 대기 중 TEMP-HARDCODE 로 운영
-**문서 상태**: 🟡 PROPOSAL — FE 제안서, BE 합의 + Codex 교차검증 전
-**다음 단계**: Twin파파 v2 방향 승인 → OPS 측 Codex 교차검증 세션 → M/A 합의 → AGENT_TEAM_LAUNCH L29099 확정본 갱신 → 구현 착수
+**OPS 측 반영 위치**: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` "Sprint 62-BE v2.2" 섹션 — BE 구현 진행 중
+**FE 상태**: v1.34.6 (2026-04-23) — mech_start 영구 기준 + TEMP-HARDCODE 임시 운영 중
+**문서 상태**: ✅ **AGREED v2.2** (2026-04-23) — Codex 3차 M=0/A=4 승인 + Twin파파 피드백 반영
+**다음 단계**: BE v2.2 구현 완료 → FE Sprint 35 Phase 2 (v1.35.0) 일괄 반영 (TEMP-HARDCODE 제거 + 토글 도입 + 3필드 매핑)
