@@ -245,7 +245,7 @@ AXIS-VIEW/
 │
 └── docs/                     ← 설계 문서
     ├── AXIS_VIEW_ROADMAP.md       전체 로드맵
-    ├── OPS_API_REQUESTS.md        BE API 요청사항 (#1~#61)
+    ├── OPS_API_REQUESTS.md        BE API 요청사항 (#1~#62)
     ├── APS_LITE_PLAN.md           APS Lite 기획서 (차세대)
     ├── API_INTEGRATION_REVIEW.md  API 통합 리뷰
     ├── BACKLOG.md                 백로그
@@ -677,7 +677,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | `memory.md` | 누적 의사결정(ADR), 버그 분석, 아키텍처 판단 | 맥락 필요 시 |
 | `PROGRESS.md` | 완료된 Sprint 이력 (상세) | 참조 |
 | `DESIGN_FIX_SPRINT.md` | Sprint 1~30 메인 스프린트 문서 | 필수 |
-| `OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#61) | 필수 |
+| `OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#62) | 필수 |
 | `CHANGELOG.md` | 릴리스 이력 | 릴리스 시 |
 | `BACKLOG.md` | 보류/계획/아이디어 + 디지털트윈 기획 | 기획 시 |
 | `docs/APS_LITE_PLAN.md` | APS Lite 차세대 기획 | 참조 |
