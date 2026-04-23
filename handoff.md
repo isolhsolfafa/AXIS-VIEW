@@ -54,18 +54,28 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.34.6 (배포됨) → **v1.35.0 Sprint 35 Phase 2 대기** (BE Sprint 62-BE v2.2 배포 후 착수)
-- **최근 작업**: KPI 덱 transform 재설계 (v1.34.6) + Sprint 35 Phase 2 설계 완료 (2026-04-23)
-- **최근 완료**: v1.34.6 (transform 재설계), OPS_API_REQUESTS #62 v2.2 AGREED, BIZ-KPI-SHIPPING-01 BACKLOG 등록
+- **VIEW FE main**: v1.34.6 (Netlify published, 현 운영)
+- **VIEW FE branch**: `feat/sprint-35-phase-2` → v1.35.0 **구현 완료 + 로컬 빌드 GREEN + BE 배포 대기**
+- **최근 작업**: Sprint 35 Phase 2 전체 코드 구현 (2026-04-23) — BE Sprint 62-BE v2.2 배포 후 main merge 예정
+- **최근 완료**: v1.34.6 (transform 재설계) / feat/sprint-35-phase-2 커밋 완료
 
-### 🔜 Sprint 35 Phase 2 (v1.35.0) 작업 체크리스트 — BE v2.2 배포 완료 시 즉시 실행
-- [ ] `api/factory.ts`: WeeklyKpiResponse/MonthlyKpiResponse에 `shipped_plan/actual/ops` 3필드 추가 (shipped_count 폐기) + MonthlyKpiParams date_field 4옵션 타입
-- [ ] `KpiSwipeDeck.tsx`: TEMP-HARDCODE 3개 제거 + `shippedBasis` prop 매핑 (기본 `shipped_actual`)
-- [ ] `FactoryDashboardSettingsPanel.tsx` (신규 ~80 LOC): 2개 토글 + localStorage 저장
-- [ ] `FactoryDashboardPage.tsx`: 설정 아이콘 + Panel state + props 전달
-- [ ] localStorage 키: `axis_view_factory_shipped_basis` / `axis_view_factory_monthly_date_field`
-- [ ] 빌드 GREEN + v1.35.0 릴리스 (version.ts + CHANGELOG + git tag)
+### ✅ Sprint 35 Phase 2 (v1.35.0) 구현 완료 (feat/sprint-35-phase-2 브랜치)
+- [x] `api/factory.ts`: 3필드 + 2타입 + date_field 쿼리 파라미터
+- [x] `KpiSwipeDeck.tsx`: TEMP-HARDCODE 제거 + shippedBasis 매핑 + pickShipped 헬퍼
+- [x] `FactoryDashboardSettingsPanel.tsx` 신규 (~170 LOC): 3+4 옵션 토글 + localStorage
+- [x] `FactoryDashboardPage.tsx`: 설정 아이콘 + Panel 연동 + localStorage state 2개
+- [x] localStorage 키: `axis_view_factory_shipped_basis` / `axis_view_factory_monthly_date_field`
+- [x] version.ts v1.35.0 + CHANGELOG 섹션
+
+### 🔜 BE v2.2 배포 완료 시 즉시 실행 (Phase 2 머지)
+```bash
+git checkout main
+git merge --no-ff feat/sprint-35-phase-2
+git tag v1.35.0
+git push origin main && git push origin v1.35.0
+```
 - 상세 설계: `DESIGN_FIX_SPRINT.md` Sprint 35 "Phase 2" 섹션
+- 배포 전 Netlify preview 검증 권장 (CLAUDE.md ⑧ 단계)
 - **✅ 확정 기준 (영구)**: 생산 현황 상세 테이블 / 월간 생산 지표 차트 / 상단 스와이프 월간 ProductionChart **3영역은 mech_start 기준 유지**
 - **🔧 Sprint 36 예정**: 출하 완료 카드 토글 (실시간/실적/계획) + 월간 생산량 카드 토글 (기본 mech_start, 4옵션)
 - **⚠️ BE Sprint 62-BE 배포 시 필수 제거**: `KpiSwipeDeck.tsx` 모듈 상수 3개(`TEMP_WEEKLY_SHIPPED=11` / `TEMP_MONTHLY_PRODUCTION=215` / `TEMP_MONTHLY_SHIPPED=76`) + 3개 카드 value prop 원복 (date_field는 건드리지 않음)

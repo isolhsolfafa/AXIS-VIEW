@@ -5,8 +5,14 @@ import { useMemo, useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
 import { useWeeklyKpi, useMonthlyDetail, useMonthlyKpi } from '@/hooks/useFactory';
 import { useEtlChanges } from '@/hooks/useEtlChanges';
+import type { MonthlyKpiDateField, ShippedBasis } from '@/api/factory';
 import KpiSwipeDeck from './components/KpiSwipeDeck';
 import ProductionChart from './components/ProductionChart';
+import FactoryDashboardSettingsPanel from './components/FactoryDashboardSettingsPanel';
+
+// v1.35.0 Sprint 35 Phase 2: localStorage 키 (설비/모니터별 개별 설정)
+const LS_SHIPPED_BASIS = 'axis_view_factory_shipped_basis';
+const LS_MONTHLY_DATE_FIELD = 'axis_view_factory_monthly_date_field';
 
 const MODEL_COLORS = [
   'linear-gradient(90deg, #6366F1, #818CF8)',
@@ -73,9 +79,26 @@ export default function FactoryDashboardPage() {
 
   // Sprint 35: KPI 덱 주간/월간 전환 state
   const [period, setPeriod] = useState<'weekly' | 'monthly'>('weekly');
+
+  // v1.35.0 Phase 2: 출하 완료 / 월간 생산량 기준 토글 (localStorage 저장)
+  const [shippedBasis, setShippedBasis] = useState<ShippedBasis>(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(LS_SHIPPED_BASIS) : null;
+    return (saved === 'plan' || saved === 'ops' || saved === 'actual') ? saved : 'actual';
+  });
+  const [monthlyDateField, setMonthlyDateField] = useState<MonthlyKpiDateField>(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(LS_MONTHLY_DATE_FIELD) : null;
+    const allowed: MonthlyKpiDateField[] = ['mech_start', 'finishing_plan_end', 'ship_plan_date', 'actual_ship_date'];
+    return allowed.includes(saved as MonthlyKpiDateField) ? (saved as MonthlyKpiDateField) : 'mech_start';
+  });
+  const [showSettings, setShowSettings] = useState(false);
+
+  useEffect(() => { localStorage.setItem(LS_SHIPPED_BASIS, shippedBasis); }, [shippedBasis]);
+  useEffect(() => { localStorage.setItem(LS_MONTHLY_DATE_FIELD, monthlyDateField); }, [monthlyDateField]);
+
   const { data: monthlyKpi, isLoading: monthlyKpiLoading, refetch: refetchMonthlyKpi } = useMonthlyKpi({
     enabled: period === 'monthly',
     refetchInterval: autoRefreshInterval,
+    date_field: monthlyDateField,  // Phase 2: 토글 값 전달
   });
 
   const handleRefreshAll = () => { refetchKpi(); refetchMonthly(); refetchEtl(); refetchMonthlyKpi(); };
@@ -237,9 +260,26 @@ export default function FactoryDashboardPage() {
               <path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
             </svg>
           </button>
+          {/* v1.35.0 Phase 2: 설정 아이콘 (출하 / 월간 기준 토글) */}
+          <button
+            onClick={() => setShowSettings(true)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '28px', height: '28px', borderRadius: '8px',
+              border: '1px solid var(--gx-mist)', background: 'var(--gx-white)',
+              cursor: 'pointer', transition: 'all 0.15s',
+            }}
+            title="대시보드 설정"
+            aria-label="대시보드 설정"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gx-slate)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
         </div>
 
-        {/* KPI Swipe Deck (주간/월간) — Sprint 35 + v1.34.5: 30초 자동 전환 */}
+        {/* KPI Swipe Deck (주간/월간) — Sprint 35 + v1.34.5 30초 자동 + v1.35.0 shippedBasis 토글 */}
         <KpiSwipeDeck
           period={period}
           onPeriodChange={setPeriod}
@@ -248,6 +288,17 @@ export default function FactoryDashboardPage() {
           weeklyLoading={kpiLoading}
           monthlyLoading={monthlyKpiLoading}
           autoSwipeInterval={30000}
+          shippedBasis={shippedBasis}
+        />
+
+        {/* v1.35.0 Phase 2: 설정 모달 (출하 기준 / 월간 date_field 토글) */}
+        <FactoryDashboardSettingsPanel
+          open={showSettings}
+          onClose={() => setShowSettings(false)}
+          shippedBasis={shippedBasis}
+          onShippedBasisChange={setShippedBasis}
+          monthlyDateField={monthlyDateField}
+          onMonthlyDateFieldChange={setMonthlyDateField}
         />
 
         {/* Chart + Stage */}

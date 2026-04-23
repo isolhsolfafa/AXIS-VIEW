@@ -1,22 +1,11 @@
 // src/pages/factory/components/KpiSwipeDeck.tsx
 // Sprint 35 — 주간/월간 KPI 스와이프 덱 (4카드 × 2섹션)
 // v1.34.6 (2026-04-23): scroll-snap → transform: translateX 재설계
-//   - 부모 레이아웃 overflow 영향 받지 않도록 overflow: hidden + translateX 토글
-//   - 버튼 클릭 + 30초 자동 전환 확실히 동작
-//   - 터치 스와이프 제스처는 Sprint 36 에서 swiper.js/embla-carousel 도입 시 추가
+// v1.35.0 Sprint 35 Phase 2 (2026-04-23): TEMP-HARDCODE 제거 + shippedBasis 토글 매핑
 
 import { useEffect } from 'react';
-import type { WeeklyKpiResponse, MonthlyKpiResponse } from '@/api/factory';
+import type { WeeklyKpiResponse, MonthlyKpiResponse, ShippedBasis } from '@/api/factory';
 import KpiCard from './KpiCard';
-
-// TEMP-HARDCODE v1.34.3 (2026-04-22) — BE Sprint 62-BE 배포 후 제거
-// 손님 응대용 임시 값 — 직접 SQL 집계 결과 반영
-// 주간 생산량: BE weekly-kpi.production_count 값 유지 (하드코딩 없음)
-// 주간 출하 (W17 2026-04-20~26): actual_ship_date 기준 = 11대
-// 월간 (2026-04):           생산량 215대 / 출하 76대 (actual_ship_date)
-const TEMP_WEEKLY_SHIPPED = 11;
-const TEMP_MONTHLY_PRODUCTION = 215;
-const TEMP_MONTHLY_SHIPPED = 76;
 
 export interface KpiSwipeDeckProps {
   period: 'weekly' | 'monthly';
@@ -26,11 +15,23 @@ export interface KpiSwipeDeckProps {
   weeklyLoading?: boolean;
   monthlyLoading?: boolean;
   autoSwipeInterval?: number;  // v1.34.5: 자동 전환 간격(ms). 0/undefined면 비활성
+  shippedBasis?: ShippedBasis; // v1.35.0: 출하 완료 기준 (기본 'actual')
+}
+
+// BE v2.2 3필드 중 선택
+function pickShipped(
+  data: WeeklyKpiResponse | MonthlyKpiResponse | undefined,
+  basis: ShippedBasis,
+): number | undefined {
+  if (!data) return undefined;
+  if (basis === 'plan')   return data.shipped_plan;
+  if (basis === 'ops')    return data.shipped_ops;
+  return data.shipped_actual; // 기본 'actual'
 }
 
 export default function KpiSwipeDeck({
   period, onPeriodChange, weekly, monthly, weeklyLoading, monthlyLoading,
-  autoSwipeInterval,
+  autoSwipeInterval, shippedBasis = 'actual',
 }: KpiSwipeDeckProps) {
   // v1.34.5: 30초 간격 자동 전환 (대형 모니터 운영 대응)
   useEffect(() => {
@@ -45,6 +46,10 @@ export default function KpiSwipeDeck({
   const monthLabel = monthly ? monthly.month : '—';
   const weeklySubtext = weekly ? `주간 값: ${weekly.completion_rate}% (W${weekly.week})` : undefined;
 
+  // v1.35.0: shippedBasis 토글에 따라 3필드 중 선택
+  const weeklyShipped  = pickShipped(weekly, shippedBasis);
+  const monthlyShipped = pickShipped(monthly, shippedBasis);
+
   const sectionStyle: React.CSSProperties = {
     width: '50%',
     flexShrink: 0,
@@ -54,6 +59,8 @@ export default function KpiSwipeDeck({
     padding: '0 2px',
     boxSizing: 'border-box',
   };
+
+  const basisLabel = shippedBasis === 'plan' ? '계획' : shippedBasis === 'ops' ? '실시간' : '실적';
 
   return (
     <div style={{ marginBottom: '24px' }}>
@@ -125,9 +132,9 @@ export default function KpiSwipeDeck({
             />
             <KpiCard
               label="출하 완료"
-              value={TEMP_WEEKLY_SHIPPED /* actual_ship_date 기준 */}
+              value={weeklyShipped ?? '—'}
               unit="대"
-              sub="금주 실제 출하"
+              sub={`금주 출하 (${basisLabel})`}
               color="var(--gx-accent)"
               loading={weeklyLoading}
             />
@@ -137,7 +144,7 @@ export default function KpiSwipeDeck({
           <section style={sectionStyle}>
             <KpiCard
               label="월간 생산량"
-              value={TEMP_MONTHLY_PRODUCTION /* ship_plan_date 기준 4월 계획 */}
+              value={monthly?.production_count ?? '—'}
               unit="대"
               sub={monthLabel}
               color="var(--gx-info)"
@@ -160,9 +167,9 @@ export default function KpiSwipeDeck({
             />
             <KpiCard
               label="출하 완료"
-              value={TEMP_MONTHLY_SHIPPED /* actual_ship_date 기준 */}
+              value={monthlyShipped ?? '—'}
               unit="대"
-              sub="월간 실제 출하"
+              sub={`월간 출하 (${basisLabel})`}
               color="var(--gx-accent)"
               loading={monthlyLoading}
             />
