@@ -64,9 +64,10 @@ export default function FactoryDashboardPage() {
     return (h >= 8 && h < 20) ? 30 * 60 * 1000 : false;
   };
   const { data: kpi, isLoading: kpiLoading, dataUpdatedAt: kpiUpdatedAt, isFetching: kpiFetching, refetch: refetchKpi } = useWeeklyKpi({ refetchInterval: autoRefreshInterval });
-  // Sprint 35 HOTFIX v1.34.1: BE Sprint 62-BE 배포 전까지 date_field='mech_start' 유지
-  // (finishing_plan_end는 BE _ALLOWED_DATE_FIELDS 미등록 → 하단 테이블·월간 차트 전체 빈 응답 발생)
-  // BE 배포 후 'finishing_plan_end'로 재전환 예정
+  // v1.34.4 결정 (2026-04-23): date_field='mech_start' 영구 유지
+  // 소비처 3곳 (생산 현황 상세 테이블 + 월간 생산 지표 차트 + 상단 스와이프 월간 ProductionChart)
+  // 모두 "이번 달 기구 착수 S/N" 관점으로 관리.
+  // 월간 생산량 카드만 별도로 Sprint 36 옵션 토글(mech_start/finishing_plan_end/ship_plan_date/actual_ship_date)로 기준 선택.
   const { data: monthly, isLoading: monthlyLoading, refetch: refetchMonthly } = useMonthlyDetail({ per_page: 500, date_field: 'mech_start', refetchInterval: autoRefreshInterval });
   const { data: etlData, refetch: refetchEtl } = useEtlChanges({ days: 7, limit: 10 });
 

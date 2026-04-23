@@ -19,7 +19,8 @@ export default function ProductionChart({ period, weekly, monthlyDetail, isLoadi
 
   const title = period === 'weekly' ? '주간 생산 지표' : '월간 생산 지표';
   const sub = '모델별 생산량';
-  // NOTE: BE Sprint 62-BE 배포 후 주간·월간 모두 finishing_plan_end 기준으로 전환 예정
+  // 주간: BE weekly-kpi 기준 (현재 ship_plan_date → Sprint 62-BE 배포 후 기준 변경 가능성)
+  // 월간: monthly-detail mech_start 기준 (영구 유지, v1.34.4 결정)
 
   return (
     <div style={{

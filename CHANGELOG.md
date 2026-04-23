@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.34.3 (2026-04-22)
+> 최신 버전: v1.34.4 (2026-04-23)
 
 ---
 
@@ -70,6 +70,39 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.34.4 — 2026-04-23
+
+**문서 정정 — mech_start 영구 기준 확정 + finishing_plan_end 재전환 폐기**
+
+### 배경
+- Sprint 35 설계서 원안: monthly-detail `date_field`를 `mech_start` → `finishing_plan_end`로 전환 (생산량은 완료 기준이 합리적)
+- v1.34.0 배포 후 BE Sprint 62-BE 미지원으로 하단 3영역 장애 → v1.34.1 HOTFIX로 `mech_start` 복원 (임시 조치로 기록)
+- 2026-04-23 사용자 재결정: **하단 3영역은 mech_start 기준으로 영구 유지** ("이번 달 기구 착수 S/N" 현장 관점이 자연스러움)
+- 월간 생산량 카드만 Sprint 36에서 옵션 토글로 4가지 기준 선택 제공
+
+### 정정 범위
+- `CHANGELOG.md` v1.34.1 "finishing_plan_end 재전환 예정" 문구 → 폐기 표기
+- `app/src/pages/factory/FactoryDashboardPage.tsx` L65 주석 → 영구 유지 명시 + Sprint 36 토글 언급
+- `app/src/pages/factory/components/ProductionChart.tsx` sub 주석 → 영구 유지 명시
+- `handoff.md` 현재 버전 및 BE 배포 시 원복 작업 항목 → date_field 제외
+- `docs/sprints/DESIGN_FIX_SPRINT.md` Sprint 35 상단에 v1.34.4 재결정 블록 추가
+- `CLAUDE.md` 메타 갱신 (v1.34.4, 2026-04-23)
+
+### 확정 기준 (영구)
+| 영역 | 기준 | 비고 |
+|---|---|---|
+| 생산 현황 상세 테이블 | `mech_start` | 영구 |
+| 월간 생산 지표 차트 (하단) | `mech_start` | 영구 |
+| 상단 스와이프 월간 ProductionChart | `mech_start` | 영구 |
+| 월간 생산량 카드 | Sprint 36 옵션 토글 (기본 `mech_start`) | 토글 |
+| 주간/월간 출하 완료 카드 | Sprint 36 옵션 토글 (실시간/실적/계획) | 토글 |
+
+### 변경 파일 (6)
+- CHANGELOG.md + version.ts + handoff.md + CLAUDE.md + DESIGN_FIX_SPRINT.md + FactoryDashboardPage.tsx + ProductionChart.tsx
+- 코드 로직 변경 없음 (주석만 정정)
 
 ---
 
@@ -145,12 +178,13 @@
 
 ### 복원
 - `FactoryDashboardPage.tsx` L65: `date_field: 'finishing_plan_end'` → `'mech_start'` 원복
-- 주석 보강: BE Sprint 62-BE 배포 후 재전환 예정 명시
+- ~~주석 보강: BE Sprint 62-BE 배포 후 재전환 예정 명시~~ (v1.34.4에서 정정 — mech_start 영구 유지로 결정)
 - `ProductionChart` 서브 라벨에서 "finishing_plan_end 기준" 문구 제거 (정직성)
 - **주간 출하 카드 fallback 추가**: `weekly?.shipped_count ?? weekly?.pipeline?.shipped ?? '—'` — BE Sprint 62-BE 미배포 상태에서도 기존 `pipeline.shipped`로 값 표시 (Sprint 35 설계 타입에 `pipeline.shipped` deprecated 유지는 이 fallback 용도였으나 FE에서 빠뜨림)
 
-### 후속
-- BE Sprint 62-BE 배포 후 FE HOTFIX 1줄로 다시 `finishing_plan_end` 전환
+### 후속 (v1.34.4에서 정정)
+- ~~BE 배포 후 `finishing_plan_end` 재전환~~ → **폐기**. `mech_start`를 생산 현황 상세 / 월간 생산 지표 / 상단 스와이프 월간 차트의 **영구 기준**으로 유지 결정 (v1.34.4)
+- 월간 생산량 카드만 Sprint 36에서 **옵션 토글**로 기준 선택 가능하게 제공 예정
 - 설계 단계 교훈: 공유 데이터 소스 기준 변경 시 **모든 소비처 사용처 점검** 필수
 
 ### 교차검증

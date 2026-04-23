@@ -14685,9 +14685,11 @@ BE FIX-25 미배포 상태에서도 FE 코드는 정상 동작:
 
 # Sprint 35 — Factory 대시보드 KPI 주간/월간 스와이프 덱 (2026-04-22 등록, 🟢 Codex 교차검증 반영)
 
-> 등록일: 2026-04-22 | 상태: **Codex 교차검증 7건 + 2차 L3 발견 반영 (2026-04-22)** → 구현 착수 가능
+> 등록일: 2026-04-22 | 상태: **구현 완료 (v1.34.0) + HOTFIX (v1.34.1~3) + 문서정정 (v1.34.4, 2026-04-23)**
 > 트랙: VIEW FE (OPS BE Sprint 62-BE 동반 설계)
-> 선행: OPS BE Sprint 62-BE — `weekly-kpi` WHERE 교정 + `monthly-kpi` 신설 + `_ALLOWED_DATE_FIELDS` 확장
+> 선행: OPS BE Sprint 62-BE — `weekly-kpi` 확장 + `monthly-kpi` 신설 (date_field 파라미터 지원 권장)
+
+> ⚠️ **v1.34.4 재결정 (2026-04-23)**: 결정 #4의 "monthly-detail `date_field: 'finishing_plan_end'`로 변경" 조항 **폐기**. 생산 현황 상세 테이블 / 월간 생산 지표 차트 / 상단 스와이프 월간 ProductionChart **3영역은 `mech_start` 기준 영구 유지**. 월간 생산량 카드의 기준만 Sprint 36 옵션 토글로 사용자 선택 가능하게 제공 예정. 자세한 내용은 CHANGELOG v1.34.4 참조.
 > 설계서: 본 엔트리 + `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 62-BE
 > 교차검증: Claude Cowork → Claude Code Opus Lead → **Codex (2026-04-22 1차 7건 + 2차 L3(KpiCard 추출) → 전건 반영)**
 > 병합 전략: Sprint 35 단일 PR — 4필드 공유 `period` state, 스와이프 덱·차트·월간 엔드포인트 한 번에
