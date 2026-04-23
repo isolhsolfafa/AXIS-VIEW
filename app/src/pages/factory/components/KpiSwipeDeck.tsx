@@ -12,6 +12,7 @@ export interface KpiSwipeDeckProps {
   monthly?: MonthlyKpiResponse;
   weeklyLoading?: boolean;
   monthlyLoading?: boolean;
+  autoSwipeInterval?: number;  // v1.34.5: 자동 전환 간격(ms). 0/undefined면 비활성
 }
 
 // TEMP-HARDCODE v1.34.3 (2026-04-22) — BE Sprint 62-BE 배포 후 제거
@@ -25,6 +26,7 @@ const TEMP_MONTHLY_SHIPPED = 76;
 
 export default function KpiSwipeDeck({
   period, onPeriodChange, weekly, monthly, weeklyLoading, monthlyLoading,
+  autoSwipeInterval,
 }: KpiSwipeDeckProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -32,6 +34,7 @@ export default function KpiSwipeDeck({
   const handleScroll = useCallback(() => {
     if (!scrollRef.current) return;
     const { scrollLeft, clientWidth } = scrollRef.current;
+    if (clientWidth === 0) return;  // v1.34.5: 초기 렌더 NaN 방지
     const next = scrollLeft / clientWidth > 0.5 ? 'monthly' : 'weekly';
     if (next !== period) onPeriodChange(next);
   }, [period, onPeriodChange]);
@@ -42,6 +45,15 @@ export default function KpiSwipeDeck({
     const targetLeft = period === 'weekly' ? 0 : scrollRef.current.clientWidth;
     scrollRef.current.scrollTo({ left: targetLeft, behavior: 'smooth' });
   }, [period]);
+
+  // v1.34.5: 30초 간격 자동 전환 (대형 모니터 운영 대응)
+  useEffect(() => {
+    if (!autoSwipeInterval || autoSwipeInterval <= 0) return;
+    const timer = setInterval(() => {
+      onPeriodChange(period === 'weekly' ? 'monthly' : 'weekly');
+    }, autoSwipeInterval);
+    return () => clearInterval(timer);
+  }, [period, autoSwipeInterval, onPeriodChange]);
 
   const weekLabel = weekly ? `W${weekly.week} (${weekly.week_range.start.slice(5)} ~ ${weekly.week_range.end.slice(5)})` : '—';
   const monthLabel = monthly ? monthly.month : '—';

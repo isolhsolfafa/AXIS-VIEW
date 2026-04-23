@@ -1,7 +1,7 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.34.4';
+export const APP_VERSION = 'v1.34.5';
 export const BUILD_DATE = '2026-04-23';
 
 // 버전 이력
@@ -58,3 +58,4 @@ export const BUILD_DATE = '2026-04-23';
 // v1.34.2| 2026-04-22 | TEMP-HARDCODE   | 손님 응대용 임시 하드코딩 — 주간 11대 / 월간 76대 (W17 / 2026-04 actual_ship_date 기준) — BE Sprint 62-BE 배포 후 제거 필수
 // v1.34.3| 2026-04-22 | TEMP-HARDCODE fix| 주간 생산량 BE 동적 값 복원 (v1.34.2에서 실수로 하드코딩 덮었음) + 월간 생산량 215 / 월간 출하 76 분리 유지
 // v1.34.4| 2026-04-23 | 문서 정정       | mech_start 영구 유지 확정, finishing_plan_end 재전환 계획 폐기 — CHANGELOG/주석/설계서 3곳 정정 (Sprint 36 옵션 토글 예정)
+// v1.34.5| 2026-04-23 | HOTFIX S3       | KPI 덱 탭 전환 버그 수정 (handleScroll clientWidth=0 방어) + 30초 자동 전환 (autoSwipeInterval prop)

@@ -239,7 +239,7 @@ export default function FactoryDashboardPage() {
           </button>
         </div>
 
-        {/* KPI Swipe Deck (주간/월간) — Sprint 35 */}
+        {/* KPI Swipe Deck (주간/월간) — Sprint 35 + v1.34.5: 30초 자동 전환 */}
         <KpiSwipeDeck
           period={period}
           onPeriodChange={setPeriod}
@@ -247,6 +247,7 @@ export default function FactoryDashboardPage() {
           monthly={monthlyKpi}
           weeklyLoading={kpiLoading}
           monthlyLoading={monthlyKpiLoading}
+          autoSwipeInterval={30000}
         />
 
         {/* Chart + Stage */}

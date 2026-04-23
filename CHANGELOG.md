@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.34.4 (2026-04-23)
+> 최신 버전: v1.34.5 (2026-04-23)
 
 ---
 
@@ -70,6 +70,40 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.34.5 — 2026-04-23
+
+**HOTFIX S3 — KPI 덱 탭 전환 버그 수정 + 30초 자동 전환 도입**
+
+### 현상
+- 세그먼트 토글 버튼(주간/월간) 또는 스와이프 제스처로 period 전환 시도 시 **동작 안 함**
+- 원인: 초기 렌더 시점에 `scrollRef.current.clientWidth`가 `0` → `scrollLeft / 0` NaN → `NaN > 0.5` false → 항상 'weekly' 유지
+
+### 수정 (`KpiSwipeDeck.tsx`)
+- `handleScroll` 방어 로직: `if (clientWidth === 0) return` 추가 — 초기 렌더 NaN 가드
+- 신규 prop `autoSwipeInterval?: number` (ms 단위) 추가
+- 30초 간격 자동 전환 useEffect — 대형 모니터 운영 UX
+- `FactoryDashboardPage.tsx`: `<KpiSwipeDeck autoSwipeInterval={30000} />` 전달
+
+### 리소스 영향 분석
+| 항목 | 영향 |
+|---|---|
+| setInterval 30초 1개 | 브라우저 타이머 1개 (무시 수준) |
+| period toggle 재렌더 | KpiCard 4개 React 기본 최적화 |
+| 월간 API 호출 | `staleTime 5분` → 실제 network는 5분에 1회 |
+| 스크롤 애니메이션 | GPU 가속, CPU 영향 0 |
+
+**결론: 리소스 낭비 없음**. 기존 FactoryDashboardPage가 이미 5초 자동 슬라이드(`slideAutoPlay`)를 운영 중이고 문제 없었던 선례 참고.
+
+### 분류
+- S3 HOTFIX (일반 UX 이슈) — 정상 파이프라인
+- Sprint 36 정식 진입 전 유지보수 성격
+
+### 교차검증
+- Opus 단독 리뷰 (CLAUDE.md 🚨 긴급 HOTFIX 예외 조항 S3 — 정상 파이프라인 범주)
+- 다음 Sprint 전까지 관찰 필요 사항 없음 (재현 가능한 방어 로직 + 기존 패턴 재활용)
 
 ---
 
