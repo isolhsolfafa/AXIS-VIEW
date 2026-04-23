@@ -1,7 +1,50 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-04-21 (코드 크기 원칙 + 리팩토링 Sprint 계획 등록)
+> 마지막 업데이트: 2026-04-23 (LOCAL-BUILD-ICLOUD-OR-MIGRATION 등록)
 > 관련: AXIS_VIEW_ROADMAP.md, OPS_API_REQUESTS.md
+
+---
+
+## 🐛 LOCAL-BUILD-ICLOUD-OR-MIGRATION (🟡 LOW, 2026-04-23 등록)
+
+### 증상 (2026-04-22~23 반복 발생)
+- `npm run build` 1~2회 성공 후 일정 시간 뒤 재실행 시 `TS2307 Cannot find module '{package}'` 에러
+- 영향 패키지: `lucide-react`, `tinyglobby` 등 (매번 다름)
+- 해당 패키지 `node_modules/{package}/dist/` 폴더가 **통째로 사라짐**
+- package.json의 `main` / `module` 참조 경로가 깨져 import resolution 실패
+
+### 배경
+- PC 변경 + 마이그레이션 중단 + 재셋팅 이후 발생 시작
+- 기존 동일 iCloud Desktop 경로에서 **이전 Mac에서는 정상 동작**했음 (iCloud 자체 원인 아님)
+- 사용자 기억상 이전 Mac에서도 `npm build` 관련 이슈 있었으나 해결 방법은 기억 안 남
+
+### 해결 방법 (재발 시)
+```bash
+rm -rf node_modules && npm ci
+```
+- 6초 내 복구 완료
+- Netlify 프로덕션 빌드는 fresh install이라 무영향 (published 상태 유지)
+
+### 원인 불명 (추후 조사)
+- 마이그레이션 부산물로 macOS extended attribute / security flag 잔존?
+- 초기 세팅값 유실 범위 미확인 (Node 버전 관리 도구 / .zshrc / Xcode CLT 일부 등)
+- 백업/동기화 도구가 `node_modules` 일부 파일 수정 권한 침해?
+
+### 영향 범위
+- 로컬 개발 환경만 — 빌드 실패 시 `npm ci` 1회 필요 (수 분 단위 지연)
+- 프로덕션 빌드 (Netlify) 영향 없음
+- 사용자 손님 응대 / 배포 경로 영향 없음
+
+### 우선순위 판정: 🟡 LOW
+- Production 무영향 + 해결 방법 간단(6초)
+- 근본 조사에 시간 많이 들어갈 가능성 (환경 분석 · 시스템 로그 · backup 도구 식별 등)
+- 여유 Sprint 또는 PC 완전 재설정 시점에 조사
+
+### 향후 조사 방향
+1. `node_modules/{lost_package}/dist/` 삭제 직전 시스템 로그 (`log stream --style syslog`) 확인
+2. 마이그레이션 중단 시점에 `.migrationlog` 또는 Apple System 로그 조사
+3. `xattr` / `mdls` 기반 파일 상태 비교 (정상 Mac vs 현재 Mac)
+4. 또는 프로젝트 경로를 `~/dev/` 같은 iCloud 미동기 경로로 이동해 증상 재현 여부 테스트
 
 ---
 

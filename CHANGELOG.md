@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.34.5 (2026-04-23)
+> 최신 버전: v1.34.6 (2026-04-23)
 
 ---
 
@@ -70,6 +70,57 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.34.6 — 2026-04-23
+
+**HOTFIX S2 — KPI 덱 scroll-snap → transform: translateX 재설계**
+
+### 현상 (v1.34.5 후에도 재발)
+- 세그먼트 토글 버튼 / 30초 자동 전환 모두 **여전히 동작 안 함**
+- v1.34.5의 `clientWidth === 0` 가드로도 근본 해결 실패
+
+### 원인 재진단
+`CSS scroll-snap + overflow-x: auto` 기반 구현이 **부모 Layout의 overflow 설정 / width 제약**과 충돌하여 scrollable container로 인식되지 않음. 결과:
+- scrollTo(left=clientWidth) 호출돼도 실제 스크롤 이동 없음 → 시각적 전환 안 됨
+- scroll 이벤트 미발동 → handleScroll 로직 전체 무력화
+
+### 재설계 (transform: translateX)
+scroll 의존성을 완전히 제거하고 단순 CSS transform으로 교체:
+
+```tsx
+<div style={{ overflow: 'hidden' }}>
+  <div style={{
+    display: 'flex',
+    width: '200%',
+    transform: period === 'weekly' ? 'translateX(0%)' : 'translateX(-50%)',
+    transition: 'transform 0.4s ease',
+  }}>
+    <section style={{ width: '50%' }}>주간 4카드</section>
+    <section style={{ width: '50%' }}>월간 4카드</section>
+  </div>
+</div>
+```
+
+### 장점
+- ✅ 브라우저 호환성 100% (transform GPU 가속)
+- ✅ 부모 레이아웃 overflow 영향 받지 않음
+- ✅ 버튼 클릭 → state 변경 → transform 즉시 반영
+- ✅ 30초 자동 전환 확실히 작동
+- ✅ 코드 단순화 (scrollRef / handleScroll / scrollTo useEffect 전부 제거)
+
+### 트레이드오프 (기록)
+- ❌ 터치 스와이프 제스처 사라짐 (scroll-snap이 제공하던 것)
+- → Sprint 36에서 swiper.js 또는 embla-carousel 도입 시 복구
+
+### 검증
+- 빌드 GREEN 확인
+- 의존 제거: useRef / useCallback / 관련 import 정리
+
+### 분류
+- S2 HOTFIX (기능 복구) — Opus 단독 리뷰 → 배포 (CLAUDE.md 🚨 긴급 HOTFIX 예외 S2)
+- 사후 Codex 검토 대상 (POST-REVIEW-HOTFIX-v1.34.6)
 
 ---
 

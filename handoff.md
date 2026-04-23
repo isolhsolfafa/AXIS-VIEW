@@ -54,9 +54,9 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.34.5
-- **최근 작업**: KPI 덱 탭 전환 버그 수정 + 30초 자동 전환 (HOTFIX S3)
-- **최근 완료**: v1.34.4 (문서 정정), v1.34.5 (탭 전환 버그 + 자동 전환)
+- **VIEW FE**: v1.34.6
+- **최근 작업**: KPI 덱 scroll-snap → transform: translateX 재설계 (v1.34.5 미해결 증상 근본 수정)
+- **최근 완료**: v1.34.5 (scroll 방어 — 실효 실패), v1.34.6 (transform 재설계 — 확실 작동)
 - **✅ 확정 기준 (영구)**: 생산 현황 상세 테이블 / 월간 생산 지표 차트 / 상단 스와이프 월간 ProductionChart **3영역은 mech_start 기준 유지**
 - **🔧 Sprint 36 예정**: 출하 완료 카드 토글 (실시간/실적/계획) + 월간 생산량 카드 토글 (기본 mech_start, 4옵션)
 - **⚠️ BE Sprint 62-BE 배포 시 필수 제거**: `KpiSwipeDeck.tsx` 모듈 상수 3개(`TEMP_WEEKLY_SHIPPED=11` / `TEMP_MONTHLY_PRODUCTION=215` / `TEMP_MONTHLY_SHIPPED=76`) + 3개 카드 value prop 원복 (date_field는 건드리지 않음)

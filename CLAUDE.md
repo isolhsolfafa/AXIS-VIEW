@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-04-23 | 버전: v1.34.5
+> 최종 갱신: 2026-04-23 | 버전: v1.34.6
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -235,7 +235,7 @@ AXIS-VIEW/
 │   │   ├── api/              API 클라이언트 13개
 │   │   ├── hooks/            TanStack Query 훅 16파일 / 35함수
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.34.5 (2026-04-23)
+│   │   ├── version.ts        v1.34.6 (2026-04-23)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
