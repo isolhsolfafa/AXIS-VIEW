@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-04-23 (#62 Sprint 62-BE 공장 대시보드 KPI 확장 + 토글 지원 v2 등록 — v1.34.4 FE 확정 기준 반영)
+> 마지막 업데이트: 2026-04-23 (#62 Sprint 62-BE v2.3 AMENDED — weekly-kpi WHERE 절 원안 복원 요청 / FE v1.35.0 배포 완료)
 
 ---
 
@@ -4384,31 +4384,38 @@ ORDER BY id
 
 ## 공장 대시보드 Sprint 62-BE — 주간/월간 KPI 확장 + 출하 UNION fallback + 토글 지원 (2026-04-23 등록)
 
-### #62 weekly-kpi 응답 확장 + monthly-kpi 신설 + monthly-detail 화이트리스트 확장 — **✅ AGREED v2.2 (2026-04-23 축소 확정)**
+### #62 weekly-kpi 확장 + monthly-kpi 신설 + WHERE 절 교정 + monthly-detail 화이트리스트 — **🟡 AMENDED v2.3 (2026-04-23 원안 복원)**
 
-> ✅ **v2.2 축소 확정 (2026-04-23)** — BE + FE 합의 완료, BE 구현 진행 중
-> - Codex 3차 교차검증 M=0 / A=4 승인
-> - Twin파파 피드백(자동 합산 폐기) 반영
-> - FE 측 전체 수용 (Sprint 35 Phase 2 통합 진행)
-> - 상세: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` "Sprint 62-BE v2.2" 섹션
+> ⚠️ **v2.3 교정 (2026-04-23)** — FE v2 작성 시 설계 원안(Twin파파 요구 #6)을 놓친 조항 1건 복원
+> - **교정 대상**: weekly-kpi WHERE 절 `ship_plan_date` → `finishing_plan_end` 교정 (v1 원안 복원)
+> - **근거**: `DESIGN_FIX_SPRINT.md` Sprint 35 L14705~14706 Twin파파 요구 #5/#6 — "주간/월간 생산량 모두 finishing_plan_end로 통일"
+> - **v2.2 AGREED에서 유지되는 항목**: 화이트리스트 2상수 분리 / 출하 3필드 축소 (그대로 유효)
+> - BE 측 factory.py L322 1줄 수정 추가 필요
 
-#### v2 → v2.2 축소 변경점 (2개 항목)
+#### v2.2 → v2.3 교정 (1개 항목 복원)
 
-| 조항 | v2 (FE 제안) | **v2.2 (최종 합의)** |
-|---|---|---|
-| `_ALLOWED_DATE_FIELDS` | 5값 통합 | **2개 상수 분리** — monthly-kpi 4값(pi_start 제외) / monthly-detail 5값 유지 |
-| 출하 응답 필드 | 4필드 (`shipped_count` UNION + `shipped_realtime/actual/plan`) | **3필드 축소** — `shipped_plan` / `shipped_actual` / `shipped_ops` (UNION `shipped_count` **폐기**) |
+| 조항 | v2.2 | **v2.3 (교정)** | 이유 |
+|---|---|---|---|
+| weekly-kpi WHERE 절 | ship_plan_date 유지 | **`finishing_plan_end` 로 교정** | 설계 원안 Twin파파 요구 #6 "주간/월간 생산량 모두 finishing_plan_end 통일" 복원 |
 
-**폐기 근거**: `shipped_count` UNION 자동 합산은 비즈니스 관점 의미 없음. 이행률/정합성 분석은 `BACKLOG-BIZ-KPI-SHIPPING-01` 이관 (App 베타 100% 배포 후 진행).
-
-#### 유지되는 조항 (v2 그대로)
+#### v2.2 → v2.3 유지 조항
 
 | 조항 | 상태 |
 |---|---|
-| weekly-kpi WHERE 절 | ✅ ship_plan_date 유지 (변경 없음) |
-| monthly-kpi `date_field` 파라미터 | ✅ 필수 (기본 mech_start) |
-| monthly-detail 화이트리스트 | ✅ 5값 유지 (pi_start 포함) |
-| `pipeline.shipped` | ✅ deprecated 유지 (backward compat) |
+| `_ALLOWED_DATE_FIELDS` 2개 상수 분리 | ✅ 유지 (monthly-kpi 4값 / monthly-detail 5값) |
+| 출하 응답 3필드 | ✅ 유지 (shipped_plan / shipped_actual / shipped_ops) |
+| UNION shipped_count 폐기 | ✅ 유지 |
+| monthly-kpi date_field 파라미터 | ✅ 유지 (기본 mech_start) |
+| pipeline.shipped deprecated | ✅ 유지 |
+
+#### 교정 이력 (투명성)
+
+| 단계 | 표기 | 실제 |
+|---|---|---|
+| BE v1 원안 | WHERE 절 finishing_plan_end 교정 | ✅ 설계 원안과 일치 |
+| FE v2 제안 (내 실수) | WHERE 절 ship_plan_date 유지 | ❌ 원안 뒤집음 |
+| BE v2.2 합의 | FE v2 수용 → ship_plan_date 유지 | ❌ 원안 이탈 |
+| **v2.3 교정** | 원안 복원 → finishing_plan_end | ✅ **정상화** |
 
 **연관 Sprint**:
 - VIEW FE Sprint 35 (v1.34.4 배포 완료, BE 미배포 상태로 v1.34.2~3 TEMP-HARDCODE 임시 운영 중)
@@ -4424,31 +4431,58 @@ ORDER BY id
 
 ---
 
-### BE 원안(v1) 대비 수정 설계(v2) 핵심 변경점
+### BE 원안(v1) 대비 최종 설계(v2.3) 핵심 변경점
 
-| 조항 | 원안 (v1, AGENT_TEAM_LAUNCH L29099) | **수정 v2 (본 요청)** | 이유 |
+| 조항 | 원안 (v1, AGENT_TEAM_LAUNCH L29099) | **v2.3 최종** | 이유 |
 |---|---|---|---|
-| weekly-kpi WHERE 절 | `ship_plan_date` → `finishing_plan_end` 교정 | **변경 없음 (ship_plan_date 유지)** | FE v1.34.4 확정: 주간 생산량 BE 동적 값 기준 유지 (현 31대 유지) |
+| weekly-kpi WHERE 절 | `ship_plan_date` → `finishing_plan_end` 교정 | **✅ 원안 그대로 (v2.3에서 복원)** | 설계 원안 Twin파파 요구 #6 "주간/월간 생산량 모두 finishing_plan_end 통일" |
 | monthly-kpi 기준 | `finishing_plan_end` 고정 | **`date_field` 쿼리 파라미터 (4옵션, 기본 `mech_start`)** | Sprint 36 토글 지원 |
 | monthly-detail 전환 | `mech_start` → `finishing_plan_end` (FE 쪽 변경 전제) | **mech_start 영구 유지** | FE v1.34.4 확정 — 하단 3영역 |
-| 출하 응답 | `shipped_count` 단일 UNION 값 | **4필드 동시 제공** (`union/realtime/actual/plan`) | Sprint 36 토글 지원 |
-| `_ALLOWED_DATE_FIELDS` | 3값 (`pi_start`, `mech_start`, `finishing_plan_end`) | **5값** (추가: `ship_plan_date`, `actual_ship_date`) | Sprint 36 토글 전체 옵션 |
+| 출하 응답 | `shipped_count` 단일 UNION 값 | **3필드 축소** (`plan/actual/ops`, UNION 폐기) | Twin파파 자동 합산 폐기 (v2.2) |
+| `_ALLOWED_DATE_FIELDS` | 3값 통합 | **2상수 분리** (monthly-kpi 4값 / monthly-detail 5값) | 파이프라인 구분 (v2.2) |
 
 ---
 
-### 1. 수정 범위 — `backend/app/routes/factory.py`
+### 1. 수정 범위 — `backend/app/routes/factory.py` (v2.3)
 
 | # | 위치 | 변경 | LOC |
 |---|---|---|---|
-| 1 | weekly-kpi L322 WHERE | **변경 없음** (ship_plan_date 유지) | 0 |
-| 2 | pipeline 판정 L363~376 | 기존 유지 (`pipeline.shipped` 의미 보존) | 0 |
-| 3 | `_count_shipped(conn, start, end, basis)` 헬퍼 신설 | basis=`union/realtime/actual/plan` 4분기 | +40 |
-| 4 | weekly-kpi 응답 확장 | `shipped_count` + `shipped_realtime/actual/plan` + `defect_count` 추가 | +8 |
-| 5 | `get_monthly_kpi()` 신설 | `date_field` 파라미터 + 헬퍼 호출 + shipped_* 4필드 | +45 |
-| 6 | `_ALLOWED_DATE_FIELDS` 확장 | 3값 → 5값 | +3 |
+| 1 | weekly-kpi L322 WHERE | **`ship_plan_date` → `finishing_plan_end` 교정** (v2.3 복원) | 1 |
+| 2 | pipeline 판정 L363~376 | 기존 유지 (`pipeline.shipped` deprecated) | 0 |
+| 3 | `_count_shipped_*` 3개 헬퍼 신설 (개별 COUNT) | ops/actual/plan 별도 COUNT | +40 |
+| 4 | weekly-kpi 응답 확장 | `shipped_plan/actual/ops` 3필드 + `defect_count` | +6 |
+| 5 | `get_monthly_kpi()` 신설 | date_field 파라미터 + shipped_* 3필드 | +45 |
+| 6 | `_MONTHLY_KPI_DATE_FIELDS` (4값) + `_MONTHLY_DETAIL_DATE_FIELDS` (5값) | 2상수 분리 | +5 |
 | 7 | route 등록 | `factory_bp.route("/monthly-kpi")` | +3 |
 
-**순 증분: ~100 LOC** (CLAUDE.md 코드 크기 원칙 1단계 범위 내).
+**순 증분: ~100 LOC** (v2.2 대비 L322 WHERE 1줄 교정만 추가).
+
+### ⚠️ v2.3 WHERE 절 교정 영향 (배포 전 확인)
+
+```sql
+-- 현재 (v2.9.10)
+WHERE p.ship_plan_date >= %s AND p.ship_plan_date <= %s
+
+-- v2.3 교정 (원안 복원)
+WHERE p.finishing_plan_end >= %s AND p.finishing_plan_end < %s  -- 반개구간 권장
+```
+
+**영향 범위**:
+- `weekly-kpi` 응답의 `production_count` / `by_model` / `by_stage` / `completion_rate` / `pipeline` **전체** (같은 rows 기반)
+- 기존 "주간 31대" 숫자가 **달라질 것** — finishing_plan_end 범위 내 S/N 수로 변경
+- FE 측 코드 변경 없음 (자동 반영)
+
+**배포 전 Railway DB 확인 쿼리**:
+```sql
+-- finishing_plan_end NULL 비율 (20%+ 면 COALESCE fallback 고려)
+SELECT COUNT(*) FILTER(WHERE finishing_plan_end IS NULL) * 100.0 / COUNT(*) AS null_pct
+FROM plan.product_info;
+
+-- v2.3 교정 후 예상 주간 카운트 (현재 ISO week 기준)
+SELECT COUNT(*) FROM plan.product_info
+WHERE finishing_plan_end >= date_trunc('week', CURRENT_DATE)::date
+  AND finishing_plan_end < (date_trunc('week', CURRENT_DATE) + interval '7 days')::date;
+```
 
 ---
 
@@ -4573,7 +4607,7 @@ def _count_shipped_plan(conn, start, end):
 ```
 tests/backend/test_factory_kpi.py (신규)
 ├─ TC-FK-01: weekly-kpi 기본 응답 + shipped_* 4필드 포함 확인
-├─ TC-FK-02: weekly-kpi WHERE 절 ship_plan_date 유지 (기존 회귀)
+├─ TC-FK-02: weekly-kpi WHERE 절 finishing_plan_end 적용 확인 (v2.3 교정)
 ├─ TC-FK-03: monthly-kpi 기본 (date_field=mech_start, 기본값 적용 확인)
 ├─ TC-FK-04: monthly-kpi date_field=finishing_plan_end
 ├─ TC-FK-05: monthly-kpi date_field=ship_plan_date
@@ -4699,7 +4733,8 @@ const TEMP_MONTHLY_SHIPPED = 76;
 
 ---
 
-**OPS 측 반영 위치**: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` "Sprint 62-BE v2.2" 섹션 — BE 구현 진행 중
-**FE 상태**: v1.34.6 (2026-04-23) — mech_start 영구 기준 + TEMP-HARDCODE 임시 운영 중
-**문서 상태**: ✅ **AGREED v2.2** (2026-04-23) — Codex 3차 M=0/A=4 승인 + Twin파파 피드백 반영
-**다음 단계**: BE v2.2 구현 완료 → FE Sprint 35 Phase 2 (v1.35.0) 일괄 반영 (TEMP-HARDCODE 제거 + 토글 도입 + 3필드 매핑)
+**OPS 측 반영 위치**: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` "Sprint 62-BE v2.3" 섹션 — **WHERE 절 교정 1줄 추가 요청**
+**FE 상태**: v1.35.0 (2026-04-23 배포 완료) — Sprint 35 Phase 2 통합 (출하/월간 토글 + TEMP-HARDCODE 제거)
+**문서 상태**: 🟡 **AMENDED v2.3** (2026-04-23) — FE v2 작성 시 원안 뒤집은 것 복원
+**다음 단계**: OPS 측 factory.py L322 WHERE 절 1줄 교정 + TC-FK-02 회귀 테스트 업데이트 → 재배포 (FE 코드 변경 없음, 자동 반영)
+**교정 영향**: weekly-kpi `production_count` 숫자 변동 (기존 ship_plan_date 범위 → finishing_plan_end 범위)

@@ -54,10 +54,16 @@
 
 ## 현재 버전
 
-- **VIEW FE main**: v1.34.6 (Netlify published, 현 운영)
-- **VIEW FE branch**: `feat/sprint-35-phase-2` → v1.35.0 **구현 완료 + 로컬 빌드 GREEN + BE 배포 대기**
-- **최근 작업**: Sprint 35 Phase 2 전체 코드 구현 (2026-04-23) — BE Sprint 62-BE v2.2 배포 후 main merge 예정
-- **최근 완료**: v1.34.6 (transform 재설계) / feat/sprint-35-phase-2 커밋 완료
+- **VIEW FE**: v1.35.0 (main 배포 완료, 2026-04-23)
+- **최근 작업**: Sprint 35 Phase 2 머지 + BE Sprint 62-BE **v2.3 교정 요청** (weekly-kpi WHERE 절 원안 복원)
+- **최근 완료**: v1.35.0 (Phase 2), OPS_API_REQUESTS #62 v2.3 AMENDED
+
+### ⚠️ BE Sprint 62-BE v2.3 추가 교정 요청 중 (2026-04-23)
+FE v2 작성 단계에서 설계 원안(Twin파파 요구 #6)을 뒤집은 1조항 복원 요청:
+- **weekly-kpi WHERE 절**: `ship_plan_date` → `finishing_plan_end` 교정 (factory.py L322)
+- **FE 측 변경 없음** — BE 1줄 교정 시 자동 반영 (weekly.production_count 기준 변경)
+- **영향**: 주간 생산량/완료율/모델별/스테이지별 숫자 전부 finishing_plan_end 기반으로 변경
+- 상세: `OPS_API_REQUESTS.md #62 v2.3` 섹션 참조
 
 ### ✅ Sprint 35 Phase 2 (v1.35.0) 구현 완료 (feat/sprint-35-phase-2 브랜치)
 - [x] `api/factory.ts`: 3필드 + 2타입 + date_field 쿼리 파라미터

@@ -14692,6 +14692,8 @@ BE FIX-25 미배포 상태에서도 FE 코드는 정상 동작:
 > ⚠️ **v1.34.4 재결정 (2026-04-23)**: 결정 #4의 "monthly-detail `date_field: 'finishing_plan_end'`로 변경" 조항 **폐기**. 생산 현황 상세 테이블 / 월간 생산 지표 차트 / 상단 스와이프 월간 ProductionChart **3영역은 `mech_start` 기준 영구 유지**. 월간 생산량 카드의 기준만 Sprint 35 Phase 2 옵션 토글로 사용자 선택 가능하게 제공. 자세한 내용은 CHANGELOG v1.34.4 참조.
 
 > 🆕 **Phase 2 통합 결정 (2026-04-23)**: Sprint 36으로 분리하려던 출하/월간 기준 토글 작업을 **Sprint 35 Phase 2로 통합**. BE Sprint 62-BE v2.2 배포와 동시 반영하여 단일 v1.35.0 릴리스. 상세는 본 문서 "Phase 2" 섹션 참조.
+
+> ⚠️ **BE Sprint 62-BE v2.3 교정 요청 (2026-04-23)**: v1.35.0 배포 후 확인 과정에서 FE v2 제안 단계의 실수(본 설계서 Twin파파 요구 #6 "주간/월간 생산량 모두 finishing_plan_end 통일" 조항을 뒤집음) 발견. BE에 weekly-kpi WHERE 절 `ship_plan_date` → `finishing_plan_end` 1줄 교정 요청. FE 코드 변경 없음 (자동 반영). 상세: `OPS_API_REQUESTS.md #62 v2.3 AMENDED`.
 > 설계서: 본 엔트리 + `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 62-BE
 > 교차검증: Claude Cowork → Claude Code Opus Lead → **Codex (2026-04-22 1차 7건 + 2차 L3(KpiCard 추출) → 전건 반영)**
 > 병합 전략: Sprint 35 단일 PR — 4필드 공유 `period` state, 스와이프 덱·차트·월간 엔드포인트 한 번에
