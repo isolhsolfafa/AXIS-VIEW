@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.34.6 (2026-04-23)
+> 최신 버전: v1.35.0 (2026-04-23)
 
 ---
 
@@ -70,6 +70,92 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.35.0 — 2026-04-23
+
+**Sprint 35 Phase 2 — BE Sprint 62-BE v2.2 연동 + 출하/월간 기준 토글**
+
+### 작업 범위
+- OPS BE Sprint 62-BE v2.2 배포와 동시 반영 (단일 PR → 배포는 main merge 후)
+- Sprint 36 분리 계획이던 토글 작업을 Phase 2로 통합 (Twin파파 2026-04-23)
+
+### 변경사항
+
+#### TEMP-HARDCODE 3개 완전 제거
+- v1.34.2/3에서 도입한 `TEMP_WEEKLY_SHIPPED=11` / `TEMP_MONTHLY_PRODUCTION=215` / `TEMP_MONTHLY_SHIPPED=76` 전부 제거
+- BE v2.2 응답 필드로 원복 (기본 기준 `shipped_actual`)
+
+#### `api/factory.ts` 타입 확장
+- `WeeklyKpiResponse` / `MonthlyKpiResponse` 에 3필드 추가: `shipped_plan` / `shipped_actual` / `shipped_ops`
+- 기존 `shipped_count` UNION 필드 **폐기** (BE v2.2 결정)
+- `MonthlyKpiDateField` 타입 신설: `mech_start | finishing_plan_end | ship_plan_date | actual_ship_date` (pi_start 제외)
+- `ShippedBasis` 타입 신설: `plan | actual | ops`
+- `MonthlyKpiParams.date_field` 파라미터 추가 (getMonthlyKpi URL 쿼리 전송)
+
+#### `FactoryDashboardSettingsPanel.tsx` 신규 (~120 LOC)
+- 2개 토글 (라디오 버튼 방식):
+  - 출하 완료 기준 3옵션 (실적 기본 / 계획 / 실시간)
+  - 월간 생산량 기준 4옵션 (기구 착수 기본 / 완료 계획 / 출하 계획 / 실제 출하)
+- 모달 오버레이 + 옵션별 설명 + 현재 선택 강조
+- G-AXIS Design System 토큰 사용
+
+#### `KpiSwipeDeck.tsx` 토글 연동
+- `shippedBasis` prop 추가 (기본 `'actual'`)
+- 내부 `pickShipped()` 헬퍼로 3필드 중 동적 선택 (API 재호출 없이 프론트 상태만)
+- 출하 카드 sub 텍스트에 기준 라벨 표시 (`금주 출하 (실적)` 등)
+
+#### `FactoryDashboardPage.tsx` 통합
+- localStorage 기반 상태 2개: `shippedBasis` / `monthlyDateField`
+- 저장 키: `axis_view_factory_shipped_basis` / `axis_view_factory_monthly_date_field`
+- 헤더 새로고침 버튼 옆에 설정 아이콘(⚙️) 추가 → Panel 오픈
+- `useMonthlyKpi({ date_field: monthlyDateField })` 로 파라미터 전달
+
+### 수정/신규 파일 5개
+| 파일 | 변경 | LOC |
+|---|---|---|
+| `api/factory.ts` | 3필드 + 2타입 + date_field 쿼리 파라미터 | +20, -5 |
+| `KpiSwipeDeck.tsx` | TEMP-HARDCODE 제거 + shippedBasis 매핑 | +15, -15 |
+| `FactoryDashboardSettingsPanel.tsx` (신규) | 2개 토글 모달 | +170 |
+| `FactoryDashboardPage.tsx` | 상태 + localStorage + 설정 아이콘 + Panel 연동 | +50, -2 |
+| version.ts / CHANGELOG / handoff / CLAUDE | 릴리스 문서 | — |
+
+**순 증분: ~230 LOC** (추정치 130 LOC보다 증가 — 실제 Panel JSX 상세화 반영).
+
+### 저장 방식 — localStorage 채택 근거
+- 설비/모니터별 개별 설정 가능 (공장 대시보드 특성)
+- BE admin_settings 대비: 마이그레이션 불필요, 구현 단순
+- 추후 공통 설정 요구 시 BE 이관 가능 (Sprint 36+)
+
+### 동시 보존되는 v1.34 HOTFIX 기능
+- v1.34.6 transform translateX 슬라이드 (탭 전환/자동 전환 정상)
+- 30초 자동 전환 (v1.34.5)
+- mech_start 영구 유지 (v1.34.4)
+- β'안 월간 완료율 (v1.34.0)
+
+### BE 의존
+- **OPS Sprint 62-BE v2.2 배포 후에만 실값 표시** (배포 전까진 출하 카드 `—`)
+- BE 응답 필드 undefined → `?? '—'` fallback 으로 런타임 에러 없음
+
+### 검증 체크리스트
+- [ ] BE v2.2 배포 완료 확인
+- [ ] 빌드 GREEN (tsc + vite)
+- [ ] 설정 아이콘 → Panel 오픈 / 닫힘
+- [ ] 3가지 출하 기준 토글 → 카드 숫자 즉시 전환
+- [ ] 4가지 월간 기준 토글 → API 재호출 + 숫자 반영
+- [ ] localStorage 저장 / 브라우저 새로고침 후 복원
+- [ ] 설비별 모니터 각기 다른 토글 유지
+
+### 교차검증 / 연계
+- Codex 3차 교차검증 M=0/A=4 반영 (v2.2 축소안)
+- BACKLOG `BIZ-KPI-SHIPPING-01` 등록 (3필드 차이 이행률/정합성 — 앱 베타 100% 후 착수)
+- BACKLOG `REFACTOR-FactoryDashboardPage` — v1.35.0 후 ~620줄 경고 유지 (필수 분할 800 미만)
+
+### 분류
+- Sprint 35 Phase 2 — MINOR 릴리스 (신기능 토글 추가)
+- 브랜치: `feat/sprint-35-phase-2` → BE 배포 후 main merge
+- 배포 트리거: BE Sprint 62-BE v2.2 배포 완료 알림
 
 ---
 

@@ -7,10 +7,16 @@ import apiClient from './client';
 
 export interface MonthlyDetailParams {
   month?: string;
-  date_field?: 'pi_start' | 'mech_start' | 'finishing_plan_end';
+  date_field?: 'pi_start' | 'mech_start' | 'finishing_plan_end' | 'ship_plan_date' | 'actual_ship_date';
   page?: number;
   per_page?: number;
 }
+
+// Sprint 35 Phase 2 (v1.35.0): monthly-kpi 전용 4옵션 (pi_start 제외, BE _MONTHLY_KPI_DATE_FIELDS와 정합)
+export type MonthlyKpiDateField = 'mech_start' | 'finishing_plan_end' | 'ship_plan_date' | 'actual_ship_date';
+
+// Sprint 35 Phase 2: 출하 완료 기준 3옵션 (BE v2.2 shipped_plan/actual/ops에 대응)
+export type ShippedBasis = 'plan' | 'actual' | 'ops';
 
 export interface CompletionStatus {
   mech: boolean;
@@ -98,24 +104,32 @@ export interface WeeklyKpiResponse {
     pi: number;
     qi: number;
     si: number;
-    shipped: number;           // ⚠️ deprecated — Sprint 35부터 FE 사용 금지, shipped_count 참조
+    shipped: number;           // ⚠️ deprecated — Sprint 35부터 FE 사용 금지 (backward compat 유지용)
   };
-  shipped_count: number;       // Sprint 62-BE 신규 — SI_SHIPMENT UNION actual_ship_date
-  defect_count: number | null; // Sprint 62-BE 신규 — QMS 미연동 동안 null
+  // Sprint 62-BE v2.2 (3필드, shipped_count UNION 폐기)
+  shipped_plan?: number;       // ship_plan_date + si_completed 기준 (주간 범위 전체)
+  shipped_actual?: number;     // actual_ship_date 기준 (FE 기본값)
+  shipped_ops?: number;        // SI_SHIPMENT.completed_at 기준 (app 실시간, 베타 100% 전까진 loss 가능)
+  defect_count?: number | null; // QMS 미연동 동안 null
 }
 
 /* ── Sprint 35: 월간 KPI (신규) ── */
 
 export interface MonthlyKpiParams {
-  month?: string;  // YYYY-MM (기본: 현재 달)
+  month?: string;               // YYYY-MM (기본: 현재 달)
+  date_field?: MonthlyKpiDateField;  // Phase 2 (v2.2): 4옵션 토글 (기본 mech_start)
 }
 
 export interface MonthlyKpiResponse {
-  month: string;                  // "YYYY-MM"
+  month: string;                       // "YYYY-MM"
   month_range: { start: string; end: string };
-  production_count: number;       // finishing_plan_end 기반 COUNT
-  shipped_count: number;
-  defect_count: number | null;
+  date_field_used?: MonthlyKpiDateField; // Phase 2 (v2.2): 클라이언트 토글 검증용
+  production_count: number;            // date_field 기준 COUNT
+  // Sprint 62-BE v2.2 출하 3필드 (shipped_count UNION 폐기)
+  shipped_plan?: number;
+  shipped_actual?: number;
+  shipped_ops?: number;
+  defect_count?: number | null;
   // by_model 미포함 — 월간 차트는 monthly-detail 엔드포인트 재활용
 }
 
@@ -148,6 +162,7 @@ export async function getWeeklyKpi(params: WeeklyKpiParams = {}): Promise<Weekly
 export async function getMonthlyKpi(params: MonthlyKpiParams = {}): Promise<MonthlyKpiResponse> {
   const searchParams = new URLSearchParams();
   if (params.month) searchParams.set('month', params.month);
+  if (params.date_field) searchParams.set('date_field', params.date_field);  // Phase 2 (v2.2): 4옵션 토글
 
   const query = searchParams.toString();
   const url = `/api/admin/factory/monthly-kpi${query ? `?${query}` : ''}`;
