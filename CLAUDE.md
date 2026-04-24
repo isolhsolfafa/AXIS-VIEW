@@ -741,6 +741,9 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | 35 Phase 2 | BE Sprint 62-BE v2.2 연동 — TEMP-HARDCODE 3개 제거 + 출하 3필드(plan/actual/ops) + 월간 date_field 토글 + FactoryDashboardSettingsPanel (v1.35.0, 2026-04-23 배포) | ✅ 완료 |
 | 62-BE v2.3 교정 | weekly-kpi WHERE 절 `ship_plan_date` → `finishing_plan_end` 원안 복원 — FE v2 실수 정정 (BE 1줄 교정, FE 코드 변경 없음, OPS_API_REQUESTS #62 v2.3 AMENDED) | 🟡 OPS 작업 대기 |
 | HOTFIX v1.35.1 | 공장 대시보드 "출하예정" 컬럼 매핑 정정 — `FactoryDashboardPage.tsx:446` `finishing_plan_end` → `ship_plan_date` (라벨·필드 의미 정합성 복원, v1.7.0 이후 누적된 불일치, 2026-04-24) | ✅ 완료 |
+| 62-BE v2.4 AMENDED | shipped_plan AND 조건 교정 (si_completed → actual OR si_shipment) + shipped_best 신설 (해석 A: si⊆actual) + shipped_ops 폐기 + FE 토글 3옵션(plan/actual/best) 재설계 (OPS_API_REQUESTS #62 v2.4 AMENDED, 2026-04-24) | 🟡 OPS 작업 대기 |
+| SI-BACKFILL-01 | app si_shipment → Teams Excel 역방향 backfill cron 스크립트 (Graph API) — 단계적 구조: Phase 0(현재)→Phase 1(스크립트)→Phase 2(생산관리 플랫폼)→Phase 3(SAP API GW). "생산관리 플랫폼 선행" 블로커 대기 (BACKLOG.md 🟡 LOW) | 🟡 대기 |
+| Sprint 36 (FE) | BE v2.4 배포 후 FE 3옵션 토글 교체 — `api/factory.ts` ShippedBasis 타입 변경 + pickShipped() best 분기 + FactoryDashboardSettingsPanel 라디오 라벨 갱신. 안전 degrade 설계 (BE 배포 전 undefined 처리) | 🟡 BE v2.4 대기 |
 
 ### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)
 

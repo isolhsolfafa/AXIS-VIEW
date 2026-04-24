@@ -1,7 +1,64 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-04-23 (BIZ-KPI-SHIPPING-01 + LOCAL-BUILD-ICLOUD-OR-MIGRATION 등록)
+> 마지막 업데이트: 2026-04-24 (SI-BACKFILL-01 등록 / BIZ-KPI-SHIPPING-01 v2.4 반영)
 > 관련: AXIS_VIEW_ROADMAP.md, OPS_API_REQUESTS.md
+
+---
+
+## 📤 SI-BACKFILL-01 — app si_shipment → 생산관리 Excel 역방향 backfill (🟡 LOW, 2026-04-24 등록)
+
+### 배경
+- 생산관리팀은 Teams 공유 Excel에서 `ship_plan_date` / `actual_ship_date`를 **수기**로 실시간 관리
+- AXIS-OPS 앱에 **SI 공정(`si_finishing` + `si_shipment`)** 이 도입되면 `si_shipment.completed_at` 이 **100% 정합 진실 소스**가 됨
+- 과도기에 수기 Excel 누락분을 app 데이터로 자동 보완 필요
+
+### 단계적 최종 구조 (Twin파파 2026-04-24 확정)
+```
+[Phase 0 — 현재]
+  생산관리팀 → Teams Excel 수기 입력 (actual_ship_date 누락 가능)
+  app si_shipment → DB 저장만 (Excel로 push X)
+
+[Phase 1 — SI-BACKFILL-01 본 항목]
+  app si_shipment completed_at → Graph API 로 Teams Excel 셀 업데이트 (cron)
+  → 수기 Excel 누락분 자동 보완
+  → 과도기 정합성 확보
+
+[Phase 2 — 생산관리 플랫폼 신설]
+  Teams Excel 탈피 → 자체 생산관리 플랫폼 구축 (APS 이전 필요 인프라)
+  app si_shipment → 생산관리 플랫폼 직접 push
+  → Phase 1 스크립트는 새 플랫폼 엔드포인트로 target 변경
+
+[Phase 3 — CRM ↔ SAP API GW 완성]
+  CRM ↔ SAP 양방향 API GW 구성중 (시행 일정 미정)
+  최종: 단일 소스 정합성, ETL 역할 축소
+```
+
+### 전제 조건 (착수 트리거)
+- **블로커**: "생산관리 플랫폼" 신설 여부 결정 전까지 본 항목 착수 보류
+  - 플랫폼이 **금방 생긴다**면 Phase 1 스크립트 개발 비용이 아까움 (Phase 2 엔드포인트 변경 재작업)
+  - 플랫폼이 **오래 걸린다**면 Phase 1 스크립트 먼저 개발 → 과도기 정합성 빨리 확보
+- Twin파파 판단 필요: "생산관리 플랫폼 언제쯤 가능한가?" 일정 확정 시 착수 결정
+
+### 구현 범위 (Phase 1, 착수 시)
+- **언어**: Python 3.10+
+- **라이브러리**: `msgraph-sdk-python` / `office365-rest-python-client`
+- **인증**: Azure AD app registration (client credentials flow)
+- **스크립트 동작**:
+  1. Railway DB에서 `app_task_details.task_id='si_shipment' AND completed_at IS NOT NULL` 최근 N시간 조회
+  2. 각 S/N의 `serial_number`를 Teams Excel의 해당 행에서 찾음
+  3. `actual_ship_date` 셀이 비어있으면 `si_shipment.completed_at::date` 로 채움
+  4. 로그 기록 (어떤 S/N을 몇 시에 backfill 했는지)
+- **스케줄**: 매시간 정각 또는 08/14/20시 3회 (부하·정합성 균형)
+- **배치 위치**: AXIS-OPS 측 Python 스크립트 (VIEW 범위 아님)
+
+### 우선순위: 🟡 LOW (블로커 해소 대기)
+- 2026 상반기 app SI 도입률 100% 목표 달성 시 backfill 주체가 역전됨 (app이 truth, Excel은 소멸)
+- 생산관리 플랫폼 일정에 따라 Phase 1 스킵 가능성 존재
+
+### 연관
+- OPS `_count_shipped_plan` / `_count_shipped_best` 의 OR 조건 (v2.4) — backfill 없어도 `shipped_plan` 작동하지만 **수기·app 일치도**는 본 항목 구현 시 개선
+- BIZ-KPI-SHIPPING-01 — app 보급률 지표가 100%에 수렴하는지 모니터링
+- AXIS-OPS SI 공정 app flow 도입 (상반기 100% 목표)
 
 ---
 
@@ -11,11 +68,12 @@
 - Sprint 62-BE v2.2 확정안에서 출하 UNION `shipped_count` 폐기, **3필드(`shipped_plan` / `shipped_actual` / `shipped_ops`)만 제공**
 - 3필드 차이 기반 비즈니스 지표는 본 BACKLOG 항목으로 이관 결정 (Twin파파 2026-04-23)
 
-### 분석 대상 지표 (예시)
+### 분석 대상 지표 (예시) — v2.4 기준 재정리
+> v2.4에서 `shipped_ops` 필드 폐기 + `shipped_best` 신설 → 지표 수식 변경
 1. **계획 대비 실적 이행률**: `shipped_actual / shipped_plan * 100%` — 출하 계획이 실제 얼마나 지켜졌는가
-2. **실시간 vs 실적 정합성**: `shipped_ops / shipped_actual * 100%` — app 실시간 데이터가 ETL 실적과 얼마나 일치하는가 (app 보급률 간접 지표)
-3. **app 보급률 추이**: 시간에 따라 `shipped_ops / shipped_actual` 비율이 증가해야 정상
-4. **누락 감지**: `shipped_actual - shipped_ops`가 이상치로 크면 app 사용 누락 의심
+2. **종합 vs 실적 차이 (app 누락 감지)**: `(shipped_best − shipped_actual)` — app `si_shipment` 이벤트가 수기 actual과 별개 경로에서 카운트된 수량. 해석 A(si ⊆ actual) 가정이 깨지면 양수로 나타남
+3. **app 보급률 (간접)**: `_count_shipped_best() WHERE t.completed_at IS NOT NULL` 서브카운트 ÷ `shipped_actual` — **별도 API 신설 필요** (BE factory.py에 `si_app_coverage_pct` 메타 필드)
+4. **누락 감지 보조**: app 보급률이 기대치보다 낮으면 SI-BACKFILL-01 필요성 지표가 됨
 
 ### 전제 조건 (착수 트리거)
 - **AXIS-OPS 앱 베타 100% 배포 완료** (현재 일부 미사용 worker 존재)

@@ -58,12 +58,35 @@
 - **최근 작업**: HOTFIX v1.35.1 — 공장 대시보드 "출하예정" 컬럼 매핑 정정 (`finishing_plan_end` → `ship_plan_date`)
 - **최근 완료**: v1.35.1 HOTFIX, v1.35.0 (Phase 2), OPS_API_REQUESTS #62 v2.3 AMENDED
 
-### 🚧 진행 중 논의 — Sprint 36 / OPS v2.4 amendment 준비
-- **토글 재설계**: 3옵션 확정 (`plan` / `actual` / `best`) — `ops` 제거 (과도기 실무 무의미, best가 si 우선순위 흡수)
-- **`shipped_best` 신설** — `actual_ship_date NOT NULL AND COALESCE(si_shipment날짜, actual날짜) IN 범위` (해석 A: si ⊆ actual 가정)
-- **`shipped_plan` AND 조건 교정** — `si_completed=TRUE` → `(actual_ship_date NOT NULL OR si_shipment NOT NULL)` (app SI 공정 미도입 기간 0건 회피)
-- **로드맵**: 현재는 `actual` 기본값 → 2026 상반기 SI app 100% 도입 후 `best`로 기본값 전환
-- **SI-BACKFILL-01 BACKLOG 신규** (🟡 LOW, "생산관리 플랫폼 선행" 블로커): Teams Excel push cron 스크립트
+### 📋 v2.4 AMENDMENT 작성 완료 (2026-04-24) — OPS 작업 대기
+- **문서**: `OPS_API_REQUESTS.md` #62 v2.4 AMENDED 섹션 (~240줄 추가)
+- **토글 재설계**: 3옵션 확정 (`plan` / `actual` / `best`) — `ops` 제거
+- **`shipped_plan` AND 조건 교정** — `cs.si_completed=TRUE` → `(actual_ship_date NOT NULL OR si_shipment NOT NULL)` (OR 조건, si_completed 의존 제거)
+- **`shipped_best` 신설** — actual reality 기반 + si 우선 주간 귀속, 해석 A(si ⊆ actual) 가정
+- **`shipped_ops` 폐기** — 응답 필드 제거 (과도기 무의미 + 100% 후 중복)
+- **로드맵**: 현재 `actual` 기본값 → 2026 상반기 SI app 100% 도입 후 `best` 기본 전환
+- **R-01 accepted risk**: app SI 도입률 직접 가시성 저하 (Twin파파 합의)
+- **R-02 검증 필요**: 해석 A 가정 검증 쿼리 — BE 배포 후 72h 내 Twin파파 실행
+
+### 🚧 OPS 측 대기 작업
+1. `factory.py` v2.4 수정:
+   - `_count_shipped_plan()` WHERE 절 OR 조건 교체
+   - `_count_shipped_best()` 신설
+   - `_count_shipped_ops()` 삭제
+   - `completion_status` JOIN 제거
+2. pytest `test_factory_kpi.py` TC-FK-08 ~ TC-FK-14 추가 (shipped_best 검증)
+3. 배포 후 R-02 검증 (해석 A 반례 존재 여부)
+
+### 🔜 FE Sprint 36 대기 (BE v2.4 배포 완료 후)
+- `api/factory.ts` `ShippedBasis` 타입: `'plan'|'actual'|'ops'` → `'plan'|'actual'|'best'`
+- `WeeklyKpiResponse`/`MonthlyKpiResponse` 에 `shipped_best` 추가, `shipped_ops` 제거
+- `KpiSwipeDeck.tsx` `pickShipped()` best 분기 추가
+- `FactoryDashboardSettingsPanel.tsx` 라디오 옵션 라벨 (종합/best)
+- **안전 degrade**: FE 미배포 상태에서도 BE가 `shipped_ops` 필드 빼더라도 현 v1.35.1은 `undefined → "—"` 표시로 crash 없음
+
+### 📌 관련 BACKLOG 신규
+- **SI-BACKFILL-01** (🟡 LOW, 2026-04-24 등록): app si_shipment → Teams Excel Graph API cron 스크립트. Phase 0~3 단계적 구조 명문화. "생산관리 플랫폼 선행" 블로커.
+- **BIZ-KPI-SHIPPING-01** v2.4 반영 갱신 — `shipped_ops` 폐기 반영, `shipped_best` 기반 지표로 재정리
 
 ### ⚠️ BE Sprint 62-BE v2.3 추가 교정 요청 중 (2026-04-23)
 FE v2 작성 단계에서 설계 원안(Twin파파 요구 #6)을 뒤집은 1조항 복원 요청:

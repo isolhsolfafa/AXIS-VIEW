@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-04-23 (#62 Sprint 62-BE v2.3 AMENDED — weekly-kpi WHERE 절 원안 복원 요청 / FE v1.35.0 배포 완료)
+> 마지막 업데이트: 2026-04-24 (#62 Sprint 62-BE v2.4 AMENDED — shipped_plan AND 조건 교정 + shipped_best 신설 + shipped_ops 폐기 / FE v1.35.1 배포 완료)
 
 ---
 
@@ -4738,3 +4738,292 @@ const TEMP_MONTHLY_SHIPPED = 76;
 **문서 상태**: 🟡 **AMENDED v2.3** (2026-04-23) — FE v2 작성 시 원안 뒤집은 것 복원
 **다음 단계**: OPS 측 factory.py L322 WHERE 절 1줄 교정 + TC-FK-02 회귀 테스트 업데이트 → 재배포 (FE 코드 변경 없음, 자동 반영)
 **교정 영향**: weekly-kpi `production_count` 숫자 변동 (기존 ship_plan_date 범위 → finishing_plan_end 범위)
+
+---
+
+## ⚠️ v2.4 AMENDMENT (2026-04-24) — shipped_plan AND 조건 교정 + shipped_best 신설 + shipped_ops 폐기
+
+> **작성 배경**: 2026-04-23~24 Twin파파 ↔ Claude 논의로 `shipped_plan` 정의 오류 및 토글 옵션 과잉이 드러남.
+> W17 검증 쿼리 결과 `shipped_plan=0` 상수화 현상 확인 → BE `_count_shipped_plan` AND 조건의 `cs.si_completed` 의존이 실운영과 괴리됨.
+
+---
+
+### 1. 논의 요지 (v2.3 → v2.4 변경 근거)
+
+#### (a) `shipped_plan` AND 조건 문제
+v2.2/v2.3 설계:
+```sql
+-- 현행 (문제)
+SELECT COUNT(*)
+FROM plan.product_info p
+LEFT JOIN completion_status cs ON p.serial_number = cs.serial_number
+WHERE p.ship_plan_date >= %s AND p.ship_plan_date < %s
+  AND cs.si_completed = TRUE   -- ⚠️ app SI flow 도입 전엔 전 DB에 1건 뿐
+```
+
+→ W17 범위 `ship_plan_date` 32건이지만 `cs.si_completed=TRUE`는 사실상 0건 → **shipped_plan 상수 0** → 지표 무의미.
+
+#### (b) 토글 옵션 `ops` 실무 가치 부족
+- 현재 app SI flow 도입률 ≈ 0%, 2026 상반기 100% 목표
+- `ops` 토글 선택 시 실제의 10% 수준으로만 표시되어 사용자 혼란
+- `best` 옵션이 이미 si 우선순위를 흡수 → `ops`는 중복
+- 100% 전환 후엔 `ops = best = actual` 수렴 → 영구 무의미
+
+#### (c) `shipped_best` 필요성
+- "reality 카운트 = actual, 주간 귀속 우선순위 = si" 라는 과도기 요구
+- 해석 A (**si ⊆ actual** 가정) 채택: si 이벤트는 app 도입 영역 subset, 전체 unique 수량은 actual 기준
+
+---
+
+### 2. v2.3 → v2.4 변경 요약
+
+| 조항 | v2.3 | **v2.4** | 이유 |
+|---|---|---|---|
+| `shipped_plan` AND 조건 | `AND cs.si_completed = TRUE` | **`AND (actual_ship_date IS NOT NULL OR si_shipment NOT NULL)`** | si_completed 의존 제거 |
+| `shipped_actual` | 유지 | **유지 (현행 그대로)** | actual_ship_date 단일 소스 |
+| `shipped_ops` | 유지 | **폐기 (응답 필드 제거)** | 과도기 무의미 + 100% 후 중복 |
+| `shipped_best` | — | **신규 추가** | si 우선 + actual 전체 카운트 (해석 A) |
+| `_count_shipped_*` 헬퍼 | 4개 (union/actual/ops/plan) | **3개 (plan/actual/best)** — ops 제거 | 위와 동일 |
+| `pipeline.shipped` | deprecated | **deprecated 유지** | FE backward compat |
+| FE 토글 옵션 | 3 (plan/actual/ops) | **3 (plan/actual/best)** — ops↔best 교체 | 아래 (c) 참조 |
+
+---
+
+### 3. BE 수정 범위 — `backend/app/routes/factory.py` (v2.4)
+
+| # | 위치 | 변경 | 줄수 |
+|---|---|---|---|
+| 1 | L322 weekly-kpi WHERE | **v2.3 교정 그대로 유지** (`finishing_plan_end`) | — |
+| 2 | `_count_shipped_plan()` WHERE 절 | `cs.si_completed = TRUE` 절 **삭제**, `(actual_ship_date IS NOT NULL OR si_shipment NOT NULL)` 로 교체 | 3~4 |
+| 3 | `_count_shipped_ops()` **함수 전체 제거** | 응답에서 `shipped_ops` 필드 제외 | -12 |
+| 4 | `_count_shipped_best()` **신설** | actual reality 기반, si 우선 주간 귀속 | +15 |
+| 5 | weekly-kpi 응답 | `shipped_ops` 삭제, `shipped_best` 추가 | 0 (교체) |
+| 6 | monthly-kpi 응답 | 동일 (shipped_ops → shipped_best 교체) | 0 (교체) |
+| 7 | `completion_status` JOIN | **제거** (best/plan 모두 의존 불필요) | -2 |
+
+---
+
+### 4. SQL 설계 (v2.4 최종)
+
+#### 4-1. `_count_shipped_plan()` — AND 조건 교정
+
+```python
+def _count_shipped_plan(conn, start, end):
+    """
+    ship_plan_date + 실제 출하 완료 판정 (OR 조건)
+
+    완료 판정 = actual_ship_date NOT NULL OR si_shipment task 완료
+    - 생산관리팀 수기(actual) 또는 app 실시간(si_shipment) 중 하나라도 있으면 완료
+    - 과도기에 si_shipment가 거의 없어도 actual로 보조 → shipped_plan 정상 작동
+    """
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT COUNT(DISTINCT p.serial_number)
+        FROM plan.product_info p
+        LEFT JOIN app_task_details t
+          ON p.serial_number = t.serial_number
+         AND t.task_id       = 'si_shipment'
+         AND t.completed_at  IS NOT NULL
+         AND COALESCE(t.force_closed, FALSE) = FALSE
+        WHERE p.ship_plan_date >= %s AND p.ship_plan_date < %s
+          AND (p.actual_ship_date IS NOT NULL OR t.completed_at IS NOT NULL)
+    """, (start, end))
+    return cur.fetchone()[0]
+```
+
+#### 4-2. `_count_shipped_best()` — 신규 헬퍼 (해석 A)
+
+```python
+def _count_shipped_best(conn, start, end):
+    """
+    reality 카운트 = actual_ship_date 있는 전체 S/N
+    주간 귀속 = si_shipment 우선, 없으면 actual_ship_date
+
+    해석 A (si ⊆ actual):
+    - si_shipment 이벤트가 있는 S/N은 actual_ship_date도 이미 존재한다고 가정
+    - si가 있으면 si 날짜로 주간 귀속, 없으면 actual 날짜로 귀속
+    - 전체 unique 카운트는 actual 기반 (= reality)
+    """
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT COUNT(DISTINCT p.serial_number)
+        FROM plan.product_info p
+        LEFT JOIN app_task_details t
+          ON p.serial_number = t.serial_number
+         AND t.task_id       = 'si_shipment'
+         AND t.completed_at  IS NOT NULL
+         AND COALESCE(t.force_closed, FALSE) = FALSE
+        WHERE p.actual_ship_date IS NOT NULL
+          AND COALESCE(DATE(t.completed_at), p.actual_ship_date) >= %s
+          AND COALESCE(DATE(t.completed_at), p.actual_ship_date) <  %s
+    """, (start, end))
+    return cur.fetchone()[0]
+```
+
+**설계 포인트**:
+- `WHERE p.actual_ship_date IS NOT NULL` — reality 경계 (해석 A)
+- `COALESCE(DATE(t.completed_at), p.actual_ship_date)` — si 날짜 우선 귀속
+- `force_closed = FALSE` — 클린 코어 원칙 준수 (강제종료 task 제외)
+
+#### 4-3. `_count_shipped_actual()` — 현행 유지
+
+```python
+# 변경 없음 (v2.2와 동일)
+SELECT COUNT(*)
+FROM plan.product_info
+WHERE actual_ship_date >= %s AND actual_ship_date < %s
+```
+
+---
+
+### 5. 응답 스키마 변경
+
+#### weekly-kpi / monthly-kpi 공통
+
+```jsonc
+// v2.3
+{
+  "shipped_plan":   int,
+  "shipped_actual": int,
+  "shipped_ops":    int,    // ⚠️ v2.4에서 삭제
+  ...
+}
+
+// v2.4 ✅
+{
+  "shipped_plan":   int,    // (actual OR si_shipment) AND ship_plan_date IN 범위
+  "shipped_actual": int,    // actual_ship_date IN 범위
+  "shipped_best":   int,    // si 우선 귀속 + actual reality 카운트 (신규)
+  ...
+}
+```
+
+---
+
+### 6. FE (VIEW) 측 연동 (Sprint 36 예정 — 별도 진행)
+
+#### 6-1. `api/factory.ts` 타입 변경
+
+```typescript
+// v2.4
+export type ShippedBasis = 'plan' | 'actual' | 'best';  // 'ops' 제거
+
+export interface WeeklyKpiResponse {
+  ...
+  shipped_plan?:   number;
+  shipped_actual?: number;
+  shipped_best?:   number;   // 신규
+  // shipped_ops?: number;  ← v2.4에서 삭제
+}
+```
+
+#### 6-2. `KpiSwipeDeck.tsx` `pickShipped()` 교체
+
+```typescript
+function pickShipped(data, basis: ShippedBasis): number | undefined {
+  if (!data) return undefined;
+  if (basis === 'plan')   return data.shipped_plan;
+  if (basis === 'best')   return data.shipped_best;
+  return data.shipped_actual;  // 기본 'actual'
+}
+```
+
+#### 6-3. `FactoryDashboardSettingsPanel.tsx` 라디오 옵션 교체
+
+```
+○ 계획 (plan)    — 생산관리 계획 대비 완료
+● 실적 (actual)  — 생산관리 수기 실적 [현재 기본값]
+○ 종합 (best)    — si 우선 + actual 전체 [2026 상반기 100% 후 기본 전환]
+```
+
+#### 6-4. 카드 서브텍스트
+
+기존 `금주 출하 (${basisLabel})` 유지. v2.4에서 basisLabel 매핑만:
+- `plan` → "계획"
+- `actual` → "실적"
+- `best` → "종합"
+
+---
+
+### 7. pytest TC 업데이트
+
+```
+tests/backend/test_factory_kpi.py (v2.4 기준 재정렬)
+├─ TC-FK-01: weekly-kpi 기본 응답 + shipped_plan/actual/best 3필드 포함 확인
+├─ TC-FK-02: weekly-kpi WHERE 절 finishing_plan_end 적용 확인 (v2.3 유지)
+├─ TC-FK-03: monthly-kpi 기본 (date_field=mech_start)
+├─ TC-FK-04: monthly-kpi date_field=finishing_plan_end
+├─ TC-FK-05: monthly-kpi date_field=ship_plan_date
+├─ TC-FK-06: monthly-kpi date_field=actual_ship_date
+├─ TC-FK-07: monthly-kpi 잘못된 date_field → 400
+├─ TC-FK-08: shipped_plan OR 조건 — actual 있으면 카운트 (si 없어도)
+├─ TC-FK-09: shipped_plan OR 조건 — si_shipment 있고 actual 없어도 카운트
+├─ TC-FK-10: shipped_best — si 날짜 우선 귀속 (si in W17, actual in W10 → W17에만 카운트)
+├─ TC-FK-11: shipped_best — si 없으면 actual 날짜 귀속
+├─ TC-FK-12: shipped_best — actual IS NULL 인 S/N은 카운트 제외
+├─ TC-FK-13: shipped_* force_closed=TRUE 전부 제외 확인
+└─ TC-FK-14: shipped_ops 필드 응답에 포함 안 됨 (v2.4 제거 확인)
+```
+
+---
+
+### 8. 리스크 & 각주
+
+#### ⚠️ R-01 (accepted risk) — app SI 도입률 투명성 저하
+- **상황**: v2.4에서 `ops` 토글 제거로 "현재 app si_shipment가 몇 건 올라오는가" 를 대시보드에서 직접 확인 불가
+- **완화**: 과도기 동안 `shipped_best` 선택 시 내부적으로 si 우선순위가 이미 반영됨 → 실제 구분이 필요하면 Railway DB 직접 쿼리로 확인
+- **유효 기간**: 2026 상반기 100% 도달까지 (이후 best = actual 수렴 → 자연 해소)
+- **사용자 합의**: 2026-04-24 Twin파파 결정 — "ops 제거, actual 기본 유지, 100% 후 best로 전환"
+
+#### R-02 — 해석 A (si ⊆ actual) 가정 검증 필요
+- **가정**: si_shipment 이벤트가 있는 S/N은 반드시 actual_ship_date도 존재
+- **검증 방법**: BE 배포 직후 아래 쿼리로 반례 존재 여부 확인
+  ```sql
+  SELECT COUNT(*)
+  FROM app_task_details t
+  LEFT JOIN plan.product_info p ON t.serial_number = p.serial_number
+  WHERE t.task_id = 'si_shipment'
+    AND t.completed_at IS NOT NULL
+    AND p.actual_ship_date IS NULL;   -- 반례: si 있는데 actual 없음
+  ```
+- **반례 0건** → 해석 A 확정, v2.4 설계 유지
+- **반례 > 0건** → 해석 B (overlap) 로 전환 필요, `_count_shipped_best` WHERE 절 교체 재검토
+- **책임자**: Twin파파 — BE 배포 후 72시간 내 검증 확인
+
+---
+
+### 9. 배포 순서 및 조건
+
+```
+1. OPS 측: factory.py v2.4 수정 + pytest 업데이트 → 배포
+2. Twin파파: R-02 검증 쿼리 실행 (72h 내)
+3. FE 측: Sprint 36 (3옵션 토글 교체) 진행 — 안전 degrade:
+   - BE 배포 전에도 FE는 shipped_ops=undefined 처리 (현행 plan/actual만 작동)
+   - BE 배포 후 shipped_best 자동 반영
+4. FE v1.36.0 배포 (Sprint 36 완료)
+```
+
+**FE 안전성**: Sprint 36 착수 전까지 현재 FE(v1.35.1)는 `shipped_ops` 필드가 응답에서 사라져도 `pickShipped()`가 `undefined` 반환 → 카드에 `—` 표시 (degrade 안전). 사용자가 `ops` 토글을 선택한 상태라면 "—" 보이는 일시 증상은 Sprint 36 배포로 자연 해소.
+
+---
+
+### 10. Rollback 경로
+
+| 위험 | 대응 |
+|---|---|
+| `_count_shipped_best` JOIN 성능 | `app_task_details(serial_number, task_id, completed_at)` 복합 인덱스 확인. 없으면 추가 |
+| `shipped_plan` OR 조건으로 숫자 급증 | 의도된 변화 (기존 0 → 실값 수십대). 주간 KPI 카드 숫자 검토로 정상성 판단 |
+| 해석 A 가정 깨짐 (R-02 반례) | `_count_shipped_best` WHERE 절에서 `p.actual_ship_date IS NOT NULL` 제거하고 UNION 재도입 |
+| `ops` 필드 제거로 FE breakage | v1.35.1은 degrade 설계 (undefined → "—") — 문제 없음 |
+| Full rollback | `factory.py` revert 1파일 + pytest 복원 → v2.3 상태로 복귀 가능 |
+
+---
+
+**OPS 측 반영 위치**: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 62-BE 섹션 v2.4 추가
+**FE 상태**: v1.35.1 (2026-04-24 배포 완료) — Sprint 36 대기 (BE v2.4 배포 후 3옵션 토글 교체)
+**문서 상태**: 🟡 **AMENDED v2.4** (2026-04-24) — shipped_plan 교정 + shipped_best 신설 + shipped_ops 폐기
+**관련 BACKLOG**: `SI-BACKFILL-01` (🟡 LOW, "생산관리 플랫폼 선행" 블로커 — Teams Excel Graph API cron 스크립트)
+**다음 단계**:
+1. OPS `factory.py` v2.4 수정·배포
+2. Twin파파 R-02 해석 A 검증 쿼리 실행
+3. FE Sprint 36 착수 (3옵션 토글 교체 + 타입 단순화)
