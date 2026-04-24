@@ -1,5 +1,6 @@
 // src/pages/checklist/ChecklistManagePage.tsx
 // 체크리스트 관리 페이지 — Sprint 32 (EditModal 연동 + GROUP_POLICY)
+// v1.35.2 (2026-04-25): 협력사(비-GST) 읽기 전용 — canEdit = is_admin || company === 'GST'
 
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
@@ -10,6 +11,7 @@ import ChecklistAddModal from '@/components/checklist/ChecklistAddModal';
 import ChecklistEditModal from '@/components/checklist/ChecklistEditModal';
 import ChecklistSettingsPanel from '@/components/checklist/ChecklistSettingsPanel';
 import { useChecklistMaster, useProductCodes, useCreateMaster, useToggleMaster, useUpdateMaster } from '@/hooks/useChecklistMaster';
+import { useAuth } from '@/store/authStore';
 import type { CreateMasterPayload, UpdateMasterPayload, ChecklistMasterItem } from '@/types/checklist';
 
 const BLUR_CATEGORIES = new Set(['MECH']);
@@ -22,12 +24,16 @@ const GROUP_POLICY: Record<string, { fixed: boolean; groups?: string[] }> = {
 };
 
 export default function ChecklistManagePage() {
+  const { user } = useAuth();
   const [selectedProduct, setSelectedProduct] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('TM');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<ChecklistMasterItem | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // v1.35.2: 편집 권한 — admin 또는 GST 자사 소속만. 협력사(비-GST)는 읽기 전용
+  const canEdit = (user?.is_admin ?? false) || user?.company === 'GST';
 
   // TM/ELEC → COMMON 자동 고정 (Sprint 31: ELEC도 COMMON scope)
   const effectiveProduct = (selectedCategory === 'TM' || selectedCategory === 'ELEC') ? 'COMMON' : selectedProduct;
@@ -126,31 +132,32 @@ export default function ChecklistManagePage() {
             </label>
             <button
               onClick={() => setShowAddModal(true)}
-              disabled={isBlurred || !effectiveProduct}
+              disabled={isBlurred || !effectiveProduct || !canEdit}
               style={{
                 padding: '8px 16px', borderRadius: '8px', border: 'none',
-                background: !isBlurred && effectiveProduct ? 'var(--gx-accent)' : 'var(--gx-mist)',
+                background: !isBlurred && effectiveProduct && canEdit ? 'var(--gx-accent)' : 'var(--gx-mist)',
                 color: '#fff', fontSize: '13px', fontWeight: 600,
-                cursor: !isBlurred && effectiveProduct ? 'pointer' : 'not-allowed',
+                cursor: !isBlurred && effectiveProduct && canEdit ? 'pointer' : 'not-allowed',
                 transition: 'all 0.15s',
               }}
+              title={!canEdit ? '편집 권한 없음 (협력사 읽기 전용)' : undefined}
             >
               + 항목 추가
             </button>
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setSettingsOpen(prev => !prev)}
-                disabled={isBlurred}
+                disabled={isBlurred || !canEdit}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: '36px', height: '36px', borderRadius: 'var(--radius-gx-md, 10px)',
                   border: `1px solid ${settingsOpen ? 'var(--gx-accent)' : 'var(--gx-mist)'}`,
                   background: settingsOpen ? 'rgba(99,102,241,0.08)' : 'var(--gx-white)',
-                  cursor: isBlurred ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
+                  cursor: (isBlurred || !canEdit) ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
                   color: settingsOpen ? 'var(--gx-accent)' : 'var(--gx-slate)',
-                  opacity: isBlurred ? 0.5 : 1,
+                  opacity: (isBlurred || !canEdit) ? 0.5 : 1,
                 }}
-                title="TM 체크리스트 설정"
+                title={!canEdit ? '편집 권한 없음 (협력사 읽기 전용)' : 'TM 체크리스트 설정'}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
@@ -203,6 +210,7 @@ export default function ChecklistManagePage() {
             onToggleActive={handleToggleActive}
             onEdit={(item) => setEditingItem(item)}
             category={selectedCategory}
+            canEdit={canEdit}
           />
         )}
       </div>

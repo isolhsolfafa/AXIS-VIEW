@@ -54,9 +54,9 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.35.1 (main 배포 완료, 2026-04-24)
-- **최근 작업**: HOTFIX v1.35.1 — 공장 대시보드 "출하예정" 컬럼 매핑 정정 (`finishing_plan_end` → `ship_plan_date`)
-- **최근 완료**: v1.35.1 HOTFIX, v1.35.0 (Phase 2), OPS_API_REQUESTS #62 v2.3 AMENDED
+- **VIEW FE**: v1.35.2 (main 배포 완료, 2026-04-25)
+- **최근 작업**: HOTFIX v1.35.2 — 체크리스트 관리 페이지 협력사(비-GST) 읽기 전용 (`canEdit = is_admin || company==='GST'`)
+- **최근 완료**: v1.35.2 HOTFIX (권한 분기), v1.35.1 (출하예정 컬럼 매핑), v1.35.0 (Phase 2), OPS_API_REQUESTS #62 v2.4 AMENDED
 
 ### 📋 v2.4 AMENDMENT 작성 완료 (2026-04-24) — OPS 작업 대기
 - **문서**: `OPS_API_REQUESTS.md` #62 v2.4 AMENDED 섹션 (~240줄 추가)

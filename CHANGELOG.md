@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.35.1 (2026-04-24)
+> 최신 버전: v1.35.2 (2026-04-25)
 
 ---
 
@@ -70,6 +70,35 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.35.2 — 2026-04-25
+
+**HOTFIX — 체크리스트 관리 페이지 협력사 읽기 전용 권한 적용**
+
+### 증상
+- 체크리스트 관리 페이지(`/checklist`)에서 협력사 소속 manager도 편집 UI(항목 추가/수정/활성화 토글/설정)가 모두 조작 가능한 상태
+- 자사(GST) 소속 사용자만 관리해야 할 체크리스트 마스터를 협력사가 변경할 수 있는 권한 취약점
+
+### 원인
+- `/checklist` 라우트 `allowedRoles={['admin', 'manager', 'gst']}` — 접근은 맞게 열어두었으나
+- 페이지 내부에 편집 권한 분기(canEdit) 로직이 없었음 (Sprint 31 ELEC 관리 블러 해제 이후 방치)
+
+### 수정
+- `ChecklistManagePage.tsx`: `useAuth()` 훅으로 user 확보 → `canEdit = is_admin || company === 'GST'` 판정
+- 편집 권한 없는 사용자(= 협력사 소속)에게 아래 UI 전부 차단:
+  - "+ 항목 추가" 버튼 disabled + 툴팁 "편집 권한 없음 (협력사 읽기 전용)"
+  - 설정(톱니바퀴) 버튼 disabled + 툴팁 동일
+  - 테이블 행 클릭(수정 모달 열기) 차단 (onClick / hover 효과 제거)
+  - 활성화 토글 버튼 disabled + 툴팁 동일
+- `ChecklistTable.tsx`: `canEdit?: boolean` prop 추가 (기본 true, 하위 호환)
+
+### 영향
+- 협력사 manager: 기존 접근 경로 유지, 읽기만 가능 (목록 조회/필터링은 정상)
+- GST 내부(admin / 일반 / manager) 및 admin: 기존 전권 유지
+- BE API 변경 없음 (FE 권한 게이트만)
+- 빌드 영향: 번들 +0.44 kB (3283 modules, 2.25s)
 
 ---
 

@@ -1,5 +1,6 @@
 // src/components/checklist/ChecklistTable.tsx
 // 체크리스트 마스터 항목 테이블 — Sprint 32 (ELEC Phase/QI 뱃지 + 행 클릭 수정)
+// v1.35.2 (2026-04-25): canEdit prop — 협력사 읽기 전용 (행 클릭·토글 차단)
 
 import type { ChecklistMasterItem } from '@/types/checklist';
 
@@ -9,6 +10,7 @@ interface ChecklistTableProps {
   onToggleActive: (id: number, currentlyActive: boolean) => void;
   onEdit: (item: ChecklistMasterItem) => void;
   category: string;
+  canEdit?: boolean;  // v1.35.2: 기본 true, false면 행 클릭·토글 비활성화
 }
 
 // 타입별 뱃지 스타일
@@ -18,7 +20,7 @@ const TYPE_STYLE: Record<string, { bg: string; color: string }> = {
   SELECT: { bg: 'rgba(139,92,246,0.08)',  color: '#7c3aed' },
 };
 
-export default function ChecklistTable({ items, showInactive, onToggleActive, onEdit, category }: ChecklistTableProps) {
+export default function ChecklistTable({ items, showInactive, onToggleActive, onEdit, category, canEdit = true }: ChecklistTableProps) {
   const filtered = showInactive ? items : items.filter(i => i.is_active);
   const isElec = category === 'ELEC';
 
@@ -79,19 +81,20 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, on
               return (
                 <tr
                   key={item.id}
-                  onClick={() => onEdit(item)}
+                  onClick={canEdit ? () => onEdit(item) : undefined}
+                  title={!canEdit ? '편집 권한 없음 (협력사 읽기 전용)' : undefined}
                   style={{
                     borderBottom: '1px solid var(--gx-cloud)',
                     background: !item.is_active ? 'var(--gx-cloud)' : isEvenGroup ? 'var(--gx-snow, #FAFBFD)' : 'var(--gx-white)',
                     opacity: item.is_active ? 1 : 0.5,
-                    cursor: 'pointer',
+                    cursor: canEdit ? 'pointer' : 'default',
                     // QI row 좌측 보라색 보더
                     borderLeft: isElec && isQI ? '3px solid var(--gx-accent)' : '3px solid transparent',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.04)'; }}
-                  onMouseLeave={e => {
+                  onMouseEnter={canEdit ? (e => { e.currentTarget.style.background = 'rgba(99,102,241,0.04)'; }) : undefined}
+                  onMouseLeave={canEdit ? (e => {
                     e.currentTarget.style.background = !item.is_active ? 'var(--gx-cloud)' : isEvenGroup ? 'var(--gx-snow, #FAFBFD)' : 'var(--gx-white)';
-                  }}
+                  }) : undefined}
                 >
                   <td style={{ padding: '9px 12px', fontFamily: "'JetBrains Mono', monospace", color: 'var(--gx-steel)', fontSize: '11px' }}>
                     {groupItemIdx}
@@ -133,11 +136,18 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, on
                   )}
                   <td style={{ padding: '9px 12px' }}>
                     <button
-                      onClick={(e) => { e.stopPropagation(); onToggleActive(item.id, item.is_active); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!canEdit) return;
+                        onToggleActive(item.id, item.is_active);
+                      }}
+                      disabled={!canEdit}
+                      title={!canEdit ? '편집 권한 없음 (협력사 읽기 전용)' : undefined}
                       style={{
                         width: '36px', height: '20px', borderRadius: '10px', border: 'none',
                         background: item.is_active ? 'var(--gx-success)' : 'var(--gx-mist)',
-                        cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
+                        cursor: canEdit ? 'pointer' : 'not-allowed', position: 'relative', transition: 'background 0.2s',
+                        opacity: canEdit ? 1 : 0.5,
                       }}
                     >
                       <span style={{

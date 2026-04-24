@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-04-24 | 버전: v1.35.1
+> 최종 갱신: 2026-04-25 | 버전: v1.35.2
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -768,6 +768,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | 62-BE v2.4 AMENDED | shipped_plan AND 조건 교정 (si_completed → actual OR si_shipment) + shipped_best 신설 (해석 A: si⊆actual) + shipped_ops 폐기 + FE 토글 3옵션(plan/actual/best) 재설계 (OPS_API_REQUESTS #62 v2.4 AMENDED, 2026-04-24) | 🟡 OPS 작업 대기 |
 | SI-BACKFILL-01 | app si_shipment → Teams Excel 역방향 backfill cron 스크립트 (Graph API) — 단계적 구조: Phase 0(현재)→Phase 1(스크립트)→Phase 2(생산관리 플랫폼)→Phase 3(SAP API GW). "생산관리 플랫폼 선행" 블로커 대기 (BACKLOG.md 🟡 LOW) | 🟡 대기 |
 | Sprint 36 (FE) | BE v2.4 배포 후 FE 3옵션 토글 교체 — `api/factory.ts` ShippedBasis 타입 변경 + pickShipped() best 분기 + FactoryDashboardSettingsPanel 라디오 라벨 갱신. 안전 degrade 설계 (BE 배포 전 undefined 처리) | 🟡 BE v2.4 대기 |
+| HOTFIX v1.35.2 | 체크리스트 관리 페이지 협력사(비-GST) 읽기 전용 — `canEdit = is_admin \|\| company==='GST'` 게이트 (추가·편집·토글·설정 차단 + 툴팁) (ChecklistManagePage + ChecklistTable, 2026-04-25) | ✅ 완료 |
 
 ### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)
 
