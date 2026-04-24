@@ -40,7 +40,9 @@ AXIS-OPS BE(Railway → 사내서버 마이그레이션 예정)의 API와 JWT를
 - **역할**: 담당 영역의 코드 구현
 - **모드**: 사용자 승인 후 코드 수정 가능 (위임 모드)
 
-### ⚠️ 모델 버전 관리 규칙 (2026-04-21 추가)
+### ⚠️ 모델 버전 관리 규칙 (2026-04-21 추가, 2026-04-24 Codex 섹션 보강)
+
+#### Claude 모델 (Opus 리드 / Sonnet 워커)
 
 - **원칙**: 항상 각 티어의 **최상위 모델** 사용 (Opus = 리드, Sonnet = 워커)
   - 리드는 설계·아키텍처 판단 역할 → 추론 성능 최우선 → Opus 최상위
@@ -52,6 +54,28 @@ AXIS-OPS BE(Railway → 사내서버 마이그레이션 예정)의 API와 JWT를
   - `AXIS-VIEW/CLAUDE.md` (이 파일) L33, L39
   - `AXIS-OPS/CLAUDE.md` L10, L16
   - `memory.md`에 ADR 추가 (모델 전환 이유·영향)
+
+#### Codex (외부 교차 검증자) — 2026-04-24 보강
+
+- **원칙**: Codex CLI 기본 모델(= 자동 최신) 유지 — `~/.codex/config.toml` 에 model **pinning 금지**
+  - 이유: Codex CLI가 최신 GPT 모델을 자동 수신하도록 설계됨. pinning 시 구 모델 고착 위험
+  - 현재 설치: `codex-cli 0.122.0` (2026-04-24 기준)
+- **업데이트 트리거**:
+  - 주 1회 이상 `brew outdated codex` 수동 확인 (권장: 매주 월요일 Sprint 시작 시)
+  - Codex 메이저 업데이트(0.X → 0.Y) 발견 시 즉시 `brew upgrade codex` 후 CLAUDE.md 버전 갱신
+  - GPT 신 모델(GPT-5.x 등) 출시 감지 시 Codex CLI가 자동 수신하는지 `codex doctor` 또는 공식 페이지로 확인
+- **세션 시작 체크** (Claude 모델 체크와 병행):
+  ```bash
+  codex --version              # 현재 CLI 버전
+  brew outdated codex          # 업데이트 가용 여부
+  ```
+- **검증 라운드 trail 기록**: `memory.md` ADR 또는 `CROSS_VERIFY_LOG.md` 에 사용 모델·CLI 버전 병기
+  - 예: `"2026-04-24 / Codex CLI 0.122.0 / 검증 결과: M=2 A=1"`
+- **갱신 시 업데이트 대상**:
+  - `AXIS-VIEW/CLAUDE.md` (이 파일) 이 섹션 "현재 설치" 라인
+  - `AXIS-OPS/CLAUDE.md` 동일 섹션 (OPS 쪽도 동일 버전 유지)
+  - `memory.md` ADR (메이저 업데이트 시)
+- **실패 시 fallback**: Codex CLI 업데이트 불가 상황(네트워크·권한)이면 당일 Sprint 교차검증을 Claude Code 자가 리뷰로 대체 + 다음 세션에 Codex 재실행 의무
 
 ### 위임 모드 규칙
 1. 리드가 작업을 분배하고 워커에게 위임
