@@ -1,7 +1,7 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.35.0';
+export const APP_VERSION = 'v1.35.1';
 export const BUILD_DATE = '2026-04-23';
 
 // 버전 이력
@@ -61,3 +61,4 @@ export const BUILD_DATE = '2026-04-23';
 // v1.34.5| 2026-04-23 | HOTFIX S3       | KPI 덱 탭 전환 버그 수정 (handleScroll clientWidth=0 방어) + 30초 자동 전환 (autoSwipeInterval prop)
 // v1.34.6| 2026-04-23 | HOTFIX S2       | scroll-snap 방식 실효 안됨 → transform: translateX 재설계 — 탭/자동 전환 확실 동작 확보
 // v1.35.0| 2026-04-23 | Sprint 35 P2    | BE Sprint 62-BE v2.2 연동 — TEMP-HARDCODE 제거 + 출하 3필드(plan/actual/ops) + 월간 date_field 토글 + FactoryDashboardSettingsPanel 신규
+// v1.35.1| 2026-04-23 | HOTFIX 매핑정정  | 생산현황 상세 "출하예정" 컬럼 매핑 정정 (finishing_plan_end → ship_plan_date) — 라벨 정합성

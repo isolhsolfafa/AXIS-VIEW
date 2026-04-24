@@ -54,9 +54,16 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.35.0 (main 배포 완료, 2026-04-23)
-- **최근 작업**: Sprint 35 Phase 2 머지 + BE Sprint 62-BE **v2.3 교정 요청** (weekly-kpi WHERE 절 원안 복원)
-- **최근 완료**: v1.35.0 (Phase 2), OPS_API_REQUESTS #62 v2.3 AMENDED
+- **VIEW FE**: v1.35.1 (main 배포 완료, 2026-04-24)
+- **최근 작업**: HOTFIX v1.35.1 — 공장 대시보드 "출하예정" 컬럼 매핑 정정 (`finishing_plan_end` → `ship_plan_date`)
+- **최근 완료**: v1.35.1 HOTFIX, v1.35.0 (Phase 2), OPS_API_REQUESTS #62 v2.3 AMENDED
+
+### 🚧 진행 중 논의 — Sprint 36 / OPS v2.4 amendment 준비
+- **토글 재설계**: 3옵션 확정 (`plan` / `actual` / `best`) — `ops` 제거 (과도기 실무 무의미, best가 si 우선순위 흡수)
+- **`shipped_best` 신설** — `actual_ship_date NOT NULL AND COALESCE(si_shipment날짜, actual날짜) IN 범위` (해석 A: si ⊆ actual 가정)
+- **`shipped_plan` AND 조건 교정** — `si_completed=TRUE` → `(actual_ship_date NOT NULL OR si_shipment NOT NULL)` (app SI 공정 미도입 기간 0건 회피)
+- **로드맵**: 현재는 `actual` 기본값 → 2026 상반기 SI app 100% 도입 후 `best`로 기본값 전환
+- **SI-BACKFILL-01 BACKLOG 신규** (🟡 LOW, "생산관리 플랫폼 선행" 블로커): Teams Excel push cron 스크립트
 
 ### ⚠️ BE Sprint 62-BE v2.3 추가 교정 요청 중 (2026-04-23)
 FE v2 작성 단계에서 설계 원안(Twin파파 요구 #6)을 뒤집은 1조항 복원 요청:

@@ -443,7 +443,8 @@ export default function FactoryDashboardPage() {
                       <td style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>{r.model}</td>
                       <td style={{ padding: '14px 20px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--gx-graphite)' }}>{r.serial_number}</td>
                       <td style={{ padding: '14px 20px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--gx-graphite)' }}>{r.mech_start?.slice(5) || '—'}</td>
-                      <td style={{ padding: '14px 20px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--gx-graphite)' }}>{r.finishing_plan_end?.slice(5) || '—'}</td>
+                      {/* v1.35.1 (2026-04-23): 출하예정 컬럼 매핑 정정 — finishing_plan_end → ship_plan_date (라벨과 실제 필드 정합) */}
+                      <td style={{ padding: '14px 20px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--gx-graphite)' }}>{r.ship_plan_date?.slice(5) || '—'}</td>
                       <td style={{ padding: '14px 20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: tp ? '6px' : 0 }}>
                           <div style={{ flex: 1, height: '6px', borderRadius: '3px', background: 'var(--gx-mist)', minWidth: '80px', overflow: 'hidden' }}>
