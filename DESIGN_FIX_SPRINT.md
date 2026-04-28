@@ -15265,3 +15265,385 @@ export interface MonthlyKpiParams {
 - 월간 date_field 토글 → 4가지 기준 모두 BE에서 COUNT 반환
 - TEMP-HARDCODE 0건 (설비/모니터 간 유지 확인)
 - v1.35.0 릴리스 (CHANGELOG + version.ts + git tag)
+
+---
+
+# Sprint 37 — S/N 작업 현황 O/N 그룹 카드 토글 (인라인 확장) (2026-04-28 등록, 🟢 Codex 1차+2차 검증 반영, 구현 착수 승인)
+
+> 등록일: 2026-04-28 | 상태: **Codex 1차 4건 + 2차 미세 보정 1건 반영 (2026-04-28)** → 구현 착수 승인
+> 트랙: VIEW FE (BE 의존 없음 — 순수 클라이언트 사이드 그룹 토글)
+> 선행: Sprint 24 O/N 그룹핑 + Sprint 34 O/N 헤더 정보 보강 (line 혼재, N대) 위에 토글 UX 추가
+> 설계서: 본 엔트리만 (BE 변경 없음)
+> 교차검증: Claude Cowork → Claude Code Opus Lead → **Codex (2026-04-28 1차 4건 → 전건 반영, 2차 #5 corner case → 문구 명시 반영)**
+> 병합 전략: Sprint 37 단일 PR — `SNStatusPage.tsx` 단일 파일 수정
+> ⚠️ **Sprint 번호 정정**: 본래 "Sprint 36" 으로 등록됐으나 CLAUDE.md L769 / handoff.md L80,116 / WEEKLY_PLAN_20260427.md 의 Sprint 36 (출하 토글 3옵션) 과 충돌 → **Sprint 37 로 재번호 (Codex CRITICAL #1 반영)**
+
+## 배경
+
+Twin파파 스크린샷 제보 (g-view.netlify.app/production/status): 현재 O/N별로 모든 S/N 카드가 무조건 펼쳐져 있어 화면이 가로/세로로 길어짐. O/N 6842 (4대) 경우 카드 4장이 한 줄에 깔려 한눈에 O/N 단위로 파악하기 어려움.
+
+Twin파파 요구:
+1. **분류된 카드뷰 기준으로 한 장만 보여주기** — O/N 단위로 1장 대표 카드
+2. **대표 카드 클릭 시 펼치기** — 그 안의 S/N 카드들이 인라인으로 전개
+3. **1대짜리 O/N 은 그대로** — 펼침 불필요, 기존 동작 유지
+
+## 결정 사항 (2026-04-28 Twin파파 확정)
+
+| # | 항목 | 확정 | 이유 |
+|---|---|---|---|
+| 1 | 대표 카드 정보 | **O/N + 모델 + 고객 + (lineLabel) + N대 + 평균 진행률 + 진행률 바** | 기존 `groupedByON` 헤더에 이미 다 있는 정보 — 재구조화만 |
+| 2 | 펼침 방식 | **인라인 확장 (대표 카드 바로 아래로 펼침)** | 모달/페이지 이동 없이 자연스러운 확장, iPad 터치 환경 친화 |
+| 3 | 1대 O/N 처리 | **그대로 S/N 카드 노출 (펼침 토글 없음)** | 의미 없는 클릭 1단계 제거, UX 일관성 유지 (1대 = 대표 = S/N 동일) |
+
+## 설계 진화 이력
+
+| 버전 | 핵심 전략 | 채택/폐기 사유 |
+|---|---|---|
+| v1 (현재) | O/N 헤더 라벨 + 모든 S/N 카드 무조건 펼쳐짐 | 폐기 — Twin파파 제보, 화면 길이 폭증 |
+| v2 (검토) | 그룹 헤더만 클릭 가능, 1대도 동일 토글 | 폐기 — 1대짜리 클릭 불필요 |
+| v3 (1차 설계) | 2대+ 그룹은 토글, 1대는 기존 그대로. 검색/상세 자동 펼침 effect 단순 deps | 폐기 — Codex #2/#3/#4 지적: 무한 setState + UX race + stale key 누적 |
+| **v4 (채택, Codex 반영)** | v3 + `lastProcessedSearchRef` race 방지 + stale key cleanup effect + idempotent return 패턴 | **채택** — 모든 effect 안전성 보장 |
+
+## Codex 교차검증 결과 반영 (2026-04-28)
+
+### CRITICAL (1건, 반영)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| #1 | Sprint 36 번호 충돌 (CLAUDE.md L769 / handoff.md L80,116 / WEEKLY_PLAN_20260427.md 의 출하 토글 3옵션과 동일 번호) | **Sprint 37 로 재번호** — 출하 토글이 먼저 등록됨 |
+
+### MEDIUM (2건, 전건 반영)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| #2 | useEffect deps `[search, groupedByON]` 무한 setState 가능성 — `groupedByON` 매 렌더 신규 참조면 effect 매번 재실행 | `groupedByON` 은 `useMemo([sorted])` 캐시 확인됨 (SNStatusPage L90). 다만 `sorted` 가 `[products, search, ...]` deps → search 변경 시 새 참조 발생. **`lastProcessedSearchRef` 패턴으로 search 실제 변경 시점만 처리** (#3과 동일 해결책) |
+| #3 | 검색 자동 펼침 vs 수동 접기 race — 사용자가 수동 접은 후 groupedByON 변경 시 강제 재펼침 → "왜 이래?" UX | `lastProcessedSearchRef.current === currentSearch` 비교로 search 미변경 시 즉시 return → 사용자 명시 접기 우선순위 보장 |
+
+### LOW (1건, 반영)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| #4 | Stale group key 누적 — BE 데이터 변경으로 사라진 key 가 `expandedGroups` Set 에 잔존 (메모리 leak 수준은 아니지만 무한 증식 가능) | 별도 `useEffect([groupedByON])` 으로 cleanup. `validKeys` 기준 filter, size 동일하면 prev 참조 반환으로 불필요 리렌더 차단 |
+
+### 미세 보정 (1건, 문구 명시 only — 구현 영향 없음)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| #5 | Effect #2 잠재 race — selectedSN 유지 중 부모 그룹 수동 접기 → 다음 `groupedByON` 변경 시 강제 재펼침 (실용 가치 낮은 corner case, "보고 있는 카드를 수동 접기" 자체가 비현실 UX) | **"알려진 trade-off — Effect #2 corner case" 표 신설** (효과 안전성 표 직하). 의도된 trade-off (selectedSN 우선 정책) 사유 명시. 구현 영향 없음, 사후 추적성만 확보. 추가 방어 필요 시 Sprint 37+α 별건 처리 |
+
+## 확정 설계 — 그룹별 렌더 매트릭스
+
+| 그룹 종류 | 헤더 | 토글 | S/N 카드 |
+|---|---|---|---|
+| 다대 (`products.length >= 2`) | **클릭 가능 대표 카드** (chevron ▶/▼) | 있음 (펼치면 ▼ 인라인 확장) | 펼친 상태에서만 렌더 |
+| 단대 (`products.length === 1`) | 기존 헤더 라벨 그대로 | 없음 | 항상 렌더 |
+| O/N 없음 (`_no_on_{sn}`) | 헤더 미표시 (기존 동작) | 없음 | 항상 렌더 (단일) |
+
+## 구현 범위
+
+### 수정 파일 1개
+
+| # | 파일 | 변경 | 라인수 |
+|---|---|---|---|
+| 1 | `app/src/pages/production/SNStatusPage.tsx` | (a) import 확장: `useRef`, `useEffect`, `useCallback` 추가 + `lucide-react` 의 `ChevronDown` / `ChevronRight` (b) `expandedGroups: Set<string>` state + `lastProcessedSearchRef: useRef<string>('')` 추가 (c) `toggleGroup(key)` useCallback 핸들러 (d) [Effect 1] 검색 자동 펼침 — `lastProcessedSearchRef` 가드로 search 실제 변경 시점만 처리 (Codex #2/#3) (e) [Effect 2] 상세 패널 자동 펼침 — idempotent return (f) [Effect 3] Stale key cleanup — `groupedByON` 변경 시 사라진 key 정리 (Codex #4) (g) L249~298 렌더링: 다대는 헤더 클릭 가능 + 조건부 SNCard 그리드, 단대는 기존 그대로 (h) chevron 아이콘 + role/aria/tabIndex 접근성 (i) hover 효과 (`background: var(--gx-mist)` on hover) | +60, -10 |
+
+**순 증분: ~50 LOC** (단일 파일, 기존 319줄 → 약 369줄. CLAUDE.md 경고 임계 500줄 미만 유지).
+
+**선행 의존성**: 없음. BE Sprint 변경 없음. 순수 FE state 추가. **`groupedByON` 은 SNStatusPage L90 이미 `useMemo([sorted])` 캐시 — Codex #2 점검 통과**.
+
+## state 설계 (Codex #2/#3/#4 반영 — race·무한루프·stale key 방지)
+
+```tsx
+// SNStatusPage.tsx 내부 — 기존 useState 옆에 추가
+const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+// Codex #3 반영 — 마지막으로 처리한 search 값 보관
+// 목적: search 가 실제로 변경된 시점에만 자동 펼침 적용 (groupedByON 재참조 시 race 방지)
+const lastProcessedSearchRef = useRef<string>('');
+
+const toggleGroup = useCallback((key: string) => {
+  setExpandedGroups(prev => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  });
+}, []);
+
+// [Effect 1] 검색 자동 펼침 — Codex #2/#3 반영
+// - groupedByON 은 useMemo([sorted]) → sorted 는 [products, search, ...] deps
+//   따라서 search 변경 시 groupedByON 도 재참조됨 (정상)
+// - 위험: groupedByON 만 변경된 경우(예: products refetch)에도 effect 재실행 → 사용자가 명시 접은 그룹 강제 재펼침 (UX race)
+// - 방어: lastProcessedSearchRef 로 "search 가 실제로 바뀐 시점" 만 식별
+useEffect(() => {
+  const currentSearch = search.trim();
+  if (currentSearch === lastProcessedSearchRef.current) return; // search 미변경 → 스킵 (race 차단)
+  lastProcessedSearchRef.current = currentSearch;
+  if (currentSearch.length === 0) return; // 빈 검색어 → 자동 펼침 없음 (수동 상태 유지)
+
+  setExpandedGroups(prev => {
+    const next = new Set(prev);
+    const q = currentSearch.toLowerCase();
+    for (const g of groupedByON) {
+      if (g.products.some(p =>
+        p.serial_number.toLowerCase().includes(q) ||
+        (p.sales_order ?? '').toLowerCase().includes(q) ||
+        p.model.toLowerCase().includes(q)
+      )) {
+        next.add(g.key);
+      }
+    }
+    return next;
+  });
+}, [search, groupedByON]);
+
+// [Effect 2] 상세 패널 자동 펼침 — selectedSN 의 부모 그룹 펼침
+// - 이 effect 는 selectedSN 변경시에만 의미 있음 (groupedByON 변경 시 무동작 OK — idempotent)
+useEffect(() => {
+  if (!selectedSN) return;
+  const ownerGroup = groupedByON.find(g =>
+    g.products.some(p => p.serial_number === selectedSN)
+  );
+  if (!ownerGroup) return;
+  setExpandedGroups(prev => {
+    if (prev.has(ownerGroup.key)) return prev; // 이미 펼쳐짐 → 동일 참조 반환 (불필요 리렌더 차단)
+    return new Set(prev).add(ownerGroup.key);
+  });
+}, [selectedSN, groupedByON]);
+
+// [Effect 3] Stale group key cleanup — Codex #4 반영
+// - BE 데이터 변경으로 사라진 key 가 expandedGroups 에 누적되는 것 방지
+// - 동일 size 면 prev 참조 그대로 반환 (불필요 리렌더 차단)
+useEffect(() => {
+  const validKeys = new Set(groupedByON.map(g => g.key));
+  setExpandedGroups(prev => {
+    const filtered = new Set([...prev].filter(k => validKeys.has(k)));
+    return filtered.size === prev.size ? prev : filtered;
+  });
+}, [groupedByON]);
+
+// 헬퍼 — 다대 그룹 여부
+const isMultiSN = (g: typeof groupedByON[0]) => g.products.length >= 2;
+const isExpanded = (g: typeof groupedByON[0]) => expandedGroups.has(g.key);
+```
+
+### 효과 안전성 표
+
+| Effect | 트리거 | 의도 | 방어 메커니즘 |
+|---|---|---|---|
+| #1 검색 자동 펼침 | `search` 또는 `groupedByON` 변경 | search 가 **실제로 변경**됐을 때만 매치 그룹 펼침 | `lastProcessedSearchRef` 비교 → 동일 search 면 즉시 return (UX race + 무한 setState 동시 차단) |
+| #2 상세 패널 자동 펼침 | `selectedSN` 또는 `groupedByON` 변경 | 선택된 S/N 의 부모 그룹 펼침 | 이미 펼쳐졌으면 prev 참조 그대로 (재렌더 차단). idempotent |
+| #3 Stale key cleanup | `groupedByON` 변경 | 사라진 key 정리 | size 비교 → 변경 없으면 prev 참조 (재렌더 차단) |
+
+### 알려진 trade-off — Effect #2 corner case (Codex 2차 미세 보정 기록)
+
+| Effect | 시나리오 | 동작 | 의도된 trade-off 사유 |
+|---|---|---|---|
+| #2 | (1) S/N 카드 클릭 → 상세 패널 열림 → 부모 그룹 자동 펼침 (2) 사용자가 상세 패널 열린 상태에서 부모 그룹 수동 접음 (3) `groupedByON` 리프레시 (예: products refetch) | Effect #2 재실행 → `selectedSN` 유지 → `ownerGroup` 동일 → `prev.has(key)` false (방금 접음) → **그룹 강제 재펼침** | **selectedSN 우선 정책** — 상세 패널 열린 상태에서 부모 그룹 수동 접기는 비현실적 UX (보고 있는 카드가 화면에서 사라짐). Effect #1 처럼 `lastProcessedSelectedSNRef` 추가 가능하나 비용/가치 비대칭. corner case 라 의도된 trade-off 로 둠. |
+
+**대응 정책**: 사후 "왜 자꾸 다시 펼쳐지지?" 의문 발생 시 본 표 참조. 회귀 사유 명확히 추적 가능. 추가 방어가 필요해지는 시점이 오면 Sprint 37+α 로 별건 처리 (현 시점 미적용).
+
+## 렌더링 변경 — `SNStatusPage.tsx` L249~298
+
+```tsx
+{groupedByON.map(group => {
+  const multi = isMultiSN(group);
+  const expanded = isExpanded(group);
+  const showCards = !multi || expanded;   // 단대거나 펼친 상태일 때만 카드 그리드 노출
+
+  return (
+    <div key={group.key}>
+      {/* O/N 섹션 헤더 — 다대면 클릭 가능 */}
+      {group.salesOrder && (
+        <div
+          onClick={multi ? () => toggleGroup(group.key) : undefined}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '12px 16px', marginBottom: '12px',
+            borderBottom: '1px solid var(--gx-mist)',
+            // ↓ 다대 그룹은 카드처럼 보이게
+            ...(multi && {
+              background: 'var(--gx-white)',
+              borderRadius: 'var(--radius-gx-md)',
+              boxShadow: 'var(--shadow-card)',
+              border: '1px solid var(--gx-mist)',
+              cursor: 'pointer',
+              transition: 'background 0.15s ease',
+            }),
+          }}
+          onMouseEnter={multi ? e => (e.currentTarget.style.background = 'var(--gx-mist)') : undefined}
+          onMouseLeave={multi ? e => (e.currentTarget.style.background = 'var(--gx-white)') : undefined}
+          role={multi ? 'button' : undefined}
+          aria-expanded={multi ? expanded : undefined}
+          aria-label={multi ? `O/N ${group.salesOrder} ${group.products.length}대 그룹 ${expanded ? '접기' : '펼치기'}` : undefined}
+          tabIndex={multi ? 0 : undefined}
+          onKeyDown={multi ? e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggleGroup(group.key);
+            }
+          } : undefined}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* 다대 그룹: chevron 아이콘 */}
+            {multi && (expanded
+              ? <ChevronDown size={14} style={{ color: 'var(--gx-steel)' }} />
+              : <ChevronRight size={14} style={{ color: 'var(--gx-steel)' }} />
+            )}
+            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
+              O/N {group.salesOrder}
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>
+              {group.model} · {group.customer}
+              {group.lineLabel && ` · ${group.lineLabel}`}
+              {' · '}{group.products.length}대
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '60px', height: '5px', borderRadius: '3px', background: 'var(--gx-cloud)' }}>
+              <div style={{
+                width: `${group.overallPercent}%`, height: '100%', borderRadius: '3px',
+                background: group.overallPercent === 100 ? 'var(--gx-success)' : 'var(--gx-accent)',
+                transition: 'width 0.3s ease',
+              }} />
+            </div>
+            <span style={{
+              fontSize: '12px', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
+              color: group.overallPercent === 100 ? 'var(--gx-success)' : 'var(--gx-charcoal)',
+            }}>
+              {group.overallPercent}%
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* SNCard 그리드 — 단대거나 펼친 상태에서만 */}
+      {showCards && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: '16px',
+          // 다대 그룹 펼침 시 시각적 들여쓰기
+          ...(multi && expanded && {
+            paddingLeft: '12px',
+            borderLeft: '2px solid var(--gx-mist)',
+            marginBottom: '16px',
+          }),
+        }}>
+          {group.products.map(p => (
+            <SNCard
+              key={p.serial_number}
+              product={p}
+              isSelected={selectedSN === p.serial_number}
+              onClick={handleCardClick}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+})}
+```
+
+## UX 플로우
+
+```
+[기본 뷰 — 모두 접힌 상태]
+
+▶  O/N 6864  GAIA-I DUAL · SAS · FOUNDRY · 1대         ▓▓░░░░░░ 5%
+    ┌────────────────┐
+    │ GBWS-7037      │  ← 1대는 그대로 노출
+    │ GAIA-I DUAL    │
+    │ 진행률 5%      │
+    └────────────────┘
+
+▶  O/N 6842  GAIA-P · SK-HYNIX · ETC · 4대             ▓▓░░░░░░ 4%
+    [클릭 가능, 카드 형태 헤더]   (4대 카드 숨김)
+
+▶  O/N 6837  GAIA-I DUAL · MICRON · JP(F15) · 1대      ▓▓░░░░░░ 5%
+    ┌────────────────┐
+    │ GBWS-7089      │
+    └────────────────┘
+
+
+[O/N 6842 클릭 후 — 인라인 확장]
+
+▼  O/N 6842  GAIA-P · SK-HYNIX · ETC · 4대             ▓▓░░░░░░ 4%
+    │ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐
+    │ │0779  │ │0778  │ │0777  │ │0784  │   ← 들여쓰기 + 좌측 보더
+    │ │ 5%   │ │ 5%   │ │ 5%   │ │ 0%   │
+    │ └──────┘ └──────┘ └──────┘ └──────┘
+```
+
+## 검색 / 상세 패널과의 상호작용
+
+| 시나리오 | 동작 |
+|---|---|
+| 검색 쿼리 입력 | 매치되는 S/N 의 부모 그룹 자동 펼침 (검색 결과 가시성 보장) |
+| 검색 쿼리 비움 | 자동 펼침 상태 유지 (수동 접을 때까지 — 사용자가 본 상태 보존) |
+| S/N 카드 클릭 → SNDetailPanel | 해당 그룹 자동 펼침 (이미 펼쳐져 있다면 무동작) |
+| 페이지 재진입 | 모두 접힌 기본 상태로 초기화 (state localStorage 미저장 — 단순화) |
+
+## 안전 degrade / 호환성
+
+- BE 의존 없음 → 배포 즉시 정상 동작
+- `lucide-react` 의 `ChevronDown` / `ChevronRight` 는 이미 프로젝트 의존성 (`package.json` 확인)
+- `Set<string>` state 는 React 18/19 호환
+- 기존 `selectedSN` 동작 유지 (자동 펼침만 추가, 기존 클릭 → 상세 패널 흐름 보존)
+- 검색 동작 유지 (`sorted` filter + 그룹화 그대로)
+
+## 교차검증 필수 항목 (Codex 이관 체크리스트)
+
+- ❌ API 응답 계약 변경 없음
+- ❌ 타입 변경 없음
+- ❌ 3파일 이상 touch — **단일 파일 수정 (1파일)**
+- ✅ **Codex 1차 검증 완료 (2026-04-28) — CRITICAL #1 + MEDIUM #2/#3 + LOW #4 전건 반영**
+
+→ Codex 교차검증 1차에서 4건 발견 → 전건 반영. 구현 시 추가 점검은 임의.
+
+## 검증 기준
+
+### 설계 단계 (Codex 1차 완료)
+
+- [x] **#1 Sprint 번호 충돌** → Sprint 37 로 재번호
+- [x] **#2 useEffect 무한 setState 가능성** → `groupedByON` 은 useMemo 캐시 (L90 확인) + `lastProcessedSearchRef` 가드 추가
+- [x] **#3 검색-수동접기 race** → `lastProcessedSearchRef.current === currentSearch` 비교로 search 미변경 시 즉시 return
+- [x] **#4 Stale key 누적** → 별도 cleanup effect, size 비교 후 prev 참조 반환
+- [ ] 키보드 접근성: `tabIndex={0}` + Enter/Space 핸들링 정확 (구현 시 확인)
+- [ ] aria-expanded 라벨 정확 ("접기" / "펼치기")
+- [ ] 1대 O/N: 헤더 클릭해도 무동작 (`onClick={undefined}`) 의도대로 동작
+- [ ] hover 색상 토큰 (`--gx-mist`) 다른 헤더와 시각적 충돌 없는지
+
+### 구현 단계
+
+- [ ] `npm run build` GREEN
+- [ ] TypeScript 0 에러
+- [ ] 다대 그룹 클릭 → 인라인 펼침/접힘 부드러움 (애니메이션 없어도 OK)
+- [ ] 1대 그룹 헤더 클릭해도 펼침/접힘 안 됨 (cursor도 default)
+- [ ] 검색어 입력 → 매치 그룹 자동 펼침 확인
+- [ ] S/N 카드 클릭 → 상세 패널 열리고, 그룹이 자동 펼침 상태 유지
+- [ ] 검색 비우면 펼침 상태 유지 (수동 토글까지)
+- [ ] **검색 활성 상태에서 수동 접기 후, products refetch 발생 시 다시 펼쳐지지 않는지** (Codex #3 회귀 테스트)
+- [ ] **데이터 변경으로 사라진 O/N 의 group key 가 expandedGroups 에서 제거되는지** (Codex #4 회귀 테스트)
+- [ ] iPad 터치 환경에서 헤더 탭 시 펼침 동작
+
+### 배포 후 (Twin파파 현업)
+
+- [ ] 기본 뷰에서 화면 길이 축소 (4대 O/N 이 1줄로 압축됨)
+- [ ] O/N 단위 한 눈에 파악 가능 (대표 카드 = 평균 진행률 즉시 확인)
+- [ ] 자주 보는 O/N 만 펼친 상태 유지 가능
+- [ ] 검색 흐름 자연스러움 (자동 펼침으로 결과 즉시 노출)
+
+## 연계
+
+- 이전: Sprint 24 O/N 그룹핑, Sprint 34 (FE-21) lineLabel 집계 — 본 Sprint 는 그 위에 토글 UX 추가
+- 원칙: `CLAUDE.md` 코드 크기 1단계 (단일 파일 변경 ~40 LOC, 경고 500줄 미만 유지)
+- 디자인: 기존 `--gx-white` / `--gx-mist` / `--gx-cloud` / `--gx-charcoal` / `--gx-steel` / `--gx-accent` / `--gx-success` 토큰 재사용. `lucide-react` chevron 아이콘.
+- 접근성: WAI-ARIA 패턴 ("Disclosure" — `role="button"` + `aria-expanded`)
+
+### 다음 응용 포인트
+
+- **그룹 펼침 상태 localStorage 저장** — 페이지 이탈 후 복귀 시 복원 (현재 미적용, 향후 요구 시)
+- **"전체 펼치기 / 모두 접기" 토글** — 헤더 옆 버튼으로 일괄 제어 (그룹 5개 이상일 때 가치 있음)
+- **그룹 정렬 옵션** — 진행률 순 / O/N 순 / N대 순 등 정렬 메뉴 추가
+- **그룹 검색 매치 카운트** — "결과: O/N 3개 / S/N 12개" 식 통계 노출

@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.35.2 (2026-04-25)
+> 최신 버전: v1.36.0 (2026-04-27)
 
 ---
 
@@ -70,6 +70,40 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.36.0 — 2026-04-27
+
+**Sprint 37 — S/N 작업 현황 O/N 그룹 카드 인라인 토글**
+
+### 배경
+- 생산현황 페이지(`/production/status`)에서 O/N별 모든 S/N 카드가 무조건 펼쳐져 있어 화면 길이 폭증
+- 다대 O/N (예: 4대 GAIA-P) 의 경우 카드 4장이 한 줄에 깔려 한눈에 O/N 단위 파악 어려움
+
+### 변경
+- 다대 O/N (≥2대): 헤더가 **클릭 가능한 대표 카드** 로 변환 — 클릭 시 인라인으로 S/N 카드 그리드 펼침/접힘
+- 단대 O/N (1대): 기존 동작 유지 (헤더 + S/N 카드 항상 표시)
+- 검색어 입력 시: 매치되는 S/N 의 부모 그룹 자동 펼침 (수동 접기 우선 — `lastProcessedSearchRef` 가드)
+- S/N 카드 클릭(상세 패널) 시: 부모 그룹 자동 펼침 (idempotent)
+- 페이지 재진입: 모두 접힌 기본 상태로 초기화 (단순화)
+- 시각적 들여쓰기: 펼친 카드 그리드 좌측 보더 + paddingLeft
+
+### 안전장치 (Codex 검증 1차 4건 + 2차 1건 전건 반영)
+- **race 방지**: `lastProcessedSearchRef` 로 search 실제 변경 시점만 펼침 → groupedByON 재참조 시 수동 접기 보존
+- **idempotent return**: 이미 펼쳐진 그룹에는 prev 참조 그대로 반환 (불필요 리렌더 차단)
+- **stale key cleanup**: BE 데이터 변경으로 사라진 group key 자동 정리 (Set 무한 증식 방지)
+
+### 접근성
+- `role="button"` + `aria-expanded` + `aria-label` (다대 그룹만)
+- 키보드 지원: `tabIndex={0}` + Enter/Space 토글
+- chevron 아이콘 (`▶ ▼`) 으로 펼침 상태 시각화 (`lucide-react`)
+
+### 영향
+- BE API 변경 없음 (순수 FE state 추가)
+- `SNStatusPage.tsx` 단일 파일 수정 (319 → 424 LOC, 🟢 OK 범위)
+- 빌드 영향: 신규 의존성 0 (3283 modules 동일, 2.43s)
+- 회귀: vitest 30개 테스트 PASS
 
 ---
 

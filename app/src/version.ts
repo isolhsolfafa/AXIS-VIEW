@@ -1,8 +1,8 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.35.2';
-export const BUILD_DATE = '2026-04-25';
+export const APP_VERSION = 'v1.36.0';
+export const BUILD_DATE = '2026-04-27';
 
 // 버전 이력
 // v1.0.0 | 2026-03-06 | Sprint 1~3     | 초기 릴리스 (로그인, 출퇴근 대시보드, 실 API 연동)
@@ -63,3 +63,4 @@ export const BUILD_DATE = '2026-04-25';
 // v1.35.0| 2026-04-23 | Sprint 35 P2    | BE Sprint 62-BE v2.2 연동 — TEMP-HARDCODE 제거 + 출하 3필드(plan/actual/ops) + 월간 date_field 토글 + FactoryDashboardSettingsPanel 신규
 // v1.35.1| 2026-04-23 | HOTFIX 매핑정정  | 생산현황 상세 "출하예정" 컬럼 매핑 정정 (finishing_plan_end → ship_plan_date) — 라벨 정합성
 // v1.35.2| 2026-04-25 | HOTFIX 권한 분기  | 체크리스트 관리 페이지 협력사(비-GST) 읽기 전용 — canEdit = is_admin || company==='GST' (항목추가·설정·행클릭·토글 차단 + 툴팁)
+// v1.36.0| 2026-04-27 | Sprint 37        | S/N 작업 현황 O/N 그룹 카드 인라인 토글 — 다대(2대+) 그룹 헤더 클릭 펼침/접힘 + 검색 자동 펼침(lastProcessedSearchRef race 방지) + 상세패널 자동 펼침 + stale key cleanup. BE 의존 0, SNStatusPage.tsx 단일 파일 (319→424 LOC). Codex 1차 4건+2차 1건 전건 반영

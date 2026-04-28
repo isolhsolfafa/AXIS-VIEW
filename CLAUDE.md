@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-04-25 | 버전: v1.35.2
+> 최종 갱신: 2026-04-27 | 버전: v1.36.0
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -699,7 +699,6 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 |------|------|---------|
 | `handoff.md` | 세션 인계 (현재 상태, 대기 Sprint, 미해결 버그) | 매 세션 시작 시 |
 | `memory.md` | 누적 의사결정(ADR), 버그 분석, 아키텍처 판단 | 맥락 필요 시 |
-| `PROGRESS.md` | 완료된 Sprint 이력 (상세) | 참조 |
 | `DESIGN_FIX_SPRINT.md` | Sprint 1~30 메인 스프린트 문서 | 필수 |
 | `OPS_API_REQUESTS.md` | BE API 요청/이슈 (#1~#62) | 필수 |
 | `CHANGELOG.md` | 릴리스 이력 | 릴리스 시 |
@@ -769,6 +768,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | SI-BACKFILL-01 | app si_shipment → Teams Excel 역방향 backfill cron 스크립트 (Graph API) — 단계적 구조: Phase 0(현재)→Phase 1(스크립트)→Phase 2(생산관리 플랫폼)→Phase 3(SAP API GW). "생산관리 플랫폼 선행" 블로커 대기 (BACKLOG.md 🟡 LOW) | 🟡 대기 |
 | Sprint 36 (FE) | BE v2.4 배포 후 FE 3옵션 토글 교체 — `api/factory.ts` ShippedBasis 타입 변경 + pickShipped() best 분기 + FactoryDashboardSettingsPanel 라디오 라벨 갱신. 안전 degrade 설계 (BE 배포 전 undefined 처리) | 🟡 BE v2.4 대기 |
 | HOTFIX v1.35.2 | 체크리스트 관리 페이지 협력사(비-GST) 읽기 전용 — `canEdit = is_admin \|\| company==='GST'` 게이트 (추가·편집·토글·설정 차단 + 툴팁) (ChecklistManagePage + ChecklistTable, 2026-04-25) | ✅ 완료 |
+| Sprint 37 (v1.36.0) | S/N 작업 현황 O/N 그룹 카드 인라인 토글 — 다대(2대+) 헤더 클릭 펼침/접힘 + 검색·상세 자동 펼침(`lastProcessedSearchRef` race 방지) + stale key cleanup. BE 의존 0, `SNStatusPage.tsx` 단일 파일 319→424 LOC, Codex 1차 4건 + 2차 1건 전건 반영, 2026-04-27 | ✅ 완료 |
 
 ### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)
 

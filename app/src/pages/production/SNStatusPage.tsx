@@ -1,7 +1,8 @@
 // src/pages/production/SNStatusPage.tsx
-// S/N 작업 현황 카드뷰 페이지 — Sprint 18
+// S/N 작업 현황 카드뷰 페이지 — Sprint 18 / Sprint 37(O/N 그룹 인라인 토글)
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import Layout from '@/components/layout/Layout';
 import SNCard from '@/components/sn-status/SNCard';
 import SNDetailPanel from '@/components/sn-status/SNDetailPanel';
@@ -142,6 +143,66 @@ export default function SNStatusPage() {
     return groups;
   }, [sorted]);
 
+  // Sprint 37: O/N 그룹 인라인 토글 — 다대 그룹은 헤더 클릭으로 펼침/접힘
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  // search 가 실제로 변경된 시점만 자동 펼침에 반영 — groupedByON 재참조 시 race 방지
+  const lastProcessedSearchRef = useRef<string>('');
+
+  const toggleGroup = useCallback((key: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  // [Effect 1] 검색 자동 펼침 — search 변경 시점만 처리 (수동 접기 우선)
+  useEffect(() => {
+    const currentSearch = search.trim();
+    if (currentSearch === lastProcessedSearchRef.current) return;
+    lastProcessedSearchRef.current = currentSearch;
+    if (currentSearch.length === 0) return;
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      const q = currentSearch.toLowerCase();
+      for (const g of groupedByON) {
+        if (g.products.some(p =>
+          p.serial_number.toLowerCase().includes(q) ||
+          (p.sales_order ?? '').toLowerCase().includes(q) ||
+          p.model.toLowerCase().includes(q)
+        )) {
+          next.add(g.key);
+        }
+      }
+      return next;
+    });
+  }, [search, groupedByON]);
+
+  // [Effect 2] 상세 패널 열린 S/N 의 부모 그룹 자동 펼침 — idempotent
+  useEffect(() => {
+    if (!selectedSN) return;
+    const ownerGroup = groupedByON.find(g =>
+      g.products.some(p => p.serial_number === selectedSN)
+    );
+    if (!ownerGroup) return;
+    setExpandedGroups(prev => {
+      if (prev.has(ownerGroup.key)) return prev;
+      const next = new Set(prev);
+      next.add(ownerGroup.key);
+      return next;
+    });
+  }, [selectedSN, groupedByON]);
+
+  // [Effect 3] Stale group key cleanup — BE 데이터 변경으로 사라진 key 정리
+  useEffect(() => {
+    const validKeys = new Set(groupedByON.map(g => g.key));
+    setExpandedGroups(prev => {
+      const filtered = new Set([...prev].filter(k => validKeys.has(k)));
+      return filtered.size === prev.size ? prev : filtered;
+    });
+  }, [groupedByON]);
+
   const handleCardClick = (sn: string) => {
     setSelectedSN(prev => prev === sn ? null : sn);
   };
@@ -246,56 +307,100 @@ export default function SNStatusPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {groupedByON.map(group => (
-            <div key={group.key}>
-              {/* O/N 섹션 헤더 */}
-              {group.salesOrder && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '8px 4px', marginBottom: '12px',
-                  borderBottom: '1px solid var(--gx-mist)',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
-                      O/N {group.salesOrder}
-                    </span>
-                    <span style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>
-                      {group.model} · {group.customer}
-                      {group.lineLabel && ` · ${group.lineLabel}`}
-                      {' · '}{group.products.length}대
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '60px', height: '5px', borderRadius: '3px', background: 'var(--gx-cloud)' }}>
-                      <div style={{
-                        width: `${group.overallPercent}%`, height: '100%', borderRadius: '3px',
-                        background: group.overallPercent === 100 ? 'var(--gx-success)' : 'var(--gx-accent)',
-                        transition: 'width 0.3s ease',
-                      }} />
+          {groupedByON.map(group => {
+            const multi = group.products.length >= 2;
+            const expanded = expandedGroups.has(group.key);
+            const showCards = !multi || expanded;
+            return (
+              <div key={group.key}>
+                {/* O/N 섹션 헤더 — 다대 그룹은 클릭 가능한 대표 카드 */}
+                {group.salesOrder && (
+                  <div
+                    onClick={multi ? () => toggleGroup(group.key) : undefined}
+                    onMouseEnter={multi ? e => (e.currentTarget.style.background = 'var(--gx-mist)') : undefined}
+                    onMouseLeave={multi ? e => (e.currentTarget.style.background = 'var(--gx-white)') : undefined}
+                    role={multi ? 'button' : undefined}
+                    aria-expanded={multi ? expanded : undefined}
+                    aria-label={multi ? `O/N ${group.salesOrder} ${group.products.length}대 그룹 ${expanded ? '접기' : '펼치기'}` : undefined}
+                    tabIndex={multi ? 0 : undefined}
+                    onKeyDown={multi ? e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleGroup(group.key);
+                      }
+                    } : undefined}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: multi ? '12px 16px' : '8px 4px',
+                      marginBottom: '12px',
+                      borderBottom: multi ? 'none' : '1px solid var(--gx-mist)',
+                      ...(multi && {
+                        background: 'var(--gx-white)',
+                        borderRadius: 'var(--radius-gx-md, 10px)',
+                        boxShadow: 'var(--shadow-card)',
+                        border: '1px solid var(--gx-mist)',
+                        cursor: 'pointer',
+                        transition: 'background 0.15s ease',
+                      }),
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {multi && (expanded
+                        ? <ChevronDown size={14} style={{ color: 'var(--gx-steel)' }} />
+                        : <ChevronRight size={14} style={{ color: 'var(--gx-steel)' }} />
+                      )}
+                      <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
+                        O/N {group.salesOrder}
+                      </span>
+                      <span style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>
+                        {group.model} · {group.customer}
+                        {group.lineLabel && ` · ${group.lineLabel}`}
+                        {' · '}{group.products.length}대
+                      </span>
                     </div>
-                    <span style={{
-                      fontSize: '12px', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
-                      color: group.overallPercent === 100 ? 'var(--gx-success)' : 'var(--gx-charcoal)',
-                    }}>
-                      {group.overallPercent}%
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '60px', height: '5px', borderRadius: '3px', background: 'var(--gx-cloud)' }}>
+                        <div style={{
+                          width: `${group.overallPercent}%`, height: '100%', borderRadius: '3px',
+                          background: group.overallPercent === 100 ? 'var(--gx-success)' : 'var(--gx-accent)',
+                          transition: 'width 0.3s ease',
+                        }} />
+                      </div>
+                      <span style={{
+                        fontSize: '12px', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
+                        color: group.overallPercent === 100 ? 'var(--gx-success)' : 'var(--gx-charcoal)',
+                      }}>
+                        {group.overallPercent}%
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* SNCard 그리드 */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-                {group.products.map(p => (
-                  <SNCard
-                    key={p.serial_number}
-                    product={p}
-                    isSelected={selectedSN === p.serial_number}
-                    onClick={handleCardClick}
-                  />
-                ))}
+                {/* SNCard 그리드 — 단대거나 펼친 상태에서만 */}
+                {showCards && (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: '16px',
+                    ...(multi && expanded && {
+                      paddingLeft: '12px',
+                      borderLeft: '2px solid var(--gx-mist)',
+                      marginBottom: '16px',
+                    }),
+                  }}>
+                    {group.products.map(p => (
+                      <SNCard
+                        key={p.serial_number}
+                        product={p}
+                        isSelected={selectedSN === p.serial_number}
+                        onClick={handleCardClick}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
