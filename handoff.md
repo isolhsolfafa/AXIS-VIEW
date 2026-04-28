@@ -54,28 +54,25 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.37.0 (main 배포, 2026-04-28)
-- **최근 작업**: v1.37.0 Sprint 36 — 출하 토글 3옵션 재구조 (BE v2.4 대응, safe degrade 적용)
-- **최근 완료**: v1.37.0 (Sprint 36), v1.36.2 (REF-V-00-UTIL), v1.36.1 (UX 일관성), v1.36.0 Sprint 37, v1.35.2 HOTFIX, v1.35.1 (출하예정 매핑), v1.35.0 (Phase 2)
+- **VIEW FE**: v1.37.0 (main 배포, 2026-04-28) — BE v2.4 deploy 와 함께 'best' 옵션 자동 활성화
+- **최근 작업**: BE v2.4 deployed 확인 + R-02 BE 측 검증 완료 (Pre-deploy Gate ③ 0건)
+- **최근 완료**: BE v2.4 (2026-04-28), v1.37.0 Sprint 36, v1.36.2 (REF-V-00-UTIL), v1.36.1 (UX 일관성), v1.36.0 Sprint 37, v1.35.2 HOTFIX, v1.35.1 (출하예정 매핑), v1.35.0 (Phase 2)
 
-### 📋 v2.4 AMENDMENT 작성 완료 (2026-04-24) — OPS 작업 대기
-- **문서**: `OPS_API_REQUESTS.md` #62 v2.4 AMENDED 섹션 (~240줄 추가)
-- **토글 재설계**: 3옵션 확정 (`plan` / `actual` / `best`) — `ops` 제거
-- **`shipped_plan` AND 조건 교정** — `cs.si_completed=TRUE` → `(actual_ship_date NOT NULL OR si_shipment NOT NULL)` (OR 조건, si_completed 의존 제거)
-- **`shipped_best` 신설** — actual reality 기반 + si 우선 주간 귀속, 해석 A(si ⊆ actual) 가정
-- **`shipped_ops` 폐기** — 응답 필드 제거 (과도기 무의미 + 100% 후 중복)
-- **로드맵**: 현재 `actual` 기본값 → 2026 상반기 SI app 100% 도입 후 `best` 기본 전환
-- **R-01 accepted risk**: app SI 도입률 직접 가시성 저하 (Twin파파 합의)
-- **R-02 검증 필요**: 해석 A 가정 검증 쿼리 — BE 배포 후 72h 내 Twin파파 실행
+### ✅ v2.4 AMENDMENT — DEPLOYED (2026-04-28 확인)
+- **OPS factory.py L39~98** v2.4 코드 적용 확인 (docstring marker: `FIX-FACTORY-KPI-SHIPPED-V2.4-AMENDMENT-20260428`)
+- `_count_shipped()` 단일 함수에 `'plan' | 'actual' | 'best'` 분기 (`'ops'` else 절에서 ValueError)
+- `'plan'`: `WHERE ship_plan_date in [start, end) AND (actual_ship_date NOT NULL OR SI_SHIPMENT.completed_at NOT NULL)` — OR 조건 적용 ✅
+- `'best'`: actual_ship_date NOT NULL + 주간 귀속 si 우선 (해석 A) ✅
+- 응답 페이로드: `shipped_plan / shipped_actual / shipped_best` 3필드, `shipped_ops` 제거 ✅
+- **R-02 검증**: BE 측 "Pre-deploy Gate ③ 0건 검증 완료 (2026-04-28)" — 해석 A (si ⊆ actual) 사실 확인. Twin파파 직접 실행 면제
 
-### 🚧 OPS 측 대기 작업
-1. `factory.py` v2.4 수정:
-   - `_count_shipped_plan()` WHERE 절 OR 조건 교체
-   - `_count_shipped_best()` 신설
-   - `_count_shipped_ops()` 삭제
-   - `completion_status` JOIN 제거
-2. pytest `test_factory_kpi.py` TC-FK-08 ~ TC-FK-14 추가 (shipped_best 검증)
-3. 배포 후 R-02 검증 (해석 A 반례 존재 여부)
+### ✅ FE 측 자동 활성화 검증 (2026-04-28)
+- W18 (2026-04-27 ~ 2026-05-03) 응답: `{ shipped_plan: 22, shipped_actual: 22, shipped_best: 22 }`
+- 셋 다 22 = 운영 정합성 100% 상태 (계획대로 출하 + SI app 0% → best=actual)
+- 토글 변별력은 운영 흐트러질 때 발현:
+  - ship 지연 → plan ≠ actual
+  - SI app 도입 후 수기 actual 누락 → best > actual
+- v1.37.0 의 `'best'` 옵션이 실숫자로 정상 노출 시작 (FE 추가 작업 0)
 
 ### ✅ FE Sprint 36 (v1.37.0) 선배포 완료 (2026-04-28) — BE v2.4 대기 중
 - ✅ `api/factory.ts` `ShippedBasis` 타입: `'ops'` → `'best'` 교체
@@ -235,11 +232,10 @@
 
 > 2026-04-21 이후 Sprint 32/33 관련 BE 요청 대부분 처리됨. 실제 잔존 3건만 아래 표 유지.
 
-### 🚧 잔존 (2건)
+### 🚧 잔존 (1건)
 
 | # | 설명 | 우선순위 | 영향 |
 |---|------|:---:|------|
-| **#62 v2.4** | `shipped_plan` AND→OR 교정 + `shipped_best` 신설 + `shipped_ops` 폐기 + `completion_status` JOIN 제거 + pytest TC-FK-08~14 | 🔴 HIGH | FE Sprint 36 토글 교체 트리거 |
 | **#47** | QR 명판 인식 — qrbox 160 → 250 등 카메라 설정 보강 | 🟡 LOW | OPS FE 작업 (VIEW 무관, BACKLOG BUG-42 연동) |
 
 ### ✅ 최근 처리 완료 (2026-04-17 ~ 04-23 동안 정리됨)
@@ -260,6 +256,7 @@
 | #61 | OPS v2.9.5 | S/N task force_closed 필드 |
 | #62 v2.2 | 2026-04-23 | 원안 (FE Sprint 35 Phase 2 v1.35.0 와 동시 배포 — commit 571f8be) |
 | #62 v2.3 | 2026-04-27 확인 | factory.py L372~381 v2.10.1 패치로 deployed (WHERE 절 finishing_plan_end 복원, FE 무영향) |
+| #62 v2.4 | 2026-04-28 확인 | factory.py L39~98 deployed (`_count_shipped` 3분기 + ops 폐기 + best 신설). R-02 BE 측 Pre-deploy Gate ③ 0건 검증 완료. FE Sprint 36 v1.37.0 자동 활성화 |
 
 > 전체 목록: `OPS_API_REQUESTS.md` (#1~#62)
 > FE 태스크: `VIEW_FE_Request.md` (FE-01~FE-14)

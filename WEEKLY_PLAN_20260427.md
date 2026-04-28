@@ -11,7 +11,8 @@
 
 ```
 현재 버전 : v1.37.0 (2026-04-28, main 배포)
-최근 작업 : Sprint 36 — 출하 토글 3옵션 재구조 (BE v2.4 대응, safe degrade)
+최근 작업 : Sprint 36 + BE v2.4 양쪽 deployed → 'best' 토글 자동 활성화. R-02 BE 측 검증 완료
+출하 정합성: W18 기준 plan/actual/best 모두 22 (운영 100% 정합 + SI app 0% → best=actual)
 진행 중   : 없음
 대기 중   : OPS BE Sprint 62-BE v2.4 배포 → FE Sprint 36 토글 교체
 ```
@@ -48,8 +49,8 @@
 
 | ID | 작업 | 블로커 | 해소 시 액션 |
 |:---|:---|:---|:---|
-| ~~**FE Sprint 36**~~ | ~~출하 토글 3옵션 교체~~ | — | ✅ **v1.37.0 선배포 완료 (2026-04-28)**. BE v2.4 배포 시 자동 활성화 (FE 추가 작업 0) |
-| **R-02 검증** | 해석 A (si ⊆ actual) 반례 존재 여부 쿼리 | BE v2.4 배포 후 72h 내 | Twin파파 직접 쿼리 실행 |
+| ~~**FE Sprint 36**~~ | ~~출하 토글 3옵션 교체~~ | — | ✅ **v1.37.0 + BE v2.4 deployed 자동 활성화 (2026-04-28)** |
+| ~~**R-02 검증**~~ | ~~해석 A (si ⊆ actual) 반례 쿼리~~ | — | ✅ **BE 측 Pre-deploy Gate ③ 0건 검증 완료 (2026-04-28)** |
 | **SI-BACKFILL-01** | Teams Excel Graph API cron | "생산관리 플랫폼 신설 일정 결정" | 플랫폼 일정 확정 시 Phase 1 착수 여부 결정 |
 | **BIZ-KPI-SHIPPING-01** | 출하 이행률 위젯 | app SI 베타 100% + 데이터 2~4주 누적 | shipped_best 기반 지표 위젯 추가 |
 
@@ -63,7 +64,6 @@
 
 | # | 항목 | 우선순위 | FE 영향 | 액션 위치 |
 |:---:|:---|:---:|:---|:---|
-| **#62 v2.4** | `shipped_plan` AND→OR 교정 + `shipped_best` 신설 + `shipped_ops` 폐기 + `completion_status` JOIN 제거 + pytest TC-FK-08~14 | 🔴 HIGH | FE Sprint 36 토글 교체 트리거 | OPS factory.py + test_factory_kpi.py |
 | **#47** | QR 명판 인식 — `qrbox 160 → 250` 등 카메라 설정 보강 | 🟡 LOW | OPS FE 작업 (VIEW 무관) — BACKLOG BUG-42 연동 | OPS qr_scanner_web.dart |
 
 ### ✅ 최근 DONE 확인 (handoff.md 표가 stale → 실제로는 처리됨)
@@ -80,6 +80,8 @@
 #61 S/N task force_closed 필드          ✅ v2.9.5
 #62 v2.2 출하 3필드 + monthly-kpi      ✅ 2026-04-23 (v1.35.0 와 동시)
 #62 v2.3 weekly-kpi WHERE 절 교정      ✅ 2026-04-27 확인 (v2.10.1 패치)
+#62 v2.4 shipped_plan OR + best 신설   ✅ 2026-04-28 deployed (FE v1.37.0 자동 활성화)
+R-02   해석 A 반례 검증                  ✅ 2026-04-28 (BE Pre-deploy Gate ③ 0건)
 ```
 
 → **handoff.md 의 #18/#45/#52/#58/#59-A/B/C/#60/#61 표 정리 필요** (별도 정정 작업 BACKLOG `DOC-HANDOFF-CLEANUP` 1건 등록 가능, 30분 작업)

@@ -2,7 +2,7 @@
 
 > 세션 간 누적되는 의사결정, 버그 분석, 아키텍처 판단을 기록합니다.
 > CLAUDE.md = 프로젝트 고정 정보 / memory.md = 누적 학습 / handoff.md = 세션 인계
-> 마지막 업데이트: 2026-04-10
+> 마지막 업데이트: 2026-04-28 (ADR-V006 추가 — Sprint 36 + R-02 결과)
 
 ---
 
@@ -40,6 +40,17 @@
 - **맥락**: 사용시간(usage_minutes) 표시가 오버스펙 아닌지 검토
 - **결정**: 페이지 자체는 참고 지표로 유지, 사용시간→최근접속(last_access)으로 변경 예정
 - **이유**: 접속 현황 파악은 유용하나, 정확한 사용시간 산출은 불필요
+
+### ADR-V006: 출하 토글 3옵션 동작 검증 — 운영 정합성 100% 상태에서 토글 변별력 0 (2026-04-28)
+- **맥락**: Sprint 36 (v1.37.0) + BE Sprint 62-BE v2.4 양쪽 deployed 후 W18 (2026-04-27 ~ 2026-05-03) 응답 확인. `shipped_plan = shipped_actual = shipped_best = 22` (셋 다 동일)
+- **결정**: 정상 동작 — 버그 아님. 토글 3옵션 그대로 유지
+- **이유**:
+  - `actual = 22`: actual_ship_date 이번 주 인 S/N 22개 (단순 카운트)
+  - `plan = 22`: ship_plan_date 이번 주 + (actual NOT NULL OR si_shipment NOT NULL). 22개 actual ship 모두 ship_plan_date 도 이번 주 = 운영 정합성 100% 상태
+  - `best = 22`: actual NOT NULL + 주간 귀속 si 우선. SI app 도입 0% → si_shipment 없음 → actual 그대로 22
+  - 토글 변별력은 운영 흐트러질 때 발현: ship 지연 (plan ≠ actual) / SI 도입 후 actual 누락 (best > actual)
+- **R-02 검증 결과**: BE 측 Pre-deploy Gate ③ 0건 검증 완료 → 해석 A (si ⊆ actual) 사실 확인. Twin파파 직접 검증 면제
+- **사용자 SQL 결과 0/22/0 의 의미**: 사용자가 v2.2/v2.3 옛날 쿼리 실행 → BE 는 v2.4 새 쿼리 사용 → 결과 차이가 v2.4 deploy 의 정당성 증거 (AND 조건 무의미함을 데이터로 확인)
 
 ---
 
