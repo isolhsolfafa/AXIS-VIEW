@@ -15609,30 +15609,32 @@ const isExpanded = (g: typeof groupedByON[0]) => expandedGroups.has(g.key);
 - [x] **#2 useEffect 무한 setState 가능성** → `groupedByON` 은 useMemo 캐시 (L90 확인) + `lastProcessedSearchRef` 가드 추가
 - [x] **#3 검색-수동접기 race** → `lastProcessedSearchRef.current === currentSearch` 비교로 search 미변경 시 즉시 return
 - [x] **#4 Stale key 누적** → 별도 cleanup effect, size 비교 후 prev 참조 반환
-- [ ] 키보드 접근성: `tabIndex={0}` + Enter/Space 핸들링 정확 (구현 시 확인)
-- [ ] aria-expanded 라벨 정확 ("접기" / "펼치기")
-- [ ] 1대 O/N: 헤더 클릭해도 무동작 (`onClick={undefined}`) 의도대로 동작
-- [ ] hover 색상 토큰 (`--gx-mist`) 다른 헤더와 시각적 충돌 없는지
+- [x] 키보드 접근성: `tabIndex={0}` + Enter/Space 핸들링 정확 (구현 확인)
+- [x] aria-expanded 라벨 정확 ("접기" / "펼치기")
+- [x] ~~1대 O/N: 헤더 클릭해도 무동작~~ → **v1.36.1 정책 변경**: 1대도 클릭 토글 (UX 일관성 피드백 — `multi → hasHeader` 분기, salesOrder 있는 모든 그룹 동일 동작)
+- [x] hover 색상 토큰 (`--gx-mist`) 다른 헤더와 시각적 충돌 없음 (Twin파파 현업 확인)
 
 ### 구현 단계
 
-- [ ] `npm run build` GREEN
-- [ ] TypeScript 0 에러
-- [ ] 다대 그룹 클릭 → 인라인 펼침/접힘 부드러움 (애니메이션 없어도 OK)
-- [ ] 1대 그룹 헤더 클릭해도 펼침/접힘 안 됨 (cursor도 default)
-- [ ] 검색어 입력 → 매치 그룹 자동 펼침 확인
-- [ ] S/N 카드 클릭 → 상세 패널 열리고, 그룹이 자동 펼침 상태 유지
-- [ ] 검색 비우면 펼침 상태 유지 (수동 토글까지)
-- [ ] **검색 활성 상태에서 수동 접기 후, products refetch 발생 시 다시 펼쳐지지 않는지** (Codex #3 회귀 테스트)
-- [ ] **데이터 변경으로 사라진 O/N 의 group key 가 expandedGroups 에서 제거되는지** (Codex #4 회귀 테스트)
-- [ ] iPad 터치 환경에서 헤더 탭 시 펼침 동작
+- [x] `npm run build` GREEN (3283 modules / 2.43s, v1.36.0)
+- [x] TypeScript 0 에러 (tsc -b 통과)
+- [x] 다대 그룹 클릭 → 인라인 펼침/접힘 부드러움
+- [x] ~~1대 그룹 헤더 클릭해도 펼침/접힘 안 됨 (cursor도 default)~~ → **v1.36.1 폐기**: 1대도 토글 적용 (단대/다대 통일)
+- [x] 검색어 입력 → 매치 그룹 자동 펼침 확인 (Twin파파 현업 검증)
+- [x] S/N 카드 클릭 → 상세 패널 열리고, 그룹이 자동 펼침 상태 유지
+- [x] 검색 비우면 펼침 상태 유지 (수동 토글까지)
+- [x] **검색 활성 상태에서 수동 접기 후, products refetch 발생 시 다시 펼쳐지지 않는지** (Codex #3 회귀 테스트 통과)
+- [x] **데이터 변경으로 사라진 O/N 의 group key 가 expandedGroups 에서 제거되는지** (Codex #4 회귀 테스트 통과)
+- [x] iPad 터치 환경에서 헤더 탭 시 펼침 동작
 
 ### 배포 후 (Twin파파 현업)
 
-- [ ] 기본 뷰에서 화면 길이 축소 (4대 O/N 이 1줄로 압축됨)
-- [ ] O/N 단위 한 눈에 파악 가능 (대표 카드 = 평균 진행률 즉시 확인)
-- [ ] 자주 보는 O/N 만 펼친 상태 유지 가능
-- [ ] 검색 흐름 자연스러움 (자동 펼침으로 결과 즉시 노출)
+- [x] 기본 뷰에서 화면 길이 축소 (v1.36.1 에서 단대 그룹도 접힘으로 통일하며 더욱 압축)
+- [x] O/N 단위 한 눈에 파악 가능 (대표 카드 = 평균 진행률 즉시 확인)
+- [x] 자주 보는 O/N 만 펼친 상태 유지 가능
+- [x] 검색 흐름 자연스러움 (자동 펼침으로 결과 즉시 노출)
+
+> ✅ **Sprint 37 (v1.36.0) + v1.36.1 UX 일관성 보정 — 전체 체크리스트 완료 (2026-04-27, Twin파파 현업 검증)**
 
 ## 연계
 

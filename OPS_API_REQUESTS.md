@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-04-24 (#62 Sprint 62-BE v2.4 AMENDED — shipped_plan AND 조건 교정 + shipped_best 신설 + shipped_ops 폐기 / FE v1.35.1 배포 완료)
+> 마지막 업데이트: 2026-04-27 (#62 v2.3 ✅ DONE 확인 — OPS factory.py L372~381 v2.10.1 패치 적용 / v2.4 AMENDED 여전히 대기)
 
 ---
 
@@ -4384,7 +4384,9 @@ ORDER BY id
 
 ## 공장 대시보드 Sprint 62-BE — 주간/월간 KPI 확장 + 출하 UNION fallback + 토글 지원 (2026-04-23 등록)
 
-### #62 weekly-kpi 확장 + monthly-kpi 신설 + WHERE 절 교정 + monthly-detail 화이트리스트 — **🟡 AMENDED v2.3 (2026-04-23 원안 복원)**
+### #62 weekly-kpi 확장 + monthly-kpi 신설 + WHERE 절 교정 + monthly-detail 화이트리스트 — **✅ v2.2/v2.3 DONE (2026-04-27 확인) / 🟡 v2.4 AMENDED 대기**
+
+> ✅ v2.3 deployed 확인 (2026-04-27): OPS `backend/app/routes/factory.py` L372~381 에 v2.10.1 패치로 `WHERE p.finishing_plan_end >= %s AND p.finishing_plan_end <= %s` 적용됨. 주간 production_count 자동 변경 (50~70% 증가 예상).
 
 > ⚠️ **v2.3 교정 (2026-04-23)** — FE v2 작성 시 설계 원안(Twin파파 요구 #6)을 놓친 조항 1건 복원
 > - **교정 대상**: weekly-kpi WHERE 절 `ship_plan_date` → `finishing_plan_end` 교정 (v1 원안 복원)

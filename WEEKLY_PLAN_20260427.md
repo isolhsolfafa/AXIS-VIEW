@@ -63,7 +63,6 @@
 
 | # | 항목 | 우선순위 | FE 영향 | 액션 위치 |
 |:---:|:---|:---:|:---|:---|
-| **#62 v2.3** | `weekly-kpi` WHERE 절 `ship_plan_date → finishing_plan_end` 원안 복원 (BE factory.py L322 1줄) | 🟠 MEDIUM | FE 코드 변경 0. 주간 production_count 등 숫자 자동 변경 | OPS factory.py |
 | **#62 v2.4** | `shipped_plan` AND→OR 교정 + `shipped_best` 신설 + `shipped_ops` 폐기 + `completion_status` JOIN 제거 + pytest TC-FK-08~14 | 🔴 HIGH | FE Sprint 36 토글 교체 트리거 | OPS factory.py + test_factory_kpi.py |
 | **#47** | QR 명판 인식 — `qrbox 160 → 250` 등 카메라 설정 보강 | 🟡 LOW | OPS FE 작업 (VIEW 무관) — BACKLOG BUG-42 연동 | OPS qr_scanner_web.dart |
 
@@ -79,6 +78,8 @@
 #59 ELEC JIG 2 row 자동 생성           ✅ 2026-04-17 핫픽스
 #60 S/N task company 필드               ✅ v2.9.5
 #61 S/N task force_closed 필드          ✅ v2.9.5
+#62 v2.2 출하 3필드 + monthly-kpi      ✅ 2026-04-23 (v1.35.0 와 동시)
+#62 v2.3 weekly-kpi WHERE 절 교정      ✅ 2026-04-27 확인 (v2.10.1 패치)
 ```
 
 → **handoff.md 의 #18/#45/#52/#58/#59-A/B/C/#60/#61 표 정리 필요** (별도 정정 작업 BACKLOG `DOC-HANDOFF-CLEANUP` 1건 등록 가능, 30분 작업)
