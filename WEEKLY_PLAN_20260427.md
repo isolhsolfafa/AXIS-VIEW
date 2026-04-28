@@ -10,8 +10,8 @@
 ## 🧭 한눈에 (현재 상태)
 
 ```
-현재 버전 : v1.36.2 (2026-04-27, main 배포)
-최근 작업 : REF-V-00-UTIL — formatDate 공통 유틸 승격 (내부 정리)
+현재 버전 : v1.37.0 (2026-04-28, main 배포)
+최근 작업 : Sprint 36 — 출하 토글 3옵션 재구조 (BE v2.4 대응, safe degrade)
 진행 중   : 없음
 대기 중   : OPS BE Sprint 62-BE v2.4 배포 → FE Sprint 36 토글 교체
 ```
@@ -26,6 +26,7 @@
 
 | 일자 | 항목 | 의미 |
 |:---:|:---|:---|
+| 04-28 | **v1.37.0 Sprint 36** 출하 토글 3옵션 재구조 | `ShippedBasis` `ops → best`, `shipped_best` 응답 필드 추가, 라디오 라벨 '실시간(ops)' → '종합(best)', localStorage 마이그레이션. BE v2.4 대기 중 safe degrade ('—' 표시) |
 | 04-27 | **v1.36.2 REF-V-00-UTIL** formatDate 공통 유틸 승격 | `utils/format.ts` 에 fallback 인자 + invalid Date 가드 통합. QR/Inactive 로컬 함수 2건 제거. 사용자 화면 변화 0, REFACTOR-FMT-01 완성 |
 | 04-27 | **v1.36.1 UX 일관성** O/N 그룹 토글 단대/다대 통일 | `multi → hasHeader` 분기 변경. 1대 그룹도 클릭 토글 적용. Sprint 37 운영 피드백 즉시 반영, 424→421 LOC |
 | 04-27 | **v1.36.0 Sprint 37** S/N O/N 그룹 카드 인라인 토글 | 다대 그룹 헤더 클릭 펼침/접힘 + 검색·상세 자동 펼침(race 방지) + stale key cleanup. BE 의존 0, `SNStatusPage.tsx` 단일 파일 319→424 LOC. Codex 1+2차 5건 전건 반영 |
@@ -47,8 +48,7 @@
 
 | ID | 작업 | 블로커 | 해소 시 액션 |
 |:---|:---|:---|:---|
-| **FE Sprint 36** | 출하 토글 3옵션 교체 (`plan`/`actual`/`best`) | OPS BE Sprint 62-BE v2.4 배포 | `api/factory.ts` ShippedBasis 타입 변경 + `pickShipped()` best 분기 + Settings Panel 라벨. 1~2h |
-| **62-BE v2.3** | weekly-kpi WHERE 절 1줄 교정 | OPS 작업 | FE 코드 변경 0 (자동 반영) |
+| ~~**FE Sprint 36**~~ | ~~출하 토글 3옵션 교체~~ | — | ✅ **v1.37.0 선배포 완료 (2026-04-28)**. BE v2.4 배포 시 자동 활성화 (FE 추가 작업 0) |
 | **R-02 검증** | 해석 A (si ⊆ actual) 반례 존재 여부 쿼리 | BE v2.4 배포 후 72h 내 | Twin파파 직접 쿼리 실행 |
 | **SI-BACKFILL-01** | Teams Excel Graph API cron | "생산관리 플랫폼 신설 일정 결정" | 플랫폼 일정 확정 시 Phase 1 착수 여부 결정 |
 | **BIZ-KPI-SHIPPING-01** | 출하 이행률 위젯 | app SI 베타 100% + 데이터 2~4주 누적 | shipped_best 기반 지표 위젯 추가 |

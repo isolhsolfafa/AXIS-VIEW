@@ -54,9 +54,9 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.36.2 (main 배포, 2026-04-27)
-- **최근 작업**: v1.36.2 REF-V-00-UTIL — formatDate 공통 유틸 승격 (REFACTOR-FMT-01 완성)
-- **최근 완료**: v1.36.2 (REF-V-00-UTIL), v1.36.1 (UX 일관성), v1.36.0 Sprint 37, v1.35.2 HOTFIX, v1.35.1 (출하예정 매핑), v1.35.0 (Phase 2), OPS_API_REQUESTS #62 v2.4 AMENDED
+- **VIEW FE**: v1.37.0 (main 배포, 2026-04-28)
+- **최근 작업**: v1.37.0 Sprint 36 — 출하 토글 3옵션 재구조 (BE v2.4 대응, safe degrade 적용)
+- **최근 완료**: v1.37.0 (Sprint 36), v1.36.2 (REF-V-00-UTIL), v1.36.1 (UX 일관성), v1.36.0 Sprint 37, v1.35.2 HOTFIX, v1.35.1 (출하예정 매핑), v1.35.0 (Phase 2)
 
 ### 📋 v2.4 AMENDMENT 작성 완료 (2026-04-24) — OPS 작업 대기
 - **문서**: `OPS_API_REQUESTS.md` #62 v2.4 AMENDED 섹션 (~240줄 추가)
@@ -77,12 +77,14 @@
 2. pytest `test_factory_kpi.py` TC-FK-08 ~ TC-FK-14 추가 (shipped_best 검증)
 3. 배포 후 R-02 검증 (해석 A 반례 존재 여부)
 
-### 🔜 FE Sprint 36 대기 (BE v2.4 배포 완료 후)
-- `api/factory.ts` `ShippedBasis` 타입: `'plan'|'actual'|'ops'` → `'plan'|'actual'|'best'`
-- `WeeklyKpiResponse`/`MonthlyKpiResponse` 에 `shipped_best` 추가, `shipped_ops` 제거
-- `KpiSwipeDeck.tsx` `pickShipped()` best 분기 추가
-- `FactoryDashboardSettingsPanel.tsx` 라디오 옵션 라벨 (종합/best)
-- **안전 degrade**: FE 미배포 상태에서도 BE가 `shipped_ops` 필드 빼더라도 현 v1.35.1은 `undefined → "—"` 표시로 crash 없음
+### ✅ FE Sprint 36 (v1.37.0) 선배포 완료 (2026-04-28) — BE v2.4 대기 중
+- ✅ `api/factory.ts` `ShippedBasis` 타입: `'ops'` → `'best'` 교체
+- ✅ `WeeklyKpiResponse` / `MonthlyKpiResponse` 에 `shipped_best?` 추가, `shipped_ops?` 폐기 표시 (호환용 잔존)
+- ✅ `KpiSwipeDeck.tsx` `pickShipped()` best 분기 추가, basisLabel 갱신
+- ✅ `FactoryDashboardSettingsPanel.tsx` 라디오 라벨 '실시간(ops)' → '종합(best)'
+- ✅ `FactoryDashboardPage.tsx` localStorage 'ops' → 'actual' 자동 마이그레이션
+- **안전 degrade 동작 확인**: BE v2.4 미배포 동안 'best' 선택 시 `undefined → '—'` 표시 (crash 없음). 기본값 'actual' 유지로 일반 사용자 체감 변화 없음
+- **BE v2.4 배포 시 자동 활성화**: FE 추가 작업 0, 'best' 옵션이 즉시 실숫자 노출 시작
 
 ### 📌 관련 BACKLOG 신규
 - **SI-BACKFILL-01** (🟡 LOW, 2026-04-24 등록): app si_shipment → Teams Excel Graph API cron 스크립트. Phase 0~3 단계적 구조 명문화. "생산관리 플랫폼 선행" 블로커.

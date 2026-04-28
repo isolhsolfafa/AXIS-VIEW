@@ -1,8 +1,8 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.36.2';
-export const BUILD_DATE = '2026-04-27';
+export const APP_VERSION = 'v1.37.0';
+export const BUILD_DATE = '2026-04-28';
 
 // 버전 이력
 // v1.0.0 | 2026-03-06 | Sprint 1~3     | 초기 릴리스 (로그인, 출퇴근 대시보드, 실 API 연동)
@@ -66,3 +66,4 @@ export const BUILD_DATE = '2026-04-27';
 // v1.36.0| 2026-04-27 | Sprint 37        | S/N 작업 현황 O/N 그룹 카드 인라인 토글 — 다대(2대+) 그룹 헤더 클릭 펼침/접힘 + 검색 자동 펼침(lastProcessedSearchRef race 방지) + 상세패널 자동 펼침 + stale key cleanup. BE 의존 0, SNStatusPage.tsx 단일 파일 (319→424 LOC). Codex 1차 4건+2차 1건 전건 반영
 // v1.36.1| 2026-04-27 | UX 일관성        | O/N 그룹 토글 통일 — 단대/다대 분기 제거. salesOrder 있는 모든 그룹이 동일하게 클릭 토글 (Sprint 37 운영 후 일관성 피드백 반영). multi → hasHeader 변경, SNStatusPage.tsx 424→421 LOC
 // v1.36.2| 2026-04-27 | REF-V-00-UTIL    | formatDate 공통 유틸 승격 (REFACTOR-FMT-01 완성) — utils/format.ts 에 fallback 인자 + invalid Date 가드 통합. QrManagementPage / InactiveWorkersPage 로컬 함수 2건 제거. 사용자 화면 변화 0 (순수 내부 정리)
+// v1.37.0| 2026-04-28 | Sprint 36        | 출하 토글 3옵션 재구조 (BE Sprint 62-BE v2.4 대응) — ShippedBasis: 'ops' → 'best' 교체. shipped_best 필드 추가, shipped_ops 폐기 표시. SettingsPanel 라디오 라벨 '실시간(ops)' → '종합(best)'. localStorage 'ops' 저장값 → 'actual' 마이그레이션. BE 미배포 동안 'best' 선택 시 undefined → '—' 표시 (안전 degrade)

@@ -81,9 +81,11 @@ export default function FactoryDashboardPage() {
   const [period, setPeriod] = useState<'weekly' | 'monthly'>('weekly');
 
   // v1.35.0 Phase 2: 출하 완료 / 월간 생산량 기준 토글 (localStorage 저장)
+  // v1.37.0 Sprint 36 (BE v2.4): 'ops' 폐기, 'best' 신설. 기존 'ops' 저장값 → 'actual' 마이그레이션
   const [shippedBasis, setShippedBasis] = useState<ShippedBasis>(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem(LS_SHIPPED_BASIS) : null;
-    return (saved === 'plan' || saved === 'ops' || saved === 'actual') ? saved : 'actual';
+    if (saved === 'ops') return 'actual'; // 폐기된 옵션 → 기본값으로 마이그레이션
+    return (saved === 'plan' || saved === 'best' || saved === 'actual') ? saved : 'actual';
   });
   const [monthlyDateField, setMonthlyDateField] = useState<MonthlyKpiDateField>(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem(LS_MONTHLY_DATE_FIELD) : null;

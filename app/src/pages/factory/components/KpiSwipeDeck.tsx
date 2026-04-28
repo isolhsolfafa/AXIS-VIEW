@@ -15,17 +15,18 @@ export interface KpiSwipeDeckProps {
   weeklyLoading?: boolean;
   monthlyLoading?: boolean;
   autoSwipeInterval?: number;  // v1.34.5: 자동 전환 간격(ms). 0/undefined면 비활성
-  shippedBasis?: ShippedBasis; // v1.35.0: 출하 완료 기준 (기본 'actual')
+  shippedBasis?: ShippedBasis; // v1.35.0/v1.37.0: 출하 완료 기준 (기본 'actual')
 }
 
-// BE v2.2 3필드 중 선택
+// BE v2.4 3필드 중 선택 (ops 폐기, best 신설)
+// 안전 degrade: BE 미배포(v2.2/v2.3) 상태에서 'best' 선택 시 undefined → '—' 표시
 function pickShipped(
   data: WeeklyKpiResponse | MonthlyKpiResponse | undefined,
   basis: ShippedBasis,
 ): number | undefined {
   if (!data) return undefined;
   if (basis === 'plan')   return data.shipped_plan;
-  if (basis === 'ops')    return data.shipped_ops;
+  if (basis === 'best')   return data.shipped_best;
   return data.shipped_actual; // 기본 'actual'
 }
 
@@ -60,7 +61,7 @@ export default function KpiSwipeDeck({
     boxSizing: 'border-box',
   };
 
-  const basisLabel = shippedBasis === 'plan' ? '계획' : shippedBasis === 'ops' ? '실시간' : '실적';
+  const basisLabel = shippedBasis === 'plan' ? '계획' : shippedBasis === 'best' ? '종합' : '실적';
 
   return (
     <div style={{ marginBottom: '24px' }}>

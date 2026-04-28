@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.36.2 (2026-04-27)
+> 최신 버전: v1.37.0 (2026-04-28)
 
 ---
 
@@ -70,6 +70,47 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.37.0 — 2026-04-28
+
+**Sprint 36 — 공장 대시보드 출하 토글 3옵션 재구조 (BE Sprint 62-BE v2.4 대응)**
+
+### 배경
+- v1.35.0(Phase 2) 의 출하 토글 3옵션 `plan / actual / ops` 운영 후 발견된 이슈:
+  - `shipped_plan` AND 조건이 너무 엄격 → 거의 0 표시
+  - `shipped_ops` 가 app SI 베타 100% 전까지 무의미
+  - 정합성 100% 도달 후 actual / ops 가 동일해질 예정 → 중복
+- BE Sprint 62-BE v2.4 AMENDED 로 재구조: `ops` 폐기, `best` 신설, `plan` AND→OR 교정
+
+### 변경
+- **ShippedBasis 타입**: `'plan' | 'actual' | 'ops'` → `'plan' | 'actual' | 'best'`
+- **응답 필드**:
+  - `shipped_best?: number` 추가 (v2.4 신설)
+  - `shipped_ops?: number` 폐기 표시 (BE 미배포 동안 fallback 호환용으로 optional 유지)
+  - `shipped_plan` 동일 키지만 BE 측 OR 조건으로 교정됨 (FE 코드 무관)
+- **`pickShipped()` 헬퍼**: `'ops'` 분기 제거, `'best'` 분기 추가
+- **`FactoryDashboardSettingsPanel` 라디오 라벨**:
+  - 기존: 실적(actual) / 계획(plan) / 실시간(ops)
+  - 신규: 실적(actual, 기본) / 계획(plan) / 종합(best)
+- **localStorage 마이그레이션**: 기존 `'ops'` 저장값 자동 → `'actual'` (사용자 재선택 불필요)
+- **basisLabel** (KpiSwipeDeck): `'실시간'` → `'종합'`
+
+### 안전 degrade — BE v2.4 미배포 동안
+- `shipped_best` 가 응답에 없음 → `pickShipped()` undefined → `'—'` 표시 (crash 없음)
+- 기본값 `'actual'` 유지 → 일반 사용자는 변화 체감 없음
+- "종합" 옵션 선택 시에만 임시로 `'—'` 노출
+- BE v2.4 배포 시점에 자동으로 실숫자 표시 시작 (FE 추가 작업 0)
+
+### 영향
+- BE v2.4 배포 전: 사용자 체감 변화 미미 (기본값 actual, 종합 옵션만 '—')
+- BE v2.4 배포 후: "종합" 옵션 클릭 시 actual + si 통합 카운트 노출
+- 빌드 영향: 신규 의존성 0 (3283 modules 동일, 2.41s)
+- 회귀: vitest 30개 테스트 PASS
+
+### 후속
+- BE v2.4 배포 알림 시 R-02 검증 쿼리 실행 (Twin파파, 72h 내) — 해석 A (si ⊆ actual) 반례 존재 여부
 
 ---
 

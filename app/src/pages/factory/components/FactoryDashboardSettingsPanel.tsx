@@ -15,10 +15,11 @@ export interface FactoryDashboardSettingsPanelProps {
   onMonthlyDateFieldChange: (v: MonthlyKpiDateField) => void;
 }
 
+// Sprint 36 (v1.37.0, BE v2.4 대응): ops 옵션 폐기, best 옵션 신설
 const SHIPPED_OPTIONS: Array<{ value: ShippedBasis; label: string; desc: string }> = [
-  { value: 'actual', label: '실적 (기본)', desc: 'actual_ship_date — ETL 실적 데이터' },
-  { value: 'plan',   label: '계획',        desc: 'ship_plan_date + si_completed — 계획 범위 내 완료분' },
-  { value: 'ops',    label: '실시간',      desc: 'SI_SHIPMENT app — 베타 100% 전까진 loss 가능' },
+  { value: 'actual', label: '실적 (기본)', desc: 'actual_ship_date — 수기 실적 데이터' },
+  { value: 'plan',   label: '계획',        desc: 'ship_plan_date + (actual OR si_shipment) — 계획 범위 내 완료분 (v2.4 OR 조건)' },
+  { value: 'best',   label: '종합',        desc: 'actual + si 통합 (해석 A) — 정합성 100% 도달 후 기본값 전환 예정' },
 ];
 
 const MONTHLY_FIELD_OPTIONS: Array<{ value: MonthlyKpiDateField; label: string; desc: string }> = [

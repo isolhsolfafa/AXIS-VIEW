@@ -15,8 +15,12 @@ export interface MonthlyDetailParams {
 // Sprint 35 Phase 2 (v1.35.0): monthly-kpi 전용 4옵션 (pi_start 제외, BE _MONTHLY_KPI_DATE_FIELDS와 정합)
 export type MonthlyKpiDateField = 'mech_start' | 'finishing_plan_end' | 'ship_plan_date' | 'actual_ship_date';
 
-// Sprint 35 Phase 2: 출하 완료 기준 3옵션 (BE v2.2 shipped_plan/actual/ops에 대응)
-export type ShippedBasis = 'plan' | 'actual' | 'ops';
+// Sprint 36 (v1.37.0, BE v2.4 대응): 출하 완료 기준 3옵션 재구조
+// - 'plan'   : ship_plan_date + (actual_ship_date OR si_shipment) 기준 (v2.4 OR 조건 교정)
+// - 'actual' : actual_ship_date 기준 (FE 기본값, 현 상반기)
+// - 'best'   : actual + si 통합 (해석 A: si ⊆ actual 가정, 정합성 100% 후 기본값 예정)
+// - 'ops'    : ⚠️ v2.4 에서 폐기 — backward compat 무관, 토큰 자체 제거
+export type ShippedBasis = 'plan' | 'actual' | 'best';
 
 export interface CompletionStatus {
   mech: boolean;
@@ -106,10 +110,11 @@ export interface WeeklyKpiResponse {
     si: number;
     shipped: number;           // ⚠️ deprecated — Sprint 35부터 FE 사용 금지 (backward compat 유지용)
   };
-  // Sprint 62-BE v2.2 (3필드, shipped_count UNION 폐기)
-  shipped_plan?: number;       // ship_plan_date + si_completed 기준 (주간 범위 전체)
-  shipped_actual?: number;     // actual_ship_date 기준 (FE 기본값)
-  shipped_ops?: number;        // SI_SHIPMENT.completed_at 기준 (app 실시간, 베타 100% 전까진 loss 가능)
+  // Sprint 62-BE v2.4 (3필드 재구조, ops 폐기)
+  shipped_plan?: number;       // v2.4: ship_plan_date + (actual OR si_shipment) OR 조건 (교정)
+  shipped_actual?: number;     // actual_ship_date 기준 (FE 기본값, 변동 없음)
+  shipped_best?: number;       // v2.4 신설: actual + si 통합 (해석 A 기반)
+  shipped_ops?: number;        // ⚠️ v2.4 에서 폐기 예정 — BE 미배포 동안 fallback 호환용으로 optional 유지
   defect_count?: number | null; // QMS 미연동 동안 null
 }
 
@@ -125,10 +130,11 @@ export interface MonthlyKpiResponse {
   month_range: { start: string; end: string };
   date_field_used?: MonthlyKpiDateField; // Phase 2 (v2.2): 클라이언트 토글 검증용
   production_count: number;            // date_field 기준 COUNT
-  // Sprint 62-BE v2.2 출하 3필드 (shipped_count UNION 폐기)
+  // Sprint 62-BE v2.4 출하 3필드 (ops 폐기, best 신설)
   shipped_plan?: number;
   shipped_actual?: number;
-  shipped_ops?: number;
+  shipped_best?: number;       // v2.4 신설
+  shipped_ops?: number;        // ⚠️ v2.4 에서 폐기 — BE 미배포 동안 fallback 호환용
   defect_count?: number | null;
   // by_model 미포함 — 월간 차트는 monthly-detail 엔드포인트 재활용
 }
