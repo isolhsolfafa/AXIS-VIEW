@@ -15268,6 +15268,56 @@ export interface MonthlyKpiParams {
 
 ---
 
+## Phase 2 후속 — Sprint 36 (v1.37.0): 출하 토글 3옵션 재구조 (BE Sprint 62-BE v2.4 대응)
+
+> 등록일: 2026-04-28 | 상태: ✅ FE 선배포 완료 (BE v2.4 대기 중, safe degrade 적용)
+> 트리거: v1.35.0 운영 후 발견된 3가지 이슈 → BE v2.4 AMENDMENT 작성 → FE 측 라벨/타입 교체
+> 버전: v1.36.2 → **v1.37.0** (MINOR — 신기능 옵션 추가: 종합/best)
+
+### 운영 후 발견 이슈 (3건)
+
+| # | 이슈 | 영향 |
+|---|------|------|
+| 1 | `shipped_plan` AND 조건 너무 엄격 → 거의 0 표시 | "계획" 토글 무의미 |
+| 2 | `shipped_ops` 가 app SI 베타 100% 전까지 무의미 (도입률 낮음) | "실시간" 토글 가치 낮음 |
+| 3 | 정합성 100% 도달 후 `actual` / `ops` 동일해질 예정 | 중복 옵션 |
+
+### 변경 범위 (5개 파일, 순 증분 ~30 LOC)
+
+| # | 파일 | 변경 |
+|---|---|---|
+| 1 | `api/factory.ts` | `ShippedBasis` 타입 `'plan' \| 'actual' \| 'ops'` → `'plan' \| 'actual' \| 'best'`. `shipped_best?` 응답 필드 추가, `shipped_ops?` 폐기 표시 (BE 미배포 동안 호환용 optional 유지) |
+| 2 | `KpiSwipeDeck.tsx` | `pickShipped()` `'ops'` 분기 제거, `'best'` 분기 추가. `basisLabel` `'실시간'` → `'종합'` |
+| 3 | `FactoryDashboardSettingsPanel.tsx` | 라디오 옵션 `실시간(ops)` → `종합(best)`. 설명 텍스트 v2.4 OR 조건 / 해석 A 반영 |
+| 4 | `FactoryDashboardPage.tsx` | localStorage `'ops'` 저장값 → `'actual'` 자동 마이그레이션 |
+| 5 | `version.ts` / CHANGELOG / handoff / CLAUDE / WEEKLY_PLAN | v1.37.0 릴리스 기록 |
+
+### 안전 degrade (BE v2.4 미배포 동안)
+
+```
+사용자 액션          현재 (BE v2.2/v2.3 deployed)    BE v2.4 배포 후
+─────────────────────────────────────────────────────────────────────
+'실적' (기본)         shipped_actual 정상 숫자          동일 (변동 없음)
+'계획'                shipped_plan (AND 조건, 거의 0)   shipped_plan (OR 조건 교정)
+'종합'                shipped_best 응답 없음 → '—'      shipped_best 정상 숫자 (자동 활성화)
+기존 'ops' 사용자     'actual' 로 자동 마이그레이션      동일
+```
+
+### 판정 기준 (Sprint 36 종료)
+
+- ✅ FE 빌드 GREEN (3283 modules / 2.41s)
+- ✅ TypeScript 0 에러 (KpiSwipeDeck L64 잔존 'ops' 비교 1건 발견 즉시 수정)
+- ✅ vitest 30 tests PASS
+- ✅ v1.37.0 릴리스 (commit fd1cd6a, tag v1.37.0)
+- 🟡 BE v2.4 배포 후 R-02 검증 (Twin파파 직접, 72h 내)
+- 🟡 사용자 검증: 토글 변경 시 카드 숫자 변화 / basisLabel 갱신 확인
+
+### 연계
+- BE: `OPS_API_REQUESTS.md` #62 v2.4 AMENDMENT (BE 작업 대기)
+- 후속: R-02 검증 결과 → `memory.md` ADR 1행 + 정합성 100% 도달 시 기본값 `'best'` 전환 검토
+
+---
+
 # Sprint 37 — S/N 작업 현황 O/N 그룹 카드 토글 (인라인 확장) (2026-04-28 등록, 🟢 Codex 1차+2차 검증 반영, 구현 착수 승인)
 
 > 등록일: 2026-04-28 | 상태: **Codex 1차 4건 + 2차 미세 보정 1건 반영 (2026-04-28)** → 구현 착수 승인

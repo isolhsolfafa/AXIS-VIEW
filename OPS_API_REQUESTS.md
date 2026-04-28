@@ -2,7 +2,7 @@
 
 > AXIS-VIEW FE 개발 중 AXIS-OPS BE에 필요한 엔드포인트/수정 사항을 관리합니다.
 > AXIS-VIEW는 BE 코드 수정 금지 — 이 문서로 요청 전달.
-> 마지막 업데이트: 2026-04-27 (#62 v2.3 ✅ DONE 확인 — OPS factory.py L372~381 v2.10.1 패치 적용 / v2.4 AMENDED 여전히 대기)
+> 마지막 업데이트: 2026-04-28 (FE Sprint 36 v1.37.0 선배포 완료 — ShippedBasis ops→best 교체 + safe degrade. BE v2.4 배포 시 자동 활성화)
 
 ---
 
@@ -4421,7 +4421,7 @@ ORDER BY id
 
 **연관 Sprint**:
 - VIEW FE Sprint 35 (v1.34.4 배포 완료, BE 미배포 상태로 v1.34.2~3 TEMP-HARDCODE 임시 운영 중)
-- VIEW FE Sprint 36 (예정) — 공장 대시보드 옵션 토글 (출하 완료 / 월간 생산량 기준)
+- VIEW FE Sprint 36 (✅ v1.37.0 선배포 완료, 2026-04-28) — ShippedBasis 'ops' → 'best' 교체 + safe degrade ('best' 선택 시 BE 미배포 동안 '—' 표시)
 - OPS BE `AGENT_TEAM_LAUNCH.md` "Sprint 62-BE v2.2" → ✅ 합의 완료 (FE 측 Sprint 35 Phase 2 통합)
 
 **심각도**: 🟡 MEDIUM — 공장 대시보드 주간 KPI 라벨/기준 drift + 월간 생산량·출하 엔드포인트 부재
