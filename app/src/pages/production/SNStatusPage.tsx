@@ -308,47 +308,44 @@ export default function SNStatusPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {groupedByON.map(group => {
-            const multi = group.products.length >= 2;
+            // v1.36.1: O/N 그룹 통일 토글 — salesOrder 있는 모든 그룹(단대/다대) 동일하게 클릭 토글
+            // O/N 없음 그룹(`_no_on_{sn}`)은 헤더 자체가 없어 토글 대상 아님 → 항상 노출
+            const hasHeader = !!group.salesOrder;
             const expanded = expandedGroups.has(group.key);
-            const showCards = !multi || expanded;
+            const showCards = !hasHeader || expanded;
             return (
               <div key={group.key}>
-                {/* O/N 섹션 헤더 — 다대 그룹은 클릭 가능한 대표 카드 */}
-                {group.salesOrder && (
+                {hasHeader && (
                   <div
-                    onClick={multi ? () => toggleGroup(group.key) : undefined}
-                    onMouseEnter={multi ? e => (e.currentTarget.style.background = 'var(--gx-mist)') : undefined}
-                    onMouseLeave={multi ? e => (e.currentTarget.style.background = 'var(--gx-white)') : undefined}
-                    role={multi ? 'button' : undefined}
-                    aria-expanded={multi ? expanded : undefined}
-                    aria-label={multi ? `O/N ${group.salesOrder} ${group.products.length}대 그룹 ${expanded ? '접기' : '펼치기'}` : undefined}
-                    tabIndex={multi ? 0 : undefined}
-                    onKeyDown={multi ? e => {
+                    onClick={() => toggleGroup(group.key)}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--gx-mist)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'var(--gx-white)')}
+                    role="button"
+                    aria-expanded={expanded}
+                    aria-label={`O/N ${group.salesOrder} ${group.products.length}대 그룹 ${expanded ? '접기' : '펼치기'}`}
+                    tabIndex={0}
+                    onKeyDown={e => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         toggleGroup(group.key);
                       }
-                    } : undefined}
+                    }}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: multi ? '12px 16px' : '8px 4px',
-                      marginBottom: '12px',
-                      borderBottom: multi ? 'none' : '1px solid var(--gx-mist)',
-                      ...(multi && {
-                        background: 'var(--gx-white)',
-                        borderRadius: 'var(--radius-gx-md, 10px)',
-                        boxShadow: 'var(--shadow-card)',
-                        border: '1px solid var(--gx-mist)',
-                        cursor: 'pointer',
-                        transition: 'background 0.15s ease',
-                      }),
+                      padding: '12px 16px', marginBottom: '12px',
+                      background: 'var(--gx-white)',
+                      borderRadius: 'var(--radius-gx-md, 10px)',
+                      boxShadow: 'var(--shadow-card)',
+                      border: '1px solid var(--gx-mist)',
+                      cursor: 'pointer',
+                      transition: 'background 0.15s ease',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {multi && (expanded
+                      {expanded
                         ? <ChevronDown size={14} style={{ color: 'var(--gx-steel)' }} />
                         : <ChevronRight size={14} style={{ color: 'var(--gx-steel)' }} />
-                      )}
+                      }
                       <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)' }}>
                         O/N {group.salesOrder}
                       </span>
@@ -376,13 +373,13 @@ export default function SNStatusPage() {
                   </div>
                 )}
 
-                {/* SNCard 그리드 — 단대거나 펼친 상태에서만 */}
+                {/* SNCard 그리드 — 헤더 없거나 펼친 상태에서만 */}
                 {showCards && (
                   <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
                     gap: '16px',
-                    ...(multi && expanded && {
+                    ...(hasHeader && expanded && {
                       paddingLeft: '12px',
                       borderLeft: '2px solid var(--gx-mist)',
                       marginBottom: '16px',

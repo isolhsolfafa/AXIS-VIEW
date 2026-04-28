@@ -10,8 +10,8 @@
 ## 🧭 한눈에 (현재 상태)
 
 ```
-현재 버전 : v1.36.0 (2026-04-27, main 배포)
-최근 작업 : Sprint 37 — S/N O/N 그룹 카드 인라인 토글
+현재 버전 : v1.36.1 (2026-04-27, main 배포)
+최근 작업 : UX 일관성 — O/N 그룹 토글 단대/다대 통일
 진행 중   : 없음
 대기 중   : OPS BE Sprint 62-BE v2.4 배포 → FE Sprint 36 토글 교체
 ```
@@ -26,6 +26,7 @@
 
 | 일자 | 항목 | 의미 |
 |:---:|:---|:---|
+| 04-27 | **v1.36.1 UX 일관성** O/N 그룹 토글 단대/다대 통일 | `multi → hasHeader` 분기 변경. 1대 그룹도 클릭 토글 적용. Sprint 37 운영 피드백 즉시 반영, 424→421 LOC |
 | 04-27 | **v1.36.0 Sprint 37** S/N O/N 그룹 카드 인라인 토글 | 다대 그룹 헤더 클릭 펼침/접힘 + 검색·상세 자동 펼침(race 방지) + stale key cleanup. BE 의존 0, `SNStatusPage.tsx` 단일 파일 319→424 LOC. Codex 1+2차 5건 전건 반영 |
 | 04-25 | **v1.35.2 HOTFIX** 체크리스트 관리 협력사 읽기 전용 | `canEdit = is_admin \|\| company==='GST'` 게이트 추가. 협력사 manager는 조회만, 편집 UI 전부 disabled + 툴팁 |
 | 04-24 | **v1.35.1 HOTFIX** 출하예정 컬럼 매핑 정정 | v1.7.0(2026-03-16)부터 `finishing_plan_end` 잘못 참조 → `ship_plan_date` 로 교정 (1줄 fix) |

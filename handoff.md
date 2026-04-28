@@ -54,9 +54,9 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.36.0 (main 배포, 2026-04-27)
-- **최근 작업**: Sprint 37 — S/N 작업 현황 O/N 그룹 카드 인라인 토글 (BE 의존 0, SNStatusPage.tsx 단일 파일, Codex 1+2차 5건 전건 반영)
-- **최근 완료**: v1.36.0 Sprint 37 (O/N 그룹 토글), v1.35.2 HOTFIX (협력사 읽기 전용), v1.35.1 (출하예정 컬럼 매핑), v1.35.0 (Phase 2), OPS_API_REQUESTS #62 v2.4 AMENDED
+- **VIEW FE**: v1.36.1 (main 배포, 2026-04-27)
+- **최근 작업**: v1.36.1 UX 일관성 — O/N 그룹 토글 단대/다대 통일 (multi → hasHeader)
+- **최근 완료**: v1.36.1 (UX 일관성), v1.36.0 Sprint 37 (O/N 그룹 토글), v1.35.2 HOTFIX (협력사 읽기 전용), v1.35.1 (출하예정 컬럼 매핑), v1.35.0 (Phase 2), OPS_API_REQUESTS #62 v2.4 AMENDED
 
 ### 📋 v2.4 AMENDMENT 작성 완료 (2026-04-24) — OPS 작업 대기
 - **문서**: `OPS_API_REQUESTS.md` #62 v2.4 AMENDED 섹션 (~240줄 추가)

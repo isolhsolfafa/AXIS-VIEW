@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-04-27 | 버전: v1.36.0
+> 최종 갱신: 2026-04-27 | 버전: v1.36.1
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -769,6 +769,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | Sprint 36 (FE) | BE v2.4 배포 후 FE 3옵션 토글 교체 — `api/factory.ts` ShippedBasis 타입 변경 + pickShipped() best 분기 + FactoryDashboardSettingsPanel 라디오 라벨 갱신. 안전 degrade 설계 (BE 배포 전 undefined 처리) | 🟡 BE v2.4 대기 |
 | HOTFIX v1.35.2 | 체크리스트 관리 페이지 협력사(비-GST) 읽기 전용 — `canEdit = is_admin \|\| company==='GST'` 게이트 (추가·편집·토글·설정 차단 + 툴팁) (ChecklistManagePage + ChecklistTable, 2026-04-25) | ✅ 완료 |
 | Sprint 37 (v1.36.0) | S/N 작업 현황 O/N 그룹 카드 인라인 토글 — 다대(2대+) 헤더 클릭 펼침/접힘 + 검색·상세 자동 펼침(`lastProcessedSearchRef` race 방지) + stale key cleanup. BE 의존 0, `SNStatusPage.tsx` 단일 파일 319→424 LOC, Codex 1차 4건 + 2차 1건 전건 반영, 2026-04-27 | ✅ 완료 |
+| UX 일관성 v1.36.1 | O/N 그룹 토글 통일 — 단대/다대 분기 제거. salesOrder 있는 모든 그룹 동일하게 클릭 토글 (`multi → hasHeader`). Sprint 37 운영 피드백 반영, 424→421 LOC, 2026-04-27 | ✅ 완료 |
 
 ### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)
 
