@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.36.1 (2026-04-27)
+> 최신 버전: v1.36.2 (2026-04-27)
 
 ---
 
@@ -70,6 +70,36 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.36.2 — 2026-04-27
+
+**REF-V-00-UTIL — formatDate 공통 유틸 승격 (REFACTOR-FMT-01 완성)**
+
+> 사용자 화면 변화 없음 — 순수 내부 코드 정리.
+
+### 배경
+- `formatDate` 가 QrManagementPage / InactiveWorkersPage 양쪽에 중복 (fallback 만 다름: '—' / '없음')
+- v1.32.0 의 `formatDateTime` 승격 후속 작업 (REFACTOR-FMT-01 의 마지막 1단계)
+
+### 변경
+- `utils/format.ts` 에 `formatDate(iso, options?)` 공통 함수 추가
+  - `options.fallback` (기본 '—') — 페이지별 표시값 차이 흡수
+  - invalid Date 가드 (`isNaN(d.getTime())`) — NaN 입력 안전 처리
+- `formatDateTime` 에도 동일한 invalid Date 가드 추가 (일관성)
+- QrManagementPage / InactiveWorkersPage 의 로컬 `formatDate` 2건 제거 + import 교체
+- InactiveWorkersPage 호출부에 `{ fallback: '없음' }` 명시적 전달
+
+### 영향
+- 화면 출력 변화 없음 (입출력 동일)
+- BE API 변경 없음
+- LOC: QrManagementPage -10, InactiveWorkersPage -5, format.ts +20 (옵션/가드 추가 비용)
+- 빌드 영향: 신규 의존성 0 (3283 modules 동일, 2.33s)
+- 회귀: vitest 30개 테스트 PASS
+
+### 후속
+- 다음 리팩토링 Sprint(REF-V-01/02) 부터는 `formatDate` 추가 복제 발생 안 함 (단일 출처)
 
 ---
 

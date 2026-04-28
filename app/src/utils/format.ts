@@ -22,15 +22,35 @@ export function maskName(name: string): string {
  * null/undefined 입력 시 '—' 반환.
  *
  * 2026-04-17: FE-19(HOTFIX-04 연계) 착수 전제로 `ChecklistReportView.tsx` L25 로컬 함수에서 승격 (Codex 지적 #1 옵션 A 채택).
- * TODO(TECH-REFACTOR-FMT-01): `formatDate` 2건(QrManagementPage / InactiveWorkersPage) + fallback 인자 옵션 + invalid Date 가드 일괄 보강 예정.
  */
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   const hh = String(d.getHours()).padStart(2, '0');
   const mi = String(d.getMinutes()).padStart(2, '0');
   return `${y}-${m}-${dd} ${hh}:${mi}`;
+}
+
+/**
+ * ISO 8601 → `YYYY-MM-DD` (로컬 타임존, 시간 생략)
+ *
+ * 2026-04-27: REF-V-00-UTIL — QrManagementPage / InactiveWorkersPage 의 로컬 formatDate 2건 승격.
+ * fallback 인자로 페이지별 표시값('—' / '없음') 차이 흡수. invalid Date 가드 통일.
+ */
+export function formatDate(
+  iso: string | null | undefined,
+  options: { fallback?: string } = {},
+): string {
+  const fallback = options.fallback ?? '—';
+  if (!iso) return fallback;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return fallback;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
 }

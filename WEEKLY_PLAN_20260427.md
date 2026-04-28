@@ -10,8 +10,8 @@
 ## 🧭 한눈에 (현재 상태)
 
 ```
-현재 버전 : v1.36.1 (2026-04-27, main 배포)
-최근 작업 : UX 일관성 — O/N 그룹 토글 단대/다대 통일
+현재 버전 : v1.36.2 (2026-04-27, main 배포)
+최근 작업 : REF-V-00-UTIL — formatDate 공통 유틸 승격 (내부 정리)
 진행 중   : 없음
 대기 중   : OPS BE Sprint 62-BE v2.4 배포 → FE Sprint 36 토글 교체
 ```
@@ -26,6 +26,7 @@
 
 | 일자 | 항목 | 의미 |
 |:---:|:---|:---|
+| 04-27 | **v1.36.2 REF-V-00-UTIL** formatDate 공통 유틸 승격 | `utils/format.ts` 에 fallback 인자 + invalid Date 가드 통합. QR/Inactive 로컬 함수 2건 제거. 사용자 화면 변화 0, REFACTOR-FMT-01 완성 |
 | 04-27 | **v1.36.1 UX 일관성** O/N 그룹 토글 단대/다대 통일 | `multi → hasHeader` 분기 변경. 1대 그룹도 클릭 토글 적용. Sprint 37 운영 피드백 즉시 반영, 424→421 LOC |
 | 04-27 | **v1.36.0 Sprint 37** S/N O/N 그룹 카드 인라인 토글 | 다대 그룹 헤더 클릭 펼침/접힘 + 검색·상세 자동 펼침(race 방지) + stale key cleanup. BE 의존 0, `SNStatusPage.tsx` 단일 파일 319→424 LOC. Codex 1+2차 5건 전건 반영 |
 | 04-25 | **v1.35.2 HOTFIX** 체크리스트 관리 협력사 읽기 전용 | `canEdit = is_admin \|\| company==='GST'` 게이트 추가. 협력사 manager는 조회만, 편집 UI 전부 disabled + 툴팁 |
@@ -90,11 +91,10 @@
 
 | 순위 | ID | 작업 | 시간 | 비고 |
 |:---:|:---|:---|:---:|:---|
-| 1 | **REF-V-00-UTIL** | `formatDate` 공통 유틸 승격 (QrManagementPage / InactiveWorkersPage 2건) | 30분 | DRY · 큰 분할 전 선행 워밍업 |
-| 2 | **BUG-V2** | ProductionPerformancePage `?? []` defensive coding 7개소 | 1h | 🟡 LOW · 짬 작업 |
-| 3 | **AnalyticsDashboardPage** | `usage_minutes` → `last_access` 표시 변경 | 30분 | 설계 완료, 코드 미작성 |
-| 4 | **REF-V-01** | ProductionPerformancePage 895줄 → ~200줄 분할 (4단계) | 반나절 | 🔴 필수 분할 · 사용 빈도 최고 |
-| 5 | **REF-V-02** | QrManagementPage 814줄 → ~150줄 분할 (4단계) | 반나절 | 🔴 필수 분할 |
+| 1 | **BUG-V2** | ProductionPerformancePage `?? []` defensive coding 7개소 | 1h | 🟡 LOW · 짬 작업 |
+| 2 | **AnalyticsDashboardPage** | `usage_minutes` → `last_access` 표시 변경 | 30분 | 설계 완료, 코드 미작성 |
+| 3 | **REF-V-01** | ProductionPerformancePage 895줄 → ~200줄 분할 (4단계) | 반나절 | 🔴 필수 분할 · 사용 빈도 최고 |
+| 4 | **REF-V-02** | QrManagementPage 804줄 → ~150줄 분할 (4단계) | 반나절 | 🔴 필수 분할 |
 
 → **권장**: BE v2.4 배포 대기 시간에 **1·2번 (각 30분)** 먼저 처리 → 문서 정합 + Sprint 36 워밍업.
 

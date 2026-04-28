@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-04-27 | 버전: v1.36.1
+> 최종 갱신: 2026-04-27 | 버전: v1.36.2
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -770,6 +770,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | HOTFIX v1.35.2 | 체크리스트 관리 페이지 협력사(비-GST) 읽기 전용 — `canEdit = is_admin \|\| company==='GST'` 게이트 (추가·편집·토글·설정 차단 + 툴팁) (ChecklistManagePage + ChecklistTable, 2026-04-25) | ✅ 완료 |
 | Sprint 37 (v1.36.0) | S/N 작업 현황 O/N 그룹 카드 인라인 토글 — 다대(2대+) 헤더 클릭 펼침/접힘 + 검색·상세 자동 펼침(`lastProcessedSearchRef` race 방지) + stale key cleanup. BE 의존 0, `SNStatusPage.tsx` 단일 파일 319→424 LOC, Codex 1차 4건 + 2차 1건 전건 반영, 2026-04-27 | ✅ 완료 |
 | UX 일관성 v1.36.1 | O/N 그룹 토글 통일 — 단대/다대 분기 제거. salesOrder 있는 모든 그룹 동일하게 클릭 토글 (`multi → hasHeader`). Sprint 37 운영 피드백 반영, 424→421 LOC, 2026-04-27 | ✅ 완료 |
+| REF-V-00-UTIL v1.36.2 | `formatDate` 공통 유틸 승격 (REFACTOR-FMT-01 완성) — `utils/format.ts` 에 fallback 인자 + invalid Date 가드 통합. QrManagementPage / InactiveWorkersPage 로컬 함수 2건 제거. 사용자 화면 변화 0 (순수 내부 정리), 2026-04-27 | ✅ 완료 |
 
 ### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)
 

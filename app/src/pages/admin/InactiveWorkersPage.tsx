@@ -6,6 +6,7 @@ import Layout from '@/components/layout/Layout';
 import { useInactiveWorkers, useDeactivatedWorkers, useWorkerStatus } from '@/hooks/useWorkers';
 import { toast } from 'sonner';
 import type { InactiveWorker } from '@/api/workers';
+import { formatDate } from '@/utils/format';
 
 const COMPANY_COLORS: Record<string, { bg: string; color: string }> = {
   GST:      { bg: '#EEF2FF', color: '#4F46E5' },
@@ -29,12 +30,6 @@ function CompanyBadge({ company }: { company: string }) {
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: '관리자', MECH: '기구', ELEC: '전장', TM: 'TM', PI: 'PI', QI: 'QI', SI: 'SI',
 };
-
-function formatDate(iso: string | null): string {
-  if (!iso) return '없음';
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 function daysSince(iso: string | null): string {
   if (!iso) return '—';
@@ -163,11 +158,11 @@ export default function InactiveWorkersPage() {
                           {w.last_login_at ? daysSince(w.last_login_at) : '로그인 기록 없음'}
                         </span>
                       ) : (
-                        <span style={{ color: 'var(--gx-danger)' }}>{formatDate(w.deactivated_at)}</span>
+                        <span style={{ color: 'var(--gx-danger)' }}>{formatDate(w.deactivated_at, { fallback: '없음' })}</span>
                       )}
                     </td>
                     <td style={{ padding: '10px 16px', color: 'var(--gx-steel)', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
-                      {formatDate(w.created_at)}
+                      {formatDate(w.created_at, { fallback: '없음' })}
                     </td>
                     <td style={{ padding: '10px 16px' }}>
                       {tab === 'inactive' ? (

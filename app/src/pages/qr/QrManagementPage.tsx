@@ -9,6 +9,7 @@ import { useQrList } from '@/hooks/useQr';
 import { getQrList } from '@/api/qr';
 import { useSettings } from '@/hooks/useSettings';
 import type { QrListParams, QrRecord } from '@/types/qr';
+import { formatDate } from '@/utils/format';
 
 /* ── 아이콘 ── */
 const QrIcon = () => (
@@ -47,17 +48,6 @@ const CalendarIcon = () => (
     <path d="M2 7h12M5 1v4M11 1v4"/>
   </svg>
 );
-
-/* ── 날짜 포맷 ── */
-function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  try {
-    const d = new Date(iso);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  } catch {
-    return '—';
-  }
-}
 
 /* ── 상태 뱃지 ── */
 const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {

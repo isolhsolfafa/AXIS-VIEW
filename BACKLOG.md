@@ -253,10 +253,10 @@ rm -rf node_modules && npm ci
 3. **REF-V-02** (QrManagementPage — 🔴 두 번째)
 4. **REF-V-03 ~ 06** (🟡 병행 가능, 우선순위 낮음)
 
-### 📌 REFACTOR-FMT-01 (기존 BACKLOG 연계)
+### 📌 REFACTOR-FMT-01 (기존 BACKLOG 연계) — ✅ **완료 (2026-04-27, v1.36.2)**
 
 - ✅ 완료: `formatDateTime` → `utils/format.ts` 승격 (v1.32.0)
-- 🟡 잔여: `formatDate` 2건(QrManagementPage / InactiveWorkersPage) 승격 + fallback 인자 옵션 + invalid Date 가드 → **REF-V-00-UTIL에 통합**
+- ✅ 완료: `formatDate` 2건(QrManagementPage / InactiveWorkersPage) 승격 + fallback 인자 옵션 + invalid Date 가드 (v1.36.2 / REF-V-00-UTIL)
 
 ---
 
