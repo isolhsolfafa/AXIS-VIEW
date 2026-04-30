@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.37.0 (2026-04-28)
+> 최신 버전: v1.38.0 (2026-04-30)
 
 ---
 
@@ -70,6 +70,51 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.38.0 — 2026-04-30
+
+**Sprint 38 — S/N 작업 현황 진행 중 모델별 카운트 칩 + 미니 진행 바**
+
+### 배경
+- Sprint 37 (v1.36.0/v1.36.1) O/N 그룹 인라인 토글 배포 후 운영 피드백
+- O/N 단위로 정보 분산되어 "전체 모델 분포 한눈에 보기" 어려움
+- Twin파파 요구: 진행 중 모델별 카운트 + 차트 시각화 + 반응형 UI 영향 없을 것
+
+### 변경
+- 검색바 아래에 **모델별 칩 그룹** 추가 — 카운트 내림차순 정렬, linear-gradient 로 칩 배경에 미니 진행 바 효과
+- 클릭 시 해당 모델 정확매칭 필터 적용 (Sprint 37 자동 펼침과 연동되어 매치 O/N 그룹 자동 펼침)
+- 재클릭 시 필터 해제 (펼침 상태는 유지 — Sprint 37 패턴 동일)
+
+### 코드 구조 (Codex 교차검증 반영)
+- **신규 컴포넌트**: `app/src/components/sn-status/InProgressModelChips.tsx` (86 LOC) — JSX return 한도 위반 악화 차단을 위해 별도 추출
+- **별도 state**: `modelFilter` 도입 — `search`(부분매칭)와 분리하여 정확매칭 제공 (Codex M1: 칩 카운트와 카드뷰 결과 일치 보장)
+- **모델 키 정규화**: `p.model.trim()` (Codex A4: BE 데이터 공백/대소문자 변형 안전)
+- **CLS 완화**: 컨테이너 항상 렌더 + `minHeight: 32px` 예약 (Codex A2)
+- **Sprint 37 자동 펼침 연동**: Effect 4 신규 추가 (modelFilter 변경 시 매치 그룹 자동 펼침, `lastProcessedModelFilterRef` race 방지)
+
+### 권한별 동작
+- admin/GST: 전체 모델 분포 표시
+- 협력사 manager (FNI/BAT/TMS(M)/TMS(E)/P&S/C&A): 자사 담당 공정 있는 모델만 자동 표시 (sorted 권한 필터 자동 반영)
+
+### 안전장치
+- BE 의존 0 (순수 FE 집계)
+- 빈 배열 (진행 중 0건) 시 칩 그룹 컨테이너만 렌더 (CLS 보호)
+- 출하 완료 (`all_completed=true`) S/N 자동 제외 → BE 1일 후 카드뷰 자동 제외와 정합
+- 검색바 부분매칭 + 칩 정확매칭 독립 동작
+
+### 영향
+- BE API 변경 없음
+- `SNStatusPage.tsx`: 421 → 485 LOC (🟢 임계 500 미만 유지, +64)
+- `InProgressModelChips.tsx`: 86 LOC 신규 (🟢 OK)
+- 빌드: 3284 modules / 2.19s GREEN (신규 의존성 0)
+- 회귀: vitest 30 tests PASS
+
+### 검증 (Codex 교차검증 + Claude 자가 리뷰)
+- Codex M1 (검색 매칭 의미 차이): ✅ modelFilter 별도 state 분리로 해결
+- Codex A1~A7 (Advisory 7건): ✅ 모두 반영 (옵션 A 추출, CLS, 정규화, aria)
+- Codex I (코드 크기 다중 위반): 🟡 BACKLOG `REFACTOR-SNStatusPage` 등록 (별건)
 
 ---
 

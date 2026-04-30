@@ -10,9 +10,9 @@
 ## 🧭 한눈에 (현재 상태)
 
 ```
-현재 버전 : v1.37.0 (2026-04-28, main 배포)
-최근 작업 : Sprint 36 + BE v2.4 양쪽 deployed → 'best' 토글 자동 활성화. R-02 BE 측 검증 완료
-출하 정합성: W18 기준 plan/actual/best 모두 22 (운영 100% 정합 + SI app 0% → best=actual)
+현재 버전 : v1.38.0 (2026-04-30, main 배포 예정)
+최근 작업 : Sprint 38 — S/N 작업 현황 진행 중 모델별 카운트 칩 + 미니 진행 바 (Codex M/A 전건 반영)
+이전 트랙 : Sprint 36 + BE v2.4 deployed → 'best' 토글 활성화 (W18 plan/actual/best=22)
 진행 중   : 없음
 대기 중   : OPS BE Sprint 62-BE v2.4 배포 → FE Sprint 36 토글 교체
 ```
@@ -27,6 +27,7 @@
 
 | 일자 | 항목 | 의미 |
 |:---:|:---|:---|
+| 04-30 | **v1.38.0 Sprint 38** S/N 작업 현황 진행 중 모델별 카운트 칩 + 미니 진행 바 | `InProgressModelChips.tsx` 신규 추출. `modelFilter` 별도 state (Codex M1 정확매칭). Effect 4 자동 펼침 (Sprint 37 패턴). CLS 완화 + 모델 키 정규화 + aria 강화. SNStatusPage 421→485 LOC |
 | 04-28 | **v1.37.0 Sprint 36** 출하 토글 3옵션 재구조 | `ShippedBasis` `ops → best`, `shipped_best` 응답 필드 추가, 라디오 라벨 '실시간(ops)' → '종합(best)', localStorage 마이그레이션. BE v2.4 대기 중 safe degrade ('—' 표시) |
 | 04-27 | **v1.36.2 REF-V-00-UTIL** formatDate 공통 유틸 승격 | `utils/format.ts` 에 fallback 인자 + invalid Date 가드 통합. QR/Inactive 로컬 함수 2건 제거. 사용자 화면 변화 0, REFACTOR-FMT-01 완성 |
 | 04-27 | **v1.36.1 UX 일관성** O/N 그룹 토글 단대/다대 통일 | `multi → hasHeader` 분기 변경. 1대 그룹도 클릭 토글 적용. Sprint 37 운영 피드백 즉시 반영, 424→421 LOC |

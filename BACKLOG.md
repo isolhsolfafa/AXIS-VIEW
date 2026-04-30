@@ -95,6 +95,97 @@
 
 ---
 
+## 🔧 REFACTOR-SNStatusPage — 코드 크기 원칙 다중 위반 정리 (🟡 LOW, 2026-04-30 등록)
+
+### 배경
+- Sprint 38 (v1.38.0) 진행 중 Codex 교차검증에서 발견 — SNStatusPage.tsx 코드 크기 원칙 다중 위반 (Sprint 38 와 무관, 기존 누적)
+
+### 위반 현황 (CLAUDE.md § 📏 1단계 기준)
+- **함수 길이 60줄** ← SNStatusPage 컴포넌트 함수 393줄 (655% 초과)
+- **JSX 반환 100줄** ← 현재 209줄 (109% 초과)
+- **JSX 중첩 5단계** ← `groupedByON.map` 안 헤더/조건부/그리드/카드 한도 초과 가능
+- **순환복잡도 ≤10** ← 보수적 평가 시 초과 가능성 (3 effects + map 분기 + 권한 분기 등)
+- **파일 LOC** ← 485 (한도 500, 🟢 OK 이지만 borderline)
+
+### 분할 전략 (4단계)
+1. **`hooks/useSNFiltering.ts`** — 검색/권한/showTestSN/modelFilter 필터링 + sorted 정렬 로직 (~120 LOC 이동)
+2. **`components/sn-status/ONGroupHeader.tsx`** — Sprint 37 의 다대 그룹 헤더 + chevron + hover (~60 LOC 이동)
+3. **`components/sn-status/SNCardGrid.tsx`** — 카드 그리드 + 들여쓰기 + 빈 상태 (~30 LOC 이동)
+4. **`hooks/useExpandedGroups.ts`** — 3개 effect (검색/상세/cleanup) + Sprint 38 modelFilter effect 통합 (~80 LOC 이동)
+
+### 결과 추정
+- SNStatusPage.tsx: 485 → ~200 LOC (🟢 OK)
+- JSX 반환 209줄 → ~70 (한도 100 미만)
+- 함수 393줄 → ~80 (한도 60 근접)
+- 신규 파일 4개 (utils/hooks/components 의 Rule of Three 정합 — 다른 페이지에서도 SNCardGrid / ONGroupHeader 재사용 가능성 검토)
+
+### 우선순위: 🟡 LOW
+- 현재 Sprint 38 까지 LOC 제한 내 (485 < 500)
+- 점진적 위반 누적이라 시급도 낮음
+- 다음 Sprint 추가 시 500 초과 위험 → 그 시점에 우선순위 상향 검토
+- 리팩토링 안전 7원칙 적용 — 별도 PR + Codex 교차검증 1순위 + Netlify preview 실기기 검증 필수
+
+### 연관
+- Sprint 37 (v1.36.0/v1.36.1) O/N 그룹 토글 — 헤더 분리 가능 영역
+- Sprint 38 (v1.38.0) 모델 칩 — 이미 분리됨 (옵션 A 채택, `InProgressModelChips.tsx`)
+
+---
+
+## 🔧 SETUP-PERMISSIONS-01 — Claude Code 권한 설정 장기 정비 (🟡 LOW, 2026-04-30 등록)
+
+### 배경
+- 2026-04-30 Sprint 38 Codex 교차검증 시 `settings.local.json` 권한 부족으로 Codex companion 차단 발견
+- 옵션 B 로 즉시 해소 (Codex + npm build/test + git read-only + grep/find/wc 등 11개 entry 추가)
+- 그러나 옵션 B 는 **단기 심플 해결안** — 장기 친화적 아님
+
+### 현재 권한 설정의 한계
+1. **절대 경로 하드코딩**: `Bash(cd /Users/twinfafa/Desktop/...)` — PC 변경 시 stale (이전 `kdkyu311` → 현 `twinfafa` 사례)
+2. **프로젝트별 중복 관리**: AXIS-VIEW / AXIS-OPS 각각 동일 권한 추가 필요 (DRY 위반)
+3. **임의 선택 기반**: skill 자동 분석 없이 추측으로 명령 선정 → 근거 약함
+4. **glob 패턴 정밀도**: `Bash(find *)` 가 `find -delete` 도 매치할 가능성 (실 위험 낮음, 정밀화 가능)
+
+### 장기 개선안 (4단계)
+
+```
+[단계 1] /fewer-permission-prompts skill 실행
+  → transcripts 기반 실제 사용 명령 추출
+  → 데이터 기반 권한 리스트 작성 (임의 선택 → 근거 기반)
+
+[단계 2] 전역 vs 프로젝트 분리
+  ~/.claude/settings.local.json (전역, 모든 프로젝트 공통):
+    - grep / find / wc / git log / git status / git diff (read-only)
+    - codex companion 호출
+
+  프로젝트/.claude/settings.json (체크인 가능, 프로젝트 특화):
+    - npm run build / test (프로젝트별 특화)
+    - cwd-aware 패턴 (절대 경로 회피)
+
+[단계 3] glob 패턴 정밀화
+  - Bash(find *) → Bash(find * -name *) / Bash(find * -type *)
+    (-delete / -exec rm 차단)
+  - 기타 위험 옵션 명시 차단
+
+[단계 4] 분기별 점검 (stale entry 정리)
+  - PC 변경 / 디렉토리 이동 시 절대 경로 갱신
+  - 사용 빈도 0인 entry 제거
+```
+
+### 우선순위: 🟡 LOW
+- 현재 옵션 B 적용으로 정상 동작
+- 장기 작업이라 즉시 시급도 없음
+- 여유 있는 sprint 또는 PC 재설정 시점에 진행 권장
+
+### 예상 작업 시간
+- 단계 1: 5분 (skill 자동)
+- 단계 2: 30분 (전역/프로젝트 분리 + 검증)
+- 단계 3: 30분 (glob 패턴 정밀화)
+- 단계 4: 분기당 10분 (지속 작업)
+
+### 연관
+- AXIS-OPS 프로젝트의 `.claude/settings.local.json` 도 동일 정비 필요 (단계 2 진행 시 함께)
+
+---
+
 ## 🐛 LOCAL-BUILD-ICLOUD-OR-MIGRATION (🟡 LOW, 2026-04-23 등록)
 
 ### 증상 (2026-04-22~23 반복 발생)

@@ -54,9 +54,9 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.37.0 (main 배포, 2026-04-28) — BE v2.4 deploy 와 함께 'best' 옵션 자동 활성화
-- **최근 작업**: BE v2.4 deployed 확인 + R-02 BE 측 검증 완료 (Pre-deploy Gate ③ 0건)
-- **최근 완료**: BE v2.4 (2026-04-28), v1.37.0 Sprint 36, v1.36.2 (REF-V-00-UTIL), v1.36.1 (UX 일관성), v1.36.0 Sprint 37, v1.35.2 HOTFIX, v1.35.1 (출하예정 매핑), v1.35.0 (Phase 2)
+- **VIEW FE**: v1.38.0 (main 배포, 2026-04-30)
+- **최근 작업**: Sprint 38 — S/N 작업 현황 진행 중 모델별 카운트 칩 + 미니 진행 바 (Codex 교차검증 M/A 전건 반영)
+- **최근 완료**: v1.38.0 (Sprint 38), BE v2.4 (2026-04-28), v1.37.0 (Sprint 36), v1.36.2 (REF-V-00-UTIL), v1.36.1 (UX 일관성), v1.36.0 Sprint 37, v1.35.2 HOTFIX, v1.35.1 (출하예정 매핑), v1.35.0 (Phase 2)
 
 ### ✅ v2.4 AMENDMENT — DEPLOYED (2026-04-28 확인)
 - **OPS factory.py L39~98** v2.4 코드 적용 확인 (docstring marker: `FIX-FACTORY-KPI-SHIPPED-V2.4-AMENDMENT-20260428`)

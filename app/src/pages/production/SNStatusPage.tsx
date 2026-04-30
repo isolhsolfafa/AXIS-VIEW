@@ -1,5 +1,5 @@
 // src/pages/production/SNStatusPage.tsx
-// S/N 작업 현황 카드뷰 페이지 — Sprint 18 / Sprint 37(O/N 그룹 인라인 토글)
+// S/N 작업 현황 카드뷰 페이지 — Sprint 18 / Sprint 37(O/N 그룹 인라인 토글) / Sprint 38(모델별 카운트 칩)
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -7,6 +7,7 @@ import Layout from '@/components/layout/Layout';
 import SNCard from '@/components/sn-status/SNCard';
 import SNDetailPanel from '@/components/sn-status/SNDetailPanel';
 import SNStatusSettingsPanel from '@/components/sn-status/SNStatusSettingsPanel';
+import InProgressModelChips from '@/components/sn-status/InProgressModelChips';
 import { useSNProgress } from '@/hooks/useSNProgress';
 import { useSNTasks } from '@/hooks/useSNTasks';
 import { useSettings } from '@/hooks/useSettings';
@@ -33,6 +34,8 @@ export default function SNStatusPage() {
   const { data, isLoading, refetch, isFetching, dataUpdatedAt } = useSNProgress();
   const { settings, updateSetting } = useSettings();
   const [search, setSearch] = useState('');
+  // Sprint 38 (Codex M1): 칩 정확매칭 필터 — search 부분매칭과 분리
+  const [modelFilter, setModelFilter] = useState('');
   const [selectedSN, setSelectedSN] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { data: tasks, isLoading: tasksLoading } = useSNTasks(selectedSN);
@@ -61,7 +64,7 @@ export default function SNStatusPage() {
       }
     }
 
-    // 검색 필터
+    // 검색 필터 (부분매칭 — O/N · S/N · 모델명)
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(p =>
@@ -69,6 +72,11 @@ export default function SNStatusPage() {
         p.model.toLowerCase().includes(q) ||
         (p.sales_order && p.sales_order.toLowerCase().includes(q)),
       );
+    }
+
+    // Sprint 38: 모델 칩 필터 (정확매칭 — 칩 클릭으로만 적용, search 와 분리)
+    if (modelFilter) {
+      result = result.filter(p => p.model.trim() === modelFilter);
     }
 
     // 정렬: 진행중 > 대기 > 완료
@@ -84,7 +92,7 @@ export default function SNStatusPage() {
       const bKey = b.last_activity_at ?? b.ship_plan_date ?? '';
       return bKey.localeCompare(aKey);
     });
-  }, [products, search, isAdminOrGst, user?.company, settings.showTestSN]);
+  }, [products, search, modelFilter, isAdminOrGst, user?.company, settings.showTestSN]);
 
   // O/N별 그룹핑 — Sprint 24
   // Sprint 34 (FE-21, v1.33.0): lineLabel 집계 추가 — 최빈값 + "외 N" (NULL row는 혼재 카운트 제외)
@@ -143,10 +151,42 @@ export default function SNStatusPage() {
     return groups;
   }, [sorted]);
 
+  // Sprint 38: 진행 중 모델별 카운트 (search/modelFilter 미적용 baseline — Codex #A self-referential UI 회피)
+  // - search 와 modelFilter 둘 다 deps 에서 의도적 제외
+  // - 칩 자체는 항상 모든 진행 모델 노출 (필터 적용 후에도 다른 칩으로 전환 가능)
+  // - Codex A4: 모델 키 정규화 (p.model.trim()) — BE 데이터의 공백/대소문자 변형 안전
+  const inProgressByModel = useMemo(() => {
+    let result = products;
+    if (!settings.showTestSN) {
+      result = result.filter(p => !TEST_SN_PREFIXES.some(pfx => p.serial_number.startsWith(pfx)));
+    }
+    if (!isAdminOrGst && user?.company) {
+      const cats = COMPANY_CATEGORIES[user.company];
+      if (cats) {
+        result = result.filter(p => cats.some(c => p.categories[c] != null));
+      }
+    }
+    const map = new Map<string, number>();
+    for (const p of result) {
+      if (p.overall_percent > 0 && !p.all_completed) {
+        const key = p.model.trim();
+        map.set(key, (map.get(key) ?? 0) + 1);
+      }
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [products, isAdminOrGst, user?.company, settings.showTestSN]);
+
+  const totalInProgress = useMemo(
+    () => inProgressByModel.reduce((sum, [, n]) => sum + n, 0),
+    [inProgressByModel]
+  );
+
   // Sprint 37: O/N 그룹 인라인 토글 — 다대 그룹은 헤더 클릭으로 펼침/접힘
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   // search 가 실제로 변경된 시점만 자동 펼침에 반영 — groupedByON 재참조 시 race 방지
   const lastProcessedSearchRef = useRef<string>('');
+  // Sprint 38: modelFilter 자동 펼침 — 칩 클릭 시점만 처리 (Sprint 37 패턴 동일)
+  const lastProcessedModelFilterRef = useRef<string>('');
 
   const toggleGroup = useCallback((key: string) => {
     setExpandedGroups(prev => {
@@ -203,6 +243,22 @@ export default function SNStatusPage() {
     });
   }, [groupedByON]);
 
+  // [Effect 4] Sprint 38: modelFilter 자동 펼침 — 칩 클릭 시 매치 그룹 자동 펼침 (Sprint 37 검색 effect 와 동일 race 방지 패턴)
+  useEffect(() => {
+    if (modelFilter === lastProcessedModelFilterRef.current) return;
+    lastProcessedModelFilterRef.current = modelFilter;
+    if (modelFilter === '') return; // 칩 해제 시 펼침 상태 유지
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      for (const g of groupedByON) {
+        if (g.products.some(p => p.model.trim() === modelFilter)) {
+          next.add(g.key);
+        }
+      }
+      return next;
+    });
+  }, [modelFilter, groupedByON]);
+
   const handleCardClick = (sn: string) => {
     setSelectedSN(prev => prev === sn ? null : sn);
   };
@@ -215,7 +271,7 @@ export default function SNStatusPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
         <input
           type="text"
-          placeholder="O/N · S/N · 모델명 검색"
+          placeholder="O/N · S/N · 모델명 검색 (부분매칭)"
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={{
@@ -285,6 +341,14 @@ export default function SNStatusPage() {
           />
         </div>
       </div>
+
+      {/* Sprint 38: 진행 중 모델별 카운트 칩 (검색바 아래, 카드 그리드 위) */}
+      <InProgressModelChips
+        items={inProgressByModel}
+        activeModel={modelFilter}
+        total={totalInProgress}
+        onToggle={(m) => setModelFilter(prev => prev === m ? '' : m)}
+      />
 
       {/* 카드 그리드 */}
       {isLoading ? (

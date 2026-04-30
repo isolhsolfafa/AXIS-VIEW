@@ -15699,3 +15699,365 @@ const isExpanded = (g: typeof groupedByON[0]) => expandedGroups.has(g.key);
 - **"전체 펼치기 / 모두 접기" 토글** — 헤더 옆 버튼으로 일괄 제어 (그룹 5개 이상일 때 가치 있음)
 - **그룹 정렬 옵션** — 진행률 순 / O/N 순 / N대 순 등 정렬 메뉴 추가
 - **그룹 검색 매치 카운트** — "결과: O/N 3개 / S/N 12개" 식 통계 노출
+
+---
+
+# Sprint 38 — S/N 작업 현황 진행 중 모델별 카운트 칩 + 미니 진행 바 (2026-04-30 등록, 🟢 Codex 1차 검증 M/A 전건 반영, ✅ 구현 완료)
+
+> 등록일: 2026-04-30 | 상태: ✅ **Codex 1차 검증 M1 + A1~A7 전건 반영 (2026-04-30) → 구현 완료**
+> 트랙: VIEW FE (BE 의존 없음 — 순수 클라이언트 사이드 집계)
+> 선행: Sprint 24 O/N 그룹핑 + Sprint 34 lineLabel + Sprint 37 (v1.36.0/v1.36.1) O/N 그룹 인라인 토글
+> 설계서: 본 엔트리만 (BE 변경 없음)
+> 교차검증: Claude Cowork → Claude Code Opus Lead → **Codex 1차 (2026-04-30 — M1 + A1~A7 전건 반영, I 1건 BACKLOG 등록)**
+> 병합 전략: Sprint 38 단일 PR — `SNStatusPage.tsx` (수정) + `InProgressModelChips.tsx` (신규)
+> 버전: v1.37.0 → **v1.38.0** (MINOR — 신기능 모델 칩 추가)
+
+## ⚠️ v2 보정 — Codex 1차 검증 결과 반영 (2026-04-30)
+
+원안 v1 (검색바 직후 인라인 칩 + `setSearch(model)` 사용) → v2 보정:
+
+### 🔴 M1 (구현 전 필수, 합의 즉시 수용)
+
+| ID | Codex 지적 | v2 반영 |
+|---|---|---|
+| **M1** | 칩 클릭 → `setSearch(model)` 사용 시 기존 검색 로직(부분매칭 `includes`)과 충돌. 칩 카운트(정확매칭 가정) ↔ 카드뷰 sorted 필터(부분매칭) 결과 불일치 가능. BE 데이터에 'GAIA-I' 같은 prefix 모델 추가되면 즉시 충돌. | **`modelFilter` 별도 state 도입** — `search`(부분매칭)와 분리. 칩 클릭 = 정확매칭 (`p.model.trim() === modelFilter`), 검색바 = 부분매칭 (`includes`). 의미 분리로 충돌 차단. |
+
+### 🟠 A1~A7 (Advisory 7건, 전건 수용)
+
+| ID | Codex 지적 | v2 반영 |
+|---|---|---|
+| A1 | 옵션 A vs D 권장 | **A 채택** — `InProgressModelChips.tsx` 별도 추출 (86 LOC 신규). SNStatusPage JSX +6줄만 추가 (호출만) |
+| A2 | CLS — 칩 그룹 조건부 렌더 → 카드 영역 밀림 | 컨테이너 항상 렌더 + `minHeight: 32px` 예약. 빈 배열 시 내부만 비움 |
+| A3 | `search === model` 비교 → IME/공백/대소문자 변형 시 active 꺼짐 | **`activeModel === model` 정확 비교 + `p.model.trim()` 키 정규화로 일관성 확보**. trim 적용 후 비교 |
+| A4 | 모델 키 정규화 — Map 에 `p.model` 원문 직접 사용 시 BE 데이터 변형에 분리 | `Map<string, number>` key = `p.model.trim()` |
+| A5 | a11y — 진행 바 시각 의미가 배경에만 있어 스크린리더 미전달 | `aria-label` 에 `"전체 대비 X%, 필터 적용 중/클릭 시 적용"` 명시 |
+| A6 | 검색바 부분매칭 vs 칩 정확매칭 의도 차이 — 사용자 혼란 가능 | 검색바 placeholder = `"O/N · S/N · 모델명 검색 (부분매칭)"`. 칩 컨테이너 `aria-label = "모델별 진행 중 필터"` |
+| A7 | `type="button"` (form submit 방지) | 명시 적용 |
+
+### 🟡 I (BACKLOG 등록)
+
+| ID | Codex 지적 | 처리 |
+|---|---|---|
+| I — 코드 크기 원칙 다중 위반 (함수 393줄 / JSX 209줄 / 중첩 5+ / 복잡도 ≤10 보수적 초과) | Sprint 38 와 무관 (기존 누적) | **BACKLOG `REFACTOR-SNStatusPage` 등록** (4단계 분할 전략 — useSNFiltering / ONGroupHeader / SNCardGrid / useExpandedGroups) |
+
+## 배경
+
+Sprint 37 (v1.36.0/v1.36.1) O/N 그룹 토글 배포 후 운영 피드백:
+
+- 다대 O/N 헤더 클릭으로 펼침/접힘 정상 동작 (✅)
+- 단대 O/N 도 통일 토글 (✅)
+- **그러나 "전체 모델 분포 한눈에 보기" 기능 부재** — O/N 단위로 정보 분산되어 시각적 합산 어려움
+  - 예: "이번에 GAIA-I DUAL 몇 대 가고 있지?" 알려면 O/N 헤더들 일일이 확인 필요
+
+Twin파파 요구 (2026-04-30):
+1. 진행 중인 모델별 총 카운트 노출
+2. 모델별 진행률은 **불필요** (단순 카운트만)
+3. 막대그래프 / 원형그래프 같은 시각화 — **반응형 UI 영향 없는 형태**
+4. 협력사 자동 분류 기존 sorted 동작 유지 (admin/GST 다 보임, 협력사는 자사만)
+
+## 결정 사항 (2026-04-30 Twin파파 확정)
+
+| # | 항목 | 확정 | 이유 |
+|---|---|---|---|
+| 1 | 차트 형태 | **칩 + linear-gradient 미니 진행 바** (옵션 5) | 반응형 가장 친화적 (flexWrap) + Recharts 의존성 0 + 클릭 인터랙션 명확 |
+| 2 | "진행 중" 정의 | `overall_percent > 0 && !all_completed` | "시작했고 완료 안 된 것" — 직관적. BE 측 1일 후 자동 제외 동작과 자연 정합 |
+| 3 | 정렬 | 카운트 내림차순 | 많이 가는 모델 먼저 노출 |
+| 4 | 한도 | 전체 모델 (Top N 축약 안 함) | GAIA-I DUAL/SINGLE/P/iVAS/DRAGON/SWS 등 ~6종 수준이라 한 줄 압축 가능 |
+| 5 | 클릭 인터랙션 | 검색바 자동 입력 (re-click 토글 해제) | 기존 search state 재활용 (DRY) + Sprint 37 검색 자동 펼침 effect 와 자연 연동 |
+
+## 설계 진화 이력
+
+| 버전 | 핵심 전략 | 채택/폐기 사유 |
+|---|---|---|
+| v1 (검토) | Recharts 수평 막대그래프 (5~6줄) | 폐기 — Recharts 의존성 추가 + 세로 영역 큼 |
+| v2 (검토) | Recharts 수직 막대그래프 | 폐기 — 모바일에서 라벨 겹침 |
+| v3 (검토) | Recharts 원형그래프 | 폐기 — 모바일 라벨 가독성 + 모델 6개 조각 시각 효율 낮음 |
+| v4 (검토) | Stacked horizontal 1줄 막대 | 폐기 — 색상 5~6개 분간 어려움(색맹) + 클릭 영역 모호 |
+| **v5 (채택)** | **칩 + linear-gradient 미니 바 + flexWrap** | **채택** — 반응형 + 클릭 + 의존성 0 트리플 만족 |
+
+## 사전 검토 — 잠재 이슈 5건 (Pre-Codex)
+
+> 본 Sprint 는 단일 파일 + state 0 추가지만, Sprint 37 검색 effect 와 상호작용 + 권한 필터 정합성 등 미세 이슈 사전 정리.
+
+### 이슈 #A: self-referential UI (검색 필터링 vs 칩 카운트)
+
+**현상**: 칩 클릭 → `setSearch('GAIA-I DUAL')` → `sorted` 가 GAIA-I DUAL 만 남김 → 만약 칩 카운트가 `sorted` 기반이면 다른 모델 칩이 모두 사라짐 → 사용자가 다른 모델로 전환 불가능
+
+**해결**: `inProgressByModel` 을 `sorted` 가 아닌 **search 미적용 baseline** 에서 계산
+```tsx
+// products → showTestSN 필터 → 권한 필터 → 진행 중 모델 카운트
+// search 필터는 적용하지 않음 (칩은 항상 모든 진행 모델 노출)
+```
+
+### 이슈 #B: maxModelCount 0 division
+
+**현상**: `inProgressByModel` 빈 배열일 때 `maxModelCount = inProgressByModel[0]?.[1]` → undefined → `count/undefined` NaN
+
+**해결**: `?? 1` fallback + 빈 배열 시 칩 그룹 자체 렌더 안 함
+
+### 이슈 #C: Sprint 37 검색 자동 펼침 effect 와 상호작용
+
+**현상**: 칩 클릭 → `setSearch('GAIA-I DUAL')` → Sprint 37 의 `useEffect([search, groupedByON])` 발동 → `lastProcessedSearchRef` 비교 후 매치 그룹 자동 펼침
+
+**검증**: 의도된 동작 — "모델 칩 클릭 → 해당 모델 O/N 그룹들이 자동 펼쳐짐" 흐름이 자연스러움. 추가 작업 없음.
+
+### 이슈 #D: 칩 다시 클릭 → 검색 해제 시 펼침 상태
+
+**현상**: 'GAIA-I DUAL' 칩 활성 상태에서 재클릭 → `setSearch('')` → Sprint 37 effect: `currentSearch === ''` → `lastProcessedSearchRef.current = ''` 저장 후 early return → 기존 펼침 상태 그대로 유지
+
+**검증**: 의도된 동작 — Sprint 37 의 "검색 비우면 펼침 유지 (수동 토글까지)" 정책과 정합. 사용자가 명시적으로 그룹 접지 않는 한 펼침 상태 보존.
+
+### 이슈 #E: 권한 변경 / showTestSN 토글 시 칩 자동 갱신
+
+**현상**: 협력사 사용자 → admin 로그인 전환 / settings.showTestSN 토글 → 칩 카운트 갱신 필요
+
+**해결**: `inProgressByModel` deps 에 `[products, isAdminOrGst, user?.company, settings.showTestSN]` 명시 → 변경 시 자동 재계산 ✅
+
+## 확정 설계 — 렌더 매트릭스
+
+| 사용자 권한 | 칩 표시 | 카운트 범위 |
+|---|---|---|
+| admin | ✅ 전체 모델 | 전체 진행 중 S/N |
+| GST 일반/manager | ✅ 전체 모델 | 전체 진행 중 S/N |
+| 협력사 manager (FNI/BAT/TMS(M)/TMS(E)/P&S/C&A) | ✅ 자사 담당 모델만 | 자사 담당 공정 있는 진행 중 S/N |
+
+## 구현 범위
+
+### 수정 파일 1개
+
+| # | 파일 | 변경 | 라인수 |
+|---|---|---|---|
+| 1 | `app/src/pages/production/SNStatusPage.tsx` | (a) `inProgressByModel` useMemo 추가 — search 미적용 baseline 에서 모델별 카운트 집계 (b) `totalInProgress` 합계 계산 (c) 검색바 아래 (L226 근처) 칩 그룹 렌더 — flexWrap + linear-gradient 미니 바 + 클릭 시 search 토글 (d) aria-pressed / aria-label 접근성 | +30, -0 |
+
+**순 증분: ~30 LOC** (단일 파일, 기존 421줄 → 약 451줄. CLAUDE.md 코드 크기 1단계 경고 임계 500줄 미만 유지).
+
+**선행 의존성**: 없음. BE Sprint 변경 없음. 순수 FE 집계.
+
+## state 설계
+
+```tsx
+// SNStatusPage.tsx 내부 — 기존 useMemo 옆에 추가
+
+// Sprint 38: 진행 중 모델별 카운트 (search 미적용 baseline)
+// - 이슈 #A 해결: sorted 가 아닌 별도 baseline 으로 self-referential UI 회피
+// - 칩 클릭으로 search 토글해도 칩 자체는 항상 모든 진행 모델 노출
+const inProgressByModel = useMemo(() => {
+  // 1단계: products → showTestSN 필터
+  let result = products;
+  if (!settings.showTestSN) {
+    result = result.filter(p => !TEST_SN_PREFIXES.some(pfx => p.serial_number.startsWith(pfx)));
+  }
+  // 2단계: 권한 필터 (협력사: 자사 담당 공정만)
+  if (!isAdminOrGst && user?.company) {
+    const cats = COMPANY_CATEGORIES[user.company];
+    if (cats) {
+      result = result.filter(p => cats.some(c => p.categories[c] != null));
+    }
+  }
+  // 3단계: 진행 중 모델별 카운트 — overall_percent > 0 && !all_completed
+  const map = new Map<string, number>();
+  for (const p of result) {
+    if (p.overall_percent > 0 && !p.all_completed) {
+      map.set(p.model, (map.get(p.model) ?? 0) + 1);
+    }
+  }
+  // 4단계: 카운트 내림차순 정렬 (동일 카운트는 모델명 가나다순)
+  return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}, [products, isAdminOrGst, user?.company, settings.showTestSN]);
+
+const totalInProgress = useMemo(
+  () => inProgressByModel.reduce((sum, [, n]) => sum + n, 0),
+  [inProgressByModel]
+);
+
+// 이슈 #B 해결: 빈 배열 시 1 fallback (NaN 회피, 어차피 빈 배열이면 렌더 안 함)
+const maxModelCount = inProgressByModel[0]?.[1] ?? 1;
+```
+
+## 렌더링 변경 — `SNStatusPage.tsx` 검색바 직후
+
+```tsx
+{/* Sprint 38: 진행 중 모델별 카운트 칩 — 검색바 아래, O/N 그룹 위 */}
+{inProgressByModel.length > 0 && (
+  <div
+    role="group"
+    aria-label={`진행 중 ${totalInProgress}대 — 모델별 분포`}
+    style={{
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '8px',
+      alignItems: 'center',
+      marginBottom: '20px',
+    }}
+  >
+    <span style={{
+      fontSize: '12px', color: 'var(--gx-steel)',
+      fontWeight: 500, marginRight: '4px',
+    }}>
+      진행 중 <strong style={{ color: 'var(--gx-charcoal)', fontFamily: "'JetBrains Mono', monospace" }}>{totalInProgress}</strong>대
+    </span>
+    {inProgressByModel.map(([model, count]) => {
+      const percent = Math.round((count / maxModelCount) * 100);
+      const isActive = search === model;
+      return (
+        <button
+          key={model}
+          type="button"
+          onClick={() => setSearch(isActive ? '' : model)}
+          aria-pressed={isActive}
+          aria-label={`${model} ${count}대 ${isActive ? '(검색 적용 중, 클릭 시 해제)' : '(클릭 시 검색 적용)'}`}
+          style={{
+            padding: '6px 12px',
+            borderRadius: '999px',
+            fontSize: '11px',
+            fontWeight: 500,
+            border: `1px solid ${isActive ? 'var(--gx-accent)' : 'var(--gx-mist)'}`,
+            color: isActive ? 'white' : 'var(--gx-charcoal)',
+            background: isActive
+              ? 'var(--gx-accent)'
+              : `linear-gradient(to right,
+                  rgba(99, 102, 241, 0.18) 0%,
+                  rgba(99, 102, 241, 0.18) ${percent}%,
+                  var(--gx-cloud) ${percent}%,
+                  var(--gx-cloud) 100%)`,
+            cursor: 'pointer',
+            transition: 'background 0.15s ease, color 0.15s ease',
+            fontFamily: 'inherit',
+          }}
+        >
+          {model} · <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{count}</span>
+        </button>
+      );
+    })}
+  </div>
+)}
+```
+
+## UX 플로우
+
+```
+[기본 뷰 — 모델 칩 + O/N 그룹 모두 접힘 (Sprint 37 v1.36.1)]
+
+[검색]                                      [새로고침] [설정]
+
+진행 중 22대   [GAIA-I DUAL ━━━━━━━━ 12]  [GAIA-P ━━ 4]  [iVAS ━━━━ 6]
+                  ↑ 칩 자체에 linear-gradient 진행 바 효과
+                  ↑ 카운트 12 = max → 100% 차오름
+                  ↑ 카운트 4 → 33% 차오름
+
+▶  O/N 6864  GAIA-I DUAL · ...  ▓░░░ 5%
+▶  O/N 6842  GAIA-P · ...        ▓░░░ 4%
+▶  O/N 6837  GAIA-I DUAL · ...   ▓░░░ 5%
+
+────────────────────────────────────────────────────────────
+[GAIA-I DUAL 칩 클릭]
+                  ↓
+- search='GAIA-I DUAL' 자동 입력 (검색바 textbox 도 갱신됨)
+- Sprint 37 검색 자동 펼침 effect 발동 → GAIA-I DUAL 매치 O/N 그룹 자동 펼침
+- 칩 색상 → var(--gx-accent) 배경 + 흰 글자 (active state)
+
+진행 중 22대   [✓ GAIA-I DUAL · 12]  [GAIA-P ━━ 4]  [iVAS ━━━━ 6]
+                  ↑ active 표시
+
+▼  O/N 6864  GAIA-I DUAL · ...  ▓░░░ 5%   ← 자동 펼침
+   │ ┌─────┐
+   │ │GBWS │
+   │ └─────┘
+▼  O/N 6837  GAIA-I DUAL · ...   ▓░░░ 5%   ← 자동 펼침
+   │ ┌─────┐
+   │ │GBWS │
+   │ └─────┘
+(GAIA-P, iVAS O/N 그룹은 검색에 안 매치 → 카드뷰에서 제외됨)
+
+────────────────────────────────────────────────────────────
+[GAIA-I DUAL 칩 재클릭 (해제)]
+                  ↓
+- search='' 로 되돌아감
+- Sprint 37 effect: lastProcessedSearchRef='' 저장 후 early return
+- 기존 펼침 상태 유지 (수동 접기까지)
+- 칩 색상 → linear-gradient 진행 바 효과로 복귀
+```
+
+## 검색 / 권한 / 설정과의 상호작용 매트릭스
+
+| 시나리오 | 칩 동작 | sorted (카드뷰) | 비고 |
+|---|---|---|---|
+| 검색바에 'GAIA-I' 직접 typing | 칩 그대로 (모든 모델 표시) | GAIA-I DUAL/SINGLE 부분 매치 | 칩은 search 무관 baseline |
+| GAIA-I DUAL 칩 클릭 | GAIA-I DUAL 만 active | GAIA-I DUAL 정확 매치만 | search='GAIA-I DUAL' 정확 매칭 |
+| 칩 클릭 후 다른 칩 클릭 | active 칩 교체 | sorted 도 교체 | search state 1개라 single-active |
+| 검색바 비우기 (X 버튼 등) | active 칩 → 자동 해제 | 전체 복귀 | search='' → isActive=false 자동 |
+| 협력사 manager 로그인 | 자사 담당 모델만 칩 | 자사 담당 S/N만 카드 | 권한 필터 자동 |
+| 테스트 S/N 토글 ON | 테스트 SN 도 카운트 포함 | 테스트 SN 도 카드 | settings.showTestSN deps |
+| products refetch (30초 후) | 카운트 자동 갱신 | sorted 자동 갱신 | useMemo 자동 |
+| 출하 완료 (all_completed=true) | 칩 카운트에서 제외 | BE 1일 후 자동 제외 | 정의 정합 |
+
+## 안전 degrade / 호환성
+
+- BE 의존 없음 → 배포 즉시 정상 동작
+- `linear-gradient` 는 모든 모던 브라우저 지원 (IE 11 미만 제외 — 프로젝트 타겟 외)
+- `flexWrap: 'wrap'` 모바일/태블릿/데스크톱 모두 자연 동작
+- 기존 `setSearch` / `search` state 그대로 재활용 — 신규 state 0
+- Sprint 37 검색 자동 펼침 effect 와 자연 연동 (추가 effect 없음)
+- 빈 배열 (진행 중 0건) 시 칩 그룹 자체 렌더 안 함
+
+## 교차검증 필수 항목 (Codex 이관 체크리스트)
+
+- ❌ API 응답 계약 변경 없음
+- ❌ 타입 변경 없음
+- ❌ 인증·권한·ProtectedRoute 로직 변경 없음
+- ❌ 전역 상태·TanStack Query 훅 구조 변경 없음
+- ❌ 3개 이상 페이지/컴포넌트 touch — **단일 파일 수정 (1파일)**
+- ❌ 클린 코어 데이터 원칙 영향 없음
+
+→ **Codex 교차검증 임의** — 단순 UI 집계 + 클릭 인터랙션, 위험도 낮음. 단, 아래 항목 점검 권장:
+1. **이슈 #A 검증** — `inProgressByModel` deps 에서 `search` 가 빠졌는지 (self-referential UI 회피)
+2. **이슈 #B 검증** — `maxModelCount ?? 1` fallback + 빈 배열 시 렌더 안 함
+3. **검색바 vs 칩 정확/부분 매칭 차이** — 사용자 의도 차이 명시 필요한지
+4. **a11y** — `role="group"` + `aria-pressed` + `aria-label` 적합성
+5. **CLS** — 진행률 데이터 로드 후 칩이 갑자기 등장 → CLS(Cumulative Layout Shift) 영향 검토
+
+## 검증 기준
+
+### 설계 단계 (Codex 1차 대기)
+
+- [ ] `inProgressByModel` deps 에 `search` 미포함 (이슈 #A)
+- [ ] `maxModelCount ?? 1` fallback 적용 (이슈 #B)
+- [ ] Sprint 37 검색 자동 펼침 effect 와 정합 (이슈 #C/#D)
+- [ ] 권한 필터 + showTestSN 토글 시 칩 자동 갱신 (이슈 #E)
+- [ ] aria 패턴 — `role="group"`, `aria-pressed`, `aria-label` 정확
+
+### 구현 단계
+
+- [ ] `npm run build` GREEN
+- [ ] TypeScript 0 에러
+- [ ] vitest 회귀 30 tests PASS
+- [ ] LOC: 421 → ~451 (🟢 OK 임계 500 미만)
+- [ ] 칩 클릭 → search 자동 입력 + 매치 O/N 그룹 자동 펼침
+- [ ] 칩 재클릭 → search 해제 + 펼침 상태 유지
+- [ ] 다른 칩 클릭 → active 교체
+- [ ] 협력사 manager 로그인 → 자사 담당 모델만 칩 표시
+- [ ] 테스트 S/N 토글 → 칩 카운트 자동 변경
+- [ ] linear-gradient 진행 바 시각 효과 정상 (max 모델 100%, 다른 모델 비례)
+
+### 배포 후 (Twin파파 현업)
+
+- [ ] 페이지 진입 시 모델 분포 한눈에 파악 가능
+- [ ] 자주 보는 모델 클릭 → 즉시 해당 O/N 그룹 펼침 (typing 비용 0)
+- [ ] 모바일/태블릿에서 flexWrap 자동 줄바꿈 자연스러움
+- [ ] 모델별 카운트가 카드뷰 진행 중 S/N 합계와 일치 (출하 완료 1일 이내 S/N 은 카드뷰엔 있어도 칩에선 제외 — 정합성)
+
+## 연계
+
+- 이전: Sprint 24 O/N 그룹핑, Sprint 34 (FE-21) lineLabel, Sprint 37 (v1.36.0/v1.36.1) O/N 그룹 토글 — 본 Sprint 는 그 위에 모델 분포 가시성 추가
+- 원칙: `CLAUDE.md` 코드 크기 1단계 (단일 파일 ~30 LOC, 경고 500줄 미만 유지) + DRY (기존 `setSearch` state 재활용)
+- 디자인: 기존 `--gx-mist` / `--gx-cloud` / `--gx-charcoal` / `--gx-steel` / `--gx-accent` 토큰 재사용. linear-gradient 로 미니 바 효과 (별도 차트 컴포넌트 0).
+- 접근성: WAI-ARIA "Toggle button" 패턴 (`aria-pressed`)
+- 권한: 기존 `isAdminOrGst` / `COMPANY_CATEGORIES` 자동 적용
+
+### 다음 응용 포인트
+
+- **모델별 진행률 평균 표시** — 칩에 작은 % 추가 (현재 결정 #2 에서 보류, 향후 요구 시)
+- **고객사별 분포 칩** — 모델 칩 옆 또는 별도 행 (admin/GST 화면, "어느 고객사가 많은가" 가시화)
+- **회사별 분포 칩** — admin/GST 화면 (협력사 분포 가시화) — 옵션 B (앞서 검토 후 보류)
+- **칩 정렬 옵션** — 카운트 / 가나다 / 진행률 정렬 메뉴
+
