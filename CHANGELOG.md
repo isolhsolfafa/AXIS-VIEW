@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.41.0 (2026-05-04)
+> 최신 버전: v1.41.1 (2026-05-04)
 
 ---
 
@@ -70,6 +70,21 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.41.1 — 2026-05-04
+
+**Sprint 39 후속 — MECH COMMON product 자동 매핑 + UX 일관성 정정**
+
+🔧 MECH 카테고리 COMMON product 자동 매핑
+ - BE migration 051a v2 의 MECH 마스터 데이터가 모두 `product_code='COMMON'` 시드
+ - `ChecklistManagePage` 에 `COMMON_CATEGORIES = ['TM', 'ELEC', 'MECH']` 상수 신설
+ - `effectiveProduct` 자동 'COMMON' 매핑 — MECH 선택 시 BE 데이터 정상 조회 보장 (이 수정 없으면 빈 목록)
+
+♻️ UX 일관성 정정
+ - `hideProductDropdown` 조건도 `COMMON_CATEGORIES` 사용 — MECH 도 dropdown 숨김 처리
+ - 비활성 dropdown 노출 방지 (선택 의미 없음)
 
 ---
 

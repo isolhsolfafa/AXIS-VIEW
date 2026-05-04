@@ -36,8 +36,9 @@ export default function ChecklistManagePage() {
   // v1.35.2: 편집 권한 — admin 또는 GST 자사 소속만. 협력사(비-GST)는 읽기 전용
   const canEdit = (user?.is_admin ?? false) || user?.company === 'GST';
 
-  // TM/ELEC → COMMON 자동 고정 (Sprint 31: ELEC도 COMMON scope)
-  const effectiveProduct = (selectedCategory === 'TM' || selectedCategory === 'ELEC') ? 'COMMON' : selectedProduct;
+  // TM/ELEC/MECH → COMMON 자동 고정 (Sprint 31: ELEC, Sprint 39: MECH 추가 — BE migration 051a v2 모두 product_code='COMMON')
+  const COMMON_CATEGORIES = ['TM', 'ELEC', 'MECH'] as const;
+  const effectiveProduct = (COMMON_CATEGORIES as readonly string[]).includes(selectedCategory) ? 'COMMON' : selectedProduct;
   const isBlurred = BLUR_CATEGORIES.has(selectedCategory);
 
   const { data: productCodes } = useProductCodes();
@@ -116,7 +117,7 @@ export default function ChecklistManagePage() {
             onProductChange={setSelectedProduct}
             selectedCategory={selectedCategory}
             onCategoryChange={setSelectedCategory}
-            hideProductDropdown={selectedCategory === 'TM' || selectedCategory === 'ELEC'}
+            hideProductDropdown={(COMMON_CATEGORIES as readonly string[]).includes(selectedCategory)}
           />
 
           <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center' }}>

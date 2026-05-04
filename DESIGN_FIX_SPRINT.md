@@ -16062,7 +16062,7 @@ const maxModelCount = inProgressByModel[0]?.[1] ?? 1;
 - **칩 정렬 옵션** — 카운트 / 가나다 / 진행률 정렬 메뉴
 
 
-# Sprint 39 — MECH 체크리스트 VIEW 연동 (2026-04-29 등록, 🟢 Codex 1·2·3차 검증 19건 전건 반영, OPS Sprint 63-BE 선행 의존, v1.41.0 예정, 구현 진입 가능)
+# Sprint 39 — MECH 체크리스트 VIEW 연동 (2026-04-29 등록, 🟢 Codex 1·2·3차 19건 + 운영 4차 hotfix 1건 = 20건 반영, ✅ 구현 + 1 hotfix 완료, v1.41.0 예정)
 
 > 등록일: 2026-04-29 | 상태: **OPS Sprint 63-BE 배포 대기 → Sprint 39 착수**
 > 트랙: VIEW FE (BE 의존 — OPS Sprint 63-BE 의 schema/API 사용)
@@ -16098,12 +16098,13 @@ VIEW 측은 이미 부분적으로 준비되어 있음:
 | 6 | **INLET 그룹키 정책** (Codex 2차 M3) | **`'INLET'` 단일 키** — BE migration 051a v2 실측 근거 (master 8개 분리 but group 컬럼 단일) | 2026-05-04 |
 | 7 | **토글 라벨 정책** (Codex 2차 A1) | 카테고리 무관 일반 표현 — **"1차 입력 적용"** / **"QI 검사 필요"**. ELEC/MECH 모두 동일 라벨, 향후 카테고리 추가 시 0건 호환 | 2026-05-04 |
 | 8 | **Sprint 39 범위** (Codex 2차 A2) | **2개 → 5개 파일** — ChecklistFilterBar/EditModal/Table 추가. UX 대칭 확보 (생성/편집/표시 모두 MECH 반영) | 2026-05-04 |
+| 9 | **MECH COMMON scope 자동 고정** (운영 검증 후속, 4차 hotfix) | `ChecklistManagePage.tsx L40 effectiveProduct` 분기에 **MECH 추가**. `COMMON_CATEGORIES = ['TM', 'ELEC', 'MECH']` 상수화 — 향후 카테고리 추가 시 1곳만 변경 (DRY). BE migration 051a v2 의 73 INSERT 모두 `product_code='COMMON'` 이므로 FE 도 자동 고정 필요 | 2026-05-05 |
 
 ## 수정/신규 파일 (5)
 
 | # | 파일 | 변경 | LOC |
 |---|---|---|---|
-| 1 | `app/src/pages/checklist/ChecklistManagePage.tsx` | L17 `BLUR_CATEGORIES = new Set([])` (MECH 제거) | -1, +1 |
+| 1 | `app/src/pages/checklist/ChecklistManagePage.tsx` | (a) L17 `BLUR_CATEGORIES = new Set([])` (MECH 제거) (b) **L40 `effectiveProduct` 분기에 MECH 추가 — `COMMON_CATEGORIES = ['TM', 'ELEC', 'MECH']` 상수화 (운영 검증 후속 4차 hotfix, 결정 #9)** | -2, +3 |
 | 2 | **`app/src/components/checklist/ChecklistFilterBar.tsx`** (Codex 2차 M1 신규 추가) | **L14 `BLUR_CATEGORIES = new Set([])` (MECH 제거)** — 카테고리 탭 잠금 해제. ChecklistManagePage 와 별도 BLUR set 보유 (grep 누락 회복) | -1, +1 |
 | 3 | `app/src/components/checklist/ChecklistAddModal.tsx` | (a) L29-33 `TYPE_OPTIONS.MECH = ['CHECK', 'INPUT', 'SELECT']` (b) L88-90 payload 분기 `if (isElec || isMech)` (c) **L213 토글 렌더 JSX `{isElec && (...)}` → `{(isElec || isMech) && (...)}` (Codex 2차 M2)** (d) **라벨 카테고리 무관 일반 표현 변경 (Codex 2차 A1)**: "1차 배선 적용" → "1차 입력 적용" / "GST 확인 필요 (QI 이중 체크)" → "QI 검사 필요" (e) MECH_GROUP_DEFAULTS 신규 (INLET 단일 그룹키 — Codex 2차 M3 BE 실측 근거 `migrations/051a` v2) | +25, -5 |
 | 4 | **`app/src/components/checklist/ChecklistEditModal.tsx`** (Codex 2차 A2 신규 추가) | L15 `isElec` 옆 `isMech` 추가, L30 payload 분기 `(isElec || isMech)`, L110-111 토글 렌더 조건 확장, 라벨 일반화 | +8, -4 |
@@ -16266,6 +16267,28 @@ useEffect(() => {
 ```
 
 **근거**: EditModal L15/30/91/110-111 모두 isElec 전용. AddModal 만 변경 시 생성은 가능하나 편집 비대칭 (생성 후 수정 불가) → 양쪽 동시 변경 필수.
+
+### (10) ChecklistManagePage.tsx L40 — MECH COMMON scope 자동 고정 (운영 검증 후속 4차 hotfix, 2026-05-05)
+
+```diff
+- // TM/ELEC → COMMON 자동 고정 (Sprint 31: ELEC도 COMMON scope)
+- const effectiveProduct = (selectedCategory === 'TM' || selectedCategory === 'ELEC') ? 'COMMON' : selectedProduct;
++ // TM/ELEC/MECH → COMMON 자동 고정 (Sprint 31: ELEC, Sprint 39: MECH 추가 — BE migration 051a v2 모두 product_code='COMMON')
++ const COMMON_CATEGORIES = ['TM', 'ELEC', 'MECH'] as const;
++ const effectiveProduct = (COMMON_CATEGORIES as readonly string[]).includes(selectedCategory) ? 'COMMON' : selectedProduct;
+```
+
+**증상 (Twin파파 운영 검증 발견, 2026-05-05)**:
+- MECH 카테고리 선택 시 `Product Code 선택하세요` 드롭다운만 표시, "+ 항목 추가" 버튼 비활성
+- ELEC 카테고리 선택 시 정상 ("항목 범위 COMMON (전 모델 공통)" + 활성 버튼)
+
+**원인**: ChecklistManagePage.tsx L40 의 `effectiveProduct` 분기가 ELEC 만 처리 (Sprint 31 시점) → MECH 분기 누락 → `effectiveProduct = null/undefined` → ChecklistFilterBar 에서 COMMON 표기 안 뜸.
+
+**근거**: BE migration 051a v2 — MECH 73 INSERT 모두 `('COMMON', 'MECH', ...)` 형식 (`product_code='COMMON'`). BE 정합, FE 만 누락 — Codex 2차 검증에서도 놓친 항목.
+
+**상수화 이점 (DRY)**:
+- 향후 새 카테고리 (PI/QI/SI 또는 신규) 추가 시 `COMMON_CATEGORIES` 배열 1곳만 변경
+- 같은 패턴 누락 위험 차단 (Codex L3/M7 의 화이트리스트 상수화 권장 패턴 적용)
 
 ### (9) ChecklistTable.tsx — MECH 컬럼 추가 (Codex 2차 A2, 3차 A1 diff 추가)
 

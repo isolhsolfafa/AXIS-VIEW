@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-05-04 | 버전: v1.41.0
+> 최종 갱신: 2026-05-04 | 버전: v1.41.1
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -276,7 +276,7 @@ AXIS-VIEW/
 │   │   ├── api/              API 클라이언트 13개
 │   │   ├── hooks/            TanStack Query 훅 22파일 / 41함수
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.41.0 (2026-05-04)
+│   │   ├── version.ts        v1.41.1 (2026-05-04)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
@@ -798,6 +798,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | Sprint 38 (v1.38.0) | S/N 작업 현황 진행 중 모델별 카운트 칩 + 미니 진행 바 — `InProgressModelChips.tsx` 신규 추출 (86 LOC). `modelFilter` 별도 state (Codex M1: 정확매칭, search 부분매칭과 분리). Effect 4 자동 펼침 (Sprint 37 패턴). CLS 완화 minHeight, 모델 키 정규화 trim, aria 강화. SNStatusPage 421→485 LOC (🟢 OK), 2026-04-30 | ✅ 완료 |
 | Sprint 40 (v1.40.0) | TM Tank Module 시작/종료 admin 액션 + O/N 일괄 토스트 — SNDetailPanel inline 버튼 (▶/■). P2 화이트리스트 (TMS+MECH) — GAIA/iVAS + DRAGON/SWS/GALLANT 자동 흡수. `useGetTasksByOrder` query hook + 4 mutation hook (Optimistic + retry: 1) + `useEscapeKey/DialogActions/ParallelConfirmDialog` 신규. `utils.ts` 카테고리별 회사 매핑 (M6 c-3 NULL 경고). BE Sprint 64-BE 미배포 시 `Promise.allSettled` fallback. Codex 1·2·3·4·5차 47건 전건 반영, ~609 LOC, 2026-05-04 | 🟡 FE 완료 (BE Sprint 64-BE 대기) |
 | Sprint 39 (v1.41.0) | MECH 체크리스트 VIEW 연동 — OPS Sprint 63-BE BE 인프라 (migration 051+051a v2, check_mech_completion, routes/checklist.py MECH 분기) 활용. 5 파일 변경: BLUR_CATEGORIES MECH 제거 (ChecklistManagePage + ChecklistFilterBar), TYPE_OPTIONS.MECH SELECT 추가, isMech 분기 (payload + 토글 렌더 JSX), MECH_GROUP_DEFAULTS 8 그룹 자동 추론, 라벨 일반화 ("1차 입력 적용" / "QI 검사 필요"). EditModal/Table 도 MECH 분기 (UX 대칭). Sprint 32 ELEC 패턴 재활용 (DRY). Codex 1·2·3차 19건 전건 반영, ~50 LOC, 2026-05-04 | 🟡 FE 완료 (BE Sprint 63-BE 배포 대기) |
+| Sprint 39 후속 (v1.41.1) | MECH COMMON product 자동 매핑 + UX 일관성 — `COMMON_CATEGORIES = ['TM', 'ELEC', 'MECH']` 상수 신설. `effectiveProduct` 자동 'COMMON' 매핑 (BE migration 051a v2 시드 데이터 정상 조회 보장). `hideProductDropdown` 도 동일 상수 사용 (MECH 도 dropdown 숨김, UX 일관성). v1.41.0 push 직후 사용자 후속 보강, 2026-05-04 | ✅ 완료 |
 
 ### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)
 

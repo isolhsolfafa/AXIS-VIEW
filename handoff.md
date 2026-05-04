@@ -1,7 +1,7 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-04 (Sprint 39 v1.41.0 FE 구현 완료 — MECH 체크리스트 VIEW 연동, Codex 1·2·3차 19건 전건 반영)
+> 마지막 업데이트: 2026-05-04 (Sprint 39 v1.41.0 + 후속 v1.41.1 FE 완료 — MECH 체크리스트 VIEW 연동 + COMMON product 자동 매핑)
 
 ---
 
@@ -54,9 +54,16 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.41.0 (Sprint 39 FE 구현 완료, 2026-05-04 — main 미배포 / BE Sprint 63-BE 배포 대기)
-- **최근 작업**: Sprint 39 — MECH 체크리스트 VIEW 연동 (Codex 1·2·3차 19건 전건 반영)
-- **최근 완료**: v1.41.0 (Sprint 39 FE), v1.40.0 (Sprint 40 FE), v1.38.0 (Sprint 38), BE v2.4 (2026-04-28), v1.37.0 (Sprint 36), v1.36.2 (REF-V-00-UTIL), v1.36.1 (UX 일관성), v1.36.0 (Sprint 37), v1.35.2 HOTFIX, v1.35.1 (출하예정 매핑), v1.35.0 (Phase 2)
+- **VIEW FE**: v1.41.1 (Sprint 39 + 후속 FE 완료, 2026-05-04 — main pushed / BE Sprint 63-BE 배포 대기)
+- **최근 작업**: Sprint 39 후속 (v1.41.1) — MECH COMMON product 자동 매핑 + UX 일관성 정정
+- **최근 완료**: v1.41.1 (Sprint 39 후속), v1.41.0 (Sprint 39 FE), v1.40.0 (Sprint 40 FE), v1.38.0 (Sprint 38), BE v2.4 (2026-04-28), v1.37.0 (Sprint 36), v1.36.2 (REF-V-00-UTIL), v1.36.1 (UX 일관성), v1.36.0 (Sprint 37), v1.35.2 HOTFIX, v1.35.1 (출하예정 매핑), v1.35.0 (Phase 2)
+
+### 🎯 Sprint 39 후속 (v1.41.1) — MECH COMMON product 자동 매핑 (2026-05-04)
+
+- 사용자가 v1.41.0 push 직후 발견: BE migration 051a v2 의 MECH 마스터 데이터가 모두 `product_code='COMMON'` 시드 → MECH 카테고리 선택 시 빈 목록 (이전 selectedProduct 가 product 코드인 경우)
+- `ChecklistManagePage.tsx`: `COMMON_CATEGORIES = ['TM', 'ELEC', 'MECH']` 상수 신설, `effectiveProduct` 자동 'COMMON' 매핑
+- `hideProductDropdown` 도 `COMMON_CATEGORIES` 사용 (MECH 도 dropdown 숨김 — UX 일관성)
+- 빌드/테스트 GREEN 유지
 
 ### 🎯 Sprint 39 (v1.41.0) — FE 구현 완료 (2026-05-04)
 
