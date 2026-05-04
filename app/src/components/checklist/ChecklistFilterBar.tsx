@@ -11,7 +11,8 @@ interface ChecklistFilterBarProps {
 }
 
 const CATEGORIES = ['MECH', 'ELEC', 'TM'] as const;
-const BLUR_CATEGORIES = new Set(['MECH']);
+// Sprint 39 (v1.41.0): MECH 활성화 — 카테고리 탭 잠금 해제 (OPS Sprint 63-BE)
+const BLUR_CATEGORIES = new Set<string>();
 
 export default function ChecklistFilterBar({
   productCodes,

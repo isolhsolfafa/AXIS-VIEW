@@ -14,7 +14,8 @@ import { useChecklistMaster, useProductCodes, useCreateMaster, useToggleMaster, 
 import { useAuth } from '@/store/authStore';
 import type { CreateMasterPayload, UpdateMasterPayload, ChecklistMasterItem } from '@/types/checklist';
 
-const BLUR_CATEGORIES = new Set(['MECH']);
+// Sprint 39 (v1.41.0): MECH 활성화 — OPS Sprint 63-BE 배포 후 블러 해제
+const BLUR_CATEGORIES = new Set<string>();
 
 // GROUP_POLICY — 소유권 단일화: ManagePage에서만 정의, 모달에 prop 전달
 const GROUP_POLICY: Record<string, { fixed: boolean; groups?: string[] }> = {

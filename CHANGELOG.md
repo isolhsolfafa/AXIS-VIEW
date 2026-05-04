@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.40.0 (2026-05-04)
+> 최신 버전: v1.41.0 (2026-05-04)
 
 ---
 
@@ -70,6 +70,34 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.41.0 — 2026-05-04
+
+**Sprint 39 — MECH 체크리스트 VIEW 연동**
+
+🛠️ MECH 체크리스트 활성화 (블러 해제 + 카테고리 탭 잠금 해제)
+ - `/checklist` 페이지에서 MECH 카테고리 선택 가능 (이전 🔒 "준비중" 블러 처리)
+ - OPS Sprint 63-BE 배포 후 69 항목 (20 그룹) 정상 표시 예정
+ - 두 파일 동시 변경: `ChecklistManagePage.tsx` + `ChecklistFilterBar.tsx` 별도 BLUR_CATEGORIES set
+
+🚀 MECH 체크리스트 항목 추가/수정 (ELEC 패턴 재활용)
+ - `TYPE_OPTIONS.MECH = ['CHECK', 'INPUT', 'SELECT']` — SELECT 추가 (MFC / Flow Sensor 드롭다운)
+ - `MECH_GROUP_DEFAULTS` 8 그룹 자동 추론 (INLET / GN2 / CDA / LNG / O2 / BCW / PCW-S / PCW-R) → phase1_applicable=TRUE 자동 설정
+ - `phase1_applicable` / `qi_check_required` 토글 ELEC + MECH 양쪽 활성화 (payload 분기 + 렌더 JSX 조건 둘 다 `isElec || isMech`)
+ - 라벨 카테고리 무관 일반화 — "1차 배선 적용" → "1차 입력 적용", "GST 확인 필요" → "QI 검사 필요" (향후 카테고리 추가 시 0건 호환)
+
+♻️ UX 대칭 확보 (생성/편집/표시 모두 MECH 반영)
+ - `ChecklistAddModal.tsx`: 항목 추가 모달 — payload + 토글 + 라벨 + 자동 추론
+ - `ChecklistEditModal.tsx`: 수정 모달 — phase1_applicable 토글 수정 + 역할 표시
+ - `ChecklistTable.tsx`: 테이블 — "1차 적용" / "역할" 컬럼 + QI row 보더 + INPUT 카운트
+
+🔧 내부 변경
+ - 5 파일 수정 / ~50 LOC 순 증분
+ - INLET 그룹키 단일 (BE migration 051a v2 실측 — master 8개 분리됐으나 group 컬럼 단일)
+ - BE 호환성 확인 (routes/checklist.py L283-284 등 카테고리 무관 컬럼 직접 사용)
+ - Codex 교차검증 1·2·3차 19건 전건 반영 (M 4 / A 8 / I 7)
 
 ---
 

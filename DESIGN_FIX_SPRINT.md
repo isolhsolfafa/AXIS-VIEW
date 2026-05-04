@@ -16062,14 +16062,14 @@ const maxModelCount = inProgressByModel[0]?.[1] ?? 1;
 - **칩 정렬 옵션** — 카운트 / 가나다 / 진행률 정렬 메뉴
 
 
-# Sprint 39 — MECH 체크리스트 VIEW 연동 (2026-04-29 등록, OPS Sprint 63-BE 선행 의존)
+# Sprint 39 — MECH 체크리스트 VIEW 연동 (2026-04-29 등록, 🟢 Codex 1·2·3차 검증 19건 전건 반영, OPS Sprint 63-BE 선행 의존, v1.41.0 예정, 구현 진입 가능)
 
 > 등록일: 2026-04-29 | 상태: **OPS Sprint 63-BE 배포 대기 → Sprint 39 착수**
 > 트랙: VIEW FE (BE 의존 — OPS Sprint 63-BE 의 schema/API 사용)
 > 선행: OPS `AGENT_TEAM_LAUNCH.md` Sprint 63-BE (MECH 체크리스트 도입 + migration 051 + 051a + checklist API MECH 분기)
 > 설계서: 본 엔트리 + cross-reference (`AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 63-BE)
-> 추정: ~30 LOC / 0.5d / 단일 PR
-> 버전: v1.36.X → **v1.37.0** (MINOR — MECH 카테고리 활성화)
+> 추정: ~50 LOC / 0.5d / 단일 PR (5 파일 — Codex 2차 M1+A2 반영, 3차 I1 stale 정정)
+> 버전: v1.40.0 → **v1.41.0** (MINOR — MECH 카테고리 활성화). ⚠️ Codex 6차 M1: 본래 v1.37.0 으로 등록됐으나 **이미 Sprint 36 (출하 토글) v1.37.0 점유** + Sprint 38 (모델 칩) v1.38.0 / Sprint 40 (Tank Module) v1.40.0 사용 → 다음 가용 = **v1.41.0**
 
 ## 배경
 
@@ -16086,26 +16086,32 @@ VIEW 측은 이미 부분적으로 준비되어 있음:
 
 본 Sprint 는 위 잔존 3 부분만 정리해서 MECH 카테고리 활성화.
 
-## 결정 사항 (2026-04-29 OPS Sprint 63-BE 합의 반영)
+## 결정 사항 (2026-04-29 OPS Sprint 63-BE 합의 + Codex 2차 후속 반영, 8건 통합)
 
-| # | 항목 | 확정 |
-|---|---|---|
-| 1 | `BLUR_CATEGORIES` 처리 | `'MECH'` 제거 — MECH 카테고리 활성화 |
-| 2 | `TYPE_OPTIONS.MECH` | `['CHECK', 'INPUT', 'SELECT']` — SELECT 추가 (MFC/Flow Sensor 드롭다운) |
-| 3 | `phase1_applicable` 토글 | ELEC + MECH 양쪽 활성화 (`isElec || isMech`) |
-| 4 | MECH_GROUP_DEFAULTS | 추가 (그룹별 1차/2차 자동 추론, ELEC 패턴) |
-| 5 | `select_options` UPDATE UX | 기존 ELEC 의 SELECT 항목 패턴 재활용 (변경 없음) |
+| # | 항목 | 확정 | 추가 시점 |
+|---|---|---|---|
+| 1 | `BLUR_CATEGORIES` 처리 | **두 파일 동시** — `ChecklistManagePage.tsx L17` + **`ChecklistFilterBar.tsx L14`** 모두 `new Set([])` (Codex 2차 M1 반영) | 2026-04-29 + 05-04 보강 |
+| 2 | `TYPE_OPTIONS.MECH` | `['CHECK', 'INPUT', 'SELECT']` — SELECT 추가 (MFC/Flow Sensor 드롭다운) | 2026-04-29 |
+| 3 | `phase1_applicable` 토글 | ELEC + MECH 양쪽 — **payload 분기 + 렌더 JSX 조건 둘 다** `(isElec || isMech)` (Codex 2차 M2 반영) | 2026-04-29 + 05-04 보강 |
+| 4 | MECH_GROUP_DEFAULTS | 추가 (그룹별 1차/2차 자동 추론, ELEC 패턴) | 2026-04-29 |
+| 5 | `select_options` UPDATE UX | 기존 ELEC 의 SELECT 항목 패턴 재활용 (변경 없음) | 2026-04-29 |
+| 6 | **INLET 그룹키 정책** (Codex 2차 M3) | **`'INLET'` 단일 키** — BE migration 051a v2 실측 근거 (master 8개 분리 but group 컬럼 단일) | 2026-05-04 |
+| 7 | **토글 라벨 정책** (Codex 2차 A1) | 카테고리 무관 일반 표현 — **"1차 입력 적용"** / **"QI 검사 필요"**. ELEC/MECH 모두 동일 라벨, 향후 카테고리 추가 시 0건 호환 | 2026-05-04 |
+| 8 | **Sprint 39 범위** (Codex 2차 A2) | **2개 → 5개 파일** — ChecklistFilterBar/EditModal/Table 추가. UX 대칭 확보 (생성/편집/표시 모두 MECH 반영) | 2026-05-04 |
 
-## 수정/신규 파일 (3)
+## 수정/신규 파일 (5)
 
 | # | 파일 | 변경 | LOC |
 |---|---|---|---|
 | 1 | `app/src/pages/checklist/ChecklistManagePage.tsx` | L17 `BLUR_CATEGORIES = new Set([])` (MECH 제거) | -1, +1 |
-| 2 | `app/src/components/checklist/ChecklistAddModal.tsx` | L29-33 `TYPE_OPTIONS.MECH = ['CHECK', 'INPUT', 'SELECT']` + L88-90 `if (isElec || isMech)` 분기 + MECH_GROUP_DEFAULTS 신규 | +20, -3 |
-| 3 | `app/src/types/checklist.ts` (선택) | `ItemType` 에 `'INPUT'` 명시 (이미 있으면 skip) | +1 |
-| 4 | version.ts / CHANGELOG / handoff | v1.37.0 릴리스 기록 | — |
+| 2 | **`app/src/components/checklist/ChecklistFilterBar.tsx`** (Codex 2차 M1 신규 추가) | **L14 `BLUR_CATEGORIES = new Set([])` (MECH 제거)** — 카테고리 탭 잠금 해제. ChecklistManagePage 와 별도 BLUR set 보유 (grep 누락 회복) | -1, +1 |
+| 3 | `app/src/components/checklist/ChecklistAddModal.tsx` | (a) L29-33 `TYPE_OPTIONS.MECH = ['CHECK', 'INPUT', 'SELECT']` (b) L88-90 payload 분기 `if (isElec || isMech)` (c) **L213 토글 렌더 JSX `{isElec && (...)}` → `{(isElec || isMech) && (...)}` (Codex 2차 M2)** (d) **라벨 카테고리 무관 일반 표현 변경 (Codex 2차 A1)**: "1차 배선 적용" → "1차 입력 적용" / "GST 확인 필요 (QI 이중 체크)" → "QI 검사 필요" (e) MECH_GROUP_DEFAULTS 신규 (INLET 단일 그룹키 — Codex 2차 M3 BE 실측 근거 `migrations/051a` v2) | +25, -5 |
+| 4 | **`app/src/components/checklist/ChecklistEditModal.tsx`** (Codex 2차 A2 신규 추가) | L15 `isElec` 옆 `isMech` 추가, L30 payload 분기 `(isElec || isMech)`, L110-111 토글 렌더 조건 확장, 라벨 일반화 | +8, -4 |
+| 5 | **`app/src/components/checklist/ChecklistTable.tsx`** (Codex 2차 A2 신규 추가) | L25 `isMech` 추가, L48-49 헤더 라벨 일반화 ("1차 배선" → "1차 적용"), L92/L119-126 컬럼 렌더 조건 확장 `(isElec || isMech)` | +5, -2 |
+| 6 | ~~`app/src/types/checklist.ts`~~ | ~~`ItemType` 에 `'INPUT'` 명시~~ → **검증 완료 — 이미 포함 (`types/checklist.ts L5: 'CHECK' \| 'INPUT' \| 'SELECT'`). 파일 변경 0건** (Codex 1차 A4 정정) | 0 |
+| 7 | version.ts / CHANGELOG / handoff | v1.41.0 릴리스 기록 (Codex 1차 M1 정정 — v1.37.0 점유 회피) | — |
 
-**순 증분**: ~25 LOC. CLAUDE.md 코드 크기 원칙 1단계 범위 내.
+**순 증분**: ~50 LOC. CLAUDE.md 코드 크기 원칙 1단계 범위 내. (Codex 2차 M1+M2+A2 반영으로 2개 → **5개** 파일로 확장)
 
 ## 코드 변경 상세
 
@@ -16193,12 +16199,108 @@ useEffect(() => {
 }, [group, isMech]);
 ```
 
+### (5) ChecklistFilterBar.tsx L14 — 카테고리 탭 잠금 해제 (Codex 2차 M1, 3차 A1 diff 추가)
+
+```diff
+- const BLUR_CATEGORIES = new Set(['MECH']);
++ const BLUR_CATEGORIES = new Set([]);   // MECH 제거 — 카테고리 탭 활성화
+```
+
+**근거**: ChecklistManagePage 와 별도 BLUR set 보유 (line 14, 71, 90). 한 곳만 변경 시 카테고리 탭 여전히 잠긴 채 노출 → 두 파일 동시 변경 필수.
+
+### (6) ChecklistAddModal.tsx L213 — 토글 렌더 JSX 조건 확장 (Codex 2차 M2, 3차 A1 diff 추가)
+
+```diff
+  {/* ELEC 전용 토글 */}
+- {isElec && (
++ {/* ELEC + MECH 양쪽 — phase1_applicable / qi_check_required 토글 */}
++ {(isElec || isMech) && (
+    <div style={{ ... }}>
+      <label style={toggleStyle(phase1Applicable)}>
+        <input type="checkbox" ... />
+-       1차 배선 적용
++       1차 입력 적용                        {/* Codex 2차 A1 — 카테고리 무관 일반 라벨 */}
+      </label>
+      <label style={toggleStyle(qiCheckRequired)}>
+        <input type="checkbox" ... />
+-       GST 확인 필요 (QI 이중 체크)
++       QI 검사 필요                          {/* Codex 2차 A1 — 카테고리 무관 일반 라벨 */}
+      </label>
+      ...
+    </div>
+  )}
+```
+
+**근거**: 기존 `{isElec && (...)}` 는 MECH 분기에서 토글 UI 자체 안 뜸 → payload default (phase1_applicable=true / qi_check_required=false) 만 항상 송신 → 사용자가 토글 변경 불가능. 렌더 조건 확장 필수.
+
+### (7) ChecklistAddModal.tsx 라벨 일반화 (Codex 2차 A1, 3차 A1 diff 추가)
+
+(6) 의 diff 안에 통합 — 별도 (7) 생략. 라벨 변경 2곳:
+- L218: `1차 배선 적용` → `1차 입력 적용`
+- L222: `GST 확인 필요 (QI 이중 체크)` → `QI 검사 필요`
+
+### (8) ChecklistEditModal.tsx — MECH 분기 추가 (Codex 2차 A2, 3차 A1 diff 추가)
+
+```diff
+- const isElec = category === 'ELEC';
++ const isElec = category === 'ELEC';
++ const isMech = category === 'MECH';
+
+  // payload 분기
+- if (isElec && phase1Applicable !== (item.phase1_applicable ?? true)) {
++ if ((isElec || isMech) && phase1Applicable !== (item.phase1_applicable ?? true)) {
+    data.phase1_applicable = phase1Applicable;
+  }
+
+  // 토글 렌더
+- {isElec && (
++ {(isElec || isMech) && (
+    <div>
+      <label>
+-       1차 배선 토글 (수정 가능)
++       1차 입력 적용 (수정 가능)
+      </label>
+      ...
+    </div>
+  )}
+```
+
+**근거**: EditModal L15/30/91/110-111 모두 isElec 전용. AddModal 만 변경 시 생성은 가능하나 편집 비대칭 (생성 후 수정 불가) → 양쪽 동시 변경 필수.
+
+### (9) ChecklistTable.tsx — MECH 컬럼 추가 (Codex 2차 A2, 3차 A1 diff 추가)
+
+```diff
+- const isElec = category === 'ELEC';
++ const isElec = category === 'ELEC';
++ const isMech = category === 'MECH';
+
+  // 헤더
+- if (isElec) headers.push('1차 배선', '역할');
++ if (isElec || isMech) headers.push('1차 적용', '역할');   // 라벨 일반화
+
+  // 행 렌더 — phase1 컬럼
+- {isElec && (
++ {(isElec || isMech) && (
+    <td>{item.phase1_applicable ? '✅ 적용' : '—'}</td>
+  )}
+
+  // 역할 컬럼 (선택 — MECH 도 checker_role 표시 시)
+- {isElec && (
++ {(isElec || isMech) && (
+    <td>{item.checker_role}</td>
+  )}
+```
+
+**근거**: ChecklistTable L25/48-49/92/119-126 모두 isElec 전용 → MECH 항목 추가/편집 후 테이블에서 phase1_applicable 상태 표시 안 됨. UX 대칭 확보.
+
 ## 검증 체크리스트
 
 ### 설계 단계 (Codex 교차검증 권장)
 - [ ] OPS Sprint 63-BE 의 `select_options` JSON 형식 (string array) 과 VIEW 의 SELECT 입력 UI 호환
 - [ ] MECH_GROUP_DEFAULTS 의 8 그룹 분류가 OPS seed 의 phase1_applicable=TRUE 15개 항목과 정합
-- [ ] `phase1_applicable` payload key 가 BE 의 update API 와 정확히 매칭 (이미 ELEC 에서 작동 중이라 안전)
+- [ ] **(Codex 6차 A1)** `phase1_applicable` / `qi_check_required` payload key 가 BE Sprint 63-BE migration 051 + Sprint 60-BE schema 와 동일 컬럼 사용하는지 cross-check (ELEC 에서 추가된 기존 컬럼인지 / MECH 도 동일 컬럼 / BE update API 가 MECH 카테고리에서 이 키 수신 여부)
+- [ ] **(Codex 6차 A2)** OPS migration 051a v2 의 INLET S/N 그룹키 — `INLET` 단일 vs `INLET_L`/`INLET_R` 분리 실측 확인. 분리됐다면 MECH_GROUP_DEFAULTS 도 두 키로 분리, 단일이면 현 설계 유지
+- [ ] **(Codex 6차 A3)** `phase1_applicable` / `qi_check_required` 토글 라벨 MECH 의미 적절성 검토 — ELEC (1차=전장 가공 / 2차=가압 QI) vs MECH (1차=기구 가공 / 2차=MECH QI). 라벨이 카테고리 무관 일반 표현 ("1차 입력 적용" / "QI 검사 필요") 이라 의미 호환 OK 확인
 
 ### 구현 단계
 - [ ] `npm run build` GREEN (TypeScript 0 에러)
@@ -16238,7 +16340,85 @@ useEffect(() => {
 - input_type 3종 (CHECK/INPUT/SELECT) 모두 추가 가능
 - phase1_applicable 토글 정상 작동 (ELEC 패턴 동일)
 - TypeScript 0 에러 + npm run build GREEN
-- v1.37.0 릴리스 (CHANGELOG + version.ts + git tag)
+- **v1.41.0** 릴리스 (CHANGELOG + version.ts + git tag) — Codex 6차 M1 정정
+
+## Codex 1차 검증 결과 반영 (2026-05-04, 8건 전건)
+
+### 🔴 Must (M, 1건)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| **M1** | 헤더 버전 v1.37.0 — 이미 Sprint 36 (출하 토글) 점유. v1.38.0 (Sprint 38), v1.40.0 (Sprint 40 방금 push) 도 사용 중 | **v1.41.0** (다음 가용 MINOR) 으로 정정. 헤더(L16072) + 수정 파일 #4 행 + 판정 기준 3곳 동기화 |
+
+### 🟠 Advisory (A, 4건)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| **A1** | `phase1_applicable` / `qi_check_required` BE 컬럼 매칭 검증 가정만 적힘 | 설계 단계 검증 항목 추가 — Sprint 63-BE migration 051 + Sprint 60-BE schema cross-check (ELEC 기존 컬럼 / MECH 동일 컬럼 / BE update API 수신 여부) |
+| **A2** | MECH_GROUP_DEFAULTS 8 그룹 vs INLET S/N L/R 분리 정합 검증 누락 | 설계 단계 검증 항목 추가 — BE seed 의 `item_group` 실측 (`INLET` 단일 / `INLET_L`/`INLET_R` 분리) 확인. 분리 시 MECH_GROUP_DEFAULTS 도 두 키로 확장 |
+| **A3** | phase1_applicable / qi_check_required 토글 라벨 MECH 적절성 미검증 | 설계 단계 검증 항목 추가 — ELEC (전장/가압 QI) vs MECH (기구/MECH QI) 의미 호환성 검토. 라벨이 카테고리 무관 일반 표현이면 OK |
+| **A4** | 수정 파일 #3 `types/checklist.ts` (선택) — 실측 결과 이미 ItemType 'INPUT' 포함 | 수정 파일 #3 행 처리 — strikethrough + "검증 완료, 변경 0건" 표기. 실제 파일 수정 12개 → **2개로 감소** |
+
+### 🟡 Information (I, 3건 — 즉시 정정 1건 / 보존 2건)
+
+- **I1**: LOC 추정 미세 차이 (헤더 ~30 / 표 ~25) → 헤더 ~25 LOC 로 통일 (Codex I1 정정)
+- **I2**: Codex 자동 이관 트리거 1/6 충족 — Sprint 40 (5라운드 47건) 와 달리 1차 검증으로 충분 가능. 정보성 보존
+- **I3**: Sprint 39 (~25 LOC / 0.5d / 2 파일) vs Sprint 40 (~609 LOC / 12 파일) 비교 — Sprint 32 ELEC 패턴 재활용 (DRY) 효과 확인. 정보성 보존
+
+## Codex 2차 검증 결과 반영 (2026-05-04, 8건 전건 — 구현 진입 차단 해제)
+
+> **Claude 약점 기록 (CLAUDE.md AI 워크플로우 ④)**: Codex M1·M2 모두 결정적 — Claude 자체 검증에서 grep 한 적 있는 파일임에도 ChecklistFilterBar / 렌더 JSX 조건을 놓침. 사실관계 점검 시 "payload 분기" 만 보고 "렌더링 조건" 은 별도 검증 안 한 약점 + BLUR_CATEGORIES 가 두 파일에 분산된 점도 grep 결과에서 보였으나 하나만 인식. **AI 워크플로우 v2 의 Codex 교차검증 가치 사례 — 구현 후 발견됐으면 재작업 필수였을 critical 3건**.
+
+### 🔴 Must (M, 3건 전건)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| **M1** | `ChecklistFilterBar.tsx L13-14, L71` 별도 BLUR_CATEGORIES — ChecklistManagePage 만 변경 시 카테고리 탭 여전히 잠김 | 수정 파일 #2 신규 추가 — `ChecklistFilterBar.tsx L14 BLUR_CATEGORIES = new Set([])` |
+| **M2** | `ChecklistAddModal.tsx L213 {isElec && (...)}` 토글 렌더 JSX 가 ELEC 전용 — MECH 분기에서 토글 UI 자체 안 뜸 → payload default 값만 송신 | 수정 파일 #3 변경 항목에 (c) **렌더 조건 `(isElec || isMech)` 변경** 명시 추가 |
+| **M3** | INLET 그룹키 결정 미완료 (단일 vs L/R 분리) | **BE 실측 완료 — `migrations/051a` v2 의 group 컬럼 'INLET' 단일 사용 확정**. master 8개로 분리됐지만 그룹키 단일 → MECH_GROUP_DEFAULTS 의 `INLET` 단일 키 그대로 OK |
+
+### 🟠 Advisory (A, 3건)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| **A1** | 라벨 "1차 배선 적용" / "GST 확인 필요 (QI 이중 체크)" — ELEC 전용 표현, MECH 어색 | **(a) 카테고리 무관 일반 라벨 채택** — "1차 입력 적용" / "QI 검사 필요". 향후 카테고리 추가 시도 호환. ChecklistAddModal/EditModal/Table 동시 변경 |
+| **A2** | EditModal L15/30/91/110-111 + ChecklistTable L25/48-49/92/119-126 모두 isElec 전용 분기 — 생성은 가능하나 편집/표시 비대칭 | 수정 파일 #4(EditModal), #5(Table) 신규 추가. Sprint 39 범위 확장 — 5 파일 / ~50 LOC. UX 대칭 확보 |
+| **A3** | BE create/update MECH 수신 호환성 미확인 | **BE 실측 완료 — `routes/checklist.py L283-284, L353-354, L413-414, L505-508` 카테고리 무관 phase1_applicable / qi_check_required 컬럼 직접 사용**. MECH 도 그대로 호환 ✅ |
+
+### 🟡 Information (I, 2건)
+
+- **I1**: 파일 수 서술 불일치 (수정/신규 파일 (3) vs 표 4행) → 표 갱신으로 자연 정정 (5개 파일)
+- **I2**: SELECT downstream FE 이미 수용 가능 — Sprint 39 핵심은 MECH 옵션 노출 + payload 연결만으로 충분. 정보성 ✅
+
+## Codex 3차 검증 결과 반영 (2026-05-04, 3건 전건 — 구현 진입 가능 ✅)
+
+> Codex 3차 판정: **🔴 M 0건 — 구현 진입 가능**. 1차+2차 누적 16건 전건 반영 검증 통과.
+
+### 🟠 Advisory (A, 1건)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| **A1** | 코드 변경 상세 섹션 (5)~(9) diff 누락 — 워커 정확도 저하 위험 | 본문 (5) ChecklistFilterBar / (6) ChecklistAddModal 토글 렌더 + 라벨 / (7) 라벨 통합 명시 / (8) ChecklistEditModal / (9) ChecklistTable diff 5개 추가. 각 5~10줄 + 근거 코멘트. 워커가 표 + diff 둘 다 보고 정확 구현 가능 |
+
+### 🟡 Information (I, 2건)
+
+- **I1**: 헤더 LOC 추정 stale (~25 → ~50) → 헤더 갱신 (5 파일 확장 반영)
+- **I2**: 결정 사항 표 분리 (메인 5건 + 후속 3건) → **(a) 통합 채택** — 메인 표 8건 통합. 추가 시점 컬럼으로 시간 추적 보존. 후속 표는 cross-reference 안내문으로 유지 (워커 누락 위험 제거)
+
+## 구현 진입 판정 (2026-05-04 종합)
+
+| 라운드 | M | A | I | 누적 |
+|---|---|---|---|---|
+| 1차 | 1 | 4 | 3 | 8 |
+| 2차 | 3 | 3 | 2 | 8 |
+| 3차 | **0** ✅ | 1 | 2 | 3 |
+| **총합** | **4 (전건)** | **8** | **7** | **19** |
+
+→ **🟢 구현 착수 승인** — Codex 3차에서 M 0건, 1·2차 critical 모두 본문 반영. 워커 정확 구현 가능 상태.
+
+### 결정 사항 추가 (Codex 2차 후속, 3차 I2 정정 — **메인 결정 사항 표 #6/#7/#8 로 통합 완료**)
+
+> **Codex 3차 I2 정정**: 본래 분리 표였으나 **메인 결정 사항 표 (8건 통합)** 으로 흡수. 워커 누락 위험 제거. 시간 추적은 메인 표의 "추가 시점" 컬럼 + git log 로 보존.
 
 
 ---

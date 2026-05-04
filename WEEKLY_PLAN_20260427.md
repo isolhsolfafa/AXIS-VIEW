@@ -10,11 +10,11 @@
 ## 🧭 한눈에 (현재 상태, 2026-05-04)
 
 ```
-현재 버전 : v1.40.0 (Sprint 40 FE 완료 — main 미배포 / BE Sprint 64-BE 동반 대기)
-최근 작업 : Sprint 40 — TM Tank Module 시작/종료 admin 액션 + O/N 일괄 토스트 (Codex 1·2·3·4·5차 47건 전건 반영)
-이전 트랙 : Sprint 38 (v1.38.0, 2026-04-30) S/N 진행 중 모델별 카운트 칩 + Sprint 36 (v1.37.0) + BE v2.4 deployed (best 활성화)
-진행 중   : Sprint 40 BE Sprint 64-BE 동반 배포 + Netlify preview 실기기 검증 + 사전 점검 SQL
-대기 중   : BE Sprint 64-BE 3 endpoint (start-batch / complete-batch / tasks/by-order)
+현재 버전 : v1.41.0 (Sprint 39 FE 완료 — main 미배포 / BE Sprint 63-BE 배포 대기)
+최근 작업 : Sprint 39 — MECH 체크리스트 VIEW 연동 (Codex 1·2·3차 19건 전건 반영)
+이전 트랙 : Sprint 40 (v1.40.0, 2026-05-04) Tank Module + Sprint 38 (v1.38.0) 모델 칩 + BE v2.4 deployed
+진행 중   : Sprint 39 BE Sprint 63-BE 배포 + Sprint 40 BE Sprint 64-BE 배포 + Netlify preview 검증
+대기 중   : BE Sprint 63-BE (MECH 체크리스트 인프라) + BE Sprint 64-BE (Tank Module batch 3 endpoint)
 ```
 
 → 이번 주는 **Sprint 40 단일 트랙 집중**: 설계 → Codex 5라운드 47건 → 구현 12파일 ~609 LOC → 빌드/테스트 GREEN. **VIEW FE 단독 배포 가능 (안전 degrade 포함), BE 동반 권장.**
@@ -27,6 +27,7 @@
 
 | 일자 | 항목 | 의미 |
 |:---:|:---|:---|
+| 05-04 | **v1.41.0 Sprint 39** MECH 체크리스트 VIEW 연동 | OPS Sprint 63-BE BE 인프라 활용 — `/checklist` 페이지 MECH 카테고리 블러 해제 + 카테고리 탭 잠금 해제. 항목 추가/수정 모달 MECH 분기 (CHECK/INPUT/SELECT 3종 + phase1_applicable 토글). MECH_GROUP_DEFAULTS 8 그룹 자동 추론. 라벨 카테고리 무관 일반화 ("1차 입력 적용" / "QI 검사 필요"). EditModal/Table 도 MECH 분기 (UX 대칭). 5 파일 / ~50 LOC, Sprint 32 ELEC 패턴 재활용 (DRY). 빌드 3293 modules 2.33s + vitest 30/30 GREEN. **Codex 1·2·3차 19건 전건 반영** (M 4 / A 8 / I 7) |
 | 05-04 | **v1.40.0 Sprint 40** TM Tank Module 시작/종료 admin 액션 + O/N 일괄 토스트 | SNDetailPanel 카테고리 카드 아래 inline `[▶ 시작] / [■ 종료]`. P2 화이트리스트 (TMS+MECH) GAIA/iVAS + DRAGON/SWS/GALLANT 자동 흡수. 신규 9파일 (utils/Dialog 2개/hook 6개) + 수정 5파일 (types +2 / api +85 / Panel +135 / Page +5 / version). ~609 LOC, 빌드 3293 modules 2.26s + vitest 30/30 GREEN. **Codex 1·2·3·4·5차 47건 전건 반영** (M 18 / A 23 / I 13 누적 55건 중 정정 47 + 보존 8). BE Sprint 64-BE 미배포 시 `Promise.allSettled` fallback (안전 degrade). 결정 #5 manager 본인 worker_id 기록 정책 + 결정 #9 c-3 NULL 경고 ADR-V014 신설, P2 화이트리스트 ADR-V015 신설 |
 | 04-30 | **v1.38.0 Sprint 38** S/N 작업 현황 진행 중 모델별 카운트 칩 + 미니 진행 바 | `InProgressModelChips.tsx` 신규 추출. `modelFilter` 별도 state (Codex M1 정확매칭). Effect 4 자동 펼침 (Sprint 37 패턴). CLS 완화 + 모델 키 정규화 + aria 강화. SNStatusPage 421→485 LOC |
 | 04-28 | **v1.37.0 Sprint 36** 출하 토글 3옵션 재구조 | `ShippedBasis` `ops → best`, `shipped_best` 응답 필드 추가, 라디오 라벨 '실시간(ops)' → '종합(best)', localStorage 마이그레이션. BE v2.4 대기 중 safe degrade ('—' 표시) |

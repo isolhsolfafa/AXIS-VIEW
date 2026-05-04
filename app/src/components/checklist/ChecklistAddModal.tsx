@@ -25,11 +25,25 @@ const ELEC_GROUP_DEFAULTS: Record<string, { phase1: boolean; qi: boolean }> = {
   'JIG 검사 및 특별관리 POINT':      { phase1: false, qi: true  },
 };
 
+// Sprint 39 (v1.41.0): MECH 그룹별 기본값 매핑 — OPS Sprint 63-BE migration 051a v2 seed 기준
+// INLET 단일 키 (master 8개로 분리됐지만 group 컬럼 단일)
+const MECH_GROUP_DEFAULTS: Record<string, { phase1: boolean; qi: boolean }> = {
+  'INLET':    { phase1: true,  qi: false },  // INLET S/N (DRAGON only)
+  'GN2':      { phase1: true,  qi: false },  // Speed Controller + MFC
+  'CDA':      { phase1: true,  qi: false },  // Speed Controller + MFC
+  'LNG':      { phase1: true,  qi: false },  // MFC
+  'O2':       { phase1: true,  qi: false },  // MFC
+  'BCW':      { phase1: true,  qi: false },  // Flow Sensor
+  'PCW-S':    { phase1: true,  qi: false },  // Flow Sensor
+  'PCW-R':    { phase1: true,  qi: false },  // Flow Sensor
+  // 그 외 그룹은 기본값 (phase1: false, qi: false) — 2차만 검수
+};
+
 // 카테고리별 타입 옵션
 const TYPE_OPTIONS: Record<string, ItemType[]> = {
   TM:   ['CHECK'],
   ELEC: ['CHECK', 'SELECT'],
-  MECH: ['CHECK', 'INPUT'],
+  MECH: ['CHECK', 'INPUT', 'SELECT'],   // Sprint 39: SELECT 추가 (MFC / Flow Sensor 드롭다운)
 };
 
 const TYPE_STYLE: Record<string, { bg: string; color: string }> = {
@@ -51,6 +65,7 @@ export default function ChecklistAddModal({
   const typeOptions = TYPE_OPTIONS[category] ?? ['CHECK'];
   const showTypeSelector = typeOptions.length > 1;
   const isElec = category === 'ELEC';
+  const isMech = category === 'MECH';   // Sprint 39 (v1.41.0)
 
   const [groupMode, setGroupMode] = useState<'existing' | 'new'>('existing');
   const [group, setGroup] = useState(fixedGroups[0] ?? existingGroups[0] ?? '');
@@ -74,6 +89,19 @@ export default function ChecklistAddModal({
     }
   }, [group, isElec]);
 
+  // Sprint 39 (v1.41.0): MECH 그룹 변경 시 자동 추론 (ELEC 패턴 동일)
+  useEffect(() => {
+    if (!isMech) return;
+    const defaults = MECH_GROUP_DEFAULTS[group];
+    if (defaults) {
+      setPhase1Applicable(defaults.phase1);
+      setQiCheckRequired(defaults.qi);
+    } else {
+      setPhase1Applicable(false);   // 명시 안 된 그룹 = 2차만
+      setQiCheckRequired(false);
+    }
+  }, [group, isMech]);
+
   const handleSubmit = () => {
     const finalGroup = (!isFixed && groupMode === 'new') ? newGroup.trim() : group;
     if (!finalGroup || !itemName.trim()) return;
@@ -85,7 +113,8 @@ export default function ChecklistAddModal({
       item_type: itemType,
       description: description.trim() || undefined,
     };
-    if (isElec) {
+    // Sprint 39 (v1.41.0): MECH 도 ELEC 와 동일 1차/2차 토글 패턴
+    if (isElec || isMech) {
       payload.phase1_applicable = phase1Applicable;
       payload.qi_check_required = qiCheckRequired;
     }
@@ -210,16 +239,16 @@ export default function ChecklistAddModal({
             <input value={description} onChange={e => setDescription(e.target.value)} placeholder="GAP GAUGE / 측수 검사" style={inputStyle} />
           </div>
 
-          {/* ELEC 전용 토글 */}
-          {isElec && (
+          {/* Sprint 39 (v1.41.0): ELEC + MECH 양쪽 — 카테고리 무관 일반 라벨 */}
+          {(isElec || isMech) && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', background: 'var(--gx-cloud)', borderRadius: '8px' }}>
               <label style={toggleStyle(phase1Applicable)}>
                 <input type="checkbox" checked={phase1Applicable} onChange={e => setPhase1Applicable(e.target.checked)} />
-                1차 배선 적용
+                1차 입력 적용
               </label>
               <label style={toggleStyle(qiCheckRequired)}>
                 <input type="checkbox" checked={qiCheckRequired} onChange={e => setQiCheckRequired(e.target.checked)} />
-                GST 확인 필요 (QI 이중 체크)
+                QI 검사 필요
               </label>
               {qiCheckRequired && (
                 <div style={{ fontSize: '11px', color: 'var(--gx-info)', padding: '4px 0 0 24px' }}>

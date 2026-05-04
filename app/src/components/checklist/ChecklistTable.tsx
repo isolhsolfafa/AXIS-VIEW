@@ -23,6 +23,7 @@ const TYPE_STYLE: Record<string, { bg: string; color: string }> = {
 export default function ChecklistTable({ items, showInactive, onToggleActive, onEdit, category, canEdit = true }: ChecklistTableProps) {
   const filtered = showInactive ? items : items.filter(i => i.is_active);
   const isElec = category === 'ELEC';
+  const isMech = category === 'MECH';   // Sprint 39 (v1.41.0)
 
   if (filtered.length === 0) {
     return (
@@ -45,8 +46,8 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, on
 
   // 기본 컬럼
   const headers = ['#', '그룹', '항목명', '타입', '기준/검사방법'];
-  // ELEC 전용 컬럼
-  if (isElec) headers.push('1차 배선', '역할');
+  // Sprint 39 (v1.41.0): ELEC + MECH — 카테고리 무관 일반 라벨
+  if (isElec || isMech) headers.push('1차 적용', '역할');
   headers.push('활성');
 
   return (
@@ -88,8 +89,8 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, on
                     background: !item.is_active ? 'var(--gx-cloud)' : isEvenGroup ? 'var(--gx-snow, #FAFBFD)' : 'var(--gx-white)',
                     opacity: item.is_active ? 1 : 0.5,
                     cursor: canEdit ? 'pointer' : 'default',
-                    // QI row 좌측 보라색 보더
-                    borderLeft: isElec && isQI ? '3px solid var(--gx-accent)' : '3px solid transparent',
+                    // QI row 좌측 보라색 보더 — Sprint 39: MECH 도 동일 적용
+                    borderLeft: (isElec || isMech) && isQI ? '3px solid var(--gx-accent)' : '3px solid transparent',
                   }}
                   onMouseEnter={canEdit ? (e => { e.currentTarget.style.background = 'rgba(99,102,241,0.04)'; }) : undefined}
                   onMouseLeave={canEdit ? (e => {
@@ -116,14 +117,14 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, on
                   <td style={{ padding: '9px 12px', color: 'var(--gx-slate)', fontSize: '11px' }}>
                     {item.description ?? '—'}
                   </td>
-                  {/* ELEC 전용: 1차 배선 */}
-                  {isElec && (
+                  {/* Sprint 39 (v1.41.0): ELEC + MECH — 1차 적용 */}
+                  {(isElec || isMech) && (
                     <td style={{ padding: '9px 12px', fontSize: '11px', color: 'var(--gx-slate)' }}>
                       {item.phase1_applicable ? '✅ 적용' : '—'}
                     </td>
                   )}
-                  {/* ELEC 전용: 역할 */}
-                  {isElec && (
+                  {/* Sprint 39 (v1.41.0): ELEC + MECH — 역할 */}
+                  {(isElec || isMech) && (
                     <td style={{ padding: '9px 12px' }}>
                       <span style={{
                         padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 600,

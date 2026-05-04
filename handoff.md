@@ -1,7 +1,7 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-04 (Sprint 40 v1.40.0 FE 구현 완료 + Codex 1·2·3·4·5차 47건 전건 반영)
+> 마지막 업데이트: 2026-05-04 (Sprint 39 v1.41.0 FE 구현 완료 — MECH 체크리스트 VIEW 연동, Codex 1·2·3차 19건 전건 반영)
 
 ---
 
@@ -54,9 +54,40 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.40.0 (Sprint 40 FE 구현 완료, 2026-05-04 — main 미배포 / BE Sprint 64-BE 동반 배포 권장)
-- **최근 작업**: Sprint 40 — TM Tank Module 시작/종료 admin 액션 + O/N 일괄 토스트 (Codex 1·2·3·4·5차 47건 전건 반영)
-- **최근 완료**: v1.40.0 (Sprint 40 FE), v1.38.0 (Sprint 38), BE v2.4 (2026-04-28), v1.37.0 (Sprint 36), v1.36.2 (REF-V-00-UTIL), v1.36.1 (UX 일관성), v1.36.0 (Sprint 37), v1.35.2 HOTFIX, v1.35.1 (출하예정 매핑), v1.35.0 (Phase 2)
+- **VIEW FE**: v1.41.0 (Sprint 39 FE 구현 완료, 2026-05-04 — main 미배포 / BE Sprint 63-BE 배포 대기)
+- **최근 작업**: Sprint 39 — MECH 체크리스트 VIEW 연동 (Codex 1·2·3차 19건 전건 반영)
+- **최근 완료**: v1.41.0 (Sprint 39 FE), v1.40.0 (Sprint 40 FE), v1.38.0 (Sprint 38), BE v2.4 (2026-04-28), v1.37.0 (Sprint 36), v1.36.2 (REF-V-00-UTIL), v1.36.1 (UX 일관성), v1.36.0 (Sprint 37), v1.35.2 HOTFIX, v1.35.1 (출하예정 매핑), v1.35.0 (Phase 2)
+
+### 🎯 Sprint 39 (v1.41.0) — FE 구현 완료 (2026-05-04)
+
+**핵심 기능**: MECH 체크리스트 VIEW 연동 — OPS Sprint 63-BE 의 BE 인프라 활용
+- `/checklist` 페이지 MECH 카테고리 블러 해제 + 카테고리 탭 잠금 해제
+- 항목 추가/수정 모달에서 MECH 카테고리 분기 활성화 (CHECK/INPUT/SELECT 3종)
+- MECH_GROUP_DEFAULTS 8 그룹 자동 추론 (INLET/GN2/CDA/LNG/O2/BCW/PCW-S/PCW-R)
+- 라벨 카테고리 무관 일반화 ("1차 입력 적용" / "QI 검사 필요")
+
+**산출물 (5파일)**:
+- `pages/checklist/ChecklistManagePage.tsx` — BLUR_CATEGORIES MECH 제거
+- `components/checklist/ChecklistFilterBar.tsx` — 카테고리 탭 잠금 해제 (별도 BLUR set, 누락 회복)
+- `components/checklist/ChecklistAddModal.tsx` — TYPE_OPTIONS + isMech + payload + 토글 렌더 + 라벨 + MECH_GROUP_DEFAULTS
+- `components/checklist/ChecklistEditModal.tsx` — isMech + payload 분기 + 토글 + 역할 표시 + 라벨
+- `components/checklist/ChecklistTable.tsx` — isMech + 헤더 라벨 + 컬럼 렌더 조건 + QI row 보더
+
+**검증 GREEN**:
+- ✅ `npm run build`: 3293 modules, 2.33s, 1,295.28 kB (Sprint 40 대비 +0.34 kB / +0.03%)
+- ✅ TypeScript 0 에러
+- ✅ vitest 30/30 PASS
+- ✅ Codex 1·2·3차 19건 전건 반영 (M 4 / A 8 / I 7)
+
+**BE 의존**:
+- 🟡 BE Sprint 63-BE commit 까지 완료 / 배포 미완 — 배포 후 자동 활성화
+- migration 051 + 051a v2 (73 INSERT) + check_mech_completion + routes/checklist.py MECH 분기
+- BE 미배포 시 MECH 카테고리 선택 시 빈 목록 표시 (crash 없음, 안전 degrade)
+
+**다음 세션 할 일**:
+1. BE Sprint 63-BE 배포 진행 (OPS 측)
+2. Netlify preview 생성 + Twin파파 실기기 검증 (MECH 카테고리 69 항목 표시 / 항목 추가/수정 / phase1 토글 동작)
+3. Twin파파 "배포 OK" 승인 후 main merge + git tag v1.41.0 + prod 배포
 
 ### 🎯 Sprint 40 (v1.40.0) — FE 구현 완료 (2026-05-04)
 

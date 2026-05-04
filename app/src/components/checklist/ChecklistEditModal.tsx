@@ -13,6 +13,7 @@ interface ChecklistEditModalProps {
 
 export default function ChecklistEditModal({ item, category, onSubmit, onClose }: ChecklistEditModalProps) {
   const isElec = category === 'ELEC';
+  const isMech = category === 'MECH';   // Sprint 39 (v1.41.0)
 
   const [itemName, setItemName] = useState(item.item_name);
   const [description, setDescription] = useState(item.description ?? '');
@@ -27,7 +28,8 @@ export default function ChecklistEditModal({ item, category, onSubmit, onClose }
     const data: UpdateMasterPayload = {};
     if (itemName.trim() !== item.item_name) data.item_name = itemName.trim();
     if (description.trim() !== (item.description ?? '')) data.description = description.trim() || undefined;
-    if (isElec && phase1Applicable !== (item.phase1_applicable ?? true)) data.phase1_applicable = phase1Applicable;
+    // Sprint 39 (v1.41.0): MECH 도 ELEC 와 동일 1차 토글 패턴
+    if ((isElec || isMech) && phase1Applicable !== (item.phase1_applicable ?? true)) data.phase1_applicable = phase1Applicable;
     if (item.item_type === 'SELECT' && selectOptionsInput.trim()) {
       const newOpts = selectOptionsInput.split(',').map(s => s.trim()).filter(Boolean);
       const oldOpts = item.select_options ?? [];
@@ -87,8 +89,8 @@ export default function ChecklistEditModal({ item, category, onSubmit, onClose }
             <input value={item.item_type} disabled style={readonlyStyle} />
           </div>
 
-          {/* 읽기 전용: 역할 (ELEC만) */}
-          {isElec && item.checker_role && (
+          {/* 읽기 전용: 역할 (ELEC + MECH) */}
+          {(isElec || isMech) && item.checker_role && (
             <div>
               <label style={labelStyle}>역할 (변경 불가)</label>
               <input value={item.checker_role} disabled style={readonlyStyle} />
@@ -107,17 +109,17 @@ export default function ChecklistEditModal({ item, category, onSubmit, onClose }
             <input value={description} onChange={e => setDescription(e.target.value)} style={inputStyle} />
           </div>
 
-          {/* ELEC: 1차 배선 토글 (수정 가능) */}
-          {isElec && (
+          {/* Sprint 39 (v1.41.0): ELEC + MECH 양쪽 — 1차 입력 적용 토글 (수정 가능) + QI 검사 필요 (읽기 전용) */}
+          {(isElec || isMech) && (
             <div style={{ padding: '12px', background: 'var(--gx-cloud)', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--gx-charcoal)', cursor: 'pointer' }}>
                 <input type="checkbox" checked={phase1Applicable} onChange={e => setPhase1Applicable(e.target.checked)} />
-                1차 배선 적용
+                1차 입력 적용
               </label>
               {/* qi_check_required — 읽기 전용 */}
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--gx-steel)', opacity: 0.5 }}>
                 <input type="checkbox" checked={item.qi_check_required ?? false} disabled />
-                GST 확인 필요 (변경 불가 — 항목 추가 시에만 설정)
+                QI 검사 필요 (변경 불가 — 항목 추가 시에만 설정)
               </label>
             </div>
           )}
