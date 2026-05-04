@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.38.0 (2026-04-30)
+> 최신 버전: v1.40.0 (2026-05-04)
 
 ---
 
@@ -70,6 +70,40 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.40.0 — 2026-05-04
+
+**Sprint 40 — TM Tank Module 시작/종료 admin 액션 + O/N 일괄 토스트**
+
+🛠️ Tank Module 시작/종료 surface (VIEW 신규)
+ - admin/manager 가 모바일 앱 접속 없이 VIEW 에서 직접 Tank Module 시작/종료 처리
+ - SNDetailPanel 카테고리 카드 아래 inline `[▶ Tank Module 시작]` / `[■ Tank Module 종료]` 버튼
+ - 권한: `is_admin || is_manager` (Sprint 33 강제종료와 동일 정책)
+ - manager 회사 경계 분기: 시작된 task `worker.company` / 미시작 task `product.module_outsourcing` (TMS) 또는 `product.mech_partner` (MECH)
+
+🚀 O/N 일괄 처리 (1번 클릭으로 N대 동시 처리)
+ - 같은 O/N 내 다른 S/N 의 Tank Module 미시작/미종료 자동 카운트
+ - 1대 이상이면 확인 모달 → [네 N+1대 일괄] / [아니오 1대만]
+ - BE 신규 endpoint: `/work/start-batch` `/work/complete-batch` (Sprint 64-BE)
+ - BE 미배포 시 안전 degrade — `Promise.allSettled` 순차 fallback + partial-success 토스트
+
+🌐 신규 모델 확장성 (P2 다중 카테고리 화이트리스트)
+ - GAIA / iVAS (TMS-TANK_MODULE) — 1차 운영 대상
+ - DRAGON / SWS / GALLANT (MECH-TANK_MODULE) — P2 자동 흡수
+ - `task_id='TANK_MODULE' AND task_category IN ('TMS','MECH')` 매칭
+
+♿ 접근성
+ - ParallelConfirmDialog: `role="dialog"` / `aria-modal` / `aria-labelledby` / `aria-describedby`
+ - ESC 닫기 + 첫 버튼 자동 포커스 (initial focus)
+ - partner=NULL 시 alert role 경고 ("BE 데이터 보강 필요")
+
+🔧 내부 변경
+ - 신규 파일 9개 — 1 type 확장 + 1 utils + 6 hooks (5 mutation/query + 1 shared useEscapeKey) + 2 components (ParallelConfirmDialog/DialogActions)
+ - 수정 파일 3개 — types/snStatus.ts (+2), api/snStatus.ts (+55), SNDetailPanel.tsx (+85, -5)
+ - 순 증분 ~609 LOC, CLAUDE.md 코드 크기 1단계 전체 통과
+ - Codex 1·2·3·4·5차 교차검증 47건 전건 반영
 
 ---
 

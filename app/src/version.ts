@@ -1,8 +1,8 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.38.0';
-export const BUILD_DATE = '2026-04-30';
+export const APP_VERSION = 'v1.40.0';
+export const BUILD_DATE = '2026-05-04';
 
 // 버전 이력
 // v1.0.0 | 2026-03-06 | Sprint 1~3     | 초기 릴리스 (로그인, 출퇴근 대시보드, 실 API 연동)
@@ -68,3 +68,4 @@ export const BUILD_DATE = '2026-04-30';
 // v1.36.2| 2026-04-27 | REF-V-00-UTIL    | formatDate 공통 유틸 승격 (REFACTOR-FMT-01 완성) — utils/format.ts 에 fallback 인자 + invalid Date 가드 통합. QrManagementPage / InactiveWorkersPage 로컬 함수 2건 제거. 사용자 화면 변화 0 (순수 내부 정리)
 // v1.37.0| 2026-04-28 | Sprint 36        | 출하 토글 3옵션 재구조 (BE Sprint 62-BE v2.4 대응) — ShippedBasis: 'ops' → 'best' 교체. shipped_best 필드 추가, shipped_ops 폐기 표시. SettingsPanel 라디오 라벨 '실시간(ops)' → '종합(best)'. localStorage 'ops' 저장값 → 'actual' 마이그레이션. BE 미배포 동안 'best' 선택 시 undefined → '—' 표시 (안전 degrade)
 // v1.38.0| 2026-04-30 | Sprint 38        | S/N 작업 현황 진행 중 모델별 카운트 칩 + 미니 진행 바 — 검색바 아래 칩 그룹 (linear-gradient 진행 바 효과). InProgressModelChips.tsx 신규 추출 (코드 크기 원칙 위반 차단). modelFilter 별도 state (Codex M1: 정확매칭, search 부분매칭과 분리). Effect 4 자동 펼침 (Sprint 37 패턴). CLS 완화 minHeight, 모델 키 정규화(trim), aria 강화
+// v1.40.0| 2026-05-04 | Sprint 40        | TM Tank Module 시작/종료 admin 액션 + O/N 일괄 토스트 — SNDetailPanel 카테고리 카드 아래 inline 버튼 (▶/■). P2 화이트리스트 (TMS+MECH) — GAIA/iVAS + DRAGON/SWS/GALLANT 자동 흡수. useGetTasksByOrder query hook + 4 mutation hook (start/complete + batch ×2, Optimistic + retry: 1). useEscapeKey/DialogActions/ParallelConfirmDialog 신규. utils.ts 카테고리별 회사 매핑 (M6 c-3 NULL 경고). Codex 1~5차 47건 전건 반영. BE Sprint 64-BE 미배포 시 Promise.allSettled fallback (안전 degrade)

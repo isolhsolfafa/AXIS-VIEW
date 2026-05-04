@@ -16061,3 +16061,1012 @@ const maxModelCount = inProgressByModel[0]?.[1] ?? 1;
 - **회사별 분포 칩** — admin/GST 화면 (협력사 분포 가시화) — 옵션 B (앞서 검토 후 보류)
 - **칩 정렬 옵션** — 카운트 / 가나다 / 진행률 정렬 메뉴
 
+
+# Sprint 39 — MECH 체크리스트 VIEW 연동 (2026-04-29 등록, OPS Sprint 63-BE 선행 의존)
+
+> 등록일: 2026-04-29 | 상태: **OPS Sprint 63-BE 배포 대기 → Sprint 39 착수**
+> 트랙: VIEW FE (BE 의존 — OPS Sprint 63-BE 의 schema/API 사용)
+> 선행: OPS `AGENT_TEAM_LAUNCH.md` Sprint 63-BE (MECH 체크리스트 도입 + migration 051 + 051a + checklist API MECH 분기)
+> 설계서: 본 엔트리 + cross-reference (`AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 63-BE)
+> 추정: ~30 LOC / 0.5d / 단일 PR
+> 버전: v1.36.X → **v1.37.0** (MINOR — MECH 카테고리 활성화)
+
+## 배경
+
+OPS Sprint 63-BE 가 MECH 체크리스트 BE 인프라를 완비함:
+- migration 051: `scope_rule` + `trigger_task_id` + `item_type='INPUT'` + `alert_type='CHECKLIST_MECH_READY'`
+- migration 051a: 69 항목 / 20 그룹 seed (Excel 양식 그대로)
+- `check_mech_completion()` 신설 + `routes/checklist.py` MECH 분기 + task_service 토스트 트리거
+
+VIEW 측은 이미 부분적으로 준비되어 있음:
+- L17 `BLUR_CATEGORIES = new Set(['MECH'])` — MECH 카테고리 선택 시 🔒 "준비중" 블러 처리
+- L20-24 `GROUP_POLICY.MECH = { fixed: false }` — 그룹 자유 추가
+- L29-33 `TYPE_OPTIONS.MECH = ['CHECK', 'INPUT']` — SELECT 만 미적용 상태
+- L88-90 `phase1_applicable` / `qi_check_required` 토글 ELEC 전용 분기
+
+본 Sprint 는 위 잔존 3 부분만 정리해서 MECH 카테고리 활성화.
+
+## 결정 사항 (2026-04-29 OPS Sprint 63-BE 합의 반영)
+
+| # | 항목 | 확정 |
+|---|---|---|
+| 1 | `BLUR_CATEGORIES` 처리 | `'MECH'` 제거 — MECH 카테고리 활성화 |
+| 2 | `TYPE_OPTIONS.MECH` | `['CHECK', 'INPUT', 'SELECT']` — SELECT 추가 (MFC/Flow Sensor 드롭다운) |
+| 3 | `phase1_applicable` 토글 | ELEC + MECH 양쪽 활성화 (`isElec || isMech`) |
+| 4 | MECH_GROUP_DEFAULTS | 추가 (그룹별 1차/2차 자동 추론, ELEC 패턴) |
+| 5 | `select_options` UPDATE UX | 기존 ELEC 의 SELECT 항목 패턴 재활용 (변경 없음) |
+
+## 수정/신규 파일 (3)
+
+| # | 파일 | 변경 | LOC |
+|---|---|---|---|
+| 1 | `app/src/pages/checklist/ChecklistManagePage.tsx` | L17 `BLUR_CATEGORIES = new Set([])` (MECH 제거) | -1, +1 |
+| 2 | `app/src/components/checklist/ChecklistAddModal.tsx` | L29-33 `TYPE_OPTIONS.MECH = ['CHECK', 'INPUT', 'SELECT']` + L88-90 `if (isElec || isMech)` 분기 + MECH_GROUP_DEFAULTS 신규 | +20, -3 |
+| 3 | `app/src/types/checklist.ts` (선택) | `ItemType` 에 `'INPUT'` 명시 (이미 있으면 skip) | +1 |
+| 4 | version.ts / CHANGELOG / handoff | v1.37.0 릴리스 기록 | — |
+
+**순 증분**: ~25 LOC. CLAUDE.md 코드 크기 원칙 1단계 범위 내.
+
+## 코드 변경 상세
+
+### (1) ChecklistManagePage.tsx L17 — 블러 해제
+
+```diff
+- const BLUR_CATEGORIES = new Set(['MECH']);
++ const BLUR_CATEGORIES = new Set([]);  // Sprint 39: MECH 활성화 (OPS Sprint 63-BE 배포 후)
+```
+
+또는 더 명시적:
+
+```diff
+- const BLUR_CATEGORIES = new Set(['MECH']);
++ // Sprint 39: 모든 카테고리 활성화 — MECH 도입 (OPS Sprint 63-BE)
++ const BLUR_CATEGORIES = new Set<string>();
+```
+
+### (2) ChecklistAddModal.tsx L29-33 — SELECT 추가
+
+```diff
+const TYPE_OPTIONS: Record<string, ItemType[]> = {
+  TM:   ['CHECK'],
+  ELEC: ['CHECK', 'SELECT'],
+- MECH: ['CHECK', 'INPUT'],
++ MECH: ['CHECK', 'INPUT', 'SELECT'],  // Sprint 39: SELECT 추가 (MFC / Flow Sensor 드롭다운)
+};
+```
+
+### (3) ChecklistAddModal.tsx L88-90 — phase1_applicable 토글
+
+```diff
++ const isMech = category === 'MECH';
+
+  if (isElec) {
+    payload.phase1_applicable = phase1Applicable;
+    payload.qi_check_required = qiCheckRequired;
+  }
++
++ // Sprint 39: MECH 도 ELEC 와 동일 1차/2차 토글 패턴
++ if (isMech) {
++   payload.phase1_applicable = phase1Applicable;
++   payload.qi_check_required = qiCheckRequired;
++ }
+```
+
+또는 더 간결:
+
+```diff
+- if (isElec) {
++ if (isElec || isMech) {
+    payload.phase1_applicable = phase1Applicable;
+    payload.qi_check_required = qiCheckRequired;
+  }
+```
+
+### (4) ChecklistAddModal.tsx — MECH_GROUP_DEFAULTS 추가 (선택, 자동 추론)
+
+```typescript
+// MECH 그룹별 기본값 매핑 (OPS Sprint 63-BE seed 기준)
+const MECH_GROUP_DEFAULTS: Record<string, { phase1: boolean; qi: boolean }> = {
+  // 1차 입력 필요한 그룹 (phase1_applicable=TRUE)
+  'INLET':    { phase1: true,  qi: false },  // INLET S/N (DRAGON only)
+  'GN2':      { phase1: true,  qi: false },  // Speed Controller + MFC
+  'CDA':      { phase1: true,  qi: false },  // Speed Controller + MFC
+  'LNG':      { phase1: true,  qi: false },  // MFC
+  'O2':       { phase1: true,  qi: false },  // MFC
+  'BCW':      { phase1: true,  qi: false },  // Flow Sensor
+  'PCW-S':    { phase1: true,  qi: false },  // Flow Sensor
+  'PCW-R':    { phase1: true,  qi: false },  // Flow Sensor
+  // 그 외 그룹은 기본값 (phase1: false, qi: false) — 2차만 검수
+};
+
+// 그룹 변경 시 MECH 자동 추론
+useEffect(() => {
+  if (!isMech) return;
+  const defaults = MECH_GROUP_DEFAULTS[group];
+  if (defaults) {
+    setPhase1Applicable(defaults.phase1);
+    setQiCheckRequired(defaults.qi);
+  } else {
+    setPhase1Applicable(false);  // 명시 안 된 그룹 = 2차만
+    setQiCheckRequired(false);
+  }
+}, [group, isMech]);
+```
+
+## 검증 체크리스트
+
+### 설계 단계 (Codex 교차검증 권장)
+- [ ] OPS Sprint 63-BE 의 `select_options` JSON 형식 (string array) 과 VIEW 의 SELECT 입력 UI 호환
+- [ ] MECH_GROUP_DEFAULTS 의 8 그룹 분류가 OPS seed 의 phase1_applicable=TRUE 15개 항목과 정합
+- [ ] `phase1_applicable` payload key 가 BE 의 update API 와 정확히 매칭 (이미 ELEC 에서 작동 중이라 안전)
+
+### 구현 단계
+- [ ] `npm run build` GREEN (TypeScript 0 에러)
+- [ ] `BLUR_CATEGORIES` 변경 후 MECH 카테고리 선택 시 블러 X 확인
+- [ ] MECH 카테고리 + "+ 항목 추가" 클릭 → 모달 정상 오픈
+- [ ] 모달의 input_type 드롭다운에서 'CHECK', 'INPUT', 'SELECT' 3종 선택 가능
+- [ ] 'SELECT' 선택 시 select_options 입력 필드 표시 (기존 ELEC SELECT 동작 그대로)
+- [ ] phase1_applicable 토글 표시 + 변경 시 payload 정상 포함
+- [ ] MECH 항목 INSERT 후 테이블에 정상 표시 + scope_rule / trigger_task_id 컬럼 응답 정상 수신
+
+### 배포 후 (Twin파파 현업)
+- [ ] /checklist 페이지 → MECH 카테고리 → 69 항목 목록 정상 렌더 (블러 X)
+- [ ] is_active 토글 → 비활성/활성 즉시 반영
+- [ ] 신규 항목 추가 → INPUT/SELECT 타입 정상 작동 (BE 응답 정상)
+- [ ] MFC/Flow Sensor 옵션 list 사후 UPDATE → 토글 모달에서 옵션 추가 가능
+- [ ] DRAGON / GALLANT / SWS 외 모델에서 13/14/19 그룹 disabled 표시 검증 (BE scope_rule 정합)
+
+## 연계
+
+- **OPS Sprint 63-BE** (선행, BE) — `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 63-BE 섹션 / `AXIS-OPS/BACKLOG.md` SPRINT-63-BE-MECH-CHECKLIST-20260429
+- **OPS migration 051 / 051a v2** — schema + **73 INSERT** 적용 후 응답 신규 컬럼 (scope_rule / trigger_task_id / select_options) 활용. v2 (2026-05-01): INLET S/N L/R 8개 master 분리 — 사용자 결정 옵션 A 변형 (Codex 라운드 3 AV1 cross-repo 정정)
+- **OPS Sprint 60-BE** (ELEC 패턴) — phase1_applicable / qi_check_required / select_options 표준 활용
+- **AXIS-OPS FE Sprint 63-FE** (Flutter mech_checklist_screen.dart 신규, 2~3d, ELEC 패턴 + INPUT/SELECT/CHECK 3종 분기) — BE 배포 후 별 Sprint 진행
+- 원칙: `CLAUDE.md` 코드 크기 1단계 (단일 파일 ~25 LOC, 경고 500줄 미만 유지)
+- 권한: 기존 `canEdit = is_admin || company === 'GST'` 그대로 적용 (협력사 읽기 전용 v1.35.2 호환)
+
+### 다음 응용 포인트
+
+- **MFC / Flow Sensor 옵션 list 운영자 업데이트** — Twin파파 측 정리되는 대로 모달에서 UPDATE
+- **MECH_GROUP_DEFAULTS 확장** — 그룹별 자동 추론 정확도 향상 (현재 ELEC 패턴 차용)
+- **INLET S/N OCR 도입** (별 Sprint) — input_type 'SN_OCR' enum 추가 시 모달 input_type 드롭다운에 추가
+- **체크리스트 성적서 MECH 카테고리 추가** — TM Sprint 54 / ELEC Sprint 30 패턴 차용 (별 Sprint)
+
+## 판정 기준 (Sprint 39 종료)
+
+- BE Sprint 63-BE 응답 schema 정상 수신 → MECH 카테고리 69 항목 표시
+- input_type 3종 (CHECK/INPUT/SELECT) 모두 추가 가능
+- phase1_applicable 토글 정상 작동 (ELEC 패턴 동일)
+- TypeScript 0 에러 + npm run build GREEN
+- v1.37.0 릴리스 (CHANGELOG + version.ts + git tag)
+
+
+---
+
+
+---
+
+# Sprint 40 — TM Tank Module 시작/종료 admin 액션 + O/N 일괄 토스트 (2026-04-28 등록, 🟢 Codex 1~5차 전건 반영, v1.40.0 예정)
+
+> 등록일: 2026-04-28 | 상태: **Codex 1차 18 + 2차 11 + 3차 7 + 4차 7 + 5차 4건 = 47건 전건 반영 (2026-04-28)** → 6차 회귀 검증 또는 **구현 착수 가능 (M 정정 완료)**
+> 트랙: VIEW FE (OPS BE Sprint 64-BE 동반 설계 — 양쪽 신규 endpoint 한 쌍)
+> 선행: Sprint 33 강제종료/재활성화 권한 정책 (`is_admin || is_manager`) 위에 정상 시작/종료 액션 추가
+> 설계서: 본 엔트리 + `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 64-BE
+> 교차검증: Claude Cowork → Claude Code Opus Lead → **Codex (1차 18건 / 2차 11건 / 3차 M3.2+M8+A10+A11+A12+I7+I8 7건 / 4차 M1+M2+M3+M4+A1+A2+A3 7건 / 5차 M1+M2+A1+A2 4건 → 47건 전건 반영, Codex A2 6차 정정)**
+> 병합 전략: Sprint 40 단일 PR (또는 Codex A9 권장 시 PR-A/B/C 3분할)
+> 릴리스: **v1.40.0** (Sprint 39 v1.39.x 흡수 시 v1.39.0 으로 재조정 가능)
+> 신규 모델 확장성: **P2 다중 카테고리 화이트리스트** — is_tms/tank_in_mech 모델 추가 시 코드 변경 0건 자동 대응 (Codex M7)
+> ⚠️ **Sprint 번호 정정**: 본래 "Sprint 38" 으로 등록 시도 → CLAUDE.md / 본 파일 Sprint 38(완료)/39 점유로 충돌 → **Sprint 40 채택**
+
+## 배경 (Twin파파 제보, 2026-04-28)
+
+**문제**:
+- TM 카테고리에 task 2개 (`TANK_MODULE`, 가압검사). 가압검사는 누락률 0%, **Tank Module 만 병렬 진행 중 작업자 시작/종료 누락 빈번**.
+- 현재 시작/종료는 모바일 앱(Flutter / AXIS-OPS frontend) 에서만 가능 → 작업자가 모바일 앱에서 깜박하면 시간 통계 소실.
+- VIEW 대시보드에는 강제종료/재활성화만 있고 정상 시작/종료 surface 부재.
+
+**목적**:
+관리자(`is_admin || is_manager`)가 모바일 앱 접속 없이 VIEW 대시보드에서 직접 Tank Module 시작/종료 처리. 같은 O/N 의 여러 S/N 이 병렬 작업 중인 경우 **1번 클릭으로 일괄 처리**.
+
+## 결정 사항 (2026-04-28 Twin파파 확정 + Codex 1차 반영)
+
+| # | 항목 | 확정 | 이유 |
+|---|---|---|---|
+| 1 | 권한 | `is_admin || is_manager` + **회사 경계 분기** (admin=전체, manager=`worker.company === currentUserCompany` 인 task 만 카운트). **결정 5 와 정합**: manager 본인 worker_id 로 행동하므로 본인 회사 task 만 영향 — toast 카운트 단계에서 회사 필터 적용해 모순 차단 (Codex M4) | Sprint 33 `ProcessStepCard.canForceCloseWorker` 헬퍼 패턴 동일 적용 — 권한 메니징 일관성. 일괄 처리 시 manager 의 다른 회사 S/N 은 toast 카운트에서 자동 제외 |
+| 2 | 노출 범위 (P2 정합) | **Tank Module task 만** — 매칭 조건 `task_id='TANK_MODULE' AND task_category IN ('TMS','MECH')` (결정 #10 P2 화이트리스트와 정합, Codex 5차 M1 정정) | 누락 발생 공정 핀포인트, 가압검사·다른 카테고리는 모바일 앱 흐름 보존. **DB 실측 근거**: GAIA/iVAS (is_tms=True) → TMS 카테고리 / DRAGON/SWS/GALLANT (tank_in_mech=True) → MECH 카테고리. `task_seed.py L82~98 + task_service.py:449 + migrations/024` |
+| 3 | UI 위치 | SNDetailPanel 내 task row inline (강제종료/재활성화 버튼 옆) | 기존 task row 단위 액션과 일관성, 추가 surface 부담 최소 |
+| 4 | 액션 단위 | 개별 task (task_detail_id) | task_detail PK 기반 BE 호출 — 강제종료와 동일 패턴 |
+| 5 | Worker 기록 | **클릭한 manager/admin 본인 worker_id** (JWT 자동, proxy 모달 없음). 시간은 **현재 시각 자동 기록만** — manager 백데이트 입력은 별건 (다음 응용 포인트 참조, Codex A7) | VIEW 접속 자체가 manager 이상 권한 보장 → "action 하는 본인이 worker" 정책. UI 단순화, BE 변경 최소 |
+| 6 | 일괄 처리 토스트 | 같은 O/N 내 미시작/미종료 Tank Module N대 산정 → 토스트 [네 — N+1대 일괄] / [아니오 — 1대만]. **manager 인 경우 자기 회사 worker 가 있는 task_detail 만 카운트 (결정 1 회사 필터)** | Tank Module 병렬 진행 현실 반영, 1번 클릭으로 일괄 시간 기록 |
+| 7 | BE 아키텍처 | 신규 `/work/start-batch` `/work/complete-batch` (Sprint 64-BE). **신규 prefetch endpoint** (P2 정합, Codex 5차 M2 정정): `GET /api/app/tasks/by-order/{sales_order}?task_categories=TMS,MECH&task_id=TANK_MODULE` — task_categories 다중 인자 (CSV) + task_id 단일. SNDetailPanel 호출 (taskCategories: ['TMS','MECH']) / API 시그니처 / FE hook (`useGetTasksByOrder`) / BE Sprint 64-BE 결정 #8 모두 동일 계약 | DB 트랜잭션 내 일괄 처리 → 부분 적용 방지, 한 번 네트워크. 그룹 조회 endpoint 로 N+1 prefetch 제거. P2 다중 카테고리 그대로 노출 |
+| 8 | FE 타입 확장 (Codex M2 + M8) | `SNTaskDetail` 에 **2개 필드 추가**: `task_id?: string` (M2) + `serial_number?: string` (M8 A안). BE 응답에는 이미 `_task_to_dict L82, L86` 에 포함됨 — FE 타입만 누락 | `isTankModule(t)` 헬퍼 type-safe + `getTaskCompany(t, orderProducts)` 의 `task.serial_number` 매칭. BE/DB 변경 0건. (A) 채택 사유: 신기능 X, 타입 누락 정정. 모든 미래 task 조회 endpoint (by-order, by-date 등) 와 호환. Sprint 33/34 동일 패턴 선례 (FE-21 partner 필드, M2 task_id) |
+| 9 | 미시작 task 회사 매핑 (Codex M6) | **(c) `product.{partner_field}` 매핑** — 시작된 task: `worker.company`. 미시작 + `task_category='TMS'`: `product.module_outsourcing`. 미시작 + `task_category='MECH'`: `product.mech_partner`. **NULL 처리: (c-3) 카운트 제외 + toast 경고** ("BE 데이터 보강 필요" 안내). BE 확장 0건 (Sprint 34 partner 필드 활용) | manager 가 미시작 task 일괄 시작 시 `worker.company` 필터 불가 → product 레벨 partner 필드로 추정. NULL 케이스는 데이터 미비라 보수적 처리 |
+| 10 | 신규 모델 확장성 정책 (Codex P2 채택) | **다중 카테고리 화이트리스트** — BE: `task_category IN ('TMS','MECH') AND task_id='TANK_MODULE'`. FE `isTankModule(t) = t.task_id === 'TANK_MODULE' && (t.task_category === 'TMS' || t.task_category === 'MECH')`. 회사 매핑은 결정 #9 카테고리별 분기 | **신규 모델 추가 시 코드 변경 0건 자동 대응**. is_tms=True 모델 (GAIA/iVAS 류) 또는 tank_in_mech=True 모델 (DRAGON/SWS/GALLANT 류) 모두 model_config + product 데이터만 입력하면 일괄 시작/종료 자동 동작 |
+| 11 | 1차 운영 대상 (모델 분류) | **GAIA + iVAS** (is_tms=True, TMS-TANK_MODULE). 추가로 P2 화이트리스트 확장 덕에 **DRAGON/SWS/GALLANT (MECH-TANK_MODULE) 도 동일 코드로 자동 동작** — BE 실측 검증: model_config migrations/024 + task_seed.py L243-245 분기 로직 확인 완료. iVAS 의 DUAL (L/R suffix) 도 task_detail PK 단위 트랜잭션이라 자동 처리 | 사용자가 명시한 1차 대상은 GAIA+iVAS. 다른 모델은 누락 발생 시 코드 변경 없이 자동 흡수 (P2 정책 효과). MITHAS/SDS 는 TANK_MODULE 자체 없음 |
+
+## 일괄 처리 토스트 흐름 (확정, Codex M4.1+M6 회사 필터 단계 명시)
+
+```
+[manager가 GPWS-0779 detail panel 열고 Tank Module row [▶ 시작] 클릭]
+    ↓
+[FE prefetch: useGetTasksByOrder(sales_order='6842', taskId='TANK_MODULE')]
+   - Sprint 64-BE 신규 endpoint 1번 호출로 같은 O/N 의 TANK_MODULE task 모두 수집
+   - PROCESS_ORDER 키는 'TMS' (Codex M1.1: categories['TMS'] — 'TM' 표기 정정)
+    ↓
+[1차 필터 — 미시작/미종료 task만]
+   - 시작: workers 모두 started_at=null OR workers=[] (placeholder)
+   - 종료: 어떤 worker 든 started_at != null AND completed_at == null
+    ↓
+[2차 필터 — manager 회사 경계 (Codex M4 + M6)]
+   - is_admin=true  → 통과 (전체 카운트)
+   - is_manager=true → 카테고리별 분기:
+      ├ 시작된 task: worker.company === currentUserCompany
+      ├ 미시작 + task_category='TMS' (GAIA/iVAS): product.module_outsourcing === currentUserCompany
+      ├ 미시작 + task_category='MECH' (DRAGON/SWS/GALLANT, P2): product.mech_partner === currentUserCompany
+      └ 미시작 + partner=NULL (TMS→module_outsourcing OR MECH→mech_partner 둘 다 매핑 불가): 카운트 제외 + toast 경고 (c-3, Codex 5차 A2 일반화)
+    ↓
+[필터 통과 task count = N]
+    ↓
+N == 0 (다른 S/N 없거나 모두 이미 처리됨 또는 manager 회사 경계 밖)
+    → 토스트 없이 즉시 0779만 처리 (단일 모드)
+
+N >= 1
+    → 확인 토스트 (NULL 경고 있으면 함께):
+       "O/N 6842 에 Tank Module 미시작 S/N 이 N대 더 있습니다.
+        병렬 진행으로 일괄 시작 하시겠습니까?
+        [⚠️ partner 매핑 누락 1건 (module_outsourcing/mech_partner) — BE 데이터 보강 필요]"   ← NULL 경고 (c-3, Codex M1)
+        [네 — N+1대 일괄 시작]   [아니오 — 0779만 시작]
+    ↓
+   [네 선택]                        [아니오 선택]
+    ↓                                 ↓
+   POST /work/start-batch          POST /work/start
+   { task_detail_ids: [N+1] }      { task_detail_id: 0779_TM_TANK }
+   → BE 트랜잭션 + 카테고리         → 단일 시작
+     화이트리스트 IN ('TMS','MECH')
+```
+
+종료 시도 동일 패턴 — 미종료(`started_at IS NOT NULL AND completed_at IS NULL`) Tank Module count 기준.
+
+## 구현 범위
+
+### 수정 파일 12개 (Codex 1·2·3·4차 전건 반영 — M2/M8/M3.1/M6/M7/A6/A12 β / A3.1/A5.1/I3/I7 + 4차 M1~M4/A1~A3 정합성 정정, Codex A0' 5차 정정)
+
+| # | 파일 | 변경 | 라인수 |
+|---|---|---|---|
+| 1 | `app/src/types/snStatus.ts` | `SNTaskDetail` 에 2개 필드 추가: `task_id?: string` (Codex M2) + `serial_number?: string` (Codex M8 A안). BE `_task_to_dict L82, L86` 에 이미 포함, FE 타입만 누락 → 타입 sync. | +2 |
+| 2 | `app/src/api/snStatus.ts` | `startTask(id)` / `completeTask(id)` / `startTaskBatch(ids[])` / `completeTaskBatch(ids[])` + 신규 `getTasksByOrder(salesOrder, { taskCategories?: string[]; taskId?: string })` 함수 추가 (Codex M3 B안 + P2 카테고리 다중 인자). | +55 |
+| 3 | `app/src/hooks/useGetTasksByOrder.ts` (신규, **Codex M3.1**) | `useGetTasksByOrder(salesOrder, options)` query hook — Sprint 33 useSNTasks 컨벤션 따라 별도 파일. `staleTime: 30s`. P2 다중 카테고리 인자 지원 | +30 |
+| 4 | `app/src/hooks/useStartTask.ts` (신규) | `useStartTaskMutation` — Sprint 33 `useForceClose` / `useTaskReactivate` 컨벤션 따라 별도 파일 (Codex I3). **Optimistic `setQueryData` (A3) + onError rollback + onSettled invalidate + retry: 1 (A8)** — Codex A3.1 반영 코드 예시 갱신 | +50 |
+| 5 | `app/src/hooks/useCompleteTask.ts` (신규) | `useCompleteTaskMutation` — 동일 패턴 (A3+A8) | +50 |
+| 6 | `app/src/hooks/useStartTaskBatch.ts` (신규) | `useStartTaskBatchMutation` — succeeded/skipped/total 정규화 + partial-success toast (Codex A2). BE 미배포 시 **`Promise.allSettled` (Codex I3 통일)** fallback. Optimistic 일괄 적용 + 일괄 rollback. | +75 |
+| 7 | `app/src/hooks/useCompleteTaskBatch.ts` (신규) | `useCompleteTaskBatchMutation` — 동일 패턴 | +75 |
+| 8 | `app/src/components/sn-status/utils.ts` (신규) | `TANK_MODULE_CATEGORIES = ['TMS','MECH']` (Codex P2). `isTankModule(t)` 카테고리 다중. **`getTaskCompany(task, orderProducts)` 카테고리별 회사 매핑 (Codex M6)** — TMS→module_outsourcing, MECH→mech_partner. `getOtherSNsTankStartable` / `getOtherSNsTankCompletable` 회사 필터 (NULL 제외) | +90 |
+| 9 | `app/src/components/sn-status/SNDetailPanel.tsx` | (a) Tank Module task row 에 [▶ 시작] / [■ 종료] 버튼 inline 추가 (b) 권한 가드 `canStartStop = canForceClose` (A4) (c) `useGetTasksByOrder` prefetch (P2: taskCategories `['TMS','MECH']`) (d) `getOtherSNsTankStartable/Completable` (회사 필터 + NULL 제외) (e) `partnerNullCount` 산정 (c-3 toast 경고) (f) 클릭 핸들러 — 카운트 ≥1 면 모달 (NULL 경고 동반) | +85, -5 |
+| 10 | `app/src/components/sn-status/ParallelConfirmDialog.tsx` (신규) | O/N 일괄 확인 모달. **접근성 보강 (Codex A5+A5.1)**: `useId` 로 `role="dialog"` / `aria-modal` / `aria-labelledby` / `aria-describedby`, 첫 버튼 자동 포커스. **`partnerNullCount` prop + alert role (M6 c-3)**. **A12 β 분해: 본체 ≤60줄 — useEscapeKey 훅 + DialogActions 하위 컴포넌트로 ESC/버튼 영역 분리** | +60 |
+| 11 | `app/src/hooks/useEscapeKey.ts` (신규, **A12 β**) | 재사용 가능 ESC 키 closure 훅 — 다른 모달 (강제종료 등) 에서도 활용 가능 | +12 |
+| 12 | `app/src/components/sn-status/DialogActions.tsx` (신규, **A12 β**) | Dialog 내부 액션 버튼 영역 (primary/secondary/ghost 3버튼) — primaryRef 로 initial focus 첫 버튼 지정 (Codex M3 — focus trap 아닌 initial focus 만 보장) | +25 |
+
+**순 증분: ~609 LOC** (각 mutation hook < 80줄, dialog ≤60줄 (β 분해 후), utils < 90줄, useEscapeKey 12줄, DialogActions 25줄 — 모두 CLAUDE.md 코드 크기 1단계 준수. Codex I9 4차 정정).
+
+**선행 의존성**: BE Sprint 64-BE — `/work/start-batch` `/work/complete-batch` + 신규 `/api/app/tasks/by-order/<sales_order>?task_categories=TMS,MECH&task_id=TANK_MODULE` 엔드포인트 (P2 카테고리 다중). **BE 미배포 시 안전 degrade**: batch 호출은 `Promise.allSettled` (Codex I3) 순차 fallback. `getTasksByOrder` 미배포 시 다른 S/N 카운트 = 0 → 단일 모드만 동작.
+
+### Codex A9 — PR 분할 권장 (선택, Codex A0'' 5차 정정)
+
+12파일 + ~609 LOC 단일 PR 검토 부담 시 다음 분할 가능 (CLAUDE.md 코드 크기 1단계 통과로 절대 금지 아님):
+
+- **PR-A: 타입 + API + utils** (~147 LOC) — `types/snStatus.ts` (+2), `api/snStatus.ts` (+55), `components/sn-status/utils.ts` (+90)
+- **PR-B: 5개 mutation/query hooks** (~280 LOC) — `useGetTasksByOrder` (+30), `useStartTask` (+50), `useCompleteTask` (+50), `useStartTaskBatch` (+75), `useCompleteTaskBatch` (+75)
+- **PR-C: UI surface + shared hook** (~177 LOC net 신규) — `SNDetailPanel` (+85, -5 = net +80), `ParallelConfirmDialog` (+60), `DialogActions` (+25), `useEscapeKey` (+12) — 6번째 shared hook 은 UI 와 함께 묶음
+
+**합산 검증** (Codex 6차 A1 정정): PR-A 147 + PR-B 280 + PR-C 177 = **604 LOC net 신규**. Sprint 40 총 변경 라인 = 신규 609 LOC + 기존 삭제 5 LOC = **614 LOC** (SNDetailPanel `-5` 는 기존 코드 정리분, net 신규로 환산 시 PR-C 177)
+
+### 결정 5 의 ADR 보강 (Codex I4 클린 코어 데이터 영향)
+
+**"실제 작업자 시각 vs 기록 작업자 시각" 분리 검토** (2026-04-28):
+- 정책: manager/admin 본인 worker_id 로 task_detail.workers 에 row 가 추가됨 → started_at/completed_at 이 manager 본인 명의로 기록
+- 트레이드오프: 실제 현장 작업자(예: 협력사 직원)가 따로 있을 수 있으나 모바일 앱 누락 시 manager 가 대신 처리하는 정책상 "기록 = 행위 책임자" 의미로 통합 운영
+- 향후 분리가 필요해질 경우(예: 집계 통계에서 실제 작업자 worker_id 가 필요해질 경우) — 별도 컬럼 `actual_worker_id` 추가 또는 `actor_role='proxy'` 플래그 추가하는 ADR 작업으로 분리 (현 시점 미적용, 다음 응용 포인트 참조)
+- 클린 코어 데이터 원칙 영향: `force_closed` 와 같은 별도 처리 플래그 추가하지 않고 자연스러운 worker row 로 기록 — 단순함 유지
+
+## API 시그니처 — `app/src/api/snStatus.ts`
+
+```typescript
+// 단일 시작/종료 (기존 BE /work/start /work/complete — Sprint 40 FE 신규 surface)
+export interface StartCompleteRequest {
+  task_detail_id: number;
+}
+
+export interface StartCompleteResponse {
+  id: number;
+  task_name: string;
+  task_category: string;
+  workers: TaskWorker[];
+  // ... 기존 SNTaskDetail 필드
+}
+
+export async function startTask(taskDetailId: number): Promise<StartCompleteResponse> {
+  const { data } = await apiClient.post<StartCompleteResponse>(
+    '/api/app/work/start',
+    { task_detail_id: taskDetailId },
+  );
+  return data;
+}
+
+export async function completeTask(taskDetailId: number): Promise<StartCompleteResponse> {
+  const { data } = await apiClient.post<StartCompleteResponse>(
+    '/api/app/work/complete',
+    { task_detail_id: taskDetailId },
+  );
+  return data;
+}
+
+// 일괄 시작/종료 (BE Sprint 64-BE 신규)
+export interface BatchRequest {
+  task_detail_ids: number[];
+}
+
+export interface BatchResponse {
+  succeeded: { task_detail_id: number; updated: StartCompleteResponse }[];
+  skipped: { task_detail_id: number; reason: 'ALREADY_STARTED' | 'ALREADY_COMPLETED' | 'NOT_STARTED' | 'NOT_FOUND' | 'NOT_TANK_MODULE' | 'FORBIDDEN_COMPANY' }[];   // Codex M2: BE Sprint 64-BE 6종과 정합
+  total: number;
+}
+
+export async function startTaskBatch(taskDetailIds: number[]): Promise<BatchResponse> {
+  const { data } = await apiClient.post<BatchResponse>(
+    '/api/app/work/start-batch',
+    { task_detail_ids: taskDetailIds },
+  );
+  return data;
+}
+
+export async function completeTaskBatch(taskDetailIds: number[]): Promise<BatchResponse> {
+  const { data } = await apiClient.post<BatchResponse>(
+    '/api/app/work/complete-batch',
+    { task_detail_ids: taskDetailIds },
+  );
+  return data;
+}
+```
+
+> 훅 코드 예시는 아래 "훅 코드 — Optimistic update + retry (Codex A3.1+A8 반영)" 섹션 참조 (M3.2 — 옛날 통합 형태 섹션 정리).
+
+## SNDetailPanel 변경 — Tank Module task row
+
+```tsx
+// Codex A6: 헬퍼는 components/sn-status/utils.ts 로 승격 (DRY)
+import {
+  isTankModule,
+  getTaskCompany,             // 카테고리별 회사 매핑 (Codex M6, P2)
+  getOtherSNsTankStartable,
+  getOtherSNsTankCompletable,
+} from './utils';
+
+// Codex A4: canForceClose 가 이미 (is_admin || is_manager) — isAdmin 중복 제거
+const canStartStop = canForceClose;
+
+// Codex M3: 같은 O/N 내 다른 S/N tasks 는 신규 endpoint 1번 호출로 prefetch
+// Codex M4 + M6: manager 인 경우 회사 필터 적용 (시작된 task → worker.company / 미시작 → product.{partner_field})
+// Codex P2: 화이트리스트 다중 카테고리 (TMS+MECH 모두 매칭)
+const { data: orderTasks } = useGetTasksByOrder(product.sales_order, {
+  taskCategories: ['TMS', 'MECH'],   // P2 화이트리스트
+  taskId: 'TANK_MODULE',
+  enabled: !!product.sales_order,
+});
+
+// 같은 O/N 의 product 정보 (mech_partner / module_outsourcing 매핑용 — Codex M6)
+const orderProducts = useMemo(
+  () => ownerGroup?.products ?? [],
+  [ownerGroup],
+);
+
+const otherSNsTankStartable = useMemo(
+  () => getOtherSNsTankStartable({
+    orderTasks,
+    orderProducts,                 // 미시작 task 의 회사 매핑용 (Codex M6)
+    currentSn: product.serial_number,
+    isAdmin,
+    currentUserCompany,
+  }),
+  [orderTasks, orderProducts, product.serial_number, isAdmin, currentUserCompany],
+);
+
+const otherSNsTankCompletable = useMemo(
+  () => getOtherSNsTankCompletable({
+    orderTasks,
+    orderProducts,
+    currentSn: product.serial_number,
+    isAdmin,
+    currentUserCompany,
+  }),
+  [orderTasks, orderProducts, product.serial_number, isAdmin, currentUserCompany],
+);
+
+// Codex M6 (c-3) + A11: module_outsourcing/mech_partner NULL 경고
+// 정합성 3건 정정 (Codex A11):
+//   1. isAdmin 가드 — admin 은 회사 무관이라 NULL 무영향
+//   2. currentSn 제외 — getOtherSNsTankStartable 와 동일 기준
+//   3. isTankModule 방어 필터 — orderTasks 가 by-order 로 필터됐다 가정해도 FE 방어
+const partnerNullCount = useMemo(() => {
+  if (isAdmin) return 0;  // A11 #1: admin 은 NULL 영향 없음 → false alarm 차단
+  return (orderTasks ?? []).filter(t =>
+    isTankModule(t) &&                                  // A11 #3: 방어 필터
+    t.serial_number !== product.serial_number &&        // A11 #2: 자기 제외 (M8 A안 — task.serial_number 사용)
+    !t.workers.some(w => w.started_at) &&               // 미시작
+    getTaskCompany(t, orderProducts) === null           // 매핑 NULL
+  ).length;
+}, [orderTasks, orderProducts, product.serial_number, isAdmin]);
+```
+
+### 신규 query hook — `useGetTasksByOrder.ts` (Codex M3.1 + A10 코드 예시 추가)
+
+```typescript
+// app/src/hooks/useGetTasksByOrder.ts (신규, ~30 LOC)
+import { useQuery } from '@tanstack/react-query';
+import { getTasksByOrder } from '../api/snStatus';
+import type { SNTaskDetail } from '@/types/snStatus';
+
+export function useGetTasksByOrder(
+  salesOrder: string | null,
+  options?: {
+    taskCategories?: string[];   // Codex P2 — 'TMS' / 'MECH' 다중
+    taskId?: string;             // 'TANK_MODULE'
+    enabled?: boolean;
+  },
+) {
+  return useQuery<SNTaskDetail[]>({
+    queryKey: ['tasks', 'by-order', salesOrder, options?.taskCategories, options?.taskId],
+    queryFn: () => getTasksByOrder(salesOrder!, options),
+    enabled: !!salesOrder && (options?.enabled ?? true),
+    staleTime: 30 * 1000,        // useSNTasks 컨벤션 동일 (Codex M3.1)
+  });
+}
+```
+
+### `components/sn-status/utils.ts` (신규, Codex A6+M6+P2+I7)
+
+```tsx
+// Codex I7: type import 명시
+import type { SNTaskDetail, SNProduct } from '@/types/snStatus';
+
+// Codex P2: 다중 카테고리 화이트리스트 (TMS=GAIA/iVAS, MECH=DRAGON/SWS/GALLANT)
+export const TANK_MODULE_CATEGORIES = ['TMS', 'MECH'] as const;
+
+export const isTankModule = (t: SNTaskDetail): boolean =>
+  t.task_id === 'TANK_MODULE' &&
+  (TANK_MODULE_CATEGORIES as readonly string[]).includes(t.task_category);
+
+// Codex M6: 카테고리별 회사 매핑
+// - 시작된 task: worker.company 우선
+// - 미시작 + TMS: product.module_outsourcing
+// - 미시작 + MECH: product.mech_partner
+// - 매핑 불가: null (NULL 케이스 — 호출자가 c-3 toast 안내)
+export function getTaskCompany(
+  task: SNTaskDetail,
+  orderProducts: SNProduct[],
+): string | null {
+  // 시작된 task — worker.company
+  const started = task.workers.find(w => w.started_at && w.company);
+  if (started) return started.company ?? null;
+  // 미시작 — product partner 매핑
+  const product = orderProducts.find(p => p.serial_number === task.serial_number);
+  if (!product) return null;
+  if (task.task_category === 'TMS') return product.module_outsourcing ?? null;
+  if (task.task_category === 'MECH') return product.mech_partner ?? null;
+  return null;
+}
+
+interface FilterArgs {
+  orderTasks: SNTaskDetail[] | undefined;
+  orderProducts: SNProduct[];
+  currentSn: string;
+  isAdmin: boolean;
+  currentUserCompany?: string;
+}
+
+export function getOtherSNsTankStartable(args: FilterArgs): SNTaskDetail[] {
+  const { orderTasks, orderProducts, currentSn, isAdmin, currentUserCompany } = args;
+  return (orderTasks ?? [])
+    .filter(t => isTankModule(t))
+    .filter(t => t.serial_number !== currentSn)
+    .filter(t => t.workers.every(w => !w.started_at))   // 미시작
+    .filter(t => {
+      if (isAdmin) return true;                          // admin: 회사 무관
+      const company = getTaskCompany(t, orderProducts);  // manager: 회사 필터
+      return company !== null && company === currentUserCompany;
+      // NULL: 카운트 제외 (c-3 — 호출자가 partnerNullCount 로 별도 toast)
+    });
+}
+
+export function getOtherSNsTankCompletable(args: FilterArgs): SNTaskDetail[] {
+  const { orderTasks, orderProducts, currentSn, isAdmin, currentUserCompany } = args;
+  return (orderTasks ?? [])
+    .filter(t => isTankModule(t))
+    .filter(t => t.serial_number !== currentSn)
+    .filter(t => t.workers.some(w => w.started_at && !w.completed_at))  // 미종료
+    .filter(t => {
+      if (isAdmin) return true;
+      const company = getTaskCompany(t, orderProducts);
+      return company !== null && company === currentUserCompany;
+    });
+}
+```
+
+// 시작 버튼 핸들러
+const handleStart = (task: SNTaskDetail) => {
+  if (!isTankModule(task)) return;
+  const others = otherSNsTankStartable;
+  if (others.length === 0) {
+    startTaskMut.mutate(task.id);
+  } else {
+    setParallelDialog({ action: 'start', task, others });
+  }
+};
+
+// 토스트 모달 confirm 콜백
+const handleParallelConfirm = (mode: 'batch' | 'single') => {
+  const { action, task, others } = parallelDialog!;
+  if (mode === 'single') {
+    if (action === 'start') startTaskMut.mutate(task.id);
+    else completeTaskMut.mutate(task.id);
+  } else {
+    const ids = [task.id, ...others.map(o => o.id)];
+    if (action === 'start') startBatchMut.mutate(ids);
+    else completeBatchMut.mutate(ids);
+  }
+  setParallelDialog(null);
+};
+
+// JSX — task row 안 (강제종료/재활성화 버튼 옆)
+{canStartStop && isTankModule(task) && (
+  <>
+    {/* 시작 버튼 — task 의 모든 worker 가 미시작일 때만 노출 */}
+    {task.workers.every(w => !w.started_at) && (
+      <button onClick={() => handleStart(task)}>▶ 시작</button>
+    )}
+    {/* 종료 버튼 — task 의 worker 중 시작했고 미종료인 것이 있을 때만 노출 */}
+    {task.workers.some(w => w.started_at && !w.completed_at) && (
+      <button onClick={() => handleComplete(task)}>■ 종료</button>
+    )}
+  </>
+)}
+
+{/* 모달 — Codex M6 (c-3) NULL 경고 prop 추가 */}
+{parallelDialog && (
+  <ParallelConfirmDialog
+    open
+    action={parallelDialog.action}
+    onNumber={product.sales_order ?? ''}
+    otherCount={parallelDialog.others.length}
+    partnerNullCount={partnerNullCount}    // (c-3) NULL 경고 표시
+    onConfirm={handleParallelConfirm}
+    onClose={() => setParallelDialog(null)}
+  />
+)}
+```
+
+### 훅 코드 — Optimistic update + retry (Codex A3.1+A8 반영)
+
+```typescript
+// app/src/hooks/useStartTask.ts (신규)
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { startTask } from '../api/snStatus';
+
+export function useStartTaskMutation(serialNumber: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (taskDetailId: number) => startTask(taskDetailId),
+    // Codex A3 — Optimistic update
+    onMutate: async (taskDetailId) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks', serialNumber] });
+      const previous = queryClient.getQueryData(['tasks', serialNumber]);
+      queryClient.setQueryData(['tasks', serialNumber], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          tasks: old.tasks.map((t: any) =>
+            t.id === taskDetailId
+              ? { ...t, started_at: new Date().toISOString() }
+              : t,
+          ),
+        };
+      });
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => {
+      // Codex A8 — 실패 시 rollback + toast
+      if (ctx?.previous) queryClient.setQueryData(['tasks', serialNumber], ctx.previous);
+      // toast.error('시작 실패. 다시 시도해주세요.');
+    },
+    onSettled: () => {
+      // Codex A3 — 항상 refetch (서버 진실 동기화)
+      queryClient.invalidateQueries({ queryKey: ['sn-status'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', serialNumber] });
+    },
+    retry: 1,                              // Codex A8 — 1회 재시도
+  });
+}
+// useCompleteTaskMutation / useStartTaskBatchMutation / useCompleteTaskBatchMutation 동일 패턴
+// Batch 의 경우 onMutate 에서 N개 task 일괄 optimistic, onError 시 일괄 rollback
+```
+
+### Batch fallback — `Promise.allSettled` (Codex I3 통일)
+
+```typescript
+// app/src/hooks/useStartTaskBatch.ts (신규)
+export function useStartTaskBatchMutation(serialNumber: string) {
+  return useMutation({
+    mutationFn: async (taskDetailIds: number[]): Promise<BatchResponse> => {
+      try {
+        return await startTaskBatch(taskDetailIds);
+      } catch (err: any) {
+        // BE Sprint 64-BE 미배포 (404) → fallback: 순차 단일 호출 + 결과 정규화 (Codex A2)
+        if (err.response?.status === 404) {
+          const settled = await Promise.allSettled(
+            taskDetailIds.map(id => startTask(id)),
+          );
+          const succeeded = settled
+            .map((r, i) => r.status === 'fulfilled' ? { task_detail_id: taskDetailIds[i], updated: r.value } : null)
+            .filter(Boolean);
+          const skipped = settled
+            .map((r, i) => r.status === 'rejected' ? {
+              task_detail_id: taskDetailIds[i],
+              reason: r.reason?.response?.data?.error ?? 'NOT_FOUND',
+            } : null)
+            .filter(Boolean);
+          return { succeeded, skipped, total: taskDetailIds.length };
+        }
+        throw err;
+      }
+    },
+    // ... onMutate / onError / onSettled / retry: 1
+  });
+}
+```
+
+## 신규 컴포넌트 — `ParallelConfirmDialog.tsx` (Codex A5.1 ARIA + A12 β 분해 반영)
+
+### A12 β 분해 — 보조 훅 + 하위 컴포넌트로 단축
+
+본체 함수 60줄 권장 / 100줄 한도 (CLAUDE.md). β 분해 후 본체 ≤60줄 달성:
+
+```tsx
+// app/src/hooks/useEscapeKey.ts (신규 — 재사용 가능, 다른 모달에서도 활용)
+import { useEffect } from 'react';
+
+export function useEscapeKey(enabled: boolean, onEscape: () => void) {
+  useEffect(() => {
+    if (!enabled) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onEscape();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [enabled, onEscape]);
+}
+```
+
+```tsx
+// app/src/components/sn-status/DialogActions.tsx (신규 — Dialog 내부 액션 버튼 영역만)
+interface DialogActionsProps {
+  primaryLabel: string;
+  secondaryLabel: string;
+  onPrimary: () => void;
+  onSecondary: () => void;
+  onClose: () => void;
+  primaryRef?: React.RefObject<HTMLButtonElement>;
+}
+
+export function DialogActions({
+  primaryLabel, secondaryLabel, onPrimary, onSecondary, onClose, primaryRef,
+}: DialogActionsProps) {
+  return (
+    <div className="actions">
+      <button ref={primaryRef} onClick={onPrimary} className="primary">{primaryLabel}</button>
+      <button onClick={onSecondary} className="secondary">{secondaryLabel}</button>
+      <button onClick={onClose} className="ghost">취소</button>
+    </div>
+  );
+}
+```
+
+```tsx
+// app/src/components/sn-status/ParallelConfirmDialog.tsx (본체 ≤60줄, A12 β 분해)
+import { useEffect, useId, useRef } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
+import { DialogActions } from './DialogActions';
+
+interface ParallelConfirmDialogProps {
+  open: boolean;
+  action: 'start' | 'complete';
+  onNumber: string;
+  otherCount: number;
+  partnerNullCount?: number;          // Codex M6 (c-3) NULL 경고
+  onConfirm: (mode: 'batch' | 'single') => void;
+  onClose: () => void;
+}
+
+export function ParallelConfirmDialog({
+  open, action, onNumber, otherCount, partnerNullCount = 0, onConfirm, onClose,
+}: ParallelConfirmDialogProps) {
+  const titleId = useId();
+  const descId = useId();
+  const primaryRef = useRef<HTMLButtonElement>(null);
+
+  useEscapeKey(open, onClose);   // A12 β — 커스텀 훅으로 분리
+
+  // 첫 버튼 자동 포커스만 (ESC 는 useEscapeKey 가 처리 — A12 β)
+  useEffect(() => {
+    if (open) primaryRef.current?.focus();
+  }, [open]);
+
+  if (!open) return null;
+  const verb = action === 'start' ? '시작' : '종료';
+  const status = action === 'start' ? '미시작' : '미종료';
+
+  return (
+    <div className="modal-overlay" onClick={onClose} role="presentation">
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descId}
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 id={titleId}>Tank Module 병렬 {verb}</h3>
+        <p id={descId}>
+          O/N <strong>{onNumber}</strong> 에 Tank Module {status} S/N 이 <strong>{otherCount}</strong>대 더 있습니다.
+          <br />
+          병렬 진행으로 일괄 {verb} 하시겠습니까?
+        </p>
+        {partnerNullCount > 0 && (
+          <p role="alert" className="partner-null-warning">
+            ⚠️ partner 매핑 누락 S/N {partnerNullCount}대 (module_outsourcing/mech_partner) — BE 데이터 보강 필요 (카운트에서 제외됨)
+          </p>
+        )}
+        <DialogActions
+          primaryRef={primaryRef}
+          primaryLabel={`네 — ${otherCount + 1}대 일괄 ${verb}`}
+          secondaryLabel={`아니오 — 1대만 ${verb}`}
+          onPrimary={() => onConfirm('batch')}
+          onSecondary={() => onConfirm('single')}
+          onClose={onClose}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+본체 ~50줄 (CLAUDE.md 60줄 권장 통과 ✅). `useEscapeKey` 는 다른 모달에서도 재사용 가능 — DRY.
+
+## 안전 degrade 설계 (BE Sprint 64-BE 미배포 상태)
+
+- 단일 시작/종료 (`/work/start` `/work/complete`): 기존 endpoint → BE 변경 0건, 즉시 동작
+- 일괄 시작/종료 (`/work/start-batch` `/work/complete-batch`): BE 미배포 시 404 → FE 가 fallback 처리
+  - **fallback 정책**: batch 호출 실패 → FE 가 `Promise.allSettled` 로 단일 호출 N번 후 결과를 `succeeded`/`skipped` 정규화 (Codex I3 통일)
+  - 사용자에게는 동일 UX (토스트 → 일괄 처리), 내부적으로만 분기
+  - 트랜잭션성 손실은 감수. partial-success toast 로 명시적 안내 (Codex A2)
+- 신규 endpoint `GET /api/app/tasks/by-order` (Sprint 64-BE 범위 확장) 미배포 시: 단일 모드만 동작 (다른 S/N count = 0 → 토스트 미표시)
+- BE 단계 배포 권장: BE Sprint 64-BE 먼저 → FE Sprint 40 → fallback 코드 차후 정리
+
+### skipped reason 한국어 매핑 (Codex I6)
+
+| reason | 토스트 메시지 |
+|---|---|
+| `ALREADY_STARTED` | "이미 시작됨" |
+| `ALREADY_COMPLETED` | "이미 종료됨" |
+| `NOT_STARTED` | "아직 시작 안 됨 (종료 불가)" |
+| `NOT_FOUND` | "task ID 조회 실패" |
+| `NOT_TANK_MODULE` | "Tank Module 이 아님 (화이트리스트 위반)" |
+| `FORBIDDEN_COMPANY` | "권한 범위 밖 (다른 회사 task)" |
+
+partial-success toast 예시: `"3대 시작 완료 (2대 스킵: 이미 시작됨 1, 권한 밖 1)"`
+
+## Codex 1차 검증 결과 반영 (2026-04-28)
+
+### 🔴 Must (M, 5건 전건 반영)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| M1 | `task_category='TM'` 표기 오류 4곳 (DB 실제 'TMS') | 일괄 'TMS' 로 정정 (결정 #2 강조 + 모든 코드 예시 갱신). DB 근거: `constants.ts:4 PROCESS_ORDER` + `task_service.py:449` |
+| M2 | `SNTaskDetail.task_id` 필드 부재 | `types/snStatus.ts` 에 `task_id?: string` 추가. BE 변경 0건 (이미 `_task_to_dict:86` 응답 포함). 결정 #8 신설 |
+| M3 | 다른 S/N tasks 조회 경로 미확정 | **B안 채택** — 신규 endpoint `GET /api/app/tasks/by-order/<sales_order>?task_id=TANK_MODULE` (Sprint 64-BE 범위 확장). FE 측 `useGetTasksByOrder` hook 추가 |
+| M4 | 결정 1(회사 경계) ↔ 결정 5(JWT worker) 충돌 | 결정 1 보강: **manager 일괄 처리는 본인 회사 task 만 카운트** (a안). 토스트 흐름에 회사 필터 위치 명시 |
+| M5 | Tank Module 의 task_category 분류 확정 | DB 실측 완료: `task_seed.py + task_service.py:449` 모두 `task_category='TMS' AND task_id='TANK_MODULE'` 사용. 결정 #2 / 모든 코드 예시 / BE Sprint 64-BE 일괄 정정 |
+
+### 🟠 Advisory (A, 8건 전건 반영)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| A1 | 버전 표기 누락 | 헤더에 `v1.40.0` 명시 (Sprint 39 v1.39.x 흡수 시 v1.39.0 재조정 가능 코멘트) |
+| A2 | Fallback 부분 실패 안내 UI 누락 | `useStartTaskBatchMutation` / `useCompleteTaskBatchMutation` 에 `Promise.allSettled` 결과를 `succeeded` / `skipped` 정규화 후 partial-success toast 노출 |
+| A3 | Optimistic update 미사용 | 4개 mutation 에 `setQueryData(['tasks', sn], next)` 적용. invalidate 는 `onSettled` 시점으로 이동해 flicker 차단 |
+| A4 | `canStartStop = isAdmin || canForceClose` 중복 | `canStartStop = canForceClose` 단순화 (`canForceClose === is_admin || is_manager` 이미 포함) |
+| A5 | ParallelConfirmDialog 접근성 | `role="dialog"` + `aria-modal="true"` + `aria-labelledby` + `aria-describedby` + ESC 닫기 + **initial focus** (첫 버튼 자동 포커스). focus trap 은 단일 모달이라 미적용 — 향후 다중 모달 시 react-focus-lock 도입 검토 (Codex M3 다운그레이드) |
+| A6 | `isTankModule` 헬퍼 위치 | `components/sn-status/utils.ts` 신규 파일로 승격 — `getOtherSNsTankStartable` / `getOtherSNsTankCompletable` 도 같이 이동 (DRY) |
+| A7 | 시간 정정 모드 분리 명시 | 결정 #5 에 "현재 시각 자동 기록만, manager 백데이트 입력은 별건" 명시. 다음 응용 포인트에 별도 항목으로 분리 |
+| A8 | Network 실패 retry 정책 없음 | mutation 에 `retry: 1` + 실패 시 toast 안내 (TanStack Query mutation 기본 `retry: false` 보강). batch 부분 실패는 succeeded 까지는 commit 유지, skipped 만 재시도 권장 toast |
+
+### 🟡 Information (I, 5건 — 4건 ✅ / 1건 ADR)
+
+- I1: Sprint 33 `workers=[]` placeholder 호환 ✅ (`every(w => !w.started_at)` 통과)
+- I2: 코드 크기 1단계 OK ✅ (모든 신규 파일 < 임계)
+- I3: hooks/ 컨벤션 — 기존 `useForceClose.ts` 패턴 따라 **4개 별도 mutation 파일** 채택 (useSNStatus.ts 통합 폐기)
+- I4: 클린 코어 데이터 ADR — "실제 작업자 vs 기록 작업자 분리 검토" 결정 #5 직하 ADR 코멘트로 보강
+- I5: `currentUserCompany` props 이미 SNDetailPanel 에 전달 ✅ (Sprint 40 추가 props 0건)
+
+## Codex 2차 검증 결과 반영 (2026-04-28, 잔재 정정 + 신규 결정)
+
+### 🔴 Must (M, 2건 추가 + 1건 잔재)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| M1.1 | L16290 토스트 흐름에 `categories['TM']` 잔재 (PROCESS_ORDER 키는 'TMS') | 토스트 흐름 다이어그램 'TMS' 로 정정 + Codex M1.1 명시 코멘트 추가 |
+| M3.1 | `useGetTasksByOrder` query hook 파일이 수정 파일 표 누락 | 수정 파일 표에 `app/src/hooks/useGetTasksByOrder.ts` (신규) 추가 명시 |
+| M4.1 | 토스트 다이어그램에 회사 필터 단계 누락 | 다이어그램 [2차 필터 — manager 회사 경계] 단계 명시 + admin/manager 분기 + 카테고리별 (TMS→module_outsourcing / MECH→mech_partner) 설명 |
+| **M6 (신규)** | 미시작 task 회사 필터 처리 정책 결정 부재 | **(c) 채택** — 시작된 task: `worker.company` / 미시작+TMS: `product.module_outsourcing` / 미시작+MECH: `product.mech_partner`. **(c-3) NULL 처리** — 카운트 제외 + toast 경고 ("BE 데이터 보강 필요"). 결정 #9 신설 |
+| **M7 (신규)** | Sprint 40 노출 범위 + 신규 모델 확장성 | DB 실측 (`task_seed.py L82~98 + migrations/024 + model_config.py L30-32`): TANK_MODULE 은 `task_category='TMS'` (GAIA/iVAS, is_tms=True) 또는 `task_category='MECH'` (DRAGON/SWS/GALLANT, tank_in_mech=True) 둘 다 가능. **P2 다중 카테고리 화이트리스트 채택** — `task_category IN ('TMS','MECH') AND task_id='TANK_MODULE'`. 1차 운영 대상 = GAIA+iVAS, 신규 모델 (DRAGON 류 등) 추가 시 코드 변경 0건 자동 대응. 결정 #10·#11 신설 |
+
+### 🟠 Advisory (A, 2건 추가 + 1건 잔재)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| A3.1 | 훅 코드 예시가 1차 형태 (invalidate 만) — A3 결정과 불일치 | 훅 코드 예시 갱신 — `onMutate` (cancelQueries + setQueryData) / `onError` (rollback + toast) / `onSettled` (invalidate) / `retry: 1` 패턴 적용 |
+| A5.1 | ParallelConfirmDialog 코드에 ARIA 미반영 | 코드 갱신 — `useId` 로 `aria-labelledby` / `aria-describedby` / `role="dialog"` / `aria-modal="true"` / ESC 키 닫기 / 첫 버튼 initial focus (Codex M3 — focus trap 아님) + `partnerNullCount` prop (c-3 경고 alert role) |
+| **A9 (신규)** | PR 분할 검토 (9파일 + 430 LOC + 6신규파일) | 권장 — PR-A (타입+API+utils ~150 LOC) / PR-B (5훅 ~280 LOC) / PR-C (Panel+Dialog ~190 LOC). 단일 PR 도 코드 크기 1단계 통과로 절대 금지 아님 — **선택 사항, 코멘트로만 명시** |
+
+### 🟡 Information (I, 3건 추가)
+
+- **I3 (신규)**: `Promise.all` 표기 → `Promise.allSettled` 통일 (안전 degrade 섹션 + 훅 코드 예시 모두 갱신)
+- **I4 (신규)**: 검증 기준 설계 단계 체크박스 5개 — 1차 Codex 답변 완료 표시 (`[x]` + 해결 ID 코멘트)
+- **I6 (신규)**: skipped reason 한국어 toast 매핑 표 추가 — `ALREADY_STARTED` / `ALREADY_COMPLETED` / `NOT_STARTED` / `NOT_FOUND` / `NOT_TANK_MODULE` / `FORBIDDEN_COMPANY` 6종
+
+## Codex 3차 검증 결과 반영 (2026-04-28, 7건 전건)
+
+### 🔴 Must (M, 2건)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| **M3.2** | L16427-16442 옛날 훅 섹션 잔존 (`useSNStatus.ts` stale 헤더 + invalidate-only 코드) — 신 섹션과 모순 | 옛날 섹션 통째로 삭제. 신 섹션 (L16624 이후) 만 유지. 분기 영향 0건 검증 완료 |
+| **M8** | `getTasksByOrder` 응답에 task별 S/N 식별 정보 부재 — `task.serial_number` 사용 코드와 충돌 | **(A) 채택** — `SNTaskDetail.serial_number?: string` 1줄 추가. BE `_task_to_dict L82` 에 이미 응답 포함 → BE 변경 0건. 결정 #8 갱신. **장기 시스템 검토 결과**: 신기능 X (타입 누락 정정), 모든 미래 task 조회 endpoint 호환, Sprint 33/34/40-M2 동일 패턴 선례 |
+
+### 🟠 Advisory (A, 3건)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| **A10** | `useGetTasksByOrder` hook 코드 예시 부재 | 본문에 ~30줄 코드 예시 추가 (queryKey / staleTime / enabled / 옵션 처리) |
+| **A11** | `partnerNullCount` 필터 정합성 3건 누락 | 정정 — (1) `isAdmin` 가드 추가 / (2) `currentSn` 자기 제외 / (3) `isTankModule` 방어 필터 |
+| **A12** | ParallelConfirmDialog 함수 본체 ~90줄 (60줄 권장 초과) | **β 분해 채택** — `useEscapeKey` 커스텀 훅 + `DialogActions` 하위 컴포넌트 분리. 본체 ≤60줄 달성. `useEscapeKey` 는 재사용 가능 |
+
+### 🟡 Information (I, 2건)
+
+- **I7 (신규)**: `utils.ts` 코드 예시에 `import type { SNTaskDetail, SNProduct } from '@/types/snStatus'` 명시 추가
+- **I8 (신규)**: 검증 기준 "배포 후" 섹션에 사전 점검 체크박스 3건 추가 — Sprint 34 배포 상태 확인 / module_outsourcing/mech_partner NULL 비율 측정 / GAIA+iVAS 입력률 확인 (M6 c-3 NULL 빈도 사전 검증)
+
+## Codex 4차 검증 결과 반영 (2026-04-28, 7건 전건 — 정합성 정정)
+
+### 🔴 Must (M, 4건)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| **M1** | NULL 경고 문구가 `module_outsourcing` 만 명시 — 결정 #9 의 mech_partner 경로와 불일치 | 토스트 흐름 + ParallelConfirmDialog 코드 2곳 모두 **"partner 매핑 누락 (module_outsourcing/mech_partner)"** 으로 일반화 |
+| **M2** | `BatchResponse.skipped.reason` 유니온 4종 vs i18n 매핑표 6종 계약 충돌 | 유니온 6종 확장 — `'NOT_TANK_MODULE' \| 'FORBIDDEN_COMPANY'` 추가. BE Sprint 64-BE skipped reason 6종과 정합 |
+| **M3** | focus trap 요구 vs 코드 예시 (initial focus) 불일치 | **용어 다운그레이드 — initial focus 통일**. focus trap 은 단일 모달이라 미적용 명시. 향후 다중 모달 시 react-focus-lock 도입 검토를 다음 응용 포인트로 분리. 파일표 / A5 / A5.1 / 검증 기준 4곳 동기화 |
+| **M4** | 구현 검증 기준이 `'TMS' AND TANK_MODULE` 만 — 결정 #10 P2 와 모순 | 매칭 조건 정정 — `task_id='TANK_MODULE' && task_category IN ('TMS','MECH')` (결정 #10 P2 다중 카테고리 정합) |
+
+### 🟠 Advisory (A, 3건)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| **A1** | hooks 수 산식 흔들림 (표 6개 / 체크리스트 5개) | 체크리스트 **"hooks 6개 (5 mutation/query + 1 shared useEscapeKey)"** 로 통일 |
+| **A2** | "신규 endpoint 5개" vs 본문 기존 endpoint 2개 포함 충돌 | 표현 정정 — **"API 표면 변경 5건: BE 신규 3 (start-batch/complete-batch/by-order) + FE 신규 surface 2 (기존 BE start/complete 첫 호출)"** |
+| **A3** | 사전 점검 SQL `is_tms = TRUE` 가 GAIA + iVAS 외 다른 is_tms 모델까지 포함 가능 | SQL 수정 — `mc.model_prefix IN ('GAIA', 'IVAS')` 명시. 별도 코멘트로 "전체 TMS 대상 검증 시 `is_tms = TRUE`" 옵션 보존 (P2 자동 흡수 모델 사전 점검용) |
+
+## Codex 5차 검증 결과 반영 (2026-04-28, 4건 즉시 정정 + 1건 advisory 보존)
+
+### 🔴 Must (M, 2건 — 결정사항 표 내부 정합성)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| **M1** | 결정 #2 (`task_category='TMS'` 단일) ↔ 결정 #10 (P2 다중 카테고리) 충돌 | 결정 #2 갱신 — `task_id='TANK_MODULE' AND task_category IN ('TMS','MECH')` 로 P2 정합. DB 실측 근거 (GAIA/iVAS=TMS, DRAGON/SWS/GALLANT=MECH) 명시 |
+| **M2** | by-order endpoint 계약 3종 표기 (결정 #7 단일 / API 시그니처 다중 / SNDetailPanel 호출 다중) | 결정 #7 갱신 — `?task_categories=TMS,MECH&task_id=TANK_MODULE` 다중 인자 통일. 모든 호출/시그니처/Sprint 64-BE 결정 #8 동일 계약 명시 |
+
+### 🟠 Advisory (A, 2건 즉시 정정 + 1건 보존)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| **A1** | PR 분할 산식 모순 (PR-B 라벨 6개 vs 실제 5개, LOC 합 546 ≠ 609) | PR-B "5개 mutation/query hooks ~280 LOC" / PR-C "+ shared hook 묶음 ~182 LOC" 정정. 합산 검증 **147 + 280 + 182 = 609 LOC** 명시 |
+| **A2** | 4차 M1 일반화가 토스트 흐름 다이어그램에 부분 미반영 (`module_outsourcing=NULL` 단독 잔재) | 토스트 흐름 L16306 정정 — `partner=NULL (TMS→module_outsourcing OR MECH→mech_partner 둘 다 매핑 불가)` 일반화 |
+| **A3** | fallback NOT_FOUND default 부정확 (advisory 보존) | 즉시 정정 불필요 — 구현 단계에서 reason 정확 매핑 시 자연 해소 (이미 구현 단계 검증 기준에 reason 정확성 항목 포함) |
+
+### 🟡 Information (I, 2건 — 즉시 정정 불필요)
+
+- **I1**: DialogActions ref 패턴 React 19 컨벤션 (구식이나 동작 OK) — 구현 단계 코드 리뷰 시 갱신 검토
+- **I2**: 5차에서 헤더 동기화 누락 패턴 재발 없음 ✅
+
+## 교차검증 필수 항목 (Codex 이관 체크리스트)
+
+- ✅ **API 표면 변경 5건** (Codex A2 4차 정정 — 신규/기존 surface 분리) — **BE 신규 3개**: `/work/start-batch` / `/work/complete-batch` / `/api/app/tasks/by-order`. **FE 신규 surface 2개**: 기존 BE `/work/start` / `/work/complete` 를 VIEW 에서 처음 호출
+- ✅ 타입 변경 (`StartCompleteRequest/Response`, `BatchRequest/Response`, `SNTaskDetail.task_id` + `SNTaskDetail.serial_number` 신규 추가, skipped reason 6종 유니온 — Codex M2)
+- ✅ 3파일 이상 touch — **12파일** (types 1, api 1, **hooks 6개** — useGetTasksByOrder/useStartTask/useCompleteTask/useStartTaskBatch/useCompleteTaskBatch + useEscapeKey(shared), components 4개 — SNDetailPanel/ParallelConfirmDialog/DialogActions/utils.ts) (Codex A1 4차 정정 — hooks 5+1 shared → 6개로 산식 통일)
+- ✅ 권한 모델 변경 (정상 시작/종료가 admin/manager 권한 행사로 추가됨)
+- ✅ 클린 코어 데이터 원칙 영향 — manager 본인 시각 기록 정책 ADR 보강 (I4)
+
+→ **Codex 교차검증 5차 완료 (2026-04-28) — 1·2·3·4·5차 47건 전건 반영 (5차 M1: 결정 #2 P2 정합 + M2: 결정 #7 endpoint 통일 + A1: PR 분할 산식 + A2: 토스트 흐름 일반화). 6차 회귀 권장 또는 구현 진입 가능** (Codex A3 6차 정정).
+
+## 검증 기준
+
+### 설계 단계 (Codex 1·2·3·4·5차 완료, A4 6차 정정)
+
+- [x] **(1차 M3 → 해결)** 같은 O/N 내 다른 S/N 의 Tank Module task_detail_id 조회 경로 → **B안 채택**: 신규 endpoint `GET /api/app/tasks/by-order/<sales_order>` (Sprint 64-BE) + FE `useGetTasksByOrder` hook
+- [x] **(1차 I1 → ✅)** `task.workers.every(w => !w.started_at)` 로 미시작 판단 → Sprint 33 `workers=[]` placeholder 와 호환 검증 완료
+- [x] **(1차 A2 → 해결)** BE batch 부분 실패 schema → `succeeded/skipped/total` 정규화 + partial-success toast (Codex A2)
+- [x] **(1차 M4 → 해결, 2차 M6 추가)** manager 회사 경계 → 결정 #1·#9 회사 필터. 미시작 task 는 `product.{partner_field}` 매핑 (M6 c-3 NULL 처리)
+- [x] **(1차 A2 → 해결)** fallback 트랜잭션 손실 명시적 경고 → `Promise.allSettled` partial-success toast (Codex A2 + I3)
+- [x] **(2차 M7 → 해결)** 신규 모델 확장성 → P2 다중 카테고리 화이트리스트 채택, `task_category IN ('TMS','MECH')`
+
+### 구현 단계 (2026-05-04 구현 완료, 자동 검증 GREEN)
+
+**자동 검증 (코드 구현으로 보장)**:
+- [x] `npm run build` GREEN — 3293 modules transformed, 2.20s, 번들 변화 ±10% 이내
+- [x] TypeScript 0 에러 — `SNTaskDetail.task_id?` + `serial_number?` 2 필드 추가 후 `isTankModule()` type-safe
+- [x] Tank Module task row 만 시작/종료 버튼 노출 — `isTankModule(t) = t.task_id === 'TANK_MODULE' && (TANK_MODULE_CATEGORIES as readonly string[]).includes(t.task_category)` 헬퍼 구현 (`utils.ts:11-13`). 가압검사 (PRESSURE_TEST) row 에는 미노출
+- [x] manager 권한 없는 user 는 버튼 미노출 — `canStartStop = !!canForceClose` 단일 가드 (`SNDetailPanel.tsx`)
+- [x] **manager 회사 필터** — `getOtherSNsTankStartable/Completable` 가 `getTaskCompany(t, orderProducts)` 매핑 후 `company === currentUserCompany` 필터 (`utils.ts:51-71`)
+- [x] batch 응답 정규화 (succeeded/skipped/total) — `BatchResponse` 타입 + 6종 reason 유니온 (`api/snStatus.ts:21-30`)
+- [x] **BE 미배포 시 fallback** — `useStartTaskBatch.ts:14-33` / `useCompleteTaskBatch.ts:14-33` 둘 다 404 catch → `Promise.allSettled` 순차 호출 + reason 정규화
+- [x] **Optimistic update** — `useStartTask.ts` / `useCompleteTask.ts` 에 `onMutate` (cancelQueries + setQueryData) / `onError` rollback / `onSettled` invalidate 패턴 구현
+- [x] **mutation retry: 1** — 4개 mutation 모두 `retry: 1` 설정 (`useStartTask.ts:37`, `useCompleteTask.ts:37`, batch 2개 동일)
+- [x] **ParallelConfirmDialog 접근성** — `useId()` 로 `aria-labelledby` / `aria-describedby` / `role="dialog"` / `aria-modal="true"` (`ParallelConfirmDialog.tsx:50-58`). `useEscapeKey(open, onClose)` ESC 닫기 + `primaryRef.current?.focus()` initial focus
+- [x] partner=NULL 경고 (M6 c-3) — `partnerNullCount` 정확 (isAdmin 가드 + currentSn 제외 + isTankModule 방어, `SNDetailPanel.tsx`) + `role="alert"` 노란색 배지 (`ParallelConfirmDialog.tsx:79-94`)
+- [x] vitest GREEN — 30/30 PASS (회귀 0건)
+
+**실기기 검증 (Netlify preview / dev 서버 — Twin파파)**:
+- [ ] 1대 짜리 O/N → 토스트 없이 즉시 단일 호출 (코드는 `otherSNsTankStartable.length === 0` 분기로 보장)
+- [ ] 다대 O/N + 다른 S/N 모두 시작됨 → 토스트 없이 단일 호출
+- [ ] 다대 O/N + 미시작 S/N N≥1 → 토스트 [네/아니오] 분기 정상
+- [ ] batch 응답 succeeded N건 + skipped 0건 → 성공 토스트 (`formatBatchResult` 호출)
+- [ ] batch 응답 succeeded < total → 부분 성공 안내 (skipped reason 한국어 표시, `SKIPPED_REASON_LABEL` 매핑)
+- [ ] BE Sprint 64-BE 배포 후 batch endpoint 정상 동작 + fallback 모드 자동 비활성화
+
+### 사전 점검 (Codex I8 — 배포 직전 운영 데이터 검증)
+
+- [ ] **Sprint 34 (FE-20/FE-21) BE 배포 상태 확인** — `mech_partner` / `module_outsourcing` / `line` 필드가 BE 응답에 정상 포함되는지 (없으면 M6 c-3 회사 매핑 자체 불가)
+- [ ] **운영 DB 의 `module_outsourcing` / `mech_partner` NULL 비율 측정** — `SELECT COUNT(*) FROM plan.product_info WHERE module_outsourcing IS NULL OR mech_partner IS NULL;` (NULL 다수면 manager 일괄 시작 사실상 불가 → 데이터 보강 선행 필요)
+- [ ] **1차 운영 대상 (GAIA + iVAS) 의 `module_outsourcing` 입력률 100% 확인** (Codex A3 4차 정정 — 모델 prefix 명시):
+
+```sql
+-- GAIA + iVAS 한정 입력률
+SELECT
+    COUNT(*) FILTER (WHERE pi.module_outsourcing IS NOT NULL) AS filled,
+    COUNT(*) AS total,
+    ROUND(100.0 * COUNT(*) FILTER (WHERE pi.module_outsourcing IS NOT NULL) / NULLIF(COUNT(*),0), 1) AS pct
+FROM plan.product_info pi
+JOIN model_config mc ON mc.model_prefix = SPLIT_PART(pi.model, ' ', 1)
+WHERE mc.model_prefix IN ('GAIA', 'IVAS');
+
+-- 또는 전체 TMS 대상 검증 (P2 화이트리스트로 자동 흡수될 다른 is_tms 모델까지 미리 점검)
+-- SELECT ... WHERE mc.is_tms = TRUE;
+```
+
+### 배포 후 (Twin파파 현업)
+
+- [ ] Tank Module 시작/종료 누락률 측정 (Sprint 40 전 vs 후)
+- [ ] manager 가 모바일 앱 안 들어가고 VIEW 만으로 일괄 처리 가능
+- [ ] 1번 클릭으로 4대 일괄 시작 → 4대 모두 같은 manager 명의 + 같은 시간 기록
+- [ ] 종료 일괄도 동일하게 동작
+
+## 연계
+
+- BE: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 64-BE (`/work/start-batch` `/work/complete-batch` 엔드포인트 + TM Tank Module 화이트리스트 검증)
+- 원칙: `CLAUDE.md` 코드 크기 1단계 (단일 신규 컴포넌트 100줄 이내), AI 워크플로우 v2 (Codex 교차검증 필수), 클린 코어 데이터 원칙
+- 디자인: 기존 `--gx-white` / `--gx-mist` / `--gx-accent` / `--gx-charcoal` 토큰 재사용
+- 권한: Sprint 33 강제종료/재활성화 정책 (`is_admin || is_manager`) 동일 적용
+
+### 다음 응용 포인트
+
+- **다른 카테고리 확장** — MECH/ELEC/PI/QI/SI 누락률 측정 후 필요 시 화이트리스트 확장 (현재는 TM Tank Module 만)
+- **가압검사 추가** — 누락 발생 시 task_id='PRESSURE_TEST' 추가 (BE 화이트리스트 + FE isTankModule → isManagedTask 일반화)
+- **시간 통계 보정 모드** — manager 가 임의 시간 입력 가능한 별도 모달 (예: 작업자가 어제 시작해서 잊어버린 경우 백데이트)
+- **일괄 토스트 옵션 확장** — "이 O/N 의 모든 task 일괄 처리" (Tank Module 외 task 까지) — 향후 검토

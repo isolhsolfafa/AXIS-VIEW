@@ -1,7 +1,7 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-04-27 (stale 구간 동기화 — Phase 2 배포 반영 + OPS BE 표 정정 + 다음 세션 할 일 갱신)
+> 마지막 업데이트: 2026-05-04 (Sprint 40 v1.40.0 FE 구현 완료 + Codex 1·2·3·4·5차 47건 전건 반영)
 
 ---
 
@@ -54,9 +54,45 @@
 
 ## 현재 버전
 
-- **VIEW FE**: v1.38.0 (main 배포, 2026-04-30)
-- **최근 작업**: Sprint 38 — S/N 작업 현황 진행 중 모델별 카운트 칩 + 미니 진행 바 (Codex 교차검증 M/A 전건 반영)
-- **최근 완료**: v1.38.0 (Sprint 38), BE v2.4 (2026-04-28), v1.37.0 (Sprint 36), v1.36.2 (REF-V-00-UTIL), v1.36.1 (UX 일관성), v1.36.0 Sprint 37, v1.35.2 HOTFIX, v1.35.1 (출하예정 매핑), v1.35.0 (Phase 2)
+- **VIEW FE**: v1.40.0 (Sprint 40 FE 구현 완료, 2026-05-04 — main 미배포 / BE Sprint 64-BE 동반 배포 권장)
+- **최근 작업**: Sprint 40 — TM Tank Module 시작/종료 admin 액션 + O/N 일괄 토스트 (Codex 1·2·3·4·5차 47건 전건 반영)
+- **최근 완료**: v1.40.0 (Sprint 40 FE), v1.38.0 (Sprint 38), BE v2.4 (2026-04-28), v1.37.0 (Sprint 36), v1.36.2 (REF-V-00-UTIL), v1.36.1 (UX 일관성), v1.36.0 (Sprint 37), v1.35.2 HOTFIX, v1.35.1 (출하예정 매핑), v1.35.0 (Phase 2)
+
+### 🎯 Sprint 40 (v1.40.0) — FE 구현 완료 (2026-05-04)
+
+**핵심 기능**: TM Tank Module 시작/종료 admin 액션 + O/N 일괄 토스트
+- SNDetailPanel 카테고리 카드 아래 inline `[▶ Tank Module 시작]` / `[■ Tank Module 종료]` 버튼
+- 같은 O/N 내 다른 S/N 의 Tank Module 미시작/미종료 자동 카운트 → 토스트 [네 N+1대 일괄] / [아니오 1대만]
+- P2 화이트리스트 (TMS+MECH) — GAIA/iVAS + DRAGON/SWS/GALLANT 모두 자동 흡수
+- manager 회사 경계 + partner=NULL 경고 (M6 c-3) 정합 처리
+
+**산출물 (12파일)**:
+- 신규 9개: `utils.ts` (~73 LOC), `ParallelConfirmDialog.tsx` (~98 LOC), `DialogActions.tsx` (~62 LOC), `useGetTasksByOrder.ts` (22), `useStartTask.ts` (43), `useCompleteTask.ts` (44), `useStartTaskBatch.ts` (47), `useCompleteTaskBatch.ts` (47), `useEscapeKey.ts` (14)
+- 수정 5개 (중복 1): `types/snStatus.ts` (+2), `api/snStatus.ts` (+~85), `SNDetailPanel.tsx` (+~135, -5), `SNStatusPage.tsx` (+~5), `version.ts`
+
+**검증 GREEN**:
+- ✅ `npm run build`: 3293 modules, 2.20s
+- ✅ TypeScript 0 에러
+- ✅ vitest 30/30 PASS
+- ✅ Codex 1·2·3·4·5차 47건 전건 반영
+- 🟡 Netlify preview 실기기 시나리오 검증 (Twin파파)
+
+**BE 의존**:
+- 🟡 BE Sprint 64-BE 미배포 → 현재 `Promise.allSettled` fallback 모드만 동작
+- 신규 endpoint 3개 필요: `/api/app/work/start-batch`, `/api/app/work/complete-batch`, `/api/app/tasks/by-order/<sales_order>?task_categories=TMS,MECH&task_id=TANK_MODULE`
+- 단일 `/work/start` `/work/complete` 는 기존 BE → 즉시 동작
+- `getTasksByOrder` 미배포 시 다른 S/N 카운트 = 0 → 단일 모드만 동작 (안전 degrade)
+
+**사전 점검 필수 (배포 직전 — Codex I8)**:
+- Sprint 34 BE 배포 상태 확인 — `mech_partner` / `module_outsourcing` / `line` 필드 응답
+- 운영 DB NULL 비율 측정 — `module_outsourcing IS NULL OR mech_partner IS NULL`
+- GAIA + iVAS 입력률 100% 확인 (DESIGN_FIX_SPRINT.md L17030~17044 SQL)
+
+**다음 세션 할 일**:
+1. BE Sprint 64-BE 동반 배포 진행 (OPS 측)
+2. Netlify preview 생성 + Twin파파 실기기 검증 6시나리오 (1대 짜리 / 다대 모두 시작 / 미시작 N≥1 / batch 성공 / partial-success / fallback)
+3. 사전 점검 SQL 실행 (운영 DB 데이터 무결성)
+4. Twin파파 "배포 OK" 승인 후 main merge + git tag v1.40.0 + prod 배포
 
 ### ✅ v2.4 AMENDMENT — DEPLOYED (2026-04-28 확인)
 - **OPS factory.py L39~98** v2.4 코드 적용 확인 (docstring marker: `FIX-FACTORY-KPI-SHIPPED-V2.4-AMENDMENT-20260428`)

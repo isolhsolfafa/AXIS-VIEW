@@ -763,3 +763,97 @@ POST /api/admin/download-log
 - VIEW FE: CSV 내보내기 함수에 로그 API 호출 추가
 - (선택) 관리자 다운로드 이력 조회 페이지
 ```
+
+---
+
+## 🆕 BIZ-COMPANY-PROGRESS-01 — 협력사별 진행률 view 도입 (🟡 LOW, 2026-04-30 등록)
+
+### 배경
+
+현재 `SNCard.overall_percent` 는 모든 카테고리 합산 진행률. 협력사 매니저/worker 입장에서는 자기 회사가 담당하지 않는 카테고리(타 협력사 또는 GST 직속) 의 진척도까지 반영된 숫자라 "내가 책임지는 부분이 얼마나 진행됐는지" 직관 파악이 어려움.
+
+Twin파파 제보 (2026-04-30): 협력사 view 에서는 **자기 회사 담당 task 의 진행률만** 보이게 좁히고, admin/GST 는 현행 유지.
+
+### 정책 (Twin파파 2026-04-30 확정)
+
+| 사용자 | view | 산식 |
+|---|---|---|
+| `is_admin === true` | 현행 (전체) | `overall_percent` 그대로 |
+| `company === 'GST'` | 현행 (전체) | PI/QI/SI 가 GST 직속 → admin 동일 화면 제공 |
+| 그 외 협력사 (`company !== 'GST'` AND `!is_admin`) | 자기 담당 카테고리만 | `mech_partner` / `elec_partner` / `module_outsourcing` 매핑 → 매칭 카테고리만 평균 |
+
+### 카테고리 ↔ partner 필드 매핑
+
+| 카테고리 | 담당 필드 |
+|---|---|
+| MECH | `product.mech_partner` |
+| ELEC | `product.elec_partner` |
+| TM | `product.module_outsourcing` |
+| PI / QI / SI | GST 직속 (협력사 view 에서는 진행률 계산 제외) |
+
+### Edge case 정리
+
+- **0개 매칭** (협력사 user 가 담당 task 없는 S/N) → BE 단에서 `task_seed` 태깅 기반으로 협력사 user 에게는 자기 담당 S/N 만 응답하므로 FE 단 추가 처리 불필요. 0매칭 케이스 자체가 발생하지 않음.
+- **partner 필드 null** — 매칭 안됨으로 간주하여 평균 산식에서 제외 (보수적 처리)
+- **GST 도 partner 로 등장하는 경우** (예: `mech_partner === 'GST'`) — GST 회사 user 는 어차피 현행 view 라 영향 없음
+
+### 영향 파일 (예상)
+
+- `app/src/components/sn-status/SNCard.tsx` — overall_percent 표시 로직 분기
+- `app/src/utils/companyScopedProgress.ts` (신규) — 회사별 진행률 계산 유틸 (`getCompanyScopedPercent(product, currentUser)`)
+- (검토 필요) `app/src/pages/production/SNStatusPage.tsx` 의 `groupedByON.overallPercent` 도 회사 분기 적용 여부 — 그룹 헤더 진행률도 동일 정책 가져갈지 별도 결정 필요
+
+### 우선순위: 🟡 LOW
+
+블로커 없음. Sprint 40 (TM Tank Module 시작/종료) 우선 처리 후 자연스럽게 착수 권장.
+
+### 연계
+
+- Sprint 34 (FE-21, v1.33.0) — `mech_partner` / `elec_partner` / `module_outsourcing` 필드 도입 ✅ (데이터 이미 확보)
+- Sprint 33 — `is_admin` / `is_manager` / `currentUserCompany` 분기 패턴 (`canForceClose` 등) 참조
+- Sprint 40 (FE) — 동일 회사 경계 분기 정책과 통일성 확보
+
+### 착수 트리거
+
+- 협력사 매니저로부터 "전체 진행률이 우리 회사 작업 안 한 부분까지 포함되어 헷갈린다" 류 제보 누적 시 우선순위 상향
+- 또는 다른 BACKLOG 정리 후 sprint 슬롯 확보 시 진행
+
+---
+
+## 🆕 OPS-BATCH-WHITELIST-DYNAMIC-01 — Work Batch 화이트리스트 admin_settings 동적 옵션화 (🟡 LOW, 2026-04-28 등록)
+
+### 배경
+
+Sprint 40 (FE) + Sprint 64-BE 의 일괄 시작/종료 화이트리스트가 현재 코드에 하드코딩 (`task_category IN ('TMS','MECH') AND task_id='TANK_MODULE'`). Codex 2차 검토 P2 채택으로 신규 모델 (is_tms 또는 tank_in_mech) 추가 시 코드 변경 0건 자동 대응 가능하나, **다른 task 추가 (가압검사, 다른 카테고리 task) 는 여전히 코드 변경 필요**.
+
+Twin파파 의도 (2026-04-28): "신규 model 추가됐을 때 대응 로직이나 옵션 처리 가능한지" — P2 로 모델은 자동 흡수, 그러나 task 자체는 admin 토글로 제어하면 더 유연.
+
+### 정책 (Codex P3 후보안 — 향후 검토)
+
+| 항목 | 현재 (Sprint 64-BE) | 향후 P3 안 |
+|---|---|---|
+| 카테고리 화이트리스트 | 하드코딩 `('TMS','MECH')` | `admin_settings.batch_target_categories = ['TMS','MECH']` (admin 페이지 토글) |
+| task_id 화이트리스트 | 하드코딩 `'TANK_MODULE'` | `admin_settings.batch_target_task_ids = ['TANK_MODULE']` (배열, 다중 task 지원) |
+| FE 동기화 | 하드코딩 | `GET /admin/settings` 응답 기반 동적 로딩 |
+
+### 영향 파일 (예상)
+
+- BE: `backend/app/routes/admin.py` — settings 정의 추가, `backend/app/routes/work.py` — 화이트리스트 동적 조회 (DB 캐시 또는 메모리)
+- BE migration: `admin_settings` 행 INSERT (`batch_target_categories`, `batch_target_task_ids`)
+- FE: `app/src/pages/admin/SettingsPage.tsx` — 토글 UI, `app/src/components/sn-status/utils.ts` — `TANK_MODULE_CATEGORIES` 동적화
+- 캐시 정책: 변경 빈도 낮음 → 5분 staleTime 또는 settings polling
+
+### 우선순위: 🟡 LOW
+
+블로커 없음. P2 (다중 카테고리 화이트리스트) 가 신규 모델 자동 흡수를 이미 보장하므로 P3 는 신규 task 종류 (가압검사 등) 자주 추가될 때 가치 발생.
+
+### 연계
+
+- Sprint 40 (FE) — TM Tank Module 시작/종료 결정 #10 P2
+- Sprint 64-BE — Work Start/Complete Batch 결정 #4·#8 P2 화이트리스트
+- 향후 응용: Sprint 40 다음 응용 포인트의 "가압검사 추가" / "다른 카테고리 확장" 시 자연스럽게 동시 진행
+
+### 착수 트리거
+
+- 가압검사·다른 카테고리 task 의 누락률 문제 발생 → 화이트리스트 확장 요구 시 P2 코드 수정 대신 P3 admin 토글로 대체
+- 또는 admin 페이지 신설 작업과 묶어서 일괄 진행

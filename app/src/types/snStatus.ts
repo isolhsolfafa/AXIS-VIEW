@@ -52,6 +52,8 @@ export interface SNTaskDetail {
   id: number;                // = app_task_details.id
   task_name: string;
   task_category: string;
+  task_id?: string;          // Sprint 40 (M2): BE _task_to_dict 응답 포함 — isTankModule() 판별용
+  serial_number?: string;    // Sprint 40 (M8): by-order endpoint 응답 시 task별 S/N 식별
   workers: TaskWorker[];
   my_status: string;
   force_closed?: boolean;    // Sprint 33: 강제종료 뱃지 (#61)

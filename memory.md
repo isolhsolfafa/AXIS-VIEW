@@ -41,6 +41,39 @@
 - **결정**: 페이지 자체는 참고 지표로 유지, 사용시간→최근접속(last_access)으로 변경 예정
 - **이유**: 접속 현황 파악은 유용하나, 정확한 사용시간 산출은 불필요
 
+### ADR-V014: Sprint 40 — manager 본인 worker_id 기록 정책 (2026-05-04, 클린 코어 데이터)
+
+- **맥락**: Sprint 40 (Tank Module 시작/종료 admin 액션) 에서 manager/admin 이 모바일 앱 누락 시 VIEW 에서 대신 시작/종료 처리할 때, **누구의 worker_id 로 task_detail.workers row 가 추가되는지** 정책 결정 필요
+- **결정**: **(c) 채택** — 클릭한 manager/admin 본인 worker_id (JWT 자동, proxy 모달 없음)
+- **이유**:
+  - VIEW 접속 자체가 manager 이상 권한 보장 → "action 하는 본인이 worker"
+  - 시간 = `now()` 자동 기록만 (백데이트 입력은 별건, 다음 응용 포인트로 분리)
+  - UI 단순화 + BE 변경 최소
+  - 현장 작업자가 협력사 직원이라도 모바일 앱 누락 시 manager 가 대리 처리 → "기록 = 행위 책임자" 의미로 통합 운영
+- **트레이드오프**: 실제 현장 작업자 worker_id 가 별도로 필요해질 경우 (집계 통계 정밀도) — 별도 컬럼 `actual_worker_id` 또는 `actor_role='proxy'` 플래그 추가 ADR 별건. 현 시점 미적용
+- **클린 코어 데이터 원칙 영향**: `force_closed` 같은 별도 처리 플래그 추가 안 함 → 자연스러운 worker row 로 기록, 단순함 유지
+- **회사 경계 정합 (M4 + M6)**: manager 인 경우 본인 회사 task 만 영향. 미시작 task 의 회사 매핑은 `product.module_outsourcing` (TMS) / `product.mech_partner` (MECH) 사용. NULL 시 카운트 제외 + toast 경고 (c-3)
+- **참조**: `DESIGN_FIX_SPRINT.md` Sprint 40 결정 #5 + #9, Sprint 40 ADR 보강 섹션
+
+---
+
+### ADR-V015: Sprint 40 P2 화이트리스트 — 신규 모델 자동 흡수 정책 (2026-05-04)
+
+- **맥락**: TANK_MODULE 누락이 GAIA/iVAS (TMS 카테고리) 외 DRAGON/SWS/GALLANT (MECH 카테고리) 에서도 동일 발생. 신규 모델 추가 시 코드 수정 부담 최소화 필요
+- **결정**: **다중 카테고리 화이트리스트** — `task_id='TANK_MODULE' AND task_category IN ('TMS','MECH')`
+- **DB 실측 근거**:
+  - GAIA / iVAS: `is_tms=True` → `task_seed.py` TMS 카테고리에 TANK_MODULE 생성
+  - DRAGON / SWS / GALLANT: `tank_in_mech=True` → MECH 카테고리에 TANK_MODULE 생성
+  - 양쪽 모두 같은 `task_id='TANK_MODULE'` 사용
+- **이유**:
+  - 신규 모델 추가 시 `model_config` + product 데이터만 입력하면 일괄 시작/종료 자동 동작 (코드 변경 0건)
+  - is_tms 플래그 신설 모델 / tank_in_mech 플래그 신설 모델 모두 자동 흡수
+  - MITHAS / SDS 는 TANK_MODULE 자체 없음 → 화이트리스트 매칭 실패로 자동 제외
+- **한계 (P3 후보 — BACKLOG OPS-BATCH-WHITELIST-DYNAMIC-01)**: 다른 task 종류 (가압검사 등) 추가는 여전히 코드 변경 필요. 향후 admin_settings 동적 옵션화 검토
+- **참조**: `DESIGN_FIX_SPRINT.md` Sprint 40 결정 #10·#11, `components/sn-status/utils.ts` `TANK_MODULE_CATEGORIES`
+
+---
+
 ### ADR-V006: 출하 토글 3옵션 동작 검증 — 운영 정합성 100% 상태에서 토글 변별력 0 (2026-04-28)
 - **맥락**: Sprint 36 (v1.37.0) + BE Sprint 62-BE v2.4 양쪽 deployed 후 W18 (2026-04-27 ~ 2026-05-03) 응답 확인. `shipped_plan = shipped_actual = shipped_best = 22` (셋 다 동일)
 - **결정**: 정상 동작 — 버그 아님. 토글 3옵션 그대로 유지

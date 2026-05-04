@@ -477,6 +477,10 @@ export default function SNStatusPage() {
           canForceClose={user?.is_admin || user?.is_manager || false}
           currentUserCompany={user?.company}
           isAdmin={user?.is_admin || false}
+          orderProducts={
+            // Sprint 40: 같은 O/N 의 product 목록 — partner 매핑용
+            groupedByON.find(g => g.products.some(p => p.serial_number === selectedSN))?.products
+          }
         />
       )}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>

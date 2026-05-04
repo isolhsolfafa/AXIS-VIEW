@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-04-30 | 버전: v1.38.0
+> 최종 갱신: 2026-05-04 | 버전: v1.40.0
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -134,6 +134,23 @@ AXIS-OPS BE(Railway → 사내서버 마이그레이션 예정)의 API와 JWT를
      - 리팩토링 Sprint: **±5%** (기능 변경 없음 전제)
    · 실패 항목 → Codex 합의 후 수정 → 재실행 (전건 GREEN까지 반복)
 
+   ⚠️ **실패 발견 시 강제 절차 (2026-04-30 추가 — OPS 표준 차용, 4-22 HOTFIX-ALERT-SCHEDULER-DELIVERY 위반 사례 반영)**:
+   a. Claude 단독 "범위 외 판단" **절대 금지**
+      — "본 Sprint 와 무관해 보여" / "결과적으로 맞을 것 같아" 휴리스틱 배제
+   b. 실패 정보 정리 (필수):
+      - 빌드 에러 / vitest fail 파일:라인 + 실패 메시지 전문
+      - 본 Sprint 수정 파일 목록 + 실패 테스트가 참조하는 컴포넌트/훅 경로
+      - import 체인 / 컴포넌트 트리 / props 흐름 분석 1줄
+   c. Codex 쿼리 구성 → `/codex:rescue` 또는 이관 프롬프트로 전달
+   d. Codex M/A 라벨 수신 후에만 조치:
+      - M(Must) → 본 Sprint 에 포함 or 선행 fix Sprint 분리
+      - A(Advisory) → BACKLOG 이관 (이관 trail 을 설계서 § Codex 합의 기록 에 추가)
+   e. 판정 trail 은 설계서 § Codex 합의 기록 에 1줄 기록 (위반 방지)
+
+   > 이 강제 절차는 AI 검증 워크플로우 침묵 승인 거부 ④ 와 Codex 독립 ③ 의 실패 경로 특화 버전.
+   > "결과적으로 맞을 것 같다" 는 판단이 실제로 맞더라도 절차 위반이며, 사후 Codex 재검토 대상.
+   > OPS 측 동일 절차 (`AXIS-OPS/CLAUDE.md` ⑦ 섹션) 와 cross-repo 일관성 유지.
+
 ⑦.5 사용자 배포 승인 (Twin파파)
    · 빌드·테스트 GREEN ≠ 자동 배포. Netlify preview 실기기 검증 완료 후 Twin파파의 명시적 "배포 OK" 승인 필수
    · HOTFIX S1 제외 (🚨 긴급 HOTFIX 예외 조항 참조)
@@ -257,9 +274,9 @@ AXIS-VIEW/
 │   │   │   ├── auth/         ProtectedRoute
 │   │   │   └── ui/           shadcn 기반 공통 UI 13개
 │   │   ├── api/              API 클라이언트 13개
-│   │   ├── hooks/            TanStack Query 훅 16파일 / 35함수
+│   │   ├── hooks/            TanStack Query 훅 22파일 / 41함수
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.34.6 (2026-04-23)
+│   │   ├── version.ts        v1.40.0 (2026-05-04)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
@@ -591,7 +608,7 @@ CT 분석            /ct                            [admin, gst] (preparing)
 
 ---
 
-## 훅 (16파일 / 35함수 — TanStack Query 기반)
+## 훅 (22파일 / 41함수 — TanStack Query 기반)
 
 | 훅 | 용도 | staleTime |
 |----|------|-----------|
@@ -614,6 +631,12 @@ CT 분석            /ct                            [admin, gst] (preparing)
 | useAdminSettings | 관리 설정 | 5분 |
 | useTaskReactivate | Task 재활성화 mutation (완료 작업 되돌리기) | — |
 | useForceClose | 미종료 task 강제종료 mutation (Sprint 33) | — |
+| useGetTasksByOrder | 같은 O/N Tank Module task 일괄 조회 (Sprint 40, P2 다중 카테고리) | 30초 |
+| useStartTask | Tank Module 단일 시작 mutation (Sprint 40, Optimistic+retry) | — |
+| useCompleteTask | Tank Module 단일 종료 mutation (Sprint 40, Optimistic+retry) | — |
+| useStartTaskBatch | Tank Module 일괄 시작 mutation (Sprint 40, allSettled fallback) | — |
+| useCompleteTaskBatch | Tank Module 일괄 종료 mutation (Sprint 40, allSettled fallback) | — |
+| useEscapeKey | ESC 키 closure 훅 (Sprint 40, 모달 재사용) | — |
 | useSettings | 로컬 UI 설정 (테마 등) | — |
 
 ---
@@ -773,6 +796,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | REF-V-00-UTIL v1.36.2 | `formatDate` 공통 유틸 승격 (REFACTOR-FMT-01 완성) — `utils/format.ts` 에 fallback 인자 + invalid Date 가드 통합. QrManagementPage / InactiveWorkersPage 로컬 함수 2건 제거. 사용자 화면 변화 0 (순수 내부 정리), 2026-04-27 | ✅ 완료 |
 | Sprint 36 (v1.37.0) | 출하 토글 3옵션 재구조 (BE Sprint 62-BE v2.4 대응) — `ShippedBasis` 타입 `ops → best` 교체, `shipped_best` 응답 필드 추가, `shipped_ops` 폐기 표시. SettingsPanel 라디오 라벨 '실시간(ops)' → '종합(best)'. localStorage 마이그레이션. 안전 degrade — BE v2.4 미배포 동안 'best' 선택 시 '—' 표시, 2026-04-28 | ✅ FE 완료 (BE v2.4 대기 중) |
 | Sprint 38 (v1.38.0) | S/N 작업 현황 진행 중 모델별 카운트 칩 + 미니 진행 바 — `InProgressModelChips.tsx` 신규 추출 (86 LOC). `modelFilter` 별도 state (Codex M1: 정확매칭, search 부분매칭과 분리). Effect 4 자동 펼침 (Sprint 37 패턴). CLS 완화 minHeight, 모델 키 정규화 trim, aria 강화. SNStatusPage 421→485 LOC (🟢 OK), 2026-04-30 | ✅ 완료 |
+| Sprint 40 (v1.40.0) | TM Tank Module 시작/종료 admin 액션 + O/N 일괄 토스트 — SNDetailPanel inline 버튼 (▶/■). P2 화이트리스트 (TMS+MECH) — GAIA/iVAS + DRAGON/SWS/GALLANT 자동 흡수. `useGetTasksByOrder` query hook + 4 mutation hook (Optimistic + retry: 1) + `useEscapeKey/DialogActions/ParallelConfirmDialog` 신규. `utils.ts` 카테고리별 회사 매핑 (M6 c-3 NULL 경고). BE Sprint 64-BE 미배포 시 `Promise.allSettled` fallback. Codex 1·2·3·4·5차 47건 전건 반영, ~609 LOC, 2026-05-04 | 🟡 FE 완료 (BE Sprint 64-BE 대기) |
 
 ### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)
 

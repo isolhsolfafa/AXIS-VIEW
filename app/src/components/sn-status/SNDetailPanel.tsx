@@ -1,10 +1,27 @@
 // src/components/sn-status/SNDetailPanel.tsx
-// S/N 상세 사이드 패널 — Sprint 33 (미종료/미시작 관리 + 강제종료)
+// S/N 상세 사이드 패널 — Sprint 33 (미종료/미시작 관리 + 강제종료) + Sprint 40 (Tank Module 시작/종료 + 일괄)
 
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import type { SNProduct, SNTaskDetail, TaskWorker } from '@/types/snStatus';
 import { PROCESS_ORDER, PROCESS_LABEL } from './constants';
 import ProcessStepCard from './ProcessStepCard';
 import { useChecklist } from '@/hooks/useChecklist';
+import { useGetTasksByOrder } from '@/hooks/useGetTasksByOrder';
+import { useStartTaskMutation } from '@/hooks/useStartTask';
+import { useCompleteTaskMutation } from '@/hooks/useCompleteTask';
+import { useStartTaskBatchMutation } from '@/hooks/useStartTaskBatch';
+import { useCompleteTaskBatchMutation } from '@/hooks/useCompleteTaskBatch';
+import {
+  isTankModule,
+  getTaskCompany,
+  getOtherSNsTankStartable,
+  getOtherSNsTankCompletable,
+  TANK_MODULE_CATEGORIES,
+  SKIPPED_REASON_LABEL,
+} from './utils';
+import { ParallelConfirmDialog } from './ParallelConfirmDialog';
+import type { BatchResponse } from '@/api/snStatus';
 
 // 체크리스트 대상 카테고리 (MECH/ELEC/TMS만)
 const CHECKLIST_CATEGORIES = new Set(['MECH', 'ELEC', 'TMS']);
@@ -22,6 +39,7 @@ interface SNDetailPanelProps {
   canForceClose?: boolean;     // Sprint 33: 강제종료 버튼 표시 여부 (Admin 또는 Manager)
   currentUserCompany?: string; // Sprint 33: Manager 행 레벨 권한 판단용
   isAdmin?: boolean;           // Sprint 33: Admin은 모든 task 강제종료 가능
+  orderProducts?: SNProduct[]; // Sprint 40: 같은 O/N 의 product 목록 (partner 매핑용)
 }
 
 // 카테고리별 미종료/미시작 건수 계산
@@ -98,12 +116,127 @@ function ChecklistProcessCard({
   );
 }
 
-export default function SNDetailPanel({ serialNumber, product, tasks, isLoading, onClose, canReactivate, canForceClose, currentUserCompany, isAdmin }: SNDetailPanelProps) {
+// Sprint 40: skipped 결과를 한국어 토스트 메시지로 변환
+function formatBatchResult(res: BatchResponse, verb: string): string {
+  const ok = res.succeeded.length;
+  const skip = res.skipped.length;
+  if (skip === 0) return `${ok}대 ${verb} 완료`;
+  const counts: Record<string, number> = {};
+  for (const s of res.skipped) {
+    counts[s.reason] = (counts[s.reason] ?? 0) + 1;
+  }
+  const detail = Object.entries(counts)
+    .map(([k, v]) => `${SKIPPED_REASON_LABEL[k] ?? k} ${v}`)
+    .join(', ');
+  return `${ok}대 ${verb} 완료 (${skip}대 스킵: ${detail})`;
+}
+
+export default function SNDetailPanel({ serialNumber, product, tasks, isLoading, onClose, canReactivate, canForceClose, currentUserCompany, isAdmin, orderProducts }: SNDetailPanelProps) {
   const completedCount = PROCESS_ORDER.filter(cat => {
     const catData = product.categories[cat];
     return catData && catData.percent === 100;
   }).length;
   const totalCount = PROCESS_ORDER.filter(cat => product.categories[cat] != null).length;
+
+  // ---- Sprint 40: Tank Module 시작/종료 ----
+  const canStartStop = !!canForceClose;
+  const tankProducts: SNProduct[] = orderProducts ?? [product];
+
+  // 같은 O/N 의 다른 S/N Tank Module tasks (P2: TMS+MECH)
+  const { data: orderTasks } = useGetTasksByOrder(product.sales_order, {
+    taskCategories: [...TANK_MODULE_CATEGORIES],
+    taskId: 'TANK_MODULE',
+    enabled: !!product.sales_order && canStartStop,
+  });
+
+  const otherSNsTankStartable = useMemo(
+    () => getOtherSNsTankStartable({
+      orderTasks,
+      orderProducts: tankProducts,
+      currentSn: product.serial_number,
+      isAdmin: !!isAdmin,
+      currentUserCompany,
+    }),
+    [orderTasks, tankProducts, product.serial_number, isAdmin, currentUserCompany],
+  );
+
+  const otherSNsTankCompletable = useMemo(
+    () => getOtherSNsTankCompletable({
+      orderTasks,
+      orderProducts: tankProducts,
+      currentSn: product.serial_number,
+      isAdmin: !!isAdmin,
+      currentUserCompany,
+    }),
+    [orderTasks, tankProducts, product.serial_number, isAdmin, currentUserCompany],
+  );
+
+  // partner=NULL 미시작 카운트 (manager 만, 자기 제외, isTankModule 방어)
+  const partnerNullCount = useMemo(() => {
+    if (isAdmin) return 0;
+    return (orderTasks ?? []).filter(t =>
+      isTankModule(t)
+      && t.serial_number !== product.serial_number
+      && !t.workers.some(w => w.started_at)
+      && getTaskCompany(t, tankProducts) === null,
+    ).length;
+  }, [orderTasks, tankProducts, product.serial_number, isAdmin]);
+
+  const startMut = useStartTaskMutation(serialNumber);
+  const completeMut = useCompleteTaskMutation(serialNumber);
+  const startBatchMut = useStartTaskBatchMutation(serialNumber);
+  const completeBatchMut = useCompleteTaskBatchMutation(serialNumber);
+
+  const [parallelDialog, setParallelDialog] = useState<{
+    action: 'start' | 'complete';
+    taskId: number;
+    others: SNTaskDetail[];
+  } | null>(null);
+
+  function handleTankStart(task: SNTaskDetail) {
+    if (otherSNsTankStartable.length === 0) {
+      startMut.mutate(task.id, {
+        onSuccess: () => toast.success('Tank Module 시작'),
+        onError: () => toast.error('시작 실패. 다시 시도해주세요.'),
+      });
+    } else {
+      setParallelDialog({ action: 'start', taskId: task.id, others: otherSNsTankStartable });
+    }
+  }
+
+  function handleTankComplete(task: SNTaskDetail) {
+    if (otherSNsTankCompletable.length === 0) {
+      completeMut.mutate(task.id, {
+        onSuccess: () => toast.success('Tank Module 종료'),
+        onError: () => toast.error('종료 실패. 다시 시도해주세요.'),
+      });
+    } else {
+      setParallelDialog({ action: 'complete', taskId: task.id, others: otherSNsTankCompletable });
+    }
+  }
+
+  function handleParallelConfirm(mode: 'batch' | 'single') {
+    if (!parallelDialog) return;
+    const { action, taskId, others } = parallelDialog;
+    if (mode === 'single') {
+      const mut = action === 'start' ? startMut : completeMut;
+      mut.mutate(taskId, {
+        onSuccess: () => toast.success(`Tank Module ${action === 'start' ? '시작' : '종료'}`),
+        onError: () => toast.error('처리 실패. 다시 시도해주세요.'),
+      });
+    } else {
+      const ids = [taskId, ...others.map(o => o.id)];
+      const mut = action === 'start' ? startBatchMut : completeBatchMut;
+      mut.mutate(ids, {
+        onSuccess: (res) => {
+          const verb = action === 'start' ? '시작' : '종료';
+          toast.success(formatBatchResult(res, verb));
+        },
+        onError: () => toast.error('일괄 처리 실패.'),
+      });
+    }
+    setParallelDialog(null);
+  }
 
   return (
     <div
@@ -210,6 +343,8 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
           PROCESS_ORDER.map((cat) => {
             if (product.categories[cat] == null) return null;
             const catTasks = tasks.filter(t => t.task_category === cat);
+            // Sprint 40: 카테고리 내 Tank Module task (있으면)
+            const tankTask = catTasks.find(t => isTankModule(t));
 
             // 같은 카테고리의 모든 task workers를 병합하여 1개 카드로 렌더링
             // Sprint 33: workers=[]인 미시작 task도 포함 (flatMap 소실 방지)
@@ -287,46 +422,129 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
               </span>
             );
 
+            // Sprint 40: Tank Module 시작/종료 액션 버튼 (canStartStop && tankTask)
+            const tankAction = canStartStop && tankTask ? (
+              <TankModuleActions
+                task={tankTask}
+                onStart={handleTankStart}
+                onComplete={handleTankComplete}
+                pending={startMut.isPending || completeMut.isPending || startBatchMut.isPending || completeBatchMut.isPending}
+              />
+            ) : null;
+
             if (CHECKLIST_CATEGORIES.has(cat)) {
               return (
-                <ChecklistProcessCard
-                  key={cat}
-                  cat={cat}
-                  serialNumber={serialNumber}
+                <div key={cat}>
+                  <ChecklistProcessCard
+                    cat={cat}
+                    serialNumber={serialNumber}
+                    task={mergedTask}
+                    categoryPercent={product.categories[cat]?.percent}
+                    canReactivate={canReactivate}
+                    canForceClose={canForceClose}
+                    currentUserCompany={currentUserCompany}
+                    isAdmin={isAdmin}
+                    pendingBadges={pendingBadges}
+                    mechPartner={product.mech_partner}
+                    elecPartner={product.elec_partner}
+                    moduleOutsourcing={product.module_outsourcing}
+                  />
+                  {tankAction}
+                </div>
+              );
+            }
+
+            return (
+              <div key={cat}>
+                <ProcessStepCard
                   task={mergedTask}
+                  displayLabel={PROCESS_LABEL[cat] ?? cat}
+                  category={cat}
+                  mechPartner={product.mech_partner}
+                  elecPartner={product.elec_partner}
+                  moduleOutsourcing={product.module_outsourcing}
                   categoryPercent={product.categories[cat]?.percent}
                   canReactivate={canReactivate}
                   canForceClose={canForceClose}
                   currentUserCompany={currentUserCompany}
                   isAdmin={isAdmin}
                   pendingBadges={pendingBadges}
-                  mechPartner={product.mech_partner}
-                  elecPartner={product.elec_partner}
-                  moduleOutsourcing={product.module_outsourcing}
                 />
-              );
-            }
-
-            return (
-              <ProcessStepCard
-                key={cat}
-                task={mergedTask}
-                displayLabel={PROCESS_LABEL[cat] ?? cat}
-                category={cat}
-                mechPartner={product.mech_partner}
-                elecPartner={product.elec_partner}
-                moduleOutsourcing={product.module_outsourcing}
-                categoryPercent={product.categories[cat]?.percent}
-                canReactivate={canReactivate}
-                canForceClose={canForceClose}
-                currentUserCompany={currentUserCompany}
-                isAdmin={isAdmin}
-                pendingBadges={pendingBadges}
-              />
+                {tankAction}
+              </div>
             );
           })
         )}
       </div>
+
+      {/* Sprint 40: O/N 일괄 확인 모달 */}
+      <ParallelConfirmDialog
+        open={parallelDialog !== null}
+        action={parallelDialog?.action ?? 'start'}
+        onNumber={product.sales_order ?? ''}
+        otherCount={parallelDialog?.others.length ?? 0}
+        partnerNullCount={partnerNullCount}
+        onConfirm={handleParallelConfirm}
+        onClose={() => setParallelDialog(null)}
+      />
+    </div>
+  );
+}
+
+// Sprint 40: Tank Module 시작/종료 inline 버튼 (카드 아래)
+interface TankModuleActionsProps {
+  task: SNTaskDetail;
+  onStart: (task: SNTaskDetail) => void;
+  onComplete: (task: SNTaskDetail) => void;
+  pending: boolean;
+}
+
+function TankModuleActions({ task, onStart, onComplete, pending }: TankModuleActionsProps) {
+  const allNotStarted = task.workers.every(w => !w.started_at);
+  const someInProgress = task.workers.some(w => w.started_at && !w.completed_at);
+  if (!allNotStarted && !someInProgress) return null;
+  return (
+    <div style={{ display: 'flex', gap: '6px', padding: '6px 4px 0 4px', justifyContent: 'flex-end' }}>
+      {allNotStarted && (
+        <button
+          type="button"
+          onClick={() => onStart(task)}
+          disabled={pending}
+          style={{
+            padding: '4px 10px',
+            fontSize: '11px',
+            fontWeight: 600,
+            background: 'var(--gx-info)',
+            color: 'var(--gx-white)',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: pending ? 'not-allowed' : 'pointer',
+            opacity: pending ? 0.6 : 1,
+          }}
+        >
+          ▶ Tank Module 시작
+        </button>
+      )}
+      {someInProgress && (
+        <button
+          type="button"
+          onClick={() => onComplete(task)}
+          disabled={pending}
+          style={{
+            padding: '4px 10px',
+            fontSize: '11px',
+            fontWeight: 600,
+            background: 'var(--gx-success)',
+            color: 'var(--gx-white)',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: pending ? 'not-allowed' : 'pointer',
+            opacity: pending ? 0.6 : 1,
+          }}
+        >
+          ■ Tank Module 종료
+        </button>
+      )}
     </div>
   );
 }

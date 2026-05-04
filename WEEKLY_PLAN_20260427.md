@@ -1,32 +1,33 @@
-# 📋 VIEW Weekly Plan — 2026-04-27 주 (월~금)
+# 📋 VIEW Weekly Plan — 2026-04-27 주 (월~금) → 2026-05-04 회고 갱신
 
 > OPS에 집중하느라 VIEW 컨텍스트 떠있을 때 10초 만에 복구용.
 > "지금 어디까지 와있고 / 뭐가 남았는지" 만 본다. 상세는 BACKLOG·handoff·CHANGELOG에서.
 >
-> 마지막 업데이트: 2026-04-27 (월) — 시드 정리 1회차
+> 마지막 업데이트: **2026-05-04 (월) — Sprint 40 (v1.40.0) FE 구현 완료 회고 갱신**
 
 ---
 
-## 🧭 한눈에 (현재 상태)
+## 🧭 한눈에 (현재 상태, 2026-05-04)
 
 ```
-현재 버전 : v1.38.0 (2026-04-30, main 배포 예정)
-최근 작업 : Sprint 38 — S/N 작업 현황 진행 중 모델별 카운트 칩 + 미니 진행 바 (Codex M/A 전건 반영)
-이전 트랙 : Sprint 36 + BE v2.4 deployed → 'best' 토글 활성화 (W18 plan/actual/best=22)
-진행 중   : 없음
-대기 중   : OPS BE Sprint 62-BE v2.4 배포 → FE Sprint 36 토글 교체
+현재 버전 : v1.40.0 (Sprint 40 FE 완료 — main 미배포 / BE Sprint 64-BE 동반 대기)
+최근 작업 : Sprint 40 — TM Tank Module 시작/종료 admin 액션 + O/N 일괄 토스트 (Codex 1·2·3·4·5차 47건 전건 반영)
+이전 트랙 : Sprint 38 (v1.38.0, 2026-04-30) S/N 진행 중 모델별 카운트 칩 + Sprint 36 (v1.37.0) + BE v2.4 deployed (best 활성화)
+진행 중   : Sprint 40 BE Sprint 64-BE 동반 배포 + Netlify preview 실기기 검증 + 사전 점검 SQL
+대기 중   : BE Sprint 64-BE 3 endpoint (start-batch / complete-batch / tasks/by-order)
 ```
 
-→ 지난 주 후반(목·금·토) 출하 토글 v2.4 설계 + HOTFIX 2건이 메인이었음. **VIEW 코드 변경 없이 며칠 잠수 가능한 상태.**
+→ 이번 주는 **Sprint 40 단일 트랙 집중**: 설계 → Codex 5라운드 47건 → 구현 12파일 ~609 LOC → 빌드/테스트 GREEN. **VIEW FE 단독 배포 가능 (안전 degrade 포함), BE 동반 권장.**
 
 ---
 
-## ✅ 최근 완료 (지난 1주, 2026-04-21~25)
+## ✅ 최근 완료 (지난 2주, 2026-04-21 ~ 2026-05-04)
 
 > "내가 OPS 들어가있는 동안 VIEW에 뭐가 쌓였지?" 답.
 
 | 일자 | 항목 | 의미 |
 |:---:|:---|:---|
+| 05-04 | **v1.40.0 Sprint 40** TM Tank Module 시작/종료 admin 액션 + O/N 일괄 토스트 | SNDetailPanel 카테고리 카드 아래 inline `[▶ 시작] / [■ 종료]`. P2 화이트리스트 (TMS+MECH) GAIA/iVAS + DRAGON/SWS/GALLANT 자동 흡수. 신규 9파일 (utils/Dialog 2개/hook 6개) + 수정 5파일 (types +2 / api +85 / Panel +135 / Page +5 / version). ~609 LOC, 빌드 3293 modules 2.26s + vitest 30/30 GREEN. **Codex 1·2·3·4·5차 47건 전건 반영** (M 18 / A 23 / I 13 누적 55건 중 정정 47 + 보존 8). BE Sprint 64-BE 미배포 시 `Promise.allSettled` fallback (안전 degrade). 결정 #5 manager 본인 worker_id 기록 정책 + 결정 #9 c-3 NULL 경고 ADR-V014 신설, P2 화이트리스트 ADR-V015 신설 |
 | 04-30 | **v1.38.0 Sprint 38** S/N 작업 현황 진행 중 모델별 카운트 칩 + 미니 진행 바 | `InProgressModelChips.tsx` 신규 추출. `modelFilter` 별도 state (Codex M1 정확매칭). Effect 4 자동 펼침 (Sprint 37 패턴). CLS 완화 + 모델 키 정규화 + aria 강화. SNStatusPage 421→485 LOC |
 | 04-28 | **v1.37.0 Sprint 36** 출하 토글 3옵션 재구조 | `ShippedBasis` `ops → best`, `shipped_best` 응답 필드 추가, 라디오 라벨 '실시간(ops)' → '종합(best)', localStorage 마이그레이션. BE v2.4 대기 중 safe degrade ('—' 표시) |
 | 04-27 | **v1.36.2 REF-V-00-UTIL** formatDate 공통 유틸 승격 | `utils/format.ts` 에 fallback 인자 + invalid Date 가드 통합. QR/Inactive 로컬 함수 2건 제거. 사용자 화면 변화 0, REFACTOR-FMT-01 완성 |
@@ -50,10 +51,13 @@
 
 | ID | 작업 | 블로커 | 해소 시 액션 |
 |:---|:---|:---|:---|
+| **🆕 Sprint 40 BE 동반 배포** | BE Sprint 64-BE — `/work/start-batch` `/work/complete-batch` `/api/app/tasks/by-order` 3 endpoint | OPS 측 구현·배포 | Netlify preview 실기기 검증 6시나리오 → Twin파파 "배포 OK" → main merge + git tag v1.40.0 |
+| **🆕 Sprint 40 사전 점검 SQL** | Sprint 34 BE 배포 + module_outsourcing/mech_partner NULL 비율 + GAIA/iVAS 입력률 100% | 운영 DB 접근 + Twin파파 실행 | DESIGN_FIX_SPRINT.md L17030~17044 SQL 실행 → 결과 memory.md 기록 → M6 c-3 NULL 빈도 사전 검증 |
 | ~~**FE Sprint 36**~~ | ~~출하 토글 3옵션 교체~~ | — | ✅ **v1.37.0 + BE v2.4 deployed 자동 활성화 (2026-04-28)** |
 | ~~**R-02 검증**~~ | ~~해석 A (si ⊆ actual) 반례 쿼리~~ | — | ✅ **BE 측 Pre-deploy Gate ③ 0건 검증 완료 (2026-04-28)** |
 | **SI-BACKFILL-01** | Teams Excel Graph API cron | "생산관리 플랫폼 신설 일정 결정" | 플랫폼 일정 확정 시 Phase 1 착수 여부 결정 |
 | **BIZ-KPI-SHIPPING-01** | 출하 이행률 위젯 | app SI 베타 100% + 데이터 2~4주 누적 | shipped_best 기반 지표 위젯 추가 |
+| **OPS-BATCH-WHITELIST-DYNAMIC-01** | Work Batch 화이트리스트 admin_settings 동적 옵션화 (P3 안) | 다른 task 추가 (가압검사 등) 누락 발생 시 가치 발현 | admin 페이지 토글로 `task_categories` / `task_ids` 동적 제어. P2 자동 흡수가 신규 모델은 이미 보장 |
 
 ---
 
@@ -65,6 +69,7 @@
 
 | # | 항목 | 우선순위 | FE 영향 | 액션 위치 |
 |:---:|:---|:---:|:---|:---|
+| **🆕 Sprint 64-BE** | Work Start/Complete Batch + tasks/by-order 3 endpoint (Sprint 40 동반) | 🟠 MEDIUM | FE Sprint 40 (v1.40.0) 자동 활성화 — 현재 fallback 모드만 동작 | OPS work.py + admin/tasks.py + 화이트리스트 검증 |
 | **#47** | QR 명판 인식 — `qrbox 160 → 250` 등 카메라 설정 보강 | 🟡 LOW | OPS FE 작업 (VIEW 무관) — BACKLOG BUG-42 연동 | OPS qr_scanner_web.dart |
 
 ### ✅ 최근 DONE 확인 (handoff.md 표가 stale → 실제로는 처리됨)
@@ -99,8 +104,10 @@ R-02   해석 A 반례 검증                  ✅ 2026-04-28 (BE Pre-deploy Gat
 | 2 | **AnalyticsDashboardPage** | `usage_minutes` → `last_access` 표시 변경 | 30분 | 설계 완료, 코드 미작성 |
 | 3 | **REF-V-01** | ProductionPerformancePage 895줄 → ~200줄 분할 (4단계) | 반나절 | 🔴 필수 분할 · 사용 빈도 최고 |
 | 4 | **REF-V-02** | QrManagementPage 804줄 → ~150줄 분할 (4단계) | 반나절 | 🔴 필수 분할 |
+| 5 | **REFACTOR-SNStatusPage** | SNStatusPage Sprint 38 후 485 LOC (🟡 경고 임계 근접) | 반나절 | 🟡 LOW · 코드 크기 1단계 권장 (500 미만) |
+| 6 | **SETUP-PERMISSIONS-01** | settings.local.json 의 user별 absolute path stale 정리 | 30분 | 🟡 LOW · 환경 정리 |
 
-→ **권장**: BE v2.4 배포 대기 시간에 **1·2번 (각 30분)** 먼저 처리 → 문서 정합 + Sprint 36 워밍업.
+→ **권장**: BE Sprint 64-BE 배포 대기 시간에 **1·2번 (각 30분)** 먼저 처리 → 문서 정합 + Sprint 40 검증 시간 확보.
 
 ---
 
@@ -132,7 +139,7 @@ R-02   해석 A 반례 검증                  ✅ 2026-04-28 (BE Pre-deploy Gat
   → DESIGN_FIX_SPRINT.md (Sprint 35 Phase 2 등)
 
 "BE에 요청한 게 뭐였지? / 지금 OPS 측 작업 대기는?"
-  → OPS_API_REQUESTS.md (#62 v2.3·v2.4 AMENDED + #47 만 PENDING)
+  → OPS_API_REQUESTS.md (#62 v2.4 ✅ + Sprint 64-BE Tank Module Batch 🟠 대기 + #47 🟡 PENDING)
   → 이 파일 § 📡 OPS_API_REQUESTS 현황 (요약본)
 
 "전체 BACKLOG / 리팩토링 로드맵?"
@@ -144,21 +151,29 @@ R-02   해석 A 반례 검증                  ✅ 2026-04-28 (BE Pre-deploy Gat
 
 ---
 
-## 💪 이번 주 끝났을 때 기대 상태
+## 💪 이번 주 회고 (실제 결과, 2026-04-27 ~ 2026-05-04)
 
 ```
-가능 시나리오 A (BE v2.4 이번 주 배포 시)
-  → FE Sprint 36 토글 교체 완료 (best/actual/plan 3옵션)
-  → R-02 검증 쿼리 실행 + 결과 memory.md 기록
-  → REF-V-00-UTIL 흡수 진행
-
-가능 시나리오 B (BE v2.4 다음 주 이후)
-  → REF-V-00-UTIL 단독 완료
-  → BUG-V2 defensive coding 흡수
-  → REF-V-01 또는 02 착수 가능 (반나절 확보 시)
+✅ Sprint 38 (v1.38.0, 04-30) — 모델별 카운트 칩 + 미니 진행 바 (2거래일)
+✅ Sprint 40 (v1.40.0, 05-04) — TM Tank Module 시작/종료 (Codex 5라운드 47건)
+✅ BE v2.4 + R-02 검증 deployed (FE Sprint 36 자동 활성화)
+✅ Codex 교차검증 패턴 5라운드 누적 정착 — 메타 stale 패턴 발견 → ADR 후보
+✅ 빌드/테스트 GREEN 유지 — 30/30 PASS, 회귀 0건
+🟡 Sprint 40 BE Sprint 64-BE 동반 대기 (FE 단독 배포 가능)
+🟡 REF-V-00-UTIL 외 리팩토링 Sprint 미진행 (Sprint 40 우선순위 흡수)
 ```
+
+### 시나리오 비교 (예측 vs 실제)
+- **예측 시나리오 A** (BE v2.4 배포): Sprint 36 토글 교체 + R-02 검증 + REF-V-00-UTIL → ✅ 모두 달성 (04-28)
+- **예측 시나리오 B** (BE v2.4 다음 주): REF-V-00-UTIL 단독 + BUG-V2 → ❌ Sprint 40 신규 발생으로 우회
+- **실제**: 시나리오 A 달성 후 **Sprint 38 + Sprint 40 추가 진행** — 예상보다 작업량 1.5배
+
+### 다음 주 (2026-05-04 ~ 2026-05-08) 시드
+1. **🔴 Sprint 40 검증 + 배포** — Netlify preview / 사전 점검 SQL / Twin파파 OK / main merge
+2. **🟠 BE Sprint 64-BE 동반 배포 추적** — OPS 측 진행 모니터링
+3. **🟡 잠재 트랙** — BUG-V2 / AnalyticsDashboardPage / REF-V-01 (Sprint 40 검증 사이 짬)
 
 ---
 
 > 머리 가벼워야 좋은 결정 나옴. 이 파일이 그 무게 덜어주는 용도.
-> 다음 주 (5-04) 시드는 사용자 직접 작성 권장 — 이번 주 회고 1~2줄만 추가.
+> 다음 주 (2026-05-04+) 시드는 위 § "다음 주 시드" 3줄 기반으로 새 weekly plan 파일 생성 권장.
