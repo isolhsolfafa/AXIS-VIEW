@@ -10,14 +10,14 @@
 ## 🧭 한눈에 (현재 상태, 2026-05-06)
 
 ```
-현재 버전 : v1.42.0 (Sprint 41 FE 완료 — 협력사별 진행률 view, BE 의존 0 / Sprint 39+40 main pushed / BE 63-BE+64-BE 배포 대기)
-최근 작업 : Sprint 41 (v1.42.0) — 협력사별 진행률 view (BIZ-COMPANY-PROGRESS-01). Codex M5 critical 포함 약 41건 합의. utils/companyScopedProgress.ts 신규 + PARTNER_FIELD_ALIASES (TMS(M)/(E) 정규화) + DB 빈문자 가드
+현재 버전 : v1.42.0 (Sprint 39+40+41 main pushed / Twin파파 UI 검증 완료 / VIEW notice 등록 완료 / BE 63-BE+64-BE 배포 대기)
+최근 작업 : Sprint 41 (v1.42.0) — 협력사별 진행률 view (BIZ-COMPANY-PROGRESS-01). Codex M5 critical 포함 약 41건 합의. utils/companyScopedProgress.ts 신규 + PARTNER_FIELD_ALIASES (TMS(M)/(E) 정규화) + DB 빈문자 가드. commit 138268a + push 완료 + UI 검증 완료
 이전 트랙 : Sprint 39 (v1.41.x) MECH 체크리스트 + Sprint 40 (v1.40.0) Tank Module + Sprint 38 (v1.38.0) 모델 칩
-진행 중   : Sprint 41 commit/push + Netlify preview 실기기 검증 (Sprint 39+40+41 동시)
+진행 중   : (없음 — Sprint 41 종료, BE 배포 대기 페이즈 진입)
 대기 중   : BE Sprint 63-BE (MECH 체크리스트 인프라) + BE Sprint 64-BE (Tank Module batch 3 endpoint)
 ```
 
-→ **이번 주 트랙**: 월요일 Sprint 39+40 양 트랙 FE 완료 + main push, 수요일 Sprint 41 FE 추가 완료. 핵심 트랙: ① Sprint 41 commit/push / ② BE Sprint 63-BE / 64-BE 배포 추적 / ③ Netlify preview 실기기 검증 3 Sprint 동시 / ④ Sprint 40 사전 점검 SQL / ⑤ 잠재 트랙 (BUG-V2 / AnalyticsDashboardPage / REF-V-01).
+→ **이번 주 트랙**: 월요일 Sprint 39+40 + 수요일 Sprint 41 — 3 Sprint FE 완료 + main push + UI 검증 + notice 등록까지 종료. 남은 핵심 트랙: ① BE Sprint 63-BE / 64-BE 배포 추적 / ② Sprint 40 사전 점검 SQL / ③ 잠재 트랙 (BUG-V2 / AnalyticsDashboardPage / REF-V-01) / ④ Sprint 41 운영 후속 (BIZ-COMPANY-PROGRESS-FOLLOWUP F1~F5, 운영 피드백 후).
 
 ---
 
