@@ -766,7 +766,15 @@ POST /api/admin/download-log
 
 ---
 
-## 🆕 BIZ-COMPANY-PROGRESS-01 — 협력사별 진행률 view 도입 (🟡 LOW, 2026-04-30 등록)
+## ✅ ARCHIVED — BIZ-COMPANY-PROGRESS-01 — 협력사별 진행률 view 도입 (Sprint 41 v1.42.0 완료, 2026-05-06)
+
+> ⚠️ **본 BACKLOG 항목은 Sprint 41 (FE) v1.42.0 으로 구현 완료 (2026-05-06)**.
+>   - 구현 진행: `AXIS-VIEW/DESIGN_FIX_SPRINT.md L17279 # Sprint 41` 참조
+>   - Claude 1·2차 + Codex 1·2차 누적 약 41건 합의 (Codex M5 critical 정규화 포함 전건 반영)
+>   - BE 의존 0건, 5 파일 / ~214 LOC, vitest 42/42 PASS
+>   - 운영 후 추가 backlog (토글 옵션 / 가중평균 산식 / BE partner 필드 정규화) 는 별도 신규 항목 등록 예정
+>
+> 본문은 이력 추적용으로 보존.
 
 ### 배경
 
@@ -817,6 +825,120 @@ Twin파파 제보 (2026-04-30): 협력사 view 에서는 **자기 회사 담당 
 
 - 협력사 매니저로부터 "전체 진행률이 우리 회사 작업 안 한 부분까지 포함되어 헷갈린다" 류 제보 누적 시 우선순위 상향
 - 또는 다른 BACKLOG 정리 후 sprint 슬롯 확보 시 진행
+
+---
+
+## Claude 1차 검토 결과 반영 (2026-05-06, 11건 전건 — Twin파파 결정 반영)
+
+> **(라벨 정정 2026-05-06)**: 본 섹션은 CLAUDE.md AI 워크플로우 **② Claude 1차 검토** 결과 반영. ③ Codex 교차검증은 별도 호출 (아래 "Codex 1차 검증 결과 반영" 섹션 참조).
+>
+> Claude (Opus 4.7) 1차 리뷰 대상 = `BIZ-COMPANY-PROGRESS-01` 설계 11건 (M3 + A4 + I3 + I1 보너스). 검토 결과 **B+ → A** (모든 결정 trail 명시 + 영향 파일 갱신).
+
+### 🔴 Must (M, 3건) — Twin파파 결정 반영
+
+| ID | 결정 | 이유 |
+|---|---|---|
+| **M1** | **(a) 동적 매핑 통일** — `product.mech_partner` / `elec_partner` / `module_outsourcing` 기준. 정적 매핑(`SNStatusPage L21-28 COMPANY_CATEGORIES`)은 BE 응답 누락 시 fallback 으로만 | 정확성. "FNI 정적 = MECH" vs "이 SN mech_partner=BAT" 충돌 시 동적이 진실 |
+| **M2** | **(a) 적용** — `groupedByON.overallPercent` 도 `companyScopedPercent` 합산으로 통일 | 카드 평균 vs 헤더 진행률 불일치 차단. UX 일관성 |
+| **M3** | **(a) null 반환 + UI '—' 표시** — `getCompanyScopedPercent() → number \| null` | NULL 99% 부재라 운영 영향 적지만 1% 케이스 안전. 0% fallback 은 "내가 일 안 했다" 오해 |
+
+### 🟠 Advisory (A, 4건) — 결정 trail 명시
+
+| ID | 결정 | 이유 |
+|---|---|---|
+| **A1** | **(b) 회사 뷰 적용** — `inProgressByModel` 카운트 칩도 `companyScopedPercent > 0` 기준 | Twin파파 결정. 카드와 일관성 우선. **trade-off 명시**: 우리 회사가 시작 안 한 모델은 칩에서 안 보임 (정보 손실) — 운영 피드백 후 재검토 가능 |
+| **A2** | ✅ 적용 — SNDetailPanel `overall_percent` + `completedCount/totalCount` 도 회사 분기 | 영향 파일에 추가 |
+| **A3** | ✅ BE 산식 동일 — 산술평균 (현 BE 동작) | 일관성 우선. 가중평균(task 수 기준) 개선은 별도 BACKLOG |
+| **A4** | ✅ MVP 토글 미적용 — 향후 운영 피드백 후 재검토 | 컴플렉시티 우선 |
+
+### 🟢 Information (I, 4건)
+
+- **I1**: TMS L/R DUAL 분기 → 운영 데이터 발생 시 별 hotfix (현재 운영 0건)
+- **I2**: ✅ `getCompanyScopedPercent(product, { company, isAdmin })` 시그니처 채택 — `useAuth` 결합 분리, 테스트 용이성 ↑
+- **I3**: ✅ Sprint 40 `getTaskCompany` (utils.ts:15) 와 매핑 로직 통일 — `utils/companyMapping.ts` 공통화 검토 (3곳+ 시점 promote)
+- **I4 (신규 trail)**: 정적 매핑(`SNStatusPage L21-28`) → BE 응답 누락 fallback 으로 격하. M1 정합
+
+### 영향 파일 5개 (Codex 갱신본 반영)
+
+| # | 파일 | 변경 |
+|---|---|---|
+| 1 | `app/src/utils/companyScopedProgress.ts` (신규) | `getCompanyScopedPercent(product, { company, isAdmin })` + null 가드 + `getCompanyScopedCategories()` 헬퍼 (검사 카테고리 N개 반환). I2 시그니처 + I3 통일 (Sprint 40 utils.ts 와 매핑 로직 통일 검토) |
+| 2 | `app/src/components/sn-status/SNCard.tsx` | `overall_percent` → `displayPercent` 분기. null 시 '—' (M3) |
+| 3 | `app/src/pages/production/SNStatusPage.tsx` | (a) `groupedByON.overallPercent` 분기 (M2) (b) `inProgressByModel` 카운트도 `companyScopedPercent > 0` 적용 (A1) (c) 정적 매핑 `COMPANY_CATEGORIES` fallback 격하 (M1+I4) |
+| 4 | `app/src/components/sn-status/SNDetailPanel.tsx` | `overall_percent` + `completedCount/totalCount` 분기 (A2 — 영향 파일 신규 추가) |
+| 5 | `app/src/components/sn-status/InProgressModelChips.tsx` (또는 SNStatusPage 의 칩 영역) | 카운트 산정 기준 변경 — `companyScopedPercent > 0 && !p.all_completed` (A1) |
+
+### 권장 진행 순서
+
+1. ✅ M1·M2·M3·A1 결정 완료 (Twin파파 2026-05-06)
+2. 구현 — Sprint 단위 PR-S (~100 LOC, 4 파일 + 신규 1 파일)
+3. Codex 교차검증 1라운드 충분 (M 0건, A trail 명시 완료)
+4. 우선순위 유지: 🟡 LOW (블로커 없음). BE Sprint 64-BE / 65-BE 대기 동안 슬롯 비어있으면 candidate
+
+## Codex 1차 검증 결과 반영 (2026-05-06, 6건 — Claude 1차 + Codex 1차 누적 17건)
+
+> CLAUDE.md AI 워크플로우 ③ 단계 — Codex 호출 결과. Claude 1차 검토(② 단계) 의 라벨 오류 + 추가 누락 결정 발견. 전건 반영.
+
+### 🔴 Must (M, 3건 전건 반영)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| **M1** | Claude 1차 헤더 라벨 오류 — "Codex 1차 검증" 표기 (실제는 ② Claude 1차) | **헤더 + 섹션 라벨 정정** — `Claude 1차 검토` / `Codex 1차 검증` 분리. ⑤ 합의 trail 손상 차단 |
+| **M2** | `companyScopedPercent` 산식 단위 미명시 — 카테고리 산술평균 vs task 가중 분기점 | **카테고리 산술평균 확정** (BE `overall_percent` 동일 방식). 영향 파일 #1 의 utils trail 추가: `percent = round(matched.reduce((s,c) => s + c.percent, 0) / matched.length)` — null 매칭 시 `number \| null` 반환 |
+| **M3** | SNCard 공정 아이콘 그리드 (MECH/ELEC/TM/PI/QI/SI) 표시 정책 누락 | **(ii) 모든 아이콘 유지 + % 만 회사 시점** — 카드 = 전체 컨텍스트 / 진행률 % = 자기 시점. Twin파파 2026-05-06 결정. 영향 파일 #2 trail 추가 |
+
+### 🟠 Advisory (A, 2건 trail 추가)
+
+| ID | 반영 |
+|---|---|
+| **A1** | `getCompanyScopedCategories(product, { company, isAdmin }): string[]` 시그니처 명시 — admin/GST → PROCESS_ORDER 전부, 협력사 → matched 카테고리만. 사용처: SNDetailPanel completedCount/totalCount + SNCard 아이콘 분기(M3 결정 이후 — 아이콘은 모두 표시이므로 % 만 분기) |
+| **A2** | 구현 단계 sanity check — `getCompanyScopedCategories()` 결과가 BE `my_category` 와 정합한지 1회 검증. 어긋나면 OPS_API_REQUESTS 등록 |
+
+### 🟡 Information (I, 2건)
+
+| ID | 반영 |
+|---|---|
+| **I1** | **영향 파일 #6 신규** — `app/src/utils/companyScopedProgress.test.ts` (신규). 단위 테스트 — admin/GST/협력사/null 매칭 4 케이스. CLAUDE.md ⑦ 단계 (1단계 100% 테스트 동반) 준수 |
+| **I2** | **Sprint 41 (FE) 사전 예약** — Twin파파 2026-05-06 결정. 구현 시점에 Sprint 41 으로 등록. Sprint 40 후속 BE 64-BE 별 PR 분리 (충돌 회피). 다른 Sprint 41 계획 충돌 확인 후 시작 |
+
+### 영향 파일 갱신본 (6개로 확장)
+
+| # | 파일 | 변경 |
+|---|---|---|
+| 1 | `app/src/utils/companyScopedProgress.ts` (신규) | `getCompanyScopedPercent(product, { company, isAdmin })` (M2 산식 명시) + `getCompanyScopedCategories(product, { company, isAdmin })` (A1 시그니처) + null 가드 |
+| 2 | `app/src/components/sn-status/SNCard.tsx` | `overall_percent` → `displayPercent` 분기. **공정 아이콘 6개 그대로 유지** (M3 ii 결정). null 시 '—' (M3) |
+| 3 | `app/src/pages/production/SNStatusPage.tsx` | (a) `groupedByON.overallPercent` 분기 (M2) (b) `inProgressByModel` 카운트 회사 뷰 (A1 본 backlog) (c) 정적 매핑 fallback 격하 (M1+I4 본 backlog) |
+| 4 | `app/src/components/sn-status/SNDetailPanel.tsx` | `overall_percent` + `completedCount/totalCount` 분기 (A2 본 backlog) |
+| 5 | `app/src/components/sn-status/InProgressModelChips.tsx` (또는 SNStatusPage 칩 영역) | `companyScopedPercent > 0 && !p.all_completed` (A1 본 backlog) |
+| 6 | **`app/src/utils/companyScopedProgress.test.ts`** (신규) | 단위 테스트 — admin/GST/협력사/null 매칭 4 케이스 (Codex I1) |
+
+### 누적 검증 통계
+
+- Claude 1차 (② 단계, 2026-05-06): 11건 전건 반영
+- Codex 1차 (③ 단계, 2026-05-06): 6건 전건 반영
+- **누적 17건** | Codex M 0건 도달 → **합의 진입 (④ 단계 가능), 구현 착수 승인**
+
+### 구현 단계 추가 (2026-05-06 Sprint 41 진행 중)
+
+- Claude 2차 자체 review (5건 유효 + 4건 reject — Claude 약점 trail 기록)
+- Codex 1차 (③ 호출): 13건 전건 반영 — **M5 critical 신규 발견** (`TMS(M)/(E)` 정규화) 포함, `PARTNER_FIELD_ALIASES` 채택
+- DB 실측 (2026-05-06): module_outsourcing 빈 문자열 146건 (11.6%) → `if (!dbValue)` 가드 추가
+- Codex 2차 (④ 합의 라운드): 8건 — CONFIRM 5 + REVISE 3, **합의 도달** (M 0건)
+- 구현 완료: ~214 LOC, 5 파일, vitest 42/42 PASS, 빌드 GREEN
+
+---
+
+## 🆕 BIZ-COMPANY-PROGRESS-FOLLOWUP — Sprint 41 운영 후속 (LOW, 2026-05-06 등록)
+
+> Sprint 41 v1.42.0 운영 피드백 후 검토 — 현재 모두 LOW.
+
+| ID | 항목 | 트리거 |
+|---|---|---|
+| **F1** | 토글 옵션 (현행 view ↔ 회사 view) | 협력사 매니저로부터 "전체 진행률도 보고 싶다" 피드백 누적 시 |
+| **F2** | 산식 가중평균 옵션 (task 가중) | 카테고리 산술평균이 실 작업량과 괴리 보고 누적 시 |
+| **F3** | BE partner 필드 정규화 (`TMS` → `TMS(M)/(E)` 분리) | OPS_API_REQUESTS 등록 → 완료 시 `PARTNER_FIELD_ALIASES` 제거 가능 (FE 정리 PR) |
+| **F4** | TMS L/R DUAL 분기 | 운영 데이터 발생 시 hotfix (현재 0건) |
+| **F5** | `utils/companyMapping.ts` 공통화 | Sprint 40 `getTaskCompany` 와 매핑 통일 — 3곳+ 시점 promote (DRY) |
 
 ---
 

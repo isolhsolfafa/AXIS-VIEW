@@ -1,7 +1,54 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-04 (Sprint 39 v1.41.0 + 후속 v1.41.1 FE 완료 — MECH 체크리스트 VIEW 연동 + COMMON product 자동 매핑)
+> 마지막 업데이트: 2026-05-06 (Sprint 41 v1.42.0 FE 완료 — 협력사별 진행률 view BIZ-COMPANY-PROGRESS-01)
+
+---
+
+## 🆕 2026-05-06 세션 요약 — Sprint 41 (v1.42.0) FE 완료
+
+### 결과 요약
+
+- **트랙**: VIEW FE 단독 (BE 의존 0건 — Sprint 34 partner 필드 활용)
+- **목표**: 협력사 매니저 화면에서 자기 담당 카테고리(MECH/ELEC/TMS)만 평균하는 회사 분기 진행률 view
+- **Codex 검증**: Claude 1·2차 + Codex 1·2차 누적 약 41건 합의 (Codex M5 critical 정규화 포함 전건 반영)
+- **LOC 실측**: ~214 LOC, 5 파일 (utils 1 신규 + components 3 + test 1 신규)
+- **빌드**: 3294 modules, 2.30s GREEN
+- **테스트**: vitest 42/42 PASS (기존 30 + 신규 12)
+- **commit/push**: 진행 예정
+
+### 핵심 설계 (PARTNER_FIELD_ALIASES)
+
+DB 실측 (2026-05-06): 모든 partner 필드가 'TMS' 단축 표기로 통일 / TMS(M)/(E) 부서 구분은 user.company 측에만 존재.
+
+```ts
+const PARTNER_FIELD_ALIASES = {
+  MECH: { 'TMS(M)': 'TMS' },     // TMS(M) 부서가 mech_partner='TMS' 와 매칭
+  TMS:  { 'TMS(M)': 'TMS' },     // TMS(M) 부서가 module_outsourcing='TMS' 와 매칭
+  ELEC: { 'TMS(E)': 'TMS' },     // TMS(E) 부서가 elec_partner='TMS' 와 매칭
+};
+```
+
+DB 빈 문자열 146건 (11.6%) NULL 동일 처리 — `if (!dbValue) return false`.
+
+### Twin파파 검증 시나리오
+
+- [ ] FNI 매니저 로그인 → MECH 100% SN 카드 100% 표시 / 기타 카테고리 영향 0
+- [ ] BAT 매니저 → MECH 만 평균 표시
+- [ ] TMS(M) 매니저 → MECH+TMS 두 카테고리 평균 (alias 정규화 동작)
+- [ ] TMS(E) 매니저 → ELEC 단일 표시
+- [ ] P&S / C&A 매니저 → ELEC 만 평균
+- [ ] partner=NULL/빈문자 SN → '—' 표시 (UI degrade)
+- [ ] 그룹 헤더 진행률 = 카드 평균 일치
+- [ ] inProgressByModel 칩 회사 시점 정상
+- [ ] **회귀**: admin / GST 인원 화면 변화 0건
+
+### 다음 응용 포인트 (Sprint 41 후)
+
+- BE partner 필드 정규화 (LOW) — 'TMS' 단축 → 'TMS(M)/(E)' 분리 OPS_API_REQUESTS 등록 → alias 제거 가능
+- 토글 옵션 (현행 view ↔ 회사 view) — 운영 피드백 후 재검토
+- 산식 가중평균 옵션 — 카테고리 산술평균 → task 가중 별도 BACKLOG
+- DRY 통일 — Sprint 40 `getTaskCompany` 와 매핑 로직 통일 (3곳+ 시점 `utils/companyMapping.ts` promote)
 
 ---
 

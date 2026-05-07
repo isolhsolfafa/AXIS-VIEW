@@ -1,9 +1,11 @@
 // src/components/sn-status/SNCard.tsx
-// S/N 카드 컴포넌트 — Sprint 18
+// S/N 카드 컴포넌트 — Sprint 18 / Sprint 41(협력사별 진행률 분기)
 
 import type { SNProduct } from '@/types/snStatus';
 import { PROCESS_ORDER, TAB_LABEL } from './constants';
 import { maskName } from '@/utils/format';
+import { getCompanyScopedPercent } from '@/utils/companyScopedProgress';
+import { useAuth } from '@/store/authStore';
 
 interface SNCardProps {
   product: SNProduct;
@@ -29,7 +31,13 @@ function formatActivityTime(isoStr: string | null): string {
 }
 
 export default function SNCard({ product, isSelected, onClick }: SNCardProps) {
-  const { serial_number, model, overall_percent, categories, all_completed, all_completed_at, last_worker, last_activity_at, last_task_name } = product;
+  const { serial_number, model, categories, all_completed, all_completed_at, last_worker, last_activity_at, last_task_name } = product;
+  const { user } = useAuth();
+  // Sprint 41: 회사 분기 진행률 (admin/GST → overall_percent 그대로, 협력사 → 자기 카테고리만 평균)
+  const displayPercent = getCompanyScopedPercent(product, {
+    company: user?.company,
+    isAdmin: user?.is_admin ?? false,
+  });
 
   return (
     <div
@@ -59,23 +67,23 @@ export default function SNCard({ product, isSelected, onClick }: SNCardProps) {
         </div>
       </div>
 
-      {/* Progress bar */}
+      {/* Progress bar — Sprint 41: displayPercent (회사 분기), null 시 '—' */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
           <span style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>진행률</span>
           <span style={{ fontSize: '12px', fontWeight: 600, color: all_completed ? 'var(--gx-success)' : 'var(--gx-charcoal)', fontFamily: "'JetBrains Mono', monospace" }}>
-            {overall_percent}%
+            {displayPercent === null ? '—' : `${displayPercent}%`}
           </span>
         </div>
         <div style={{ height: '6px', borderRadius: '3px', background: 'var(--gx-cloud)', overflow: 'hidden' }}>
           <div
             style={{
               height: '100%',
-              width: `${overall_percent}%`,
+              width: displayPercent === null ? '0%' : `${displayPercent}%`,
               borderRadius: '3px',
               background: all_completed
                 ? 'var(--gx-success)'
-                : overall_percent > 0
+                : displayPercent !== null && displayPercent > 0
                   ? 'var(--gx-accent)'
                   : 'transparent',
               transition: 'width 0.3s ease',

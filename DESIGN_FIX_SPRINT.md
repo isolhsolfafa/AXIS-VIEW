@@ -17273,3 +17273,507 @@ WHERE mc.model_prefix IN ('GAIA', 'IVAS');
 - **가압검사 추가** — 누락 발생 시 task_id='PRESSURE_TEST' 추가 (BE 화이트리스트 + FE isTankModule → isManagedTask 일반화)
 - **시간 통계 보정 모드** — manager 가 임의 시간 입력 가능한 별도 모달 (예: 작업자가 어제 시작해서 잊어버린 경우 백데이트)
 - **일괄 토스트 옵션 확장** — "이 O/N 의 모든 task 일괄 처리" (Tank Module 외 task 까지) — 향후 검토
+
+---
+
+# Sprint 41 — 협력사별 진행률 view (BIZ-COMPANY-PROGRESS-01) (2026-05-06 등록, 🟢 Claude 1·2차 + Codex 1·2차 + DB 검증 누적 합의, 구현 진입 승인)
+
+> 등록일: 2026-05-06 | 상태: **누적 검증 합의 도달 — M 0건 (수정 완료), 구현 착수 승인**
+> 누적 통계 (제기 기준):
+>   - BACKLOG 초기 4건 (정책 확정)
+>   - Claude 1차 11건 (전건 반영)
+>   - Claude 2차 9건 제기 / 5건 유효 (4건 Codex reject — Claude 약점 trail)
+>   - Codex 1차 13건 (M5 critical 포함, 전건 반영)
+>   - Codex 2차 8건 검증 (CONFIRM 5 + REVISE 3, 전건 반영)
+>   - DB 실측 1건 (빈 문자열 11.6%)
+>   - **누적 약 41건 제기 / 합의 후 M 0건 잔존**
+> 트랙: VIEW FE (BE 의존 0건 — Sprint 34 partner 필드 활용)
+> 선행: Sprint 34 (FE-21, v1.33.0) ✅ — `mech_partner` / `elec_partner` / `module_outsourcing` 필드 도입
+> 설계서: 본 엔트리 (BACKLOG `BIZ-COMPANY-PROGRESS-01` 에서 정식 Sprint 이전)
+> 교차검증: Claude Cowork → Claude Code Opus Lead → **Codex (트리거 대기, 본 등록 후 호출 예정)**
+> 병합 전략: Sprint 41 단일 PR — utils 1 신규 + 4 파일 수정 + 1 테스트 파일 (총 6 파일)
+> 릴리스: **v1.42.0** 예정 (Codex I1 — v1.41.0/v1.41.1 이미 main push 완료라 v1.42.0 단독 확정)
+> ⚠️ **Sprint 라벨 사전 예약**: BACKLOG `BIZ-COMPANY-PROGRESS-01` 의 Codex I2 결정 (2026-05-06) — Sprint 41 으로 정식 등록
+
+## 배경
+
+### Twin파파 제보 (2026-04-30, BACKLOG 최초 등록 시점)
+
+협력사 매니저 입장에서 SNCard 의 진행률 표시가 혼란:
+- 카드 `overall_percent` = 모든 카테고리 (MECH/ELEC/TMS/PI/QI/SI, UI 'TM' = 코드 'TMS') 합산 평균
+- 협력사 (예: FNI) 는 자기 회사 담당 카테고리(MECH 만)에만 관여
+- 그러나 카드는 PI/QI/SI 등 GST 직속 카테고리도 합산해서 표시 → "내가 책임지는 부분이 얼마나 진행됐는지" 직관 불일치
+
+**예시 시나리오**:
+```
+GBWS-7037 의 진행 상태:
+  MECH: 100% (FNI 작업 완료)
+  ELEC: 50%  (TMS(E) 작업 중)
+  TM:   80%  (TMS(M) 작업 중)
+  PI:    0%  (GST PI 미시작)
+  QI:    0%  (GST QI 미시작)
+  SI:    0%  (GST SI 미시작)
+  → overall_percent = (100+50+80+0+0+0)/6 = 38%
+
+FNI 매니저 화면: 38% 표시 → "내가 다 했는데 왜 38%?"
+TMS(M) 매니저 화면: 38% 표시 → "TM 80% 인데 왜 38%?"
+GST admin: 38% 표시 (전체 그대로 정확)
+```
+
+### Sprint 34 데이터 활용
+
+이미 product 테이블에 partner 필드 존재 (FE-21, v1.33.0):
+- `mech_partner` (MECH 카테고리 담당 협력사)
+- `elec_partner` (ELEC 카테고리 담당)
+- `module_outsourcing` (TMS 담당, 'TMS' 등) — 데이터 키 'TMS', UI 라벨 'TM' (TAB_LABEL.TMS = 'TM')
+- PI/QI/SI 는 GST 직속 (partner 필드 없음)
+
+**BE 의존 0건** — Sprint 34 데이터 그대로 활용.
+
+## 결정 사항 (2026-05-06 Twin파파 + Claude 1차 + Codex 1차 누적)
+
+| # | 항목 | 확정 | 출처 |
+|---|---|---|---|
+| 1 | 분기 정책 | `is_admin === true` OR `company === 'GST'` → 현행 (`overall_percent` 그대로). 그 외 협력사 → 자기 담당 카테고리(MECH/ELEC/TMS)만 평균 (코드 키 'TMS' = UI 라벨 'TM') | BACKLOG 초기 |
+| 2 | PI/QI/SI 카테고리 처리 | GST 직속 → 협력사 view 에서는 진행률 계산 제외. admin/GST 는 동일 화면 | BACKLOG 초기 |
+| 3 | 카테고리 ↔ partner 매핑 | MECH=`mech_partner`, ELEC=`elec_partner`, **TMS**=`module_outsourcing` (PROCESS_ORDER 정합 키. UI 라벨 'TM' 은 `TAB_LABEL.TMS` 변환) | BACKLOG 초기 (Codex M1·I2→M 정합) |
+| 4 | 0매칭 케이스 | BE `task_seed` 태깅 기반 협력사 user 필터링으로 자체 발생 안 됨 → FE edge case 처리 불필요 | BACKLOG 초기 |
+| 5 | **정적/동적 매핑 충돌 해결 (M1, Claude 1차)** | **(a) 동적 매핑 통일** — `product.{partner_field}` 기준. 정적 매핑(`SNStatusPage L21-28 COMPANY_CATEGORIES`)은 BE 응답 누락 시 fallback 으로만 격하 | Claude M1 |
+| 6 | **groupedByON 헤더 진행률 (M2, Claude 1차)** | **(a) 적용** — 그룹 헤더도 카드와 동일 회사 분기 (`companyScopedPercent` 합산). UX 일관성 | Claude M2 |
+| 7 | **partner NULL fallback (M3, Claude 1차)** | **(a) null 반환 + UI '—' 표시** — `getCompanyScopedPercent() → number \| null`. NULL 99% 부재라도 1% 안전 처리 | Claude M3 |
+| 8 | **inProgressByModel 카운트 칩 (A1, Claude 1차)** | **(b) 회사 뷰 적용** — `companyScopedPercent > 0 && !p.all_completed`. **trade-off**: 우리 회사 미시작 모델 칩 안 보임 (운영 피드백 후 재검토) | Claude A1 |
+| 9 | **SNDetailPanel 진행률 (A2, Claude 1차)** | ✅ 적용 — `overall_percent` + `completedCount/totalCount` 회사 분기 | Claude A2 |
+| 10 | **산식 단위 (M2, Codex 1차)** | **카테고리 산술평균** (BE `overall_percent` 동일 방식). `percent = round(matched.reduce((s,c) => s + c.percent, 0) / matched.length)` | Codex M2 |
+| 11 | **SNCard 공정 아이콘 그리드 (M3, Codex 1차)** | **(ii) 모든 아이콘 유지 + % 만 회사 시점** — 카드 = 전체 컨텍스트 / 진행률 % = 자기 시점. 다른 협력사 작업 인지 가능 | Codex M3 |
+| 12 | **getCompanyScopedCategories 시그니처 (A1, Codex 1차)** | `getCompanyScopedCategories(product, { company, isAdmin }): string[]` — admin/GST → PROCESS_ORDER 전부, 협력사 → matched 카테고리만 | Codex A1 |
+| 13 | **my_category 정합성 검증 (A2, Codex 1차)** | 구현 단계 sanity check — BE `my_category` 와 `getCompanyScopedCategories()` 결과 어긋나면 OPS_API_REQUESTS 등록 | Codex A2 |
+
+## 영향 파일 5개 (Codex 2차 누적 반영 — 구현 완료, 정확치 측정 갱신 2026-05-06)
+
+> **참고**: 영향 파일 6번 (InProgressModelChips.tsx) 은 props 받아 표시만 하는 presentational 컴포넌트 → SNStatusPage 의 `inProgressByModel` 변경으로 자동 반영. 별도 파일 수정 불필요.
+
+| # | 파일 | 변경 | LOC (실측) |
+|---|---|---|---|
+| 1 | `app/src/utils/companyScopedProgress.ts` (신규) | `getCompanyScopedPercent(product, { company, isAdmin }): number \| null` (Codex M2 산식 + Claude M3 null 가드) + `getCompanyScopedCategories(product, { company, isAdmin }): string[]` (Codex A1 시그니처) + `PARTNER_FIELD_ALIASES` (Codex M5 정규화) + `if (!dbValue) return false` (DB-1 빈 문자열 가드) + `import { PROCESS_ORDER }` (Codex I2→M DRY) | **+82** |
+| 2 | `app/src/components/sn-status/SNCard.tsx` | `overall_percent` → `displayPercent` 분기. **공정 아이콘 6개 그대로 유지** (Codex M3 ii). null 시 '—' (Claude M3). useAuth import `'@/store/authStore'` (Codex M2) | **+12, -8** |
+| 3 | `app/src/pages/production/SNStatusPage.tsx` | (a) `groupedByON.overallPercent` 분기 + 타입 `number \| null` + 렌더 가드 (Claude M2 + Codex M3) (b) `inProgressByModel` 카운트 회사 뷰 (Claude A1 b안) (c) **sort rank 함수 회사 분기 + null=rank 3** (Codex A4 + Claude 2차 A2). **참고**: 정적 매핑 `COMPANY_CATEGORIES` fallback 격하 (Claude M1) 는 동적 우선·정적 fallback 정책상 정적 코드 라인은 유지 (BE 응답 누락 시 안전망) | **+27, -16** |
+| 4 | `app/src/components/sn-status/SNDetailPanel.tsx` | `overall_percent` + `completedCount/totalCount` 분기 (Claude A2). 카테고리별 categoryPercent 표시 = SNCard 와 동일 정책 (모두 표시) (Claude 2차 A1 = Codex M3 ii 통일) | **+10, -4** |
+| 5 | `app/src/utils/companyScopedProgress.test.ts` (신규) | 단위 테스트 **12 케이스** (6 시나리오 × 2 함수) — admin / GST / FNI 매칭 / TMS(M) alias / TMS(E) alias / null·빈 문자 (Codex A6 확장, CLAUDE.md ⑦ 단계 1단계 100% 테스트 동반) | **+111** |
+
+**순 증분 (실측)**: 신규 +193 / 수정 +49, -28 = **+214 LOC** (CLAUDE.md 코드 크기 1단계 범위 내).
+
+**vitest 전수**: **42/42 PASS** (기존 30 + 신규 12). **Build**: 3294 modules / 2.30s GREEN.
+
+## 코드 시그니처
+
+### `utils/companyScopedProgress.ts`
+
+```typescript
+import type { SNProduct } from '@/types/snStatus';
+
+interface UserScope {
+  company?: string;
+  isAdmin: boolean;
+}
+
+// Codex M1 정정 (TM→TMS): constants.ts:4 PROCESS_ORDER = ['MECH','ELEC','TMS','PI','QI','SI']
+//   product.categories[] 키도 'TMS' 사용 — 'TM' 키로 조회 시 undefined → 매칭 0
+import { PROCESS_ORDER } from '@/components/sn-status/constants';   // Codex I2→M (DRY)
+
+const PARTNER_FIELD_MAP: Record<string, keyof SNProduct> = {
+  MECH: 'mech_partner',
+  ELEC: 'elec_partner',
+  TMS:  'module_outsourcing',   // Codex M1 정정 — 'TM' → 'TMS' (PROCESS_ORDER 정합)
+  // PI/QI/SI 는 GST 직속 — partner 필드 없음
+};
+
+// Codex M5 정정 (DB 검증 2026-05-06):
+// DB 모든 partner 필드 'TMS' 단축 표기 (TMS(M)/TMS(E) 구분 X)
+// user.company 측 부서 구분 ('TMS(M)'=모듈, 'TMS(E)'=전장)
+// → 카테고리별 alias 분리 (MECH/TMS = TMS(M), ELEC = TMS(E))
+const PARTNER_FIELD_ALIASES: Record<string, Record<string, string>> = {
+  MECH: { 'TMS(M)': 'TMS' },     // TMS(M) 부서가 mech_partner='TMS' 와 매칭
+  TMS:  { 'TMS(M)': 'TMS' },     // TMS(M) 부서가 module_outsourcing='TMS' 와 매칭
+  ELEC: { 'TMS(E)': 'TMS' },     // TMS(E) 부서가 elec_partner='TMS' 와 매칭
+};
+
+/**
+ * Codex M2 산식 명시: 카테고리 산술평균 (BE overall_percent 와 동일 방식)
+ * Claude M3: NULL 매칭 시 number | null 반환 — UI '—' 처리
+ */
+export function getCompanyScopedPercent(
+  product: SNProduct,
+  user: UserScope,
+): number | null {
+  // admin / GST → 현행 그대로
+  if (user.isAdmin || user.company === 'GST') {
+    return product.overall_percent;
+  }
+
+  // 협력사 — 매칭 카테고리만 평균
+  const matched = getCompanyScopedCategories(product, user);
+  if (matched.length === 0) return null;  // 0매칭 = NULL
+
+  const percents = matched
+    .map(cat => product.categories[cat]?.percent)
+    .filter((p): p is number => typeof p === 'number');
+
+  if (percents.length === 0) return null;
+  return Math.round(percents.reduce((s, p) => s + p, 0) / percents.length);
+}
+
+/**
+ * Codex A1 시그니처: 사용자가 담당하는 카테고리 목록 반환
+ * Codex M5 정정: 카테고리별 alias 적용 — TMS(M)/(E) 부서 구분 정확 매칭
+ * 추가 발견 (2026-05-06): module_outsourcing 빈 문자열 146건 (11.6%) — NULL 동일 처리
+ *   - admin / GST → PROCESS_ORDER 전부
+ *   - 협력사 → product.{partner_field} === alias 적용 user.company 인 카테고리만
+ */
+export function getCompanyScopedCategories(
+  product: SNProduct,
+  user: UserScope,
+): string[] {
+  if (user.isAdmin || user.company === 'GST') {
+    return [...PROCESS_ORDER];   // Codex I2→M (DRY) — constants 재사용
+  }
+  if (!user.company) return [];
+
+  return Object.entries(PARTNER_FIELD_MAP)
+    .filter(([cat, field]) => {
+      const dbValue = product[field];
+      // 추가 발견 (2026-05-06): 빈 문자열 146건 + NULL 1건 = 약 11.6% — 매칭 실패 처리
+      if (!dbValue) return false;
+
+      // Codex M5: 카테고리별 alias 적용 (TMS(M)/(E) 부서 구분)
+      const aliasMap = PARTNER_FIELD_ALIASES[cat];
+      const targetCompany = aliasMap?.[user.company!] ?? user.company;
+      return dbValue === targetCompany;
+    })
+    .map(([cat]) => cat);
+}
+```
+
+### `SNCard.tsx` 변경 핵심
+
+```diff
++ import { getCompanyScopedPercent } from '@/utils/companyScopedProgress';
++ import { useAuth } from '@/store/authStore';   // Codex M2 정정 (실 경로)
+
+  export default function SNCard({ product, ... }: SNCardProps) {
++   const { user } = useAuth();
++   const displayPercent = getCompanyScopedPercent(product, {
++     company: user?.company,
++     isAdmin: user?.is_admin ?? false,
++   });
+
+    // ...
+    return (
+      <div>
+-       <span>{product.overall_percent}%</span>
++       <span>{displayPercent === null ? '—' : `${displayPercent}%`}</span>
+        {/* 공정 아이콘 6개 그대로 유지 — Codex M3 (ii) */}
+        {PROCESS_ORDER.map(cat => <CategoryIcon ... />)}
+      </div>
+    );
+  }
+```
+
+### `SNStatusPage.tsx` 변경 핵심
+
+```diff
++ import { getCompanyScopedPercent, getCompanyScopedCategories } from '@/utils/companyScopedProgress';
+
+  // groupedByON 의 overallPercent 분기 (Claude M2)
+  const groupedByON = useMemo(() => {
+    // ...
+    for (const g of groups) {
+-     g.overallPercent = Math.round(
+-       g.products.reduce((sum, p) => sum + p.overall_percent, 0) / g.products.length
+-     );
++     // 회사 분기 적용 — null 제외 후 평균
++     const percents = g.products
++       .map(p => getCompanyScopedPercent(p, { company: user?.company, isAdmin: user?.is_admin ?? false }))
++       .filter((p): p is number => p !== null);
++     g.overallPercent = percents.length > 0
++       ? Math.round(percents.reduce((s, p) => s + p, 0) / percents.length)
++       : null;   // 그룹 전체 NULL 가능 시 처리
+    }
+  }, [sorted, user]);
+
+  // inProgressByModel 카운트 회사 뷰 적용 (Claude A1 b안)
+  const inProgressByModel = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of products) {
+-     if (p.overall_percent > 0 && !p.all_completed) {
++     const scoped = getCompanyScopedPercent(p, { company: user?.company, isAdmin: user?.is_admin ?? false });
++     if (scoped !== null && scoped > 0 && !p.all_completed) {
+        map.set(p.model, (map.get(p.model) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [products, user]);
+
+  // 정적 매핑 fallback 격하 (Claude M1)
+  // - 기존: COMPANY_CATEGORIES 정적 매핑으로 SN 표시 필터링
+  // - 변경: BE 응답이 partner 필드 정상 — 동적 매핑 우선. 정적은 partner=NULL 시만 fallback
+
+  // Codex M3 정정 — groupedByON 의 overallPercent type + 렌더 가드
+  // 1. type 정의 갱신 (group 객체 인터페이스): overallPercent: number → number | null
+  // 2. 렌더링부 (group header):
+  //    - 기존: <span>{group.overallPercent}%</span>
+  //    - 변경: <span>{group.overallPercent === null ? '—' : `${group.overallPercent}%`}</span>
+  //    - progress bar width: group.overallPercent === null ? '0%' : `${group.overallPercent}%`
+
+  // Codex A4 — 카드 sort 로직도 회사 분기 적용 (정렬 기준 = displayPercent)
+  // SNStatusPage L82-94 sort 함수의 비교 키를 BE overall_percent → companyScopedPercent 로 교체
+  // Claude 2차 A2: null 카드 = rank 3 (완료 다음). 정렬 명시:
+  //   const rank = (p) => {
+  //     const scoped = getCompanyScopedPercent(p, ...);
+  //     return scoped === null ? 3                        // null = 가장 뒤
+  //       : (scoped > 0 && !p.all_completed) ? 0          // 진행 중
+  //       : !p.all_completed ? 1                          // 대기
+  //       : 2;                                            // 완료
+  //   };
+```
+
+## 산술평균 산식 검증 (Codex M2 + M5 정정 — DB 실측 2026-05-06)
+
+> **DB 실측 결과**: 모든 partner 필드가 'TMS' 단축 표기 통일. 'TMS(M)'/'TMS(E)' 구분은 user.company 측에만 존재. 카테고리별 alias (`PARTNER_FIELD_ALIASES`) 로 정확 매칭.
+
+**예시 1 — FNI 매니저 (MECH 담당)**:
+```
+GBWS-7037:
+  product.mech_partner = 'FNI'
+  categories.MECH.percent = 100
+user.company = 'FNI', alias 없음 → targetCompany = 'FNI'
+  → 'FNI' === 'FNI' ✅ → matched = ['MECH']
+  → percents = [100] → displayPercent = 100  ✅
+```
+
+**예시 2 — TMS(M) 매니저 (MECH + TMS 담당)**:
+```
+GBWS-XXXX:
+  product.mech_partner = 'TMS' (DB 단축 표기)
+  product.module_outsourcing = 'TMS'
+  product.elec_partner = 'TMS' (TMS(E) 가 ELEC 담당하는 SN)
+  categories: { MECH: {percent: 100}, ELEC: {percent: 50}, TMS: {percent: 80}, ... }
+
+user.company = 'TMS(M)':
+  - MECH alias { 'TMS(M)': 'TMS' } → targetCompany = 'TMS' → 'TMS' === 'TMS' ✅
+  - TMS  alias { 'TMS(M)': 'TMS' } → targetCompany = 'TMS' → 'TMS' === 'TMS' ✅
+  - ELEC alias 없음 → targetCompany = 'TMS(M)' → 'TMS' !== 'TMS(M)' ❌ (정상 — TMS(M) 는 ELEC 담당 X)
+  → matched = ['MECH', 'TMS']
+  → percents = [100, 80] → displayPercent = round(180/2) = 90  ✅
+```
+
+**예시 3 — TMS(E) 매니저 (ELEC 담당)**:
+```
+user.company = 'TMS(E)':
+  - MECH alias 없음 → targetCompany = 'TMS(E)' → 'TMS' !== 'TMS(E)' ❌ (정상)
+  - TMS  alias 없음 → 'TMS' !== 'TMS(E)' ❌ (정상)
+  - ELEC alias { 'TMS(E)': 'TMS' } → targetCompany = 'TMS' → 'TMS' === 'TMS' ✅
+  → matched = ['ELEC']
+  → percents = [50] → displayPercent = 50  ✅
+```
+
+**예시 4 — admin 시점**:
+```
+matched = ['MECH', 'ELEC', 'TMS', 'PI', 'QI', 'SI']  ← PROCESS_ORDER 그대로 (Codex I2→M)
+→ overall_percent 그대로 (38%)  ✅
+```
+
+**예시 5 — partner=빈 문자열 (DB-1 추가 발견)**:
+```
+GBWS-YYYY:
+  product.module_outsourcing = '' (운영 데이터 미비, DB 146건 / 11.6%)
+TMS(M) 매니저:
+  → MECH alias 적용 → 'TMS' (mech_partner) === 'TMS' ✅ matched = ['MECH']
+  → TMS alias 적용 → '' (빈 값) → if (!dbValue) return false ❌ matched 제외
+  → matched = ['MECH'] 만
+  → displayPercent = round(100/1) = 100  ← MECH 만 평가
+```
+
+**예시 6 — 비-TMS 협력사 partner NULL (M3 원안)**:
+```
+product.mech_partner = NULL (운영 데이터 미비)
+FNI 매니저 → MECH alias 없음 → null === 'FNI' ❌ → matched = [] → null 반환 → UI '—' ✅
+```
+
+## 검증 체크리스트
+
+### 설계 단계 (Claude + Codex 누적 ✅)
+
+- [x] M1 정적/동적 매핑 충돌 해결 — 동적 통일 + 정적 fallback (Claude M1)
+- [x] M2 그룹 헤더 진행률 분기 적용 (Claude M2)
+- [x] M3 NULL fallback `null` + UI '—' (Claude M3)
+- [x] A1 카운트 칩 회사 뷰 적용 (Claude A1 → Twin파파 b안 결정)
+- [x] A2 SNDetailPanel 분기 (Claude A2)
+- [x] M2 산식 명시 — 카테고리 산술평균 (Codex M2)
+- [x] M3 SNCard 아이콘 그리드 — 모두 표시 + % 만 회사 시점 (Codex M3 ii)
+- [x] A1 `getCompanyScopedCategories` 시그니처 (Codex A1)
+
+### 구현 단계
+
+- [ ] `npm run build` GREEN
+- [ ] TypeScript 0 에러
+- [ ] 4 케이스 단위 테스트 GREEN — admin / GST / 협력사 매칭 / null 매칭
+- [ ] FNI 매니저로 로그인 → MECH 100% 인 SN 카드 100% 표시
+- [ ] TMS(M) 매니저 → mech_partner 매칭 SN 카드 정상 표시
+- [ ] partner=NULL SN → '—' 표시
+- [ ] 그룹 헤더 = 카드 평균 일치 (불일치 0건)
+- [ ] inProgressByModel 칩 회사 뷰 정상 (자기 회사 시작 안 한 모델 칩 미표시)
+- [ ] **(Codex A2) BE `my_category` 와 `getCompanyScopedCategories()` 결과 정합성 검증** — 어긋나면 OPS_API_REQUESTS 등록
+
+### 배포 후 (Twin파파 현업)
+
+- [ ] FNI / BAT / TMS(E) / TMS(M) / 기타 협력사 매니저 각자 로그인 → 진행률 정합성 확인
+- [ ] admin / GST 인원 시점 → 현행 동작 변화 0건 (회귀 테스트)
+- [ ] 협력사 매니저 피드백 — "내 진행률이 정확해졌다" 반응 측정
+- [ ] (선택) 토글 옵션 (현행 view ↔ 회사 view) 운영 피드백 후 재검토 (A4 trade-off)
+
+## 안전 degrade
+
+- **BE 변경 0건** — Sprint 34 partner 필드 그대로 활용
+- **타입 변경 0건** — `SNProduct` 기존 타입 그대로
+- **권한 모델 영향 0건** — 기존 `is_admin` / `company` 분기 활용
+- BE 응답에 partner 필드 누락 시 → fallback (정적 매핑 또는 null) 동작 보장
+- VIEW 미배포 시 → 기존 `overall_percent` 그대로 표시 (degrade 없음)
+
+## 교차검증 필수 항목 (Codex 이관 체크리스트)
+
+- ❌ API 응답 계약 변경 — BE 변경 0건
+- ❌ 타입 변경 — 기존 SNProduct 타입 활용
+- ❌ 인증·권한 — 기존 useAuth 분기 활용
+- ✅ 3파일 이상 touch — **6파일** (utils 신규 1 + sn-status 4 + test 1)
+- ❌ 클린 코어 데이터 원칙 — 영향 없음
+
+→ **Codex 교차검증 권장** (단, Claude 1차 + Codex 1차 누적 17건 반영 완료라 2라운드 충분 가능). 2차 검증에서 합의 진입(④ 단계).
+
+## 연계
+
+- 선행: Sprint 34 (FE-21, v1.33.0) ✅ — partner 필드 도입
+- 선행: Sprint 33 ✅ — `is_admin` / `is_manager` / `company` 분기 패턴 (`canForceClose` 등)
+- DRY 통일: Sprint 40 `components/sn-status/utils.ts` 의 `getTaskCompany` 와 매핑 로직 통일 검토 (3곳+ 시점 `utils/companyMapping.ts` promote)
+- BACKLOG 이전: 본 Sprint 41 정식 등록으로 BACKLOG `BIZ-COMPANY-PROGRESS-01` 의 트리거 부분 archive
+
+### 다음 응용 포인트
+
+- **TMS L/R DUAL 분기** — 운영 데이터 발생 시 별 hotfix (현재 0건)
+- **산식 가중평균 옵션** — 산술평균 → task 가중 (BE 의 `categories[cat].done/total` 기준) 별 BACKLOG 분리
+- **토글 옵션 (현행 view ↔ 회사 view)** — 운영 피드백 후 검토 (A4)
+- **`utils/companyMapping.ts` 공통화** — Sprint 40 `getTaskCompany` 와 매핑 통일 시점 promote (3곳+)
+- **카테고리 무관 일반 헬퍼** — Sprint 39 토글 라벨 ("1차 입력 적용" 등) 패턴 차용 가능
+- **🆕 BE partner 필드 정규화 (LOW, Claude 2차 A3)** — `module_outsourcing` / `mech_partner` / `elec_partner` 의 'TMS' 단축 표기를 'TMS(M)/(E)' 분리. OPS_API_REQUESTS 등록 권장. BE 정규화 완료 시 `PARTNER_FIELD_ALIASES` 제거 가능 (FE 정리 PR). 현재 alias = FE-only 워크어라운드로 동작
+
+## Codex 1차 교차검증 결과 반영 (2026-05-06, 13건 — Claude 약점 trail 4건 포함)
+
+> 본 섹션 = CLAUDE.md AI 워크플로우 ③ Codex 교차검증 (실 호출 결과). 이전 BACKLOG 단계의 "Claude 1차 검토" 와 분리 추적.
+>
+> Codex 평가: "implementation-safe 상태 아님. M1+I2(같은 뿌리) + M5 가 blocker — 둘 다 해결해야 partner-scoped TM progress 정상 동작" → **전건 반영 후 합의(④) 도달**.
+
+### 🔴 Must (5건 전건 반영)
+
+| ID | 분류 | 현상 | 반영 |
+|---|---|---|---|
+| **M1** | CONFIRM | TM/TMS 키 드리프트 — `PARTNER_FIELD_MAP` 의 'TM' 키가 `PROCESS_ORDER` 의 'TMS' 와 불일치 → `categories['TM']` undefined → 매칭 0 | 'TM' → **'TMS'** 정정. constants.ts:4 `PROCESS_ORDER` import 활용 (DRY) |
+| **M2** | CONFIRM | `useAuth` import 경로 오류 — `'@/contexts/AuthContext'` (가상) → 실 경로 `'@/store/authStore'` (`SNStatusPage.tsx:14`) | import 경로 정정 |
+| **M3** | CONFIRM | `groupedByON.overallPercent` 타입(`number`) + 렌더링(`${...}%`) null 가드 누락 → "null%" 표시 위험 | type `number \| null` 변경 + 렌더 가드 `=== null ? '—' : ${...}%` + progress bar width '0%' 분기 |
+| **I2 → M** | REVISE | PROCESS_ORDER 하드코딩 — DRY nit 가 아닌 M1 의 functional cause | constants.ts `PROCESS_ORDER` import 후 `[...PROCESS_ORDER]` 반환 |
+| **M5 (신규)** | NEW | `module_outsourcing='TMS'` vs `user.company='TMS(M)/(E)'` 정규화 미해결 — **TM 카테고리 매칭 영원히 0** (Codex critical) | DB 실측 (2026-05-06) 결과: 모든 partner 필드 'TMS' 단축 표기. 카테고리별 alias `PARTNER_FIELD_ALIASES = { MECH: { 'TMS(M)': 'TMS' }, TMS: { 'TMS(M)': 'TMS' }, ELEC: { 'TMS(E)': 'TMS' } }` 채택 |
+
+### 🟠 Advisory (3건 전건 — Codex 신규)
+
+| ID | 반영 |
+|---|---|
+| **A4** | 카드 sort 로직도 `displayPercent` 기준 적용. SNStatusPage L82-94 sort 키 변경 + null 카드 별도 처리. 영향 파일 #3 +5 LOC |
+| **A5** | `my_category` 비교 규칙 명시 — BE `string \| null` (단수) vs FE 헬퍼 `string[]` (복수). 다중 카테고리 user (TMS(M)=MECH+TMS) 비교 = `categories.includes(my_category)`. sanity check 시 단방향 검증 (helper ⊇ my_category) |
+| **A6** | 테스트 4 → **6 케이스로 확장** — TMS(M)/TMS(E) 정규화 (M5) + null header 렌더 (M3) 추가 |
+
+### 🟢 Information (1건)
+
+| ID | 반영 |
+|---|---|
+| **I1** | v1.41.0/v1.41.1 이미 main push 완료 — "Sprint 39 흡수 시 v1.41.0 재조정" 표현 stale → **v1.42.0 단독 확정** 표기 정정 |
+
+### Codex REJECT — Claude 약점 trail (4건, CLAUDE.md AI 워크플로우 ④ 합의 단계 약점 기록)
+
+| Claude 라벨 | Codex 정정 | 사유 |
+|---|---|---|
+| ~~M4~~ (Claude 2차 자체) | I (Codex 정정) | 설계서 L17333·L17480-17483·L17555 에서 이미 동적 우선·정적 fallback 으로 명확 결정. **Claude 가 모호하다고 본 것 = 재독 부족** |
+| ~~A1~~ (Claude 2차 자체) | I (Codex 정정) | diff 는 부분 표시 — 기존 정규화/필터/sort 제거 의도 아님. **Claude 가 diff 표기 관습 오해** |
+| ~~A2~~ (Claude 2차 자체) | I (Codex 정정) | deps `[user]` 가 전체 객체. authStore.ts 에서 user 통째 교체 → `user?.is_admin` 자동 포함. **Claude 의 deps 분해 가정 오류** |
+| ~~A3~~ (Claude 2차 자체) | I (Codex 정정) | L17352·L17535 에 이미 "4 케이스 단위 테스트 GREEN" 명시. **Claude 체크리스트 재독 부족** |
+
+→ Claude 자체 검토(② 단계) 의 4건 약점 기록. Codex 호출(③) 가치 사례 — 자체 검토만으로는 critical M5 + I2→M 못 잡았음.
+
+### 추가 발견 (DB 검증 2026-05-06, 1건)
+
+| ID | 현상 | 반영 |
+|---|---|---|
+| **DB-1** | `module_outsourcing` 빈 문자열 146건 (11.6%) 발견 — M3 NULL 처리만으로는 부족 | `if (!dbValue) return false` 한 줄로 NULL + 빈 문자열 동일 처리. M3 NULL 비율 추정 99% → 실측 **88.4%** 갱신 (NULL/빈 = 11.6%) |
+
+### 영향 파일 — Codex 1차 추가분만 (Claude M4 표기 정정 — 누적 변경은 위 영향 파일 6개 표 참조)
+
+> 본 표는 **Codex 1차 단계에서 추가된 변경분만** 표기. 영향 파일 자체의 변경 여부 (Claude A1/A2/A4 단계 결정) 는 위 § 영향 파일 6개 표 참조.
+
+| # | 파일 (전체 경로) | Codex 1차 추가 변경 |
+|---|---|---|
+| 1 | `app/src/utils/companyScopedProgress.ts` (신규) | M1 (TMS 키) + M5 (PARTNER_FIELD_ALIASES) + DB-1 (`!dbValue` 가드) + I2→M (PROCESS_ORDER import) |
+| 2 | `app/src/components/sn-status/SNCard.tsx` | M2 (import 경로) |
+| 3 | `app/src/pages/production/SNStatusPage.tsx` | M3 (overallPercent null 타입+렌더 가드) + A4 (sort 로직 displayPercent 기준) |
+| 4 | `app/src/components/sn-status/SNDetailPanel.tsx` | Codex 1차 추가분 없음 (Claude A2 단계 변경 — 위 영향 파일 6개 표 #4 참조). Claude 2차 A1 결정 = SNCard 와 동일 정책 (모든 카테고리 표시) |
+| 5 | `app/src/components/sn-status/InProgressModelChips.tsx` | Codex 1차 추가분 없음 (Claude A1 단계 변경 — 위 영향 파일 6개 표 #5 참조) |
+| 6 | `app/src/utils/companyScopedProgress.test.ts` (신규) | A6 — 4→6 케이스 확장 (TMS 정규화 + null header) |
+
+## Codex 2차 교차검증 결과 반영 (2026-05-06, 8건 — 합의 도달)
+
+> CLAUDE.md AI 워크플로우 ④ 라운드 — Codex 2차 호출 (이전 1차 thread `--resume`). Claude 2차 자체 review (4M+3A+1I) 의 독립 검증 결과 + Codex 1차 반영 정확성 확인.
+
+### 평가 요약
+
+- **Codex 1차 5 M (M1·M2·M3·I2→M·M5) 반영 정확성**: 5/5 PASS (코드 시그니처 + 예시 검증 일치)
+- **Claude 2차 8건 평가**: CONFIRM 5 + REVISE 3 — 전건 동의 방향
+- **합의 분기 ④ 단계**: Codex 신규 M 제기 0건 → 합의 도달 (사용자 에스컬레이션 불필요)
+
+### CONFIRM (5건 — 전건 반영)
+
+| Claude 2차 라벨 | Codex 평가 | 반영 |
+|---|---|---|
+| **M1** 마크다운 깨짐 | CONFIRM — L17577 펜스 중복 + 예시 번호 중복 실재 | L17577 펜스 삭제 + 예시 6 변경 |
+| **A1** SNDetailPanel categoryPercent | CONFIRM — trail 누락 확인 | 영향 파일 #4 trail 추가 (SNCard 와 동일 정책) |
+| **A2** sort null rank | CONFIRM — `rank null = 3` 명시 필요 | 코드 시그니처 trail 명시 (L17516+) |
+| **A3** BE 정규화 OPS 등록 | CONFIRM — Advisory 유효 | "다음 응용 포인트" 신규 항목 추가 |
+| **I1** 누적 통계 산출 기준 | CONFIRM — 불명확 | 헤더 통계 분리 표기 (제기/유효) |
+
+### REVISE (3건 — 방향 동의, 표현 정정)
+
+| Claude 2차 라벨 | Codex 정정 | 반영 |
+|---|---|---|
+| **M2** LOC stale | REVISE — 동의, 단 정확치는 구현 후 측정 | LOC 표 추정치 갱신 + "구현 후 정확치 재갱신" trail |
+| **M3** TM↔TMS 용어 | REVISE — 코드/UI 라벨 구분 trail 추가 (Twin파파 결정 (a) — 통일) | decision row 'TMS' 통일 + 라벨 변환 trail |
+| **M4** 영향 파일 갱신본 모호 | REVISE — 표기 + 파일 경로 누락 함께 정정 | 표 헤더 + 4·5 행 전체 경로 + Codex 1차 추가분만 명시 |
+
+### Codex 신규 발견 (Information 1건)
+
+| ID | 내용 |
+|---|---|
+| **I2 (Codex)** | `TMS(M)` 의 TMS 카테고리 소유권이 설계서 (L17535-17549) 에만 주장. CLAUDE.md L702-712 직접 근거 부재. 정적 매핑 (`SNStatusPage.tsx:24` `'TMS(M)': ['MECH', 'TMS']`) 가 가정하나 partner 필드 측 검증 부재. **운영 trail**: 구현 단계 sanity check 시 `TMS(M)` 매니저 view 에서 실제 TMS 카테고리 매칭 동작 확인 권장 |
+
+### 합의 판정
+
+- **implementation-safe: YES** (수정 완료 후)
+- **잔존 M: 0건**
+- **CLAUDE.md ④ 라운드 상한 도달** — Codex 3차 호출 불필요
+- **⑤ 합의 분기 통과** — 구현 진입 승인
+
+## 판정 기준 (Sprint 41 종료)
+
+- 협력사 매니저 진행률 = 자기 담당 카테고리 평균 (BE `overall_percent` 와 다름) ✅
+- TMS(M) 매니저 → MECH + TMS 두 카테고리 정확 매칭 (M5 정정)
+- TMS(E) 매니저 → ELEC 단일 매칭
+- admin / GST 화면 회귀 0건
+- 그룹 헤더 = 카드 평균 일치 (M3 null 가드 포함)
+- 카드 sort 순서 = 카드 % 일치 (A4)
+- 단위 테스트 **6 케이스** GREEN (Codex A6)
+- TypeScript 0 에러 + npm run build GREEN
+- v1.42.0 릴리스 (CHANGELOG + version.ts + git tag) — Codex I1 정정: v1.41.0/v1.41.1 이미 main push 완료, v1.42.0 단독 확정

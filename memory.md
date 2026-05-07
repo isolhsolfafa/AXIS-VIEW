@@ -2,7 +2,7 @@
 
 > 세션 간 누적되는 의사결정, 버그 분석, 아키텍처 판단을 기록합니다.
 > CLAUDE.md = 프로젝트 고정 정보 / memory.md = 누적 학습 / handoff.md = 세션 인계
-> 마지막 업데이트: 2026-04-28 (ADR-V006 추가 — Sprint 36 + R-02 결과)
+> 마지막 업데이트: 2026-05-06 (ADR-V016 추가 — Sprint 41 PARTNER_FIELD_ALIASES 정규화 패턴)
 
 ---
 
@@ -54,6 +54,36 @@
 - **클린 코어 데이터 원칙 영향**: `force_closed` 같은 별도 처리 플래그 추가 안 함 → 자연스러운 worker row 로 기록, 단순함 유지
 - **회사 경계 정합 (M4 + M6)**: manager 인 경우 본인 회사 task 만 영향. 미시작 task 의 회사 매핑은 `product.module_outsourcing` (TMS) / `product.mech_partner` (MECH) 사용. NULL 시 카운트 제외 + toast 경고 (c-3)
 - **참조**: `DESIGN_FIX_SPRINT.md` Sprint 40 결정 #5 + #9, Sprint 40 ADR 보강 섹션
+
+---
+
+### ADR-V016: Sprint 41 — PARTNER_FIELD_ALIASES 카테고리별 정규화 패턴 (2026-05-06)
+
+- **맥락**: BIZ-COMPANY-PROGRESS-01 (협력사별 진행률 view) 구현 시, BE 의 partner 필드 (`mech_partner` / `elec_partner` / `module_outsourcing`) DB 단축 표기 'TMS' vs FE 의 user.company 부서 구분 'TMS(M)' / 'TMS(E)' 충돌. Codex M5 critical 발견 — `module_outsourcing='TMS' === user.company='TMS(M)'` → false → TM 카테고리 매칭 영원히 0
+- **DB 실측 (2026-05-06)**:
+  - 모든 partner 필드 'TMS' 단축 표기로 통일 (88.4%)
+  - 빈 문자열 146건 (11.6%) — NULL 동일 처리 필요
+  - TMS(M)/(E) 분리는 user.company 측에만 존재
+- **결정**: **카테고리별 alias 매핑** 채택 — `PARTNER_FIELD_ALIASES`
+  ```ts
+  const PARTNER_FIELD_ALIASES = {
+    MECH: { 'TMS(M)': 'TMS' },
+    TMS:  { 'TMS(M)': 'TMS' },
+    ELEC: { 'TMS(E)': 'TMS' },
+  };
+  ```
+  매칭 로직: `targetCompany = aliasMap?.[user.company] ?? user.company` → `dbValue === targetCompany`
+- **이유**:
+  - prefix-match (`startsWith('TMS')`) 보다 명시적 — 의도 명확
+  - explicit map (`TMS_VARIANTS = ['TMS', 'TMS(M)', 'TMS(E)']`) 보다 카테고리별 분리 — TMS(M) ≠ ELEC 정확 차단
+  - BE 변경 0건 (FE-only 워크어라운드)
+  - Sprint 40 `getTaskCompany` (utils.ts:15) 와 매핑 패턴 통일 가능 (DRY 3곳+ 시점 promote 검토)
+- **DB 빈문자 가드**: `if (!dbValue) return false` 한 줄로 NULL + 빈 문자열 동일 처리 (146건 / 11.6% 실측)
+- **트레이드오프 / 향후**:
+  - **F3 BACKLOG**: BE partner 필드 정규화 (`TMS` → `TMS(M)/(E)` 분리) — OPS_API_REQUESTS 등록 시 alias 제거 가능 (FE 정리 PR)
+  - **F4 BACKLOG**: TMS L/R DUAL 분기 — 운영 데이터 발생 시 hotfix
+- **검증**: 12 케이스 단위 테스트 GREEN (admin / GST / FNI 직접 / TMS(M) alias / TMS(E) alias / null·빈문자), Codex 1·2차 합의 도달
+- **참조**: `app/src/utils/companyScopedProgress.ts`, `DESIGN_FIX_SPRINT.md` Sprint 41 결정 #5 + Codex M5
 
 ---
 

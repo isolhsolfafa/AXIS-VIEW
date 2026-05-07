@@ -12,6 +12,7 @@ import { useSNProgress } from '@/hooks/useSNProgress';
 import { useSNTasks } from '@/hooks/useSNTasks';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/store/authStore';
+import { getCompanyScopedPercent } from '@/utils/companyScopedProgress';
 import type { SNProduct } from '@/types/snStatus';
 
 // 테스트 S/N 필터 — DOC_TEST- prefix 숨김 (TODO: 추후 설정 on/off 전환)
@@ -79,11 +80,14 @@ export default function SNStatusPage() {
       result = result.filter(p => p.model.trim() === modelFilter);
     }
 
-    // 정렬: 진행중 > 대기 > 완료
-    const rank = (p: SNProduct) =>
-      p.overall_percent > 0 && !p.all_completed ? 0
-        : !p.all_completed ? 1
-          : 2;
+    // 정렬: 진행중 > 대기 > 완료 > null (Sprint 41 A4+A2: companyScopedPercent 기준 + null=rank 3)
+    const rank = (p: SNProduct) => {
+      const scoped = getCompanyScopedPercent(p, { company: user?.company, isAdmin: user?.is_admin ?? false });
+      if (scoped === null) return 3;
+      if (scoped > 0 && !p.all_completed) return 0;
+      if (!p.all_completed) return 1;
+      return 2;
+    };
 
     return [...result].sort((a, b) => {
       const diff = rank(a) - rank(b);
@@ -92,7 +96,7 @@ export default function SNStatusPage() {
       const bKey = b.last_activity_at ?? b.ship_plan_date ?? '';
       return bKey.localeCompare(aKey);
     });
-  }, [products, search, modelFilter, isAdminOrGst, user?.company, settings.showTestSN]);
+  }, [products, search, modelFilter, isAdminOrGst, user, settings.showTestSN]);
 
   // O/N별 그룹핑 — Sprint 24
   // Sprint 34 (FE-21, v1.33.0): lineLabel 집계 추가 — 최빈값 + "외 N" (NULL row는 혼재 카운트 제외)
@@ -103,7 +107,7 @@ export default function SNStatusPage() {
       model: string;
       customer: string;
       products: SNProduct[];
-      overallPercent: number;
+      overallPercent: number | null;   // Sprint 41 M3: 회사 분기 시 모든 product NULL 가능
       lineLabel: string | null;
     }[] = [];
     const map = new Map<string, typeof groups[0]>();
@@ -117,7 +121,7 @@ export default function SNStatusPage() {
           model: p.model,
           customer: p.customer,
           products: [] as SNProduct[],
-          overallPercent: 0,
+          overallPercent: 0 as number | null,
           lineLabel: null as string | null,
         };
         map.set(key, group);
@@ -127,9 +131,13 @@ export default function SNStatusPage() {
     }
 
     for (const g of groups) {
-      g.overallPercent = Math.round(
-        g.products.reduce((sum, p) => sum + p.overall_percent, 0) / g.products.length
-      );
+      // Sprint 41 M2 + A4: 회사 분기 적용 — null 제외 후 평균. 그룹 전체 NULL 가능 시 null
+      const percents = g.products
+        .map(p => getCompanyScopedPercent(p, { company: user?.company, isAdmin: user?.is_admin ?? false }))
+        .filter((p): p is number => p !== null);
+      g.overallPercent = percents.length > 0
+        ? Math.round(percents.reduce((s, p) => s + p, 0) / percents.length)
+        : null;
 
       // FE-21: line 혼재 집계 — NULL row는 validCount에서 제외 (혼재로 오산하지 않도록)
       const counts = new Map<string, number>();
@@ -149,7 +157,7 @@ export default function SNStatusPage() {
       }
     }
     return groups;
-  }, [sorted]);
+  }, [sorted, user]);
 
   // Sprint 38: 진행 중 모델별 카운트 (search/modelFilter 미적용 baseline — Codex #A self-referential UI 회피)
   // - search 와 modelFilter 둘 다 deps 에서 의도적 제외
@@ -168,13 +176,15 @@ export default function SNStatusPage() {
     }
     const map = new Map<string, number>();
     for (const p of result) {
-      if (p.overall_percent > 0 && !p.all_completed) {
+      // Sprint 41 A1: 회사 분기 적용 — companyScopedPercent > 0 기준 (자기 회사 미시작 모델 칩 안 보임)
+      const scoped = getCompanyScopedPercent(p, { company: user?.company, isAdmin: user?.is_admin ?? false });
+      if (scoped !== null && scoped > 0 && !p.all_completed) {
         const key = p.model.trim();
         map.set(key, (map.get(key) ?? 0) + 1);
       }
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  }, [products, isAdminOrGst, user?.company, settings.showTestSN]);
+  }, [products, isAdminOrGst, user, settings.showTestSN]);
 
   const totalInProgress = useMemo(
     () => inProgressByModel.reduce((sum, [, n]) => sum + n, 0),
@@ -422,7 +432,8 @@ export default function SNStatusPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ width: '60px', height: '5px', borderRadius: '3px', background: 'var(--gx-cloud)' }}>
                         <div style={{
-                          width: `${group.overallPercent}%`, height: '100%', borderRadius: '3px',
+                          width: group.overallPercent === null ? '0%' : `${group.overallPercent}%`,
+                          height: '100%', borderRadius: '3px',
                           background: group.overallPercent === 100 ? 'var(--gx-success)' : 'var(--gx-accent)',
                           transition: 'width 0.3s ease',
                         }} />
@@ -431,7 +442,7 @@ export default function SNStatusPage() {
                         fontSize: '12px', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
                         color: group.overallPercent === 100 ? 'var(--gx-success)' : 'var(--gx-charcoal)',
                       }}>
-                        {group.overallPercent}%
+                        {group.overallPercent === null ? '—' : `${group.overallPercent}%`}
                       </span>
                     </div>
                   </div>

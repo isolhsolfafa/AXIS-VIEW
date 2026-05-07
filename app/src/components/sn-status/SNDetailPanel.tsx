@@ -22,6 +22,8 @@ import {
 } from './utils';
 import { ParallelConfirmDialog } from './ParallelConfirmDialog';
 import type { BatchResponse } from '@/api/snStatus';
+import { getCompanyScopedPercent } from '@/utils/companyScopedProgress';
+import { useAuth } from '@/store/authStore';
 
 // 체크리스트 대상 카테고리 (MECH/ELEC/TMS만)
 const CHECKLIST_CATEGORIES = new Set(['MECH', 'ELEC', 'TMS']);
@@ -132,6 +134,12 @@ function formatBatchResult(res: BatchResponse, verb: string): string {
 }
 
 export default function SNDetailPanel({ serialNumber, product, tasks, isLoading, onClose, canReactivate, canForceClose, currentUserCompany, isAdmin, orderProducts }: SNDetailPanelProps) {
+  const { user } = useAuth();
+  // Sprint 41: 회사 분기 진행률 (admin/GST → 전체, 협력사 → 자기 카테고리만)
+  const displayPercent = getCompanyScopedPercent(product, {
+    company: user?.company,
+    isAdmin: user?.is_admin ?? false,
+  });
   const completedCount = PROCESS_ORDER.filter(cat => {
     const catData = product.categories[cat];
     return catData && catData.percent === 100;
@@ -303,19 +311,19 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
           )}
         </div>
 
-        {/* Progress */}
+        {/* Progress — Sprint 41: displayPercent (회사 분기), null 시 '—' */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
             <span style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>Progress</span>
             <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: product.all_completed ? 'var(--gx-success)' : 'var(--gx-charcoal)' }}>
-              {product.overall_percent}% ({completedCount}/{totalCount} 공정)
+              {displayPercent === null ? '—' : `${displayPercent}%`} ({completedCount}/{totalCount} 공정)
             </span>
           </div>
           <div style={{ height: '6px', borderRadius: '3px', background: 'var(--gx-cloud)', overflow: 'hidden' }}>
             <div
               style={{
                 height: '100%',
-                width: `${product.overall_percent}%`,
+                width: displayPercent === null ? '0%' : `${displayPercent}%`,
                 borderRadius: '3px',
                 background: product.all_completed ? 'var(--gx-success)' : 'var(--gx-accent)',
                 transition: 'width 0.3s ease',

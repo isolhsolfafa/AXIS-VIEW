@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.41.1 (2026-05-04)
+> 최신 버전: v1.42.0 (2026-05-06)
 
 ---
 
@@ -70,6 +70,45 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.42.0 — 2026-05-06
+
+**Sprint 41 — 협력사별 진행률 view (BIZ-COMPANY-PROGRESS-01)**
+
+🎯 협력사 진행률 분기 (admin/GST 현행 유지, 협력사만 자기 카테고리 평균)
+ - 협력사 매니저 화면: 자기가 담당하지 않는 PI/QI/SI 등 GST 직속 카테고리는 평균에서 제외
+ - FNI 매니저 → MECH 만 / TMS(M) → MECH+TMS / TMS(E) → ELEC / P&S·C&A → ELEC
+ - admin·GST 인원은 기존 화면 그대로 (회귀 0건)
+
+🛠️ utils/companyScopedProgress.ts (신규, 82 LOC)
+ - `getCompanyScopedPercent()` — 회사 분기 진행률 (admin/GST → 전체, 협력사 → 매칭 카테고리 산술평균)
+ - `getCompanyScopedCategories()` — 담당 카테고리 목록 (admin/GST → PROCESS_ORDER 전부)
+ - `PARTNER_FIELD_ALIASES` — TMS(M)/(E) 부서를 DB 단축 표기 'TMS' 와 카테고리별 정확 매칭
+ - DB 빈 문자열 (146건 / 11.6%) NULL 동일 처리
+
+🔍 분기 적용 위치 (4 파일)
+ - SNCard 진행률 % + progress bar (null 시 '—' 표시)
+ - SNStatusPage `groupedByON.overallPercent` (그룹 헤더, 타입 number|null)
+ - SNStatusPage `inProgressByModel` 카운트 칩 (회사 시점 전환)
+ - SNStatusPage 카드 sort rank (null=rank 3, 가장 뒤)
+ - SNDetailPanel Progress + completedCount/totalCount
+
+🧪 단위 테스트 12 케이스 (6 시나리오 × 2 함수, vitest GREEN)
+ - admin / GST / FNI 직접 매칭 / TMS(M) alias 정규화 / TMS(E) alias / null·빈문자 매칭
+
+🔬 Claude 1·2차 + Codex 1·2차 누적 약 41건 합의
+ - Codex M5 (TMS(M)/(E) 정규화) critical 발견 → PARTNER_FIELD_ALIASES 채택
+ - DB 실측 (2026-05-06) 으로 'TMS' 단축 표기 88.4% / 빈 문자 11.6% 비율 확인
+
+♻️ DRY 통일 검토 (BACKLOG)
+ - Sprint 40 `getTaskCompany` 와 매핑 로직 통일 시점 → `utils/companyMapping.ts` promote (3곳+)
+
+🔮 향후 응용 포인트
+ - BE partner 필드 정규화 OPS_API_REQUESTS 등록 (alias 제거 가능)
+ - 토글 옵션 (현행 view ↔ 회사 view) 운영 피드백 후 검토
+ - 산식 가중평균 옵션 (task 가중) 별도 BACKLOG
 
 ---
 
