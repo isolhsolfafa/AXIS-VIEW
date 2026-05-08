@@ -9,7 +9,7 @@
 
 ### 결과 요약
 
-- **트랙**: VIEW FE 단독 (OPS Sprint 66-BE Step 3 배포 완료, Step 4 진행 중)
+- **트랙**: VIEW FE + OPS Sprint 66-BE 동기 배포 (Step 3·4 모두 종료, 5-09 Twin파파 확인) — Twin파파 UI 검증만 남음
 - **목표**: 자재 마스터 admin GUI + 체크리스트 SELECT 항목에 자재 매핑 모달 통합
 - **Codex 검증**: Claude 1~4차 + Codex 1·2차 누적 약 36건 합의 (Codex M-2차-2 산수 오류 REJECT — Claude 약점 trail)
 - **LOC 실측**: 1,173 LoC (신규 1,097 + 수정 76), 11 파일
@@ -41,14 +41,16 @@
 - [ ] 자재 비활성화 — 매핑 N개 알림 toast + 매핑 보존 (재활성화 후 dropdown 복원)
 - [ ] /checklist MECH 카테고리 LNG 그룹 → MFC 검사 항목 [매핑] 버튼
 - [ ] 자재 매핑 모달 — 가스 LNG 필터 → 6 자재 다중 선택 → 순서 변경 → 저장
-- [ ] 작업자 OPS Flutter dropdown 동적 표시 (BE override 검증) — Step 4 배포 후
+- [ ] 작업자 OPS Flutter dropdown 동적 표시 (BE override 검증) — ✅ BE Sprint 66-BE Step 3·4 완료 (2026-05-09), 즉시 검증 가능
 
 ### 다음 응용 포인트
 
-- BE Sprint 66-BE Step 4 (FE 측 자재 마스터 endpoint) 배포 완료 대기
+- ✅ BE Sprint 66-BE 완전 종료 (Step 3·4, 2026-05-09) — FE+BE 동기 배포 완료
+- Twin파파 Netlify preview 실기기 검증 (8 시나리오, FE+BE end-to-end)
+- 작업자 OPS Flutter dropdown 동적 표시 검증 (BE override 자동 반영)
 - FEAT-SI-HOOKUP-CHECKLIST-FLOW (Sprint 64+, P2) — SI hookup 체크리스트
 - FEAT-MATERIAL-AI-VISION-VERIFY (Sprint 64+, P3) — AI 비전 자재 검증
-- 운영 후속: 자재 spec 변경 시 BE override 자동 반영 검증 (재매핑 불필요)
+- 운영 후속: 자재 spec 변경 시 BE override 자동 반영 (admin 재매핑 불필요) 동작 확인
 
 ---
 

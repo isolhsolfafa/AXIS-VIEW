@@ -17799,7 +17799,7 @@ FNI 매니저 → MECH alias 없음 → null === 'FNI' ❌ → matched = [] → 
 >   - 신규 파일 5건 (MaterialsPage + MaterialFormModal + MaterialUploadModal + ChecklistOptionMapModal + api/materials.ts)
 >   - 기존 파일 수정 4건 (App.tsx + Sidebar + ChecklistManagePage + api/checklist.ts 확장)
 > **상태**: 🟢 OPEN
-> **선행 의존성**: OPS `Sprint 66-BE` (FEAT-MATERIAL-MASTER-AND-BOM-INTEGRATION-20260507) Step 3 (v2.12.2 BE override) 배포 완료
+> **선행 의존성**: ✅ OPS `Sprint 66-BE` (FEAT-MATERIAL-MASTER-AND-BOM-INTEGRATION-20260507) **Step 3·4 모두 종료** (2026-05-09 Twin파파 확인) — FE+BE 동기 배포 완료
 > **별 repo**: 본 sprint = AXIS-VIEW repo `Sprint 42` / OPS sprint = AXIS-OPS repo `Sprint 66-BE`
 
 ---

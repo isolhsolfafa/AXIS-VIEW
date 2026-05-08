@@ -12,7 +12,7 @@
 >   - Claude 1~4차 + Codex 1·2차 누적 약 36건 합의 (Codex M-2차-2 산수 오류 REJECT — Claude 약점 trail)
 >   - Twin파파 결정 4건: M4-B (기존 확장) / M6-A (admin+GST) / M-NEW-4-B (warn+keep) / A-3차-1 (checklist.ts 단수)
 >   - 1,173 LoC 실측 / 11 파일 (신규 6 + 수정 5) / vitest 42/42 PASS / 빌드 GREEN
->   - 선행: OPS Sprint 66-BE Step 3 (BE override) 배포 완료 / Step 4 진행 중
+>   - ✅ 선행: OPS Sprint 66-BE 완전 종료 (Step 3·4 모두 배포, 2026-05-09 Twin파파 확인) — FE+BE 동기 배포 완료
 >
 > 본문은 이력 추적용으로 보존.
 

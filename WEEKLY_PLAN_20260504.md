@@ -10,14 +10,14 @@
 ## 🧭 한눈에 (현재 상태, 2026-05-06)
 
 ```
-현재 버전 : v1.43.0 (Sprint 39+40+41 prod 배포 완료 / Sprint 42 FE 완료 / BE 63-BE+64-BE+66-BE Step 4 배포 대기)
+현재 버전 : v1.43.0 (Sprint 39+40+41 prod 배포 완료 / Sprint 42 FE+BE 동기 완료 / BE 63-BE+64-BE 배포 대기)
 최근 작업 : Sprint 42 (v1.43.0) — 자재 마스터 + 체크리스트 자재 매핑 admin GUI. OPS Sprint 66-BE Step 4 별 repo. Claude 1~4차 + Codex 1·2차 누적 약 36건 합의. 1,173 LOC, 11 파일. Twin파파 결정 4건 (M4-B / M6-A / M-NEW-4-B / A-3차-1)
 이전 트랙 : Sprint 41 (v1.42.0) 협력사별 진행률 + Sprint 39+40 (v1.41.x/v1.40.0) MECH 체크리스트 + Tank Module
 진행 중   : Sprint 42 commit/push + Netlify preview 실기기 검증
-대기 중   : BE Sprint 63-BE (MECH 체크리스트 인프라) + BE Sprint 64-BE (Tank Module batch 3 endpoint) + BE Sprint 66-BE Step 4 (Material API)
+대기 중   : BE Sprint 63-BE (MECH 체크리스트 인프라) + BE Sprint 64-BE (Tank Module batch 3 endpoint). ✅ BE Sprint 66-BE 완전 종료 (Step 3·4, 2026-05-09)
 ```
 
-→ **이번 주 트랙**: 5-04 Sprint 39+40 + 5-06 Sprint 41 + 5-09 Sprint 42 — 4 Sprint FE 완료. 남은 핵심 트랙: ① Sprint 42 commit/push + UI 검증 / ② BE Sprint 63-BE / 64-BE / 66-BE Step 4 배포 추적 / ③ 작업자 OPS Flutter dropdown 동적 표시 검증 (BE override 영역) / ④ 잠재 트랙 (BUG-V2 / AnalyticsDashboardPage / REF-V-01) / ⑤ 운영 후속 (BIZ-COMPANY-PROGRESS-FOLLOWUP).
+→ **이번 주 트랙**: 5-04 Sprint 39+40 + 5-06 Sprint 41 + 5-09 Sprint 42 — 4 Sprint FE 완료, BE 66-BE 동기 종료. 남은 핵심 트랙: ① Sprint 42 Twin파파 Netlify preview UI 검증 (8 시나리오) / ② BE Sprint 63-BE / 64-BE 배포 추적 / ③ 작업자 OPS Flutter dropdown 동적 표시 검증 (BE override 자동 반영) / ④ 잠재 트랙 (BUG-V2 / AnalyticsDashboardPage / REF-V-01) / ⑤ 운영 후속 (BIZ-COMPANY-PROGRESS-FOLLOWUP).
 
 ---
 

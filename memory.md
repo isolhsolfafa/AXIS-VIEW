@@ -77,7 +77,7 @@
   - M-NEW-4-B: warn + keep (block / cascade remove 대신 보수적 처리)
   - A-3차-1: `checklist.ts` 단수 (기존 파일 확장, codebase 컨벤션 정합)
 - **검증 trail**: Claude 1~4차 + Codex 1·2차 누적 약 36건 합의. Codex M-2차-2 (LoC 산수 오류) REJECT — 영역 5 (신규) vs 영역 6 (수정) 표 구분 + 95 = 10+5+30+50 정합. CLAUDE.md ④ 단계 Claude 약점 trail 정합
-- **선행 의존성**: OPS Sprint 66-BE Step 3 (BE override deploy) 완료 + Step 4 (material API endpoint) 진행 중
+- **선행 의존성**: ✅ OPS Sprint 66-BE 완전 종료 (Step 3 BE override + Step 4 material API endpoint, 2026-05-09 Twin파파 확인) — FE+BE 동기 배포
 - **참조**:
   - `app/src/api/materials.ts` (6 named functions + Material/UploadPreview/UploadResult interface)
   - `app/src/api/checklist.ts` 확장 (`getChecklistMasterOptions` / `updateChecklistMasterOptions` / `ChecklistMasterOption` interface)
