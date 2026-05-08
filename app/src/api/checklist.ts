@@ -1,5 +1,5 @@
 // src/api/checklist.ts
-// 체크리스트 API — Sprint 26 (BE Sprint 52 연동)
+// 체크리스트 API — Sprint 26 (BE Sprint 52 연동) / Sprint 42 (자재 매핑 endpoint 추가)
 
 import apiClient from './client';
 import type {
@@ -11,6 +11,33 @@ import type {
   ChecklistReportData,
   OrderSNListResponse,
 } from '@/types/checklist';
+import type { Material } from './materials';
+
+// ── Sprint 42: 자재 매핑 (M-NEW-3 round-trip — legacy string[] | 신규 number[] union) ──
+
+export interface ChecklistMasterOption {
+  master_id: number;
+  item_name: string;
+  select_options_raw: number[] | string[];  // M-NEW-3: legacy string | 신규 int union
+  materials: Material[];                     // BE _enrich_select_options() — legacy = 빈 배열
+}
+
+export async function getChecklistMasterOptions(masterId: number): Promise<ChecklistMasterOption> {
+  const { data } = await apiClient.get<ChecklistMasterOption>(
+    `/api/admin/checklists/master/${masterId}/options`,
+  );
+  return data;
+}
+
+export async function updateChecklistMasterOptions(
+  masterId: number,
+  materialIds: number[],
+): Promise<void> {
+  await apiClient.patch(
+    `/api/admin/checklists/master/${masterId}/options`,
+    { material_ids: materialIds },
+  );
+}
 
 // ── 마스터 CRUD ──
 

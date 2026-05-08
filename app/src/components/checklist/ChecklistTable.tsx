@@ -9,6 +9,7 @@ interface ChecklistTableProps {
   showInactive: boolean;
   onToggleActive: (id: number, currentlyActive: boolean) => void;
   onEdit: (item: ChecklistMasterItem) => void;
+  onMapOptions?: (item: ChecklistMasterItem) => void;  // Sprint 42: SELECT 자재 매핑 모달
   category: string;
   canEdit?: boolean;  // v1.35.2: 기본 true, false면 행 클릭·토글 비활성화
 }
@@ -20,7 +21,7 @@ const TYPE_STYLE: Record<string, { bg: string; color: string }> = {
   SELECT: { bg: 'rgba(139,92,246,0.08)',  color: '#7c3aed' },
 };
 
-export default function ChecklistTable({ items, showInactive, onToggleActive, onEdit, category, canEdit = true }: ChecklistTableProps) {
+export default function ChecklistTable({ items, showInactive, onToggleActive, onEdit, onMapOptions, category, canEdit = true }: ChecklistTableProps) {
   const filtered = showInactive ? items : items.filter(i => i.is_active);
   const isElec = category === 'ELEC';
   const isMech = category === 'MECH';   // Sprint 39 (v1.41.0)
@@ -135,7 +136,21 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, on
                       </span>
                     </td>
                   )}
-                  <td style={{ padding: '9px 12px' }}>
+                  <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
+                    {/* Sprint 42: SELECT 타입 자재 매핑 버튼 (canEdit + onMapOptions 제공 시) */}
+                    {canEdit && item.item_type === 'SELECT' && onMapOptions && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onMapOptions(item); }}
+                        style={{
+                          marginRight: '8px', padding: '3px 8px', fontSize: '10px', fontWeight: 500,
+                          border: '1px solid var(--gx-accent)', borderRadius: '4px',
+                          background: 'var(--gx-white)', color: 'var(--gx-accent)', cursor: 'pointer',
+                        }}
+                      >
+                        매핑
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -148,7 +163,7 @@ export default function ChecklistTable({ items, showInactive, onToggleActive, on
                         width: '36px', height: '20px', borderRadius: '10px', border: 'none',
                         background: item.is_active ? 'var(--gx-success)' : 'var(--gx-mist)',
                         cursor: canEdit ? 'pointer' : 'not-allowed', position: 'relative', transition: 'background 0.2s',
-                        opacity: canEdit ? 1 : 0.5,
+                        opacity: canEdit ? 1 : 0.5, verticalAlign: 'middle',
                       }}
                     >
                       <span style={{

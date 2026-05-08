@@ -9,6 +9,7 @@ import ChecklistFilterBar from '@/components/checklist/ChecklistFilterBar';
 import ChecklistTable from '@/components/checklist/ChecklistTable';
 import ChecklistAddModal from '@/components/checklist/ChecklistAddModal';
 import ChecklistEditModal from '@/components/checklist/ChecklistEditModal';
+import ChecklistOptionMapModal from '@/components/checklist/ChecklistOptionMapModal';
 import ChecklistSettingsPanel from '@/components/checklist/ChecklistSettingsPanel';
 import { useChecklistMaster, useProductCodes, useCreateMaster, useToggleMaster, useUpdateMaster } from '@/hooks/useChecklistMaster';
 import { useAuth } from '@/store/authStore';
@@ -30,6 +31,8 @@ export default function ChecklistManagePage() {
   const [selectedCategory, setSelectedCategory] = useState('TM');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<ChecklistMasterItem | null>(null);
+  // Sprint 42: 자재 매핑 모달 (SELECT 타입 항목)
+  const [mappingItem, setMappingItem] = useState<ChecklistMasterItem | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -211,6 +214,7 @@ export default function ChecklistManagePage() {
             showInactive={showInactive}
             onToggleActive={handleToggleActive}
             onEdit={(item) => setEditingItem(item)}
+            onMapOptions={canEdit ? (item) => setMappingItem(item) : undefined}
             category={selectedCategory}
             canEdit={canEdit}
           />
@@ -236,6 +240,15 @@ export default function ChecklistManagePage() {
           category={selectedCategory}
           onSubmit={(data) => handleEdit(editingItem.id, data)}
           onClose={() => setEditingItem(null)}
+        />
+      )}
+
+      {/* Sprint 42: 자재 매핑 모달 (SELECT 타입 항목) */}
+      {mappingItem && (
+        <ChecklistOptionMapModal
+          masterId={mappingItem.id}
+          itemName={mappingItem.item_name}
+          onClose={() => setMappingItem(null)}
         />
       )}
     </Layout>

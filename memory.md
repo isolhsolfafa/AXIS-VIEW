@@ -2,7 +2,7 @@
 
 > 세션 간 누적되는 의사결정, 버그 분석, 아키텍처 판단을 기록합니다.
 > CLAUDE.md = 프로젝트 고정 정보 / memory.md = 누적 학습 / handoff.md = 세션 인계
-> 마지막 업데이트: 2026-05-06 (ADR-V016 추가 — Sprint 41 PARTNER_FIELD_ALIASES 정규화 패턴)
+> 마지막 업데이트: 2026-05-09 (ADR-V017 추가 — Sprint 42 BE override + material_id 배열 round-trip)
 
 ---
 
@@ -54,6 +54,35 @@
 - **클린 코어 데이터 원칙 영향**: `force_closed` 같은 별도 처리 플래그 추가 안 함 → 자연스러운 worker row 로 기록, 단순함 유지
 - **회사 경계 정합 (M4 + M6)**: manager 인 경우 본인 회사 task 만 영향. 미시작 task 의 회사 매핑은 `product.module_outsourcing` (TMS) / `product.mech_partner` (MECH) 사용. NULL 시 카운트 제외 + toast 경고 (c-3)
 - **참조**: `DESIGN_FIX_SPRINT.md` Sprint 40 결정 #5 + #9, Sprint 40 ADR 보강 섹션
+
+---
+
+### ADR-V017: Sprint 42 — BE _enrich_select_options() override + material_id 배열 round-trip (2026-05-09)
+
+- **맥락**: 자재 마스터 GUI 도입 (FEAT-AXIS-VIEW-MATERIALS-AND-CHECKLISTS-MGMT-20260507) 시 체크리스트 SELECT 항목의 `select_options` 처리 결정 필요. OPS 51a seed 의 placeholder JSON ("MKS GE50A | 5 SLM | ...") 영구 해결 + 자재 spec 변경 시 admin 재매핑 부담 제거 목표
+- **결정**: **BE override + material_id 배열 round-trip 패턴** 채택
+  - DB: `checklist_master.select_options jsonb = number[]` (material_id 배열, 순서 보존 — `array_position(material_ids, mm.id)`)
+  - BE: `_enrich_select_options()` override — `select_options_raw` 그대로 + `materials: Material[]` enrich
+  - FE: `select_options_raw: number[] | string[]` union 타입 (M-NEW-3) — legacy string[] 호환 + 신규 number[] 저장
+  - 작업자 측 OPS Flutter dropdown = BE override 응답의 enrich 된 string 배열 사용 (자재 spec 변경 시 자동 반영)
+- **이유**:
+  - **admin 재매핑 부담 0** — 자재 spec 변경 시 BE override 가 최신 spec 자동 반영. 매핑은 material_id 배열만 보존
+  - **순서 보존 보장** — `array_position(material_ids, mm.id)` 로 admin 가 정한 dropdown 순서 유지
+  - **legacy 호환** — string[] 그대로 둔 master 도 BE override 가 그대로 통과 (51a placeholder 운영 중에도 작동)
+  - **단일 자재 마스터 공유** — MECH + SI BOM 양쪽이 동일 material_master 참조 → 미래 확장 용이
+- **자재 비활성화 정책 (M-NEW-4-B, warn + keep)**: `is_active=FALSE` 만 변경, 기존 매핑 보존, BE override 측 `is_active=TRUE` 필터로 작업자 dropdown 자동 제외 — 재활성화 시 매핑 자동 복원
+- **Twin파파 결정 trail (Sprint 42, 4건)**:
+  - M4-B: `/checklists` 신규 X → 기존 `/checklist` 확장 (Sprint 32+39 패턴 위에 자재 매핑 모달 추가)
+  - M6-A: `allowedRoles=['admin', 'gst']` (`is_admin OR company='GST'` — GST 전직원 진입 가능)
+  - M-NEW-4-B: warn + keep (block / cascade remove 대신 보수적 처리)
+  - A-3차-1: `checklist.ts` 단수 (기존 파일 확장, codebase 컨벤션 정합)
+- **검증 trail**: Claude 1~4차 + Codex 1·2차 누적 약 36건 합의. Codex M-2차-2 (LoC 산수 오류) REJECT — 영역 5 (신규) vs 영역 6 (수정) 표 구분 + 95 = 10+5+30+50 정합. CLAUDE.md ④ 단계 Claude 약점 trail 정합
+- **선행 의존성**: OPS Sprint 66-BE Step 3 (BE override deploy) 완료 + Step 4 (material API endpoint) 진행 중
+- **참조**:
+  - `app/src/api/materials.ts` (6 named functions + Material/UploadPreview/UploadResult interface)
+  - `app/src/api/checklist.ts` 확장 (`getChecklistMasterOptions` / `updateChecklistMasterOptions` / `ChecklistMasterOption` interface)
+  - `app/src/components/checklist/ChecklistOptionMapModal.tsx` (round-trip union 분기 + 순서 변경 ▲▼)
+  - `DESIGN_FIX_SPRINT.md` Sprint 42 결정 #5~13 + Codex 라운드 1~2 trail
 
 ---
 

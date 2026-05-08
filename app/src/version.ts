@@ -1,8 +1,8 @@
 // src/version.ts
 // AXIS-VIEW 버전 관리 — Semantic Versioning (OPS 동일 기준)
 
-export const APP_VERSION = 'v1.42.0';
-export const BUILD_DATE = '2026-05-06';
+export const APP_VERSION = 'v1.43.0';
+export const BUILD_DATE = '2026-05-09';
 
 // 버전 이력
 // v1.0.0 | 2026-03-06 | Sprint 1~3     | 초기 릴리스 (로그인, 출퇴근 대시보드, 실 API 연동)
@@ -72,3 +72,4 @@ export const BUILD_DATE = '2026-05-06';
 // v1.41.0| 2026-05-04 | Sprint 39        | MECH 체크리스트 VIEW 연동 — OPS Sprint 63-BE 의 MECH 체크리스트 BE 인프라 (migration 051+051a v2, check_mech_completion, routes/checklist.py MECH 분기) 활용. 5 파일 변경: BLUR_CATEGORIES MECH 제거 (ChecklistManagePage + ChecklistFilterBar 두 곳), TYPE_OPTIONS.MECH SELECT 추가, isMech 분기 (payload + 토글 렌더 JSX), MECH_GROUP_DEFAULTS 8 그룹 자동 추론, 라벨 카테고리 무관 일반화 ("1차 입력 적용" / "QI 검사 필요"). EditModal/Table 도 MECH 분기 추가 (UX 대칭). Sprint 32 ELEC 패턴 재활용 (DRY). Codex 1~3차 19건 전건 반영. ~50 LOC
 // v1.41.1| 2026-05-04 | Sprint 39 후속    | MECH 카테고리 COMMON product 자동 매핑 — BE migration 051a v2 의 MECH 마스터 모두 product_code='COMMON' 시드. ChecklistManagePage 에 COMMON_CATEGORIES 상수 신설 (TM/ELEC/MECH 통합), effectiveProduct 자동 'COMMON' 매핑 (MECH 카테고리 데이터 정상 조회 보장). hideProductDropdown 도 동일 상수 사용 (UX 일관성 — MECH 도 dropdown 숨김 처리, 선택 의미 없는 비활성 dropdown 노출 방지). v1.41.0 push 직후 사용자 후속 보강 + UX 일관성 정정
 // v1.42.0| 2026-05-06 | Sprint 41         | 협력사별 진행률 view (BIZ-COMPANY-PROGRESS-01) — admin/GST 현행, 협력사 자기 담당 카테고리(MECH/ELEC/TMS)만 평균. utils/companyScopedProgress.ts 신규 (getCompanyScopedPercent + getCompanyScopedCategories + PARTNER_FIELD_ALIASES TMS(M)/(E) 정규화 + DB 빈문자 가드). SNCard / SNStatusPage (groupedByON null 가드 + sort rank null=3 + inProgressByModel 회사 뷰) / SNDetailPanel 분기. 12 케이스 단위 테스트 신규. BE 의존 0 (Sprint 34 partner 필드 활용). Claude 1·2차 + Codex 1·2차 누적 약 41건 합의. ~214 LOC, 5 파일 (utils 1 + components 3 + test 1)
+// v1.43.0| 2026-05-09 | Sprint 42         | 자재 마스터 + 체크리스트 자재 매핑 admin GUI (FEAT-AXIS-VIEW-MATERIALS-AND-CHECKLISTS-MGMT-20260507) — OPS Sprint 66-BE Step 4 별 repo 분리. /materials 신규 페이지 (CRUD + Excel 4단계 업로드 미리보기 diff + 가스 ILIKE 검색) + /checklist 기존 확장 (SELECT 항목 [매핑] 버튼 → ChecklistOptionMapModal). 신규 6 파일 (MaterialsPage 290 / 모달 4종 691 / api 116) + 수정 5 파일 (App / Sidebar / api/checklist 확장 / ChecklistTable / ChecklistManagePage). 1,173 LOC 실측 (~955 추정 +23%, 1단계 한도 내). 권한 admin/GST (M6-A). 자재 비활성화 = warn + keep (M-NEW-4-B). select_options round-trip = string[]|number[] union (M-NEW-3). FormData multipart + UTF-8/CP949 fallback (M-NEW-1·2). Codex 1·2차 + Claude 1~4차 누적 약 36건 합의 (Codex M-2차-2 산수 오류 REJECT)

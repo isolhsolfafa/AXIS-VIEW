@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.42.0 (2026-05-06)
+> 최신 버전: v1.43.0 (2026-05-09)
 
 ---
 
@@ -70,6 +70,53 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.43.0 — 2026-05-09
+
+**Sprint 42 — 자재 마스터 + 체크리스트 자재 매핑 admin GUI**
+
+🛠️ /materials 신규 페이지 (admin/GST 전용)
+ - 자재 검색 (카테고리 + 가스 + 키워드) + 페이지네이션 (50/page)
+ - 직접 입력 모달 — UNIQUE 검증 + 비고(가스 종류) 필드
+ - Excel 일괄 업로드 — 4단계 (file → 미리보기 diff → strategy 선택 → commit)
+   · 신규/변경/동일 자재 카운트 + 변경 자재 before/after diff
+   · 처리 방식 3옵션: 일괄 UPDATE / 변경된 것만 / skip 모두
+ - 자재 비활성화 — warn + keep 패턴 (매핑 보존, dropdown 자동 제외)
+
+🔗 /checklist 기존 페이지 확장 — 자재 매핑 모달 통합
+ - SELECT 타입 항목에 [매핑] 버튼 노출
+ - ChecklistOptionMapModal — 자재 검색 (가스 필터) + 다중 선택 + 순서 변경 (▲▼)
+ - select_options round-trip 지원 — legacy string[] | 신규 number[] union
+ - 저장 시 BE PATCH /api/admin/checklists/master/:id/options { material_ids: number[] }
+
+📦 BE 연동 (OPS Sprint 66-BE)
+ - GET/POST/PATCH /api/admin/materials (CRUD + 페이지네이션 + 가스 필터)
+ - POST /api/admin/materials/upload (mode=preview/commit, FormData multipart)
+ - GET/PATCH /api/admin/checklists/master/:id/options
+ - 자재 spec 변경 시 BE _enrich_select_options() 자동 반영 → admin 재매핑 불필요
+
+🔐 권한 (allowedRoles=['admin','gst'])
+ - admin (is_admin=true) 또는 GST 전직원 (company='GST')
+ - 협력사·작업자 진입 차단 (ProtectedRoute + BE 측 이중 가드)
+
+🎨 디자인 시스템
+ - G-AXIS CSS 변수 + Sonner 토스트 + 인라인 SVG 아이콘 (Sidebar BoxIcon 신규)
+ - 모달 ARIA (role="dialog", aria-modal, aria-labelledby) + ESC 닫기 + initial focus
+
+🔬 Claude 1·2·3·4차 + Codex 1·2차 누적 약 36건 합의
+ - Twin파파 결정 4건 (M4-B 기존 확장 / M6-A admin+GST / M-NEW-4-B warn+keep / A-3차-1 checklist.ts 단수)
+ - Codex M-2차-2 산수 오류 REJECT (Claude 약점 trail 기록)
+
+📊 LOC 실측: 신규 1,097 + 수정 76 = 1,173 LOC (11 파일, 추정 ~955 대비 +23%)
+ - 신규 6: MaterialsPage 290 / MaterialFormModal 181 / MaterialUploadModal 208 / ChecklistOptionMapModal 222 / MaterialDeactivateConfirm 80 / api/materials 116
+ - 수정 5: App.tsx +10 / api/checklist +29 / ChecklistTable +21 / Sidebar +7 / ChecklistManagePage +13
+
+🔮 향후 응용 포인트
+ - FEAT-SI-HOOKUP-CHECKLIST-FLOW (Sprint 64+, P2)
+ - FEAT-MATERIAL-AI-VISION-VERIFY (Sprint 64+, P3)
+ - 작업자 측 OPS Flutter dropdown 동적 표시 (BE override 검증)
 
 ---
 

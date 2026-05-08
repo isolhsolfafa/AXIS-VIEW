@@ -1,7 +1,54 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-06 (Sprint 41 v1.42.0 FE 완료 — 협력사별 진행률 view BIZ-COMPANY-PROGRESS-01)
+> 마지막 업데이트: 2026-05-09 (Sprint 42 v1.43.0 FE 완료 — 자재 마스터 + 체크리스트 자재 매핑 admin GUI)
+
+---
+
+## 🆕 2026-05-09 세션 요약 — Sprint 42 (v1.43.0) FE 완료
+
+### 결과 요약
+
+- **트랙**: VIEW FE 단독 (OPS Sprint 66-BE Step 3 배포 완료, Step 4 진행 중)
+- **목표**: 자재 마스터 admin GUI + 체크리스트 SELECT 항목에 자재 매핑 모달 통합
+- **Codex 검증**: Claude 1~4차 + Codex 1·2차 누적 약 36건 합의 (Codex M-2차-2 산수 오류 REJECT — Claude 약점 trail)
+- **LOC 실측**: 1,173 LoC (신규 1,097 + 수정 76), 11 파일
+- **빌드**: 3328 modules / 2.25s GREEN
+- **테스트**: vitest 42/42 PASS
+
+### 핵심 설계 4건 (Twin파파 결정)
+
+- **M4-B**: `/checklists` 신규 X → 기존 `/checklist` 확장 (ChecklistManagePage SELECT 항목 [매핑] 버튼 통합)
+- **M6-A**: `allowedRoles=['admin', 'gst']` (`is_admin OR company='GST'`)
+- **M-NEW-4-B**: 자재 비활성화 = warn + keep (매핑 보존, dropdown 자동 제외 — `is_active=FALSE` 필터)
+- **A-3차-1**: `checklist.ts` 단수 (기존 파일 확장, codebase 컨벤션 정합)
+
+### 신규 파일 6개
+
+- `app/src/pages/MaterialsPage.tsx` (290 LoC) — 검색 + 페이지네이션 + 4 모달 트리거
+- `app/src/components/materials/MaterialFormModal.tsx` (181 LoC) — 직접 입력 (UNIQUE 검증)
+- `app/src/components/materials/MaterialUploadModal.tsx` (208 LoC) — Excel 4단계 (file → preview diff → strategy → commit)
+- `app/src/components/checklist/ChecklistOptionMapModal.tsx` (222 LoC) — 자재 검색 + 다중 선택 + 순서 (▲▼) + round-trip union
+- `app/src/components/materials/MaterialDeactivateConfirm.tsx` (80 LoC) — warn + keep 패턴
+- `app/src/api/materials.ts` (116 LoC) — 6 named functions + Material/UploadPreview/UploadResult interface
+
+### Twin파파 검증 시나리오 (Netlify preview)
+
+- [ ] admin 로그인 → /materials 진입 → 자재 검색 + 페이지네이션
+- [ ] 직접 입력 모달 — UNIQUE 검증 (기존 자재코드 입력 시 409 toast)
+- [ ] Excel 업로드 — 한글 헤더 CSV 파일 → 미리보기 diff → strategy 선택 → commit
+- [ ] CP949 인코딩 fallback — UTF-8 X 파일도 자동 인식
+- [ ] 자재 비활성화 — 매핑 N개 알림 toast + 매핑 보존 (재활성화 후 dropdown 복원)
+- [ ] /checklist MECH 카테고리 LNG 그룹 → MFC 검사 항목 [매핑] 버튼
+- [ ] 자재 매핑 모달 — 가스 LNG 필터 → 6 자재 다중 선택 → 순서 변경 → 저장
+- [ ] 작업자 OPS Flutter dropdown 동적 표시 (BE override 검증) — Step 4 배포 후
+
+### 다음 응용 포인트
+
+- BE Sprint 66-BE Step 4 (FE 측 자재 마스터 endpoint) 배포 완료 대기
+- FEAT-SI-HOOKUP-CHECKLIST-FLOW (Sprint 64+, P2) — SI hookup 체크리스트
+- FEAT-MATERIAL-AI-VISION-VERIFY (Sprint 64+, P3) — AI 비전 자재 검증
+- 운영 후속: 자재 spec 변경 시 BE override 자동 반영 검증 (재매핑 불필요)
 
 ---
 

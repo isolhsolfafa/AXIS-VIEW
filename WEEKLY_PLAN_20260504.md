@@ -3,21 +3,21 @@
 > OPS에 집중하느라 VIEW 컨텍스트 떠있을 때 10초 만에 복구용.
 > "지금 어디까지 와있고 / 뭐가 남았는지" 만 본다. 상세는 BACKLOG·handoff·CHANGELOG에서.
 >
-> 마지막 업데이트: 2026-05-06 (수) — **Sprint 41 (v1.42.0) FE 완료 반영 갱신** — 협력사별 진행률 view (BIZ-COMPANY-PROGRESS-01). Codex M5 critical 정규화 포함 약 41건 합의. 지난 주 회고는 WEEKLY_PLAN_20260427.md 참고.
+> 마지막 업데이트: 2026-05-09 (토) — **Sprint 42 (v1.43.0) FE 완료 반영 갱신** — 자재 마스터 + 체크리스트 자재 매핑 admin GUI (FEAT-AXIS-VIEW-MATERIALS-AND-CHECKLISTS-MGMT-20260507). OPS Sprint 66-BE Step 4 별 repo 분리. Claude 1~4차 + Codex 1·2차 누적 약 36건 합의. 지난 주 회고는 WEEKLY_PLAN_20260427.md 참고.
 
 ---
 
 ## 🧭 한눈에 (현재 상태, 2026-05-06)
 
 ```
-현재 버전 : v1.42.0 (Sprint 39+40+41 main pushed / Twin파파 UI 검증 완료 / VIEW notice 등록 완료 / BE 63-BE+64-BE 배포 대기)
-최근 작업 : Sprint 41 (v1.42.0) — 협력사별 진행률 view (BIZ-COMPANY-PROGRESS-01). Codex M5 critical 포함 약 41건 합의. utils/companyScopedProgress.ts 신규 + PARTNER_FIELD_ALIASES (TMS(M)/(E) 정규화) + DB 빈문자 가드. commit 138268a + push 완료 + UI 검증 완료
-이전 트랙 : Sprint 39 (v1.41.x) MECH 체크리스트 + Sprint 40 (v1.40.0) Tank Module + Sprint 38 (v1.38.0) 모델 칩
-진행 중   : (없음 — Sprint 41 종료, BE 배포 대기 페이즈 진입)
-대기 중   : BE Sprint 63-BE (MECH 체크리스트 인프라) + BE Sprint 64-BE (Tank Module batch 3 endpoint)
+현재 버전 : v1.43.0 (Sprint 39+40+41 prod 배포 완료 / Sprint 42 FE 완료 / BE 63-BE+64-BE+66-BE Step 4 배포 대기)
+최근 작업 : Sprint 42 (v1.43.0) — 자재 마스터 + 체크리스트 자재 매핑 admin GUI. OPS Sprint 66-BE Step 4 별 repo. Claude 1~4차 + Codex 1·2차 누적 약 36건 합의. 1,173 LOC, 11 파일. Twin파파 결정 4건 (M4-B / M6-A / M-NEW-4-B / A-3차-1)
+이전 트랙 : Sprint 41 (v1.42.0) 협력사별 진행률 + Sprint 39+40 (v1.41.x/v1.40.0) MECH 체크리스트 + Tank Module
+진행 중   : Sprint 42 commit/push + Netlify preview 실기기 검증
+대기 중   : BE Sprint 63-BE (MECH 체크리스트 인프라) + BE Sprint 64-BE (Tank Module batch 3 endpoint) + BE Sprint 66-BE Step 4 (Material API)
 ```
 
-→ **이번 주 트랙**: 월요일 Sprint 39+40 + 수요일 Sprint 41 — 3 Sprint FE 완료 + main push + UI 검증 + notice 등록까지 종료. 남은 핵심 트랙: ① BE Sprint 63-BE / 64-BE 배포 추적 / ② Sprint 40 사전 점검 SQL / ③ 잠재 트랙 (BUG-V2 / AnalyticsDashboardPage / REF-V-01) / ④ Sprint 41 운영 후속 (BIZ-COMPANY-PROGRESS-FOLLOWUP F1~F5, 운영 피드백 후).
+→ **이번 주 트랙**: 5-04 Sprint 39+40 + 5-06 Sprint 41 + 5-09 Sprint 42 — 4 Sprint FE 완료. 남은 핵심 트랙: ① Sprint 42 commit/push + UI 검증 / ② BE Sprint 63-BE / 64-BE / 66-BE Step 4 배포 추적 / ③ 작업자 OPS Flutter dropdown 동적 표시 검증 (BE override 영역) / ④ 잠재 트랙 (BUG-V2 / AnalyticsDashboardPage / REF-V-01) / ⑤ 운영 후속 (BIZ-COMPANY-PROGRESS-FOLLOWUP).
 
 ---
 
@@ -27,6 +27,7 @@
 
 | 일자 | 항목 | 의미 |
 |:---:|:---|:---|
+| 05-09 | **v1.43.0 Sprint 42** 자재 마스터 + 체크리스트 자재 매핑 admin GUI | OPS Sprint 66-BE Step 4 별 repo 분리. `/materials` 신규 페이지 (검색 + 페이지네이션 + 직접 입력 + Excel 4단계 업로드) + `/checklist` 기존 확장 (SELECT 항목 [매핑] 버튼 → ChecklistOptionMapModal). 신규 6 파일 (MaterialsPage 290 / FormModal 181 / UploadModal 208 / OptionMapModal 222 / DeactivateConfirm 80 / api/materials 116) + 수정 5 (App / Sidebar / api/checklist / ChecklistTable / ChecklistManagePage). **Twin파파 결정 4건**: M4-B (기존 확장) / M6-A (admin+GST) / M-NEW-4-B (warn+keep) / A-3차-1 (checklist.ts 단수). select_options round-trip = `string[]\|number[]` union (M-NEW-3). FormData multipart + UTF-8/CP949 fallback (M-NEW-1·2). **Claude 1~4차 + Codex 1·2차 누적 약 36건 합의** (Codex M-2차-2 산수 오류 REJECT — Claude 약점 trail). 1,173 LOC 실측 (~955 추정 +23%, 1단계 한도 내). 빌드 3328 modules / 2.25s + vitest 42/42 GREEN |
 | 05-06 | **v1.42.0 Sprint 41** 협력사별 진행률 view (BIZ-COMPANY-PROGRESS-01) | admin/GST 현행 유지, 협력사 자기 담당 카테고리(MECH/ELEC/TMS)만 평균. `utils/companyScopedProgress.ts` 신규 (82 LOC) + `getCompanyScopedPercent` / `getCompanyScopedCategories` + **`PARTNER_FIELD_ALIASES`** (Codex M5 critical — TMS(M)/(E) 부서 vs DB 'TMS' 단축 표기 정규화) + DB 빈문자 가드 (146건/11.6% 실측). SNCard / SNStatusPage (groupedByON null 가드 + sort rank null=3 + inProgressByModel 회사 뷰) / SNDetailPanel 분기. 12 케이스 단위 테스트. BE 의존 0 (Sprint 34 partner 필드 활용). **Claude 1·2차 + Codex 1·2차 누적 약 41건 합의**. ~214 LOC, 5 파일 (utils 1 신규 + components 3 + test 1 신규). 빌드 3294 modules / 2.30s + vitest 42/42 GREEN |
 | 05-04 | **v1.41.1 Sprint 39 후속** MECH COMMON product 자동 매핑 | 사용자 발견: BE migration 051a v2 의 MECH 마스터 데이터 모두 `product_code='COMMON'` 시드 → MECH 카테고리 선택 시 빈 목록 발생 가능. `COMMON_CATEGORIES = ['TM', 'ELEC', 'MECH']` 상수 신설 + `effectiveProduct` 자동 'COMMON' 매핑 + `hideProductDropdown` UX 일관성 (MECH 도 dropdown 숨김). v1.41.0 push 직후 후속 보강 |
 | 05-04 | **v1.41.0 Sprint 39** MECH 체크리스트 VIEW 연동 | OPS Sprint 63-BE BE 인프라 활용 — `/checklist` 페이지 MECH 카테고리 블러 해제 + 카테고리 탭 잠금 해제 (두 파일 동시: ChecklistManagePage + ChecklistFilterBar). 항목 추가/수정 모달 MECH 분기 (CHECK/INPUT/SELECT 3종 + phase1_applicable 토글). MECH_GROUP_DEFAULTS 8 그룹 자동 추론 (INLET/GN2/CDA/LNG/O2/BCW/PCW-S/PCW-R). 라벨 카테고리 무관 일반화 ("1차 입력 적용" / "QI 검사 필요"). EditModal/Table 도 MECH 분기 (UX 대칭). 5 파일 / ~50 LOC, Sprint 32 ELEC 패턴 재활용 (DRY). 빌드 3293 modules 2.33s + vitest 30/30 GREEN. **Codex 1·2·3차 19건 전건 반영** (M 4 / A 8 / I 7) |

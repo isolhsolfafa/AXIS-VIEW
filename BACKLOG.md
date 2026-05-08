@@ -1,7 +1,48 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-04-24 (SI-BACKFILL-01 등록 / BIZ-KPI-SHIPPING-01 v2.4 반영)
-> 관련: AXIS_VIEW_ROADMAP.md, OPS_API_REQUESTS.md
+> 마지막 업데이트: 2026-05-09 (Sprint 42 v1.43.0 FE 완료 archive)
+> 관련: AXIS_VIEW_ROADMAP.md, OPS_API_REQUESTS.md, DESIGN_FIX_SPRINT.md
+
+---
+
+## ✅ ARCHIVED — Sprint 42 (v1.43.0) — 자재 마스터 + 체크리스트 자재 매핑 admin GUI (2026-05-09 완료)
+
+> ⚠️ **본 BACKLOG 항목은 Sprint 42 (FE) v1.43.0 으로 구현 완료 (2026-05-09)**.
+>   - 구현 진행: `AXIS-VIEW/DESIGN_FIX_SPRINT.md L17783 # Sprint 42` 참조
+>   - Claude 1~4차 + Codex 1·2차 누적 약 36건 합의 (Codex M-2차-2 산수 오류 REJECT — Claude 약점 trail)
+>   - Twin파파 결정 4건: M4-B (기존 확장) / M6-A (admin+GST) / M-NEW-4-B (warn+keep) / A-3차-1 (checklist.ts 단수)
+>   - 1,173 LoC 실측 / 11 파일 (신규 6 + 수정 5) / vitest 42/42 PASS / 빌드 GREEN
+>   - 선행: OPS Sprint 66-BE Step 3 (BE override) 배포 완료 / Step 4 진행 중
+>
+> 본문은 이력 추적용으로 보존.
+
+## (보존) 🛠 Sprint 42 — FEAT-AXIS-VIEW-MATERIALS-AND-CHECKLISTS-MGMT-20260507 — 자재 등록 + 체크리스트 관리 페이지 (🔴 P1, 2026-05-07 등록)
+
+> **Sprint Number**: `Sprint 42` (Sprint 41 후속, 5-08 cowork 측 catch 영역 정정 — Sprint 40/41 이미 prod 적용 완료)
+> **별 repo Sprint**: AXIS-OPS `Sprint 66-BE` (FEAT-MATERIAL-MASTER-AND-BOM-INTEGRATION-20260507)
+
+### 배경
+- AXIS-OPS Sprint `FEAT-MATERIAL-MASTER-AND-BOM-INTEGRATION-20260507` 의 Step 4 영역 (별 repo 별 sprint 분리)
+- 5-07 사용자 결정: 51a placeholder 영구 해결 + DB 직접 수정 의존 X + admin GUI 필요
+- ordered deploy 정합 영역 — OPS Step 3 (BE override) 배포 후 진행
+
+### 변경 영역
+- 신규 페이지 2개 (`/materials` + `/checklists`) + 모달 3개 + API wrapper 2개 = 7 파일 신규
+- 라우터 + 사이드바 = 2 파일 수정
+- 추정 LoC: ~880 LoC 신규 + ~20 LoC 수정 = ~900 LoC
+- 추정 시간: ~3h+
+
+### 우선순위
+- **P1** (운영 flow 우선, OPS sprint 정합)
+- **선행 의존성**: OPS Step 3 (v2.12.2 BE override) 배포 완료
+- Feature flag: `ENABLE_MATERIAL_ID_MAPPING` (Step 3 검증 후 enable)
+
+### 권한 (5-07 합의)
+- admin (`is_admin=TRUE`) 또는 GST 인원 (`company='GST'`)
+- 작업자 (현장 worker) 접근 X
+
+### 설계 상세
+`AXIS-VIEW/DESIGN_FIX_SPRINT.md` § FEAT-AXIS-VIEW-MATERIALS-AND-CHECKLISTS-MGMT-20260507
 
 ---
 

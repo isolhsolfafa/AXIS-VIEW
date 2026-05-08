@@ -19,6 +19,7 @@ import SNStatusPage from '@/pages/production/SNStatusPage';
 import DefectAnalysisPage from '@/pages/defect/DefectAnalysisPage';
 import CtAnalysisPage from '@/pages/ct/CtAnalysisPage';
 import ChecklistManagePage from '@/pages/checklist/ChecklistManagePage';
+import MaterialsPage from '@/pages/MaterialsPage';
 import PermissionsPage from '@/pages/admin/PermissionsPage';
 import InactiveWorkersPage from '@/pages/admin/InactiveWorkersPage';
 import AnalyticsDashboardPage from '@/pages/analytics/AnalyticsDashboardPage';
@@ -117,6 +118,15 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['admin', 'manager', 'gst']}>
               <ChecklistManagePage />
+            </ProtectedRoute>
+          }
+        />
+        {/* ── 자재 마스터 (Sprint 42) ── */}
+        <Route
+          path="/materials"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'gst']}>
+              <MaterialsPage />
             </ProtectedRoute>
           }
         />
