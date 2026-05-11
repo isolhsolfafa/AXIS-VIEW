@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.43.6 (2026-05-11)
+> 최신 버전: v1.43.7 (2026-05-11)
 
 ---
 
@@ -70,6 +70,24 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.43.7 — 2026-05-11
+
+**UX 보강 — S/N 디테일 패널 외부 클릭/ESC 자동 닫힘 (Twin파파 catch)**
+
+🎨 S/N 작업 현황 디테일 사이드 패널 UX
+ - 패널 밖 빈 영역 클릭 → 자동 닫힘
+ - ESC 키 → 자동 닫힘
+ - S/N 카드 클릭 → 자연스럽게 다른 S/N 으로 전환 (기존 동작)
+ - ParallelConfirmDialog (일괄 모달) 열려있을 때는 모달이 우선 처리
+
+🛠️ FE 단독 정정 (BE 변경 0, ~18 LoC)
+ - `SNDetailPanel.tsx`: useEscapeKey 재사용 + useRef + useEffect mousedown listener
+
+✅ 검증
+ - 빌드 GREEN, vitest 51/51 PASS
 
 ---
 

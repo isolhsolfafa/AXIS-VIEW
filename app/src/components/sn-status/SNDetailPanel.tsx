@@ -1,7 +1,7 @@
 // src/components/sn-status/SNDetailPanel.tsx
 // S/N 상세 사이드 패널 — Sprint 33 (미종료/미시작 관리 + 강제종료) + Sprint 40 (Tank Module 시작/종료 + 일괄)
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { SNProduct, SNTaskDetail, TaskWorker } from '@/types/snStatus';
 import { PROCESS_ORDER, PROCESS_LABEL } from './constants';
@@ -12,6 +12,7 @@ import { useStartTaskMutation } from '@/hooks/useStartTask';
 import { useCompleteTaskMutation } from '@/hooks/useCompleteTask';
 import { useStartTaskBatchMutation } from '@/hooks/useStartTaskBatch';
 import { useCompleteTaskBatchMutation } from '@/hooks/useCompleteTaskBatch';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import {
   isTankModule,
   getTaskCompany,
@@ -203,6 +204,23 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
     others: SNTaskDetail[];
   } | null>(null);
 
+  // v1.43.7: outside-click-to-close + ESC 닫기
+  // - 패널 외부 클릭 → onClose
+  // - ESC → onClose
+  // - 단 ParallelConfirmDialog (모달) 열려있을 때는 모달이 우선 처리 (parallelDialog null 아니면 skip)
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handleMouseDown(e: MouseEvent) {
+      if (parallelDialog !== null) return;  // 모달 열려있을 때는 모달 backdrop 이 처리
+      if (!panelRef.current) return;
+      if (panelRef.current.contains(e.target as Node)) return;
+      onClose();
+    }
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, [onClose, parallelDialog]);
+  useEscapeKey(parallelDialog === null, onClose);
+
   function handleTankStart(task: SNTaskDetail) {
     if (otherSNsTankStartable.length === 0) {
       startMut.mutate(task.id, {
@@ -250,6 +268,7 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
 
   return (
     <div
+      ref={panelRef}
       style={{
         position: 'fixed',
         top: 0,
