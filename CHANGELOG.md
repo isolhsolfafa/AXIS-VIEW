@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.43.5 (2026-05-11)
+> 최신 버전: v1.43.6 (2026-05-11)
 
 ---
 
@@ -70,6 +70,33 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.43.6 — 2026-05-11
+
+**🚨 HOTFIX-S1 — v1.43.5 후속 상세뷰 흰화면 긴급 fix (Twin파파 catch)**
+
+🚨 v1.43.5 회귀 — S/N 상세뷰 진입 시 흰화면 (페이지 crash)
+ - 같은 O/N 다대 환경에서 ▶ 시작 / ■ 종료 가능한 S/N 상세 진입 시 발생
+ - 원인: v1.43.5 호환 처리로 orderTasks 가 정상 추출되기 시작 → utils.getTaskCompany 가 task.workers.find() 호출 → BE by-order 응답에 workers 필드 누락 → TypeError → React crash
+
+🔍 근본 원인 (BE 응답)
+ - BE Sprint 64-BE `/api/app/tasks/by-order/{ON}` 응답에 workers 필드 자체가 없음
+ - 다른 task endpoint (`/api/app/tasks/{sn}`) 에는 workers 포함 → 일관성 위반
+
+🛡️ FE 단독 긴급 fix (BE 변경 0, ~16 LoC)
+ - `getTasksByOrder` 응답 정규화: `workers ?? []` 채움
+ - `utils.getTaskCompany / getOtherSNs...` 이중 안전망 (`Array.isArray` 가드)
+ - `SNDetailPanel.partnerNullCount` 동일 가드
+
+📋 Severity S1 — 정상 파이프라인 skip (CLAUDE.md L237 정합)
+ - Opus 단독 자가 리뷰 → 즉시 패치
+ - 24h 이내 사후 Codex 검토 의무 (deadline 2026-05-12)
+ - OPS v2.13.1 동반: by-order 응답에 workers 포함 필수 (별 repo 작업)
+
+✅ 검증
+ - 빌드 GREEN, vitest 51/51 PASS (50 + workers 누락 응답 정규화 TC 1건)
 
 ---
 

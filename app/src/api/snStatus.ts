@@ -89,9 +89,16 @@ export async function getTasksByOrder(
   // v1.43.5: BE Sprint 64-BE 가 { tasks, total } 객체 wrap 으로 응답 (다른 task endpoint 는 배열 직접).
   // 두 형식 모두 호환 — OPS v2.13.1 가 배열 형식으로 정정해도 회귀 0.
   const { data } = await apiClient.get<SNTaskDetail[] | { tasks: SNTaskDetail[]; total?: number }>(url);
-  if (Array.isArray(data)) return data;
-  if (data && Array.isArray((data as { tasks?: unknown }).tasks)) {
-    return (data as { tasks: SNTaskDetail[] }).tasks;
+  let raw: SNTaskDetail[] = [];
+  if (Array.isArray(data)) {
+    raw = data;
+  } else if (data && Array.isArray((data as { tasks?: unknown }).tasks)) {
+    raw = (data as { tasks: SNTaskDetail[] }).tasks;
   }
-  return [];
+  // v1.43.6: BE by-order 응답에 workers 필드 누락 catch → undefined.find() TypeError 차단.
+  // 다른 누락 가능 필드 (qr_doc_id 등) 도 utils 가 사용하면 추가 가드 필요.
+  return raw.map(t => ({
+    ...t,
+    workers: Array.isArray(t.workers) ? t.workers : [],
+  }));
 }

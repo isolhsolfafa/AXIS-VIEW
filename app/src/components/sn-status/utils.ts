@@ -12,11 +12,13 @@ export const isTankModule = (t: SNTaskDetail): boolean =>
 
 // Codex M6: 카테고리별 회사 매핑
 // 시작된 task → worker.company / 미시작 + TMS → product.module_outsourcing / 미시작 + MECH → product.mech_partner
+// v1.43.6 defensive: BE 응답에 workers 누락 catch 후 이중 안전망
 export function getTaskCompany(
   task: SNTaskDetail,
   orderProducts: SNProduct[],
 ): string | null {
-  const started = task.workers.find(w => w.started_at && w.company);
+  const workers = Array.isArray(task.workers) ? task.workers : [];
+  const started = workers.find(w => w.started_at && w.company);
   if (started) return started.company ?? null;
   if (!task.serial_number) return null;
   const product = orderProducts.find(p => p.serial_number === task.serial_number);
@@ -34,12 +36,17 @@ interface FilterArgs {
   currentUserCompany?: string;
 }
 
+// v1.43.6 defensive: workers 누락 case 이중 안전망 (Array.isArray 가드)
 export function getOtherSNsTankStartable(args: FilterArgs): SNTaskDetail[] {
   const { orderTasks, orderProducts, currentSn, isAdmin, currentUserCompany } = args;
   return (orderTasks ?? [])
     .filter(t => isTankModule(t))
     .filter(t => t.serial_number !== currentSn)
-    .filter(t => t.workers.every(w => !w.started_at))
+    .filter(t => {
+      const workers = Array.isArray(t.workers) ? t.workers : [];
+      // BE 응답에 workers 누락이면 = "시작 안 한 task" 로 간주 (미시작 후보로 포함)
+      return workers.every(w => !w.started_at);
+    })
     .filter(t => {
       if (isAdmin) return true;
       const company = getTaskCompany(t, orderProducts);
@@ -52,7 +59,11 @@ export function getOtherSNsTankCompletable(args: FilterArgs): SNTaskDetail[] {
   return (orderTasks ?? [])
     .filter(t => isTankModule(t))
     .filter(t => t.serial_number !== currentSn)
-    .filter(t => t.workers.some(w => w.started_at && !w.completed_at))
+    .filter(t => {
+      const workers = Array.isArray(t.workers) ? t.workers : [];
+      // workers 누락이면 "진행 중 후보" 0 (started_at 정보 없으니 종료 대상 아님)
+      return workers.some(w => w.started_at && !w.completed_at);
+    })
     .filter(t => {
       if (isAdmin) return true;
       const company = getTaskCompany(t, orderProducts);

@@ -180,14 +180,16 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
   );
 
   // partner=NULL 미시작 카운트 (manager 만, 자기 제외, isTankModule 방어)
+  // v1.43.6 defensive: workers 누락 가드 (BE by-order 응답 누락 case)
   const partnerNullCount = useMemo(() => {
     if (isAdmin) return 0;
-    return (orderTasks ?? []).filter(t =>
-      isTankModule(t)
-      && t.serial_number !== product.serial_number
-      && !t.workers.some(w => w.started_at)
-      && getTaskCompany(t, tankProducts) === null,
-    ).length;
+    return (orderTasks ?? []).filter(t => {
+      if (!isTankModule(t)) return false;
+      if (t.serial_number === product.serial_number) return false;
+      const workers = Array.isArray(t.workers) ? t.workers : [];
+      if (workers.some(w => w.started_at)) return false;
+      return getTaskCompany(t, tankProducts) === null;
+    }).length;
   }, [orderTasks, tankProducts, product.serial_number, isAdmin]);
 
   const startMut = useStartTaskMutation(serialNumber);

@@ -65,4 +65,30 @@ describe('getTasksByOrder — BE 응답 schema 호환 (v1.43.5)', () => {
     mockedGet.mockResolvedValueOnce({ data: { tasks: null, total: 0 } });
     expect(await getTasksByOrder('1111')).toEqual([]);
   });
+
+  it('v1.43.6: BE 응답에 workers 필드 누락 → 빈 배열로 정규화 (TypeError 차단)', async () => {
+    // 실측: BE Sprint 64-BE by-order 응답에 workers 필드 자체가 없음
+    mockedGet.mockResolvedValueOnce({
+      data: {
+        tasks: [
+          {
+            id: 59376,
+            serial_number: 'TEST-1112',
+            task_id: 'TANK_MODULE',
+            task_category: 'TMS',
+            task_name: 'Tank Module',
+            // workers 필드 없음 ⚠️
+          },
+        ],
+        total: 1,
+      },
+    });
+
+    const result = await getTasksByOrder('1111');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].workers).toEqual([]);  // 정규화 결과: 빈 배열
+    // 누락이 아니라 array.find() / .some() / .every() 가 안전하게 호출 가능
+    expect(() => result[0].workers.find(w => w.started_at)).not.toThrow();
+  });
 });
