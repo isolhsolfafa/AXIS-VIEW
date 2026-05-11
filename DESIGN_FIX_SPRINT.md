@@ -18819,6 +18819,116 @@ ADR-023 신규 표준 (Phase 4 보강 권장):
 
 ---
 
+# 🚨 HOTFIX-CHECKLIST-EDIT-DIRTY-GUARD-20260511 (v1.43.4, FE only) — Task #20 결과 반영
+
+> **Sprint ID**: `HOTFIX-CHECKLIST-EDIT-DIRTY-GUARD-20260511`
+> **유형**: HOTFIX-SPRINT42 (v1.43.1) Codex 사후 검토 결과 fix — M-01 + M-02 잔존 이슈 해결
+> **Severity**: 🟡 S3 (잠재 이슈 사전 차단 — 운영 보고 0건이지만 admin 실수 시 현장 영향 가능)
+> **사후 Codex 검토**: 완료 (Task #20, 본 fix 가 그 결과)
+> **작성일**: 2026-05-11 KST
+> **트리거**: Codex 사후 검토 (Task #20) — `ChecklistEditModal` 의 hydrated flag 가 설계 의도와 충돌 + 옵션 C invariant 가 빈 SELECT 항목에서 강제 안 됨
+> **연관 BE hotfix**: 없음 (FE 단독)
+> **추정 시간**: ~30분 (정정 완료, +21/-3 + test +60 LoC)
+
+## 배경 — Codex 사후 검토 발견 사항
+
+### M-01: Late Hydrate Overwrite
+`ChecklistEditModal.tsx` 의 hydrate useEffect 가 `allMaterials` 로딩 완료 시점에 `setSelectOptionsInput(codes.join(', '))` 를 실행 → 그 사이 사용자가 빠르게 입력한 값이 덮어써짐.
+
+**발생 조건**: 자재 캐시 미존재 (첫 진입 또는 5분 경과 후) + 1~2초 안에 사용자 빠른 타이핑. 운영상 매우 드물지만 race 존재.
+
+**원인**: 기존 `hydrated` flag 는 hydrate 완료 후 set 되므로, hydrate 진행 중인 시점에는 사용자 입력 보호 안 됨.
+
+### M-02: 옵션 C 최소 1자재 Invariant 미강제
+`handleSubmit` 의 검증 분기가 `selectOptionsInput.trim() && hasPendingSelectChange` 일 때만 실행 → SELECT 항목인데 기존 매핑 0개 + 신규 입력 없이 다른 필드만 수정해서 저장하면 통과.
+
+**시나리오**:
+1. ChecklistAddModal 로 SELECT 타입 신규 추가 (자재 매핑 X — v1.43.1 정상 워크플로우, "매핑은 나중에")
+2. 그 빈 항목을 EditModal 로 열어 항목명만 수정 + 저장
+3. 매핑 0개 상태로 저장 성공 → 현장 SELECT 박스가 빈 드롭다운 → 작업자 선택 불가
+
+**영향**: admin 실수 시 현장 작업 일시 중단 (admin 이 매핑 추가하면 해결).
+
+## 변경 내역
+
+### M-01 fix — selectDirty flag 도입
+
+**파일**: `app/src/components/checklist/ChecklistEditModal.tsx`
+
+```tsx
+// 신규 state (L36)
+const [selectDirty, setSelectDirty] = useState(false);
+
+// hydrate useEffect 에 추가 guard (L50-54)
+useEffect(() => {
+  if (hydrated) return;
+  if (item.item_type !== 'SELECT') { setHydrated(true); return; }
+  if (selectDirty) {           // ← 신규: 사용자 입력 있으면 hydrate skip
+    setHydrated(true);
+    return;
+  }
+  // ... 기존 hydrate 로직
+}, [hydrated, selectDirty, item.item_type, item.select_options, allMaterials]);
+
+// onChange 시 dirty 트리거 (L262-267)
+<input
+  value={selectOptionsInput}
+  onChange={e => {
+    setSelectOptionsInput(e.target.value);
+    if (!selectDirty) setSelectDirty(true);
+  }}
+  ...
+/>
+```
+
+### M-02 fix — SELECT 빈 배열 handleSubmit 차단 guard
+
+**파일**: `app/src/components/checklist/ChecklistEditModal.tsx` `handleSubmit()` 영역
+
+```tsx
+// 기존 missing/matched 검증 다음에 추가 (L135-143)
+if (item.item_type === 'SELECT' && !hasPendingSelectChange) {
+  const existingCount = (item.select_options ?? []).length;
+  if (existingCount === 0) {
+    toast.error('SELECT 항목은 최소 1자재 매핑이 필요합니다 — 자재코드를 입력 후 저장하세요.');
+    return;
+  }
+}
+```
+
+**왜 `!hasPendingSelectChange` 분기**:
+- `hasPendingSelectChange === true` → matched.length 가 최종 매핑 수, 위의 기존 검증이 이미 잡음
+- `hasPendingSelectChange === false` → 매핑 변경 의도 없음, 기존 select_options 가 최종 매핑 → 길이 0이면 차단
+
+### 테스트 추가
+
+**파일**: `app/src/components/checklist/__tests__/ChecklistEditModal.test.tsx`
+
+- `vi.mock('sonner')` 추가 (toast.error 호출 검증용)
+- M-02 TC 1: 빈 SELECT (`select_options: []`) + 다른 필드만 수정 후 저장 → toast.error + onSubmit 미호출
+- M-02 TC 2: 기존 매핑 1+개 + 다른 필드만 수정 후 저장 → 차단 X, onSubmit 정상 호출
+
+## Codex Advisory (BACKLOG 이관 권장)
+
+- **A-01**: Promise.all 부분 성공 시 UX/재시도 중복 전송 위험 — 다음 Sprint 검토
+- **A-02**: 직접 입력 경로 vs ChecklistOptionMapModal 의 비활성 자재 처리 정책 불일치 — UX 합리적 차이 가능성, 추후 합의 필요
+
+## 회귀 위험
+
+**0** — M-01 fix 는 dirty=false 상태에서는 기존 동작 100% 동일. M-02 fix 는 SELECT 항목 + 기존 매핑 0개 + 다른 필드만 수정하는 매우 좁은 경로만 차단 (TC 2번이 정상 통과 케이스 보증).
+
+## 검증
+
+- 빌드 GREEN (3301 modules, 2.20s)
+- vitest 47/47 PASS (기존 45 + 신규 M-02 TC 2건)
+- M-01: dirty flag 로직 단순 (단위 테스트 어려운 race 영역이지만 코드 inspection 으로 충분)
+
+## Rollback
+
+git revert 1 commit (회귀 0).
+
+---
+
 # 🚨 HOTFIX-CHECKLIST-ADD-CONFLICT-TOAST-20260511 (v1.43.3, FE only)
 
 > **Sprint ID**: `HOTFIX-CHECKLIST-ADD-CONFLICT-TOAST-20260511`

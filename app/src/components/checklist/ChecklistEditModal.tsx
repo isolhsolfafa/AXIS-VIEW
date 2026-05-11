@@ -1,6 +1,7 @@
 // src/components/checklist/ChecklistEditModal.tsx
 // 체크리스트 항목 수정 모달 — Sprint 32 (qi_check_required 읽기 전용)
 // Sprint 42 hotfix v1.43.1: SELECT 타입 자재 매핑 영역 통합 (방향 A — 자재코드 input + FE Map 변환 → number[] PATCH)
+// v1.43.4 (2026-05-11): Codex 사후 검토 M-01 (dirty flag) + M-02 (SELECT 최소 1자재 invariant) fix
 
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -33,6 +34,7 @@ export default function ChecklistEditModal({ item, category, onSubmit, onClose }
   const [remarks, setRemarks] = useState(item.remarks ?? '');
   const [showMapModal, setShowMapModal] = useState(false);
   const [hydrated, setHydrated] = useState(false);  // Sprint 42 hotfix: hydrate 1회 flag (사용자 입력 덮어쓰기 차단)
+  const [selectDirty, setSelectDirty] = useState(false);  // v1.43.4 (M-01): 사용자가 자재코드 input 을 한 번이라도 건드리면 true → late hydrate skip
 
   // Sprint 42 hotfix: 전체 자재 캐시 (5분) — SELECT 타입만 호출
   const { data: allMaterialsRes } = useQuery({
@@ -46,9 +48,15 @@ export default function ChecklistEditModal({ item, category, onSubmit, onClose }
   // Sprint 42 hotfix (Codex [8] 정정): hydrate useEffect — numeric id[] → item_code[] 변환
   // hydrated flag 로 1회 처리 (사용자 입력 덮어쓰기 차단)
   // legacy string[] → 빈 input (admin 자재코드 재입력 영역)
+  // v1.43.4 (Codex M-01): selectDirty 추가 가드 — late hydrate 시점에 사용자 입력 이미 있으면 hydrate skip
   useEffect(() => {
     if (hydrated) return;
     if (item.item_type !== 'SELECT') {
+      setHydrated(true);
+      return;
+    }
+    // v1.43.4 M-01: 사용자가 이미 input 을 건드렸으면 late hydrate 차단 (입력 덮어쓰기 방지)
+    if (selectDirty) {
       setHydrated(true);
       return;
     }
@@ -70,7 +78,7 @@ export default function ChecklistEditModal({ item, category, onSubmit, onClose }
       setSelectOptionsInput('');
       setHydrated(true);
     }
-  }, [hydrated, item.item_type, item.select_options, allMaterials]);
+  }, [hydrated, selectDirty, item.item_type, item.select_options, allMaterials]);
 
   // Sprint 42 hotfix: debounce + client-side filter
   const debouncedInput = useDebounce(selectOptionsInput, 500);
@@ -127,6 +135,17 @@ export default function ChecklistEditModal({ item, category, onSubmit, onClose }
       }
       if (matched.length === 0 && allMaterials.length > 0) {
         toast.error('최소 1자재 매핑 필요 (옵션 C)');
+        return;
+      }
+    }
+
+    // v1.43.4 (Codex M-02): SELECT 항목 최소 1자재 invariant 강제
+    // - hasPendingSelectChange 면 matched.length 가 최종 매핑 수 (위 검증이 잡음)
+    // - 매핑 변경 의도 없으면 기존 select_options 길이로 판단 — 0이면 차단
+    if (item.item_type === 'SELECT' && !hasPendingSelectChange) {
+      const existingCount = (item.select_options ?? []).length;
+      if (existingCount === 0) {
+        toast.error('SELECT 항목은 최소 1자재 매핑이 필요합니다 — 자재코드를 입력 후 저장하세요.');
         return;
       }
     }
@@ -251,10 +270,13 @@ export default function ChecklistEditModal({ item, category, onSubmit, onClose }
             <div>
               <label style={labelStyle}>선택지 (자재코드, 쉼표 구분) *</label>
 
-              {/* ① 자재코드 직접 입력 */}
+              {/* ① 자재코드 직접 입력 — v1.43.4 (M-01): onChange 시 selectDirty=true 트리거 */}
               <input
                 value={selectOptionsInput}
-                onChange={e => setSelectOptionsInput(e.target.value)}
+                onChange={e => {
+                  setSelectOptionsInput(e.target.value);
+                  if (!selectDirty) setSelectDirty(true);
+                }}
                 placeholder="1110006700, 1120094300, 1110298800"
                 style={inputStyle}
               />

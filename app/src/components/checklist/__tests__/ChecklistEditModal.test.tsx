@@ -1,13 +1,19 @@
 // app/src/components/checklist/__tests__/ChecklistEditModal.test.tsx
 // Sprint 42 hotfix v1.43.1 — 방향 A 자재코드 input + spec 표시 + 자재 검색 도움 버튼 TC
+// v1.43.4 (Codex M-02): SELECT 항목 최소 1자재 invariant TC 추가
 
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import * as materialsApi from '@/api/materials';
 import type { ChecklistMasterItem } from '@/types/checklist';
 import type { Material, MaterialListResponse } from '@/api/materials';
 import ChecklistEditModal from '@/components/checklist/ChecklistEditModal';
+
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
 
 // Codex [신규-1]: QueryClientProvider wrapper 헬퍼 (useQuery 사용 영역 필수)
 const renderWithQueryClient = (ui: React.ReactElement) => {
@@ -108,5 +114,71 @@ describe('ChecklistEditModal — 방향 A 자재코드 input 영역 (HOTFIX-SPRI
     await waitFor(() => {
       expect(screen.getByRole('dialog', { name: /자재 매핑/ })).toBeInTheDocument();
     }, { timeout: 2000 });
+  });
+});
+
+describe('ChecklistEditModal — Codex 사후 검토 M-02 (v1.43.4)', () => {
+  beforeEach(() => {
+    vi.spyOn(materialsApi, 'listMaterials').mockResolvedValue(mockMaterialsResponse);
+    vi.mocked(toast.error).mockClear();
+  });
+
+  test('SELECT 항목인데 매핑 0개 + 다른 필드만 수정 후 저장 → toast.error + onSubmit 미호출', async () => {
+    const onSubmit = vi.fn();
+    const onClose = vi.fn();
+    renderWithQueryClient(
+      <ChecklistEditModal
+        item={mockItem({ select_options: [] })}
+        category="MECH"
+        onSubmit={onSubmit}
+        onClose={onClose}
+      />
+    );
+
+    // 항목명만 변경
+    const nameInput = screen.getByDisplayValue('MFC Maker');
+    fireEvent.change(nameInput, { target: { value: 'MFC Maker 변경' } });
+
+    // 저장 클릭 (자재코드 input 은 비워둠)
+    const saveButton = screen.getByText('저장');
+    fireEvent.click(saveButton);
+
+    // M-02 invariant: toast.error 호출 + onSubmit 차단
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringContaining('SELECT 항목은 최소 1자재 매핑이 필요합니다')
+      );
+    });
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  test('SELECT 항목 기존 매핑 1+ 개 + 다른 필드만 수정 후 저장 → 차단 없이 진행', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const onClose = vi.fn();
+    renderWithQueryClient(
+      <ChecklistEditModal
+        item={mockItem({ select_options: [12] })}
+        category="MECH"
+        onSubmit={onSubmit}
+        onClose={onClose}
+      />
+    );
+
+    const nameInput = screen.getByDisplayValue('MFC Maker');
+    fireEvent.change(nameInput, { target: { value: 'MFC Maker v2' } });
+
+    const saveButton = screen.getByText('저장');
+    fireEvent.click(saveButton);
+
+    // 기존 매핑 1개 — M-02 차단 X, onSubmit 정상 호출
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ item_name: 'MFC Maker v2' })
+      );
+    });
+    expect(toast.error).not.toHaveBeenCalledWith(
+      expect.stringContaining('SELECT 항목은 최소 1자재')
+    );
   });
 });

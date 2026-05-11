@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.43.3 (2026-05-11)
+> 최신 버전: v1.43.4 (2026-05-11)
 
 ---
 
@@ -70,6 +70,34 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.43.4 — 2026-05-11
+
+**HOTFIX-EDIT-GUARD — Codex 사후 검토 (Task #20) M-01 + M-02 반영**
+
+🛡️ M-01 — Late Hydrate Overwrite 차단
+ - `ChecklistEditModal` SELECT 항목 매핑 input 에 `selectDirty` flag 도입
+ - 사용자가 자재코드를 한 번이라도 입력하면 늦게 도착한 자재 목록 hydrate 가 입력값을 덮어쓰지 않음
+ - 발생 조건: 자재 캐시 미존재 + 빠른 타이핑 (운영상 드문 race, 사전 차단)
+
+🛡️ M-02 — 빈 SELECT 항목 저장 차단
+ - SELECT 항목인데 매핑 0개 + 다른 필드만 수정해서 저장하는 경로 차단
+ - 시나리오: 신규 추가 후 매핑 잊고 항목명만 수정 → 현장 빈 드롭다운 노출
+ - toast: "SELECT 항목은 최소 1자재 매핑이 필요합니다 — 자재코드를 입력 후 저장하세요."
+
+🛠️ FE 단독 정정 (BE 변경 0, ~21/-3 LoC)
+ - 파일 1개: `app/src/components/checklist/ChecklistEditModal.tsx`
+ - 테스트 +60 LoC: M-02 invariant TC 2건 (빈 매핑 차단 / 기존 1+개 통과)
+
+📋 Codex Advisory (BACKLOG 이관)
+ - A-01: Promise.all 부분 성공 시 UX/재시도 정책
+ - A-02: 직접 입력 vs ChecklistOptionMapModal 비활성 자재 정책 통일
+
+✅ 검증
+ - 빌드 GREEN, vitest 47/47 PASS (45 + 신규 2)
+ - 회귀 0 (기존 정상 경로 100% 보존)
 
 ---
 
