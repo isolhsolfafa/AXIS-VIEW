@@ -1,7 +1,73 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-11 (HOTFIX-SPRINT42 v1.43.1 FE 완료 — ChecklistEditModal SELECT 자재 매핑 영역 통합)
+> 마지막 업데이트: 2026-05-11 (v1.43.4 HOTFIX-EDIT-GUARD — Codex 사후 검토 M-01/M-02 fix + Task #20 종료)
+
+---
+
+## 🆕 2026-05-11 세션 요약 — v1.43.2 ~ v1.43.4 연속 release
+
+### 결과 요약 (3개 release 시퀀스)
+
+| 버전 | 유형 | 트리거 | 영향 파일 | 상태 |
+|---|---|---|---|---|
+| v1.43.2 | PATCH 정렬 | Twin파파 catch — 협력사 체크리스트 성적서 MECH 카테고리 항목 정렬 미적용 | 3 파일 / ~25 LoC | ✅ commit `1ea611c` |
+| v1.43.3 | HOTFIX UX | Twin파파 catch — 체크리스트 항목 추가 CONFLICT generic 토스트 디버깅 불가 | 5 파일 / ~22 LoC | ✅ commit `0e216a3` |
+| v1.43.4 | HOTFIX-EDIT-GUARD | Codex 사후 검토 (Task #20) M-01 + M-02 fix | 6 파일 / +21/-3 + test +60 LoC | ✅ commit `c8ba707` |
+
+### v1.43.2 — 협력사 체크리스트 성적서 MECH 정렬
+
+- **근본 원인 (BE)**: OPS `checklist_service.py` L235-239 ORDER BY CASE 절에 MECH 누락 (TM/ELEC 만 명시, MECH 는 ELSE 99 = 정렬 미적용)
+- **FE 단독 정정**: `types/checklist.ts` ChecklistReportItem 에 `item_order?: number` 추가 + `ChecklistReportView.CategoryTable` 에 useMemo sort (manage 패턴 차용)
+- **BE 영구 정정 권장**: OPS 측 hotfix 별 작업 (FE 정렬은 표시 영역만, BE 응답 자체 정렬은 다른 영역 영향 가능)
+
+### v1.43.3 — 체크리스트 항목 추가 CONFLICT 토스트 보강
+
+- **BE 정합**: OPS `HOTFIX-SPRINT66BE-CREATE-MASTER-ITEM-TYPE-AND-CONFLICT-MSG-20260511` 응답 schema (`error: 'CONFLICT'` + `existing_id` + `is_active`)
+- **FE 정정**: `ChecklistManagePage.handleAdd` onError 3단계 fallback (CONFLICT → resp.message → generic)
+- **UX 보강**: 비활성 충돌 시 "비활성 포함" 토글 안내 메시지 자동 첨부 + 실패 시 모달 유지 (입력값 보존)
+
+### v1.43.4 — Codex 사후 검토 (Task #20) 결과 반영
+
+- **Task #20 (HOTFIX-SPRINT42 S2 사후 검토)** 종료 — Codex 1라운드 결과: M 2건 / A 2건
+- **M-01 fix** (Late Hydrate Overwrite): `ChecklistEditModal` 에 `selectDirty` flag 도입 → 사용자가 자재코드 input 한 번이라도 건드리면 late hydrate skip
+- **M-02 fix** (옵션 C invariant 미강제): SELECT 항목 + `!hasPendingSelectChange` 분기에 `existingCount === 0` 차단 guard 추가 (빈 SELECT 항목 저장 → 현장 빈 드롭다운 노출 방지)
+- **테스트**: M-02 invariant TC 2건 (빈 매핑 차단 / 기존 1+개 통과)
+- **Codex Advisory BACKLOG 이관**: A-01 (Promise.all 부분 성공 롤백) + A-02 (직접 입력 vs 보조 모달 비활성 자재 정책 통일)
+- **빌드**: GREEN (3301 modules / 2.20s)
+- **테스트**: vitest 47/47 PASS (45 + 신규 2)
+
+### 메타 파일 갱신 (3 release 통합)
+
+- `CHANGELOG.md` 헤더 v1.43.4 + v1.43.2/3/4 entry
+- `CLAUDE.md` 헤더 v1.43.4 + version.ts ref + Sprint 이력 entry 3건
+- `DESIGN_FIX_SPRINT.md` HOTFIX 섹션 2건 신규
+- `version.ts` v1.43.4 + 이력 entry 3건
+- `app/src/components/checklist/ChecklistEditModal.tsx` + test (M-01/M-02)
+
+### Twin파파 검증 권장 시나리오 (Netlify preview)
+
+**v1.43.2 확인**:
+- [ ] 협력사 관리 > 체크리스트 성적서 → MECH 카테고리 항목 순서 (관리 페이지와 동일하게 그룹별 정렬되는지)
+
+**v1.43.3 확인**:
+- [ ] 체크리스트 관리 → "+ 항목 추가" → 동일 항목 다시 추가 시도 → CONFLICT 토스트 (id 표시 + 비활성 시 토글 안내)
+- [ ] 실패 후 모달 유지 → 항목명만 바꿔서 재시도 가능한지
+
+**v1.43.4 확인**:
+- [ ] SELECT 신규 항목 추가 (자재 매핑 X) → 그 항목 EditModal 열어 항목명만 수정 + 저장 → "SELECT 항목은 최소 1자재 매핑이 필요합니다" 토스트 + 모달 유지
+- [ ] 매핑 1+개 있는 SELECT 항목 → EditModal 항목명만 수정 + 저장 → 정상 통과
+
+### Codex Advisory (BACKLOG 신규 이관)
+
+- **A-01**: Promise.all 부분 성공 시 UX/재시도 정책 — 다음 Sprint 검토
+- **A-02**: 직접 입력 경로 vs ChecklistOptionMapModal 의 비활성 자재 처리 정책 통일
+
+### 다음 응용 포인트
+
+- ADR-024 분리 (cowork 추측 작성 실수 #11~#22 누적 22건 trail 표준화 — 매우 강한 권장)
+- Codex Advisory A-01/A-02 BACKLOG 진행
+- OPS 측 `checklist_service.py` MECH ORDER BY CASE 영구 정정 (v1.43.2 FE 정정 은 표시 영역만)
 
 ---
 

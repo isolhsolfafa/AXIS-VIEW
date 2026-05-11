@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-05-09 (Sprint 42 v1.43.0 FE 완료 archive)
+> 마지막 업데이트: 2026-05-11 (v1.43.4 HOTFIX-EDIT-GUARD — POST-REVIEW Task #20 종료 + Codex Advisory A-01/A-02 신규 이관)
 > 관련: AXIS_VIEW_ROADMAP.md, OPS_API_REQUESTS.md, DESIGN_FIX_SPRINT.md
 
 ---
@@ -55,7 +55,20 @@ Sprint 42 v1.43.0 prod 배포 (5-09) 후 Twin파파 UI 검증 영역 catch:
 
 ---
 
-## 🟠 POST-REVIEW-HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509 — S2 사후 Codex 검토 (🟠 MEDIUM, deadline 2026-05-16)
+## ✅ ARCHIVED — POST-REVIEW-HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509 (v1.43.4 완료, 2026-05-11)
+
+> ⚠️ **본 entry = HOTFIX-SPRINT42 (v1.43.1) S2 사후 Codex 검토 — Task #20 (deadline 2026-05-16) deadline 5일 전 조기 종료**.
+>   - Codex 1라운드 결과: **M 2건 / A 2건**
+>     - M-01: Late Hydrate Overwrite (selectDirty flag 도입으로 fix)
+>     - M-02: 옵션 C invariant 미강제 (SELECT 빈 배열 차단 guard 추가로 fix)
+>     - A-01: Promise.all 부분 성공 시 UX/재시도 정책 → BACKLOG 신규 entry 이관
+>     - A-02: 직접 입력 경로 vs ChecklistOptionMapModal 비활성 자재 정책 통일 → BACKLOG 신규 entry 이관
+>   - **M 2건 fix**: v1.43.4 HOTFIX-CHECKLIST-EDIT-DIRTY-GUARD-20260511 (commit `c8ba707`)
+>   - 빌드 GREEN + vitest 47/47 PASS (45 + 신규 M-02 TC 2건)
+>
+> 본문은 이력 추적용으로 보존.
+
+## (보존) 🟠 POST-REVIEW-HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509 — S2 사후 Codex 검토 (✅ 완료 2026-05-11)
 
 ### 배경
 - 본 entry = hotfix `HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509` 의 **S2 사후 검토 영역** (CLAUDE.md L237 정합)
@@ -75,12 +88,68 @@ Sprint 42 v1.43.0 prod 배포 (5-09) 후 Twin파파 UI 검증 영역 catch:
   - ChecklistManagePage [매핑] 버튼 영역 영향 0
   - vitest 기존 TC GREEN 유지
 
-### 우선순위
-- 🟠 MEDIUM (S2 사후 검토 의무, deadline 2026-05-16)
-- 미완 시 다음 Sprint 시작 전 중 이른 시점 진행 의무 (CLAUDE.md L237)
+### 검토 결과 (2026-05-11 종료)
+- **M-01 Late Hydrate Overwrite**: hydrated flag 가 hydrate 완료 후 set → 진행 중 사용자 입력 보호 안 됨
+  - **fix**: selectDirty flag 도입 (사용자 input onChange 시 set → hydrate effect 초입에서 skip)
+- **M-02 옵션 C invariant 미강제**: hasPendingSelectChange=false 분기에서 매핑 0개 통과
+  - **fix**: SELECT + 매핑 0개 + 다른 필드만 수정 저장 차단 guard 추가
+- **A-01/A-02**: 별 BACKLOG entry 신규 이관 (이 문서 하단 참조)
 
 ### 설계 상세
-`AXIS-VIEW/DESIGN_FIX_SPRINT.md` § HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509 영역 7
+`AXIS-VIEW/DESIGN_FIX_SPRINT.md` § HOTFIX-CHECKLIST-EDIT-DIRTY-GUARD-20260511
+
+---
+
+## 🟡 LOW — A-01-PROMISE-ALL-PARTIAL-SUCCESS-RECONCILE — Promise.all 부분 성공 UX/재시도 정책 (🟡 LOW, 2026-05-11 등록, Codex Advisory)
+
+### 배경
+- v1.43.1 HOTFIX-SPRINT42 (방향 A) 의 `ChecklistEditModal.handleSubmit` 가 Promise.all 패턴으로 두 mutation (`onSubmit` 일반 필드 + `updateOptionsMutation` 자재 매핑) 병렬 실행
+- Codex 사후 검토 (Task #20) A-01 지적: **부분 성공 시 처리 정책 미정의**
+  - 케이스 a: 일반 필드 PATCH 성공 + 자재 매핑 PATCH 실패 → 일반 필드는 이미 BE 반영, 모달은 열린 채로 남음
+  - 케이스 b: 사용자가 재시도 시 stale `item` 기준 비교 → 이미 성공한 mutation 을 중복 전송 가능
+
+### 운영 영향
+- 빈도: 매우 낮음 (양쪽 mutation 동시 실패 확률 자체가 낮음)
+- 영향: 중간 — 부분 성공 후 화면 표시와 BE 상태 불일치 + 중복 PATCH 시 BE 측 idempotency 의존
+
+### 제안 정책 (검토 필요)
+- 옵션 a: 부분 실패 시 toast 로 "일반 필드만 저장됨 / 자재 매핑 실패" 명시 + 모달 자동 닫기 (사용자 confirm 가능)
+- 옵션 b: 성공한 mutation 결과를 state 에 반영해서 재시도 시 중복 전송 차단
+- 옵션 c: BE 측 PATCH 엔드포인트 합치기 (1개 trx) — BE 변경 필요
+
+### 우선순위
+- 🟡 LOW — 운영 보고 0건, 양쪽 동시 실패 케이스 매우 드뭄. 다음 Sprint 또는 여유 있을 때 검토
+
+### 참조
+- `app/src/components/checklist/ChecklistEditModal.tsx` `handleSubmit()` Promise.all 영역
+- ADR-V018 (HOTFIX-SPRINT42 방향 A 패턴)
+
+---
+
+## 🟡 LOW — A-02-INACTIVE-MATERIAL-POLICY-UNIFY — 직접 입력 vs 보조 모달 비활성 자재 처리 정책 통일 (🟡 LOW, 2026-05-11 등록, Codex Advisory)
+
+### 배경
+- v1.43.1 HOTFIX-SPRINT42 (방향 A) 에서 자재 매핑 경로 2개 존재
+- Codex 사후 검토 (Task #20) A-02 지적: **두 경로의 비활성 자재 처리 정책 불일치**
+
+### 현재 동작
+| 경로 | 비활성 자재 처리 |
+|---|---|
+| 직접 입력 (ChecklistEditModal 자재코드 input) | `[비활성]` marker 표시 + **저장 허용** |
+| 보조 모달 (ChecklistOptionMapModal) | 선택 자체를 **차단** |
+
+### 검토 필요
+- 정책 A: 직접 입력도 차단 → 일관성 ↑, admin UX 다소 제약 (의도적 비활성 자재 매핑 불가)
+- 정책 B: 보조 모달도 허용 → 일관성 ↑, 비활성 자재 매핑 노출 가능성 증가
+- 정책 C: 현재 유지 + UX 설명 강화 → admin 의식적 선택 vs 보조 자동 추천의 의미 차이 명시
+
+### 우선순위
+- 🟡 LOW — admin 운영 정책 결정 영역, 운영 보고 0건. Twin파파 결정 필요
+
+### 참조
+- `app/src/components/checklist/ChecklistEditModal.tsx` (직접 입력 경로)
+- `app/src/components/checklist/ChecklistOptionMapModal.tsx` (보조 모달 경로)
+- ADR-V018 (HOTFIX-SPRINT42 방향 A 패턴)
 
 ---
 

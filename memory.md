@@ -57,6 +57,38 @@
 
 ---
 
+### ADR-V019: HOTFIX-CHECKLIST-EDIT-DIRTY-GUARD (v1.43.4) — Codex 사후 검토 M-01 + M-02 fix (2026-05-11)
+
+- **맥락**: HOTFIX-SPRINT42 (v1.43.1) S2 사후 Codex 검토 (Task #20, deadline 2026-05-16) 1라운드 결과 — 잔존 이슈 M 2건 + Advisory 2건. CLAUDE.md L237 S2 사후 검토 의무 정합.
+- **Codex 발견 M 2건**:
+  - **M-01 (Late Hydrate Overwrite)**: `hydrated` flag 가 hydrate 완료 후 setHydrated(true) 호출하는 패턴이라, hydrate 진행 중 (allMaterials 로딩 ~1-2초) 에 사용자가 빠르게 input 입력하면 late hydrate trigger 가 입력값 덮어씀
+    - 발생 조건: 자재 캐시 미존재 (첫 진입 또는 5분 경과 후) + 빠른 타이핑 — race 영역
+  - **M-02 (옵션 C invariant 미강제)**: `handleSubmit` 검증이 `selectOptionsInput.trim()` 영역에서만 작동 → SELECT 항목 + 기존 매핑 0개 + 다른 필드만 수정 저장하면 통과
+    - 발생 조건: ChecklistAddModal 로 빈 SELECT 신규 항목 추가 (v1.43.1 정상 워크플로우, "매핑은 나중에") 후 매핑 잊고 항목명만 수정 → 빈 매핑 저장 → 현장 빈 드롭다운
+- **결정**: **즉시 fix (v1.43.4) — 잠재 이슈 사전 차단** (Sprint Twin파파 결정)
+- **M-01 fix 패턴**: `selectDirty` flag 도입
+  - 신규 state: `const [selectDirty, setSelectDirty] = useState(false);`
+  - hydrate useEffect 초입: `if (selectDirty) { setHydrated(true); return; }`
+  - input onChange: `if (!selectDirty) setSelectDirty(true);`
+- **M-02 fix 패턴**: SELECT 빈 배열 차단 guard
+  - `if (item.item_type === 'SELECT' && !hasPendingSelectChange)` 분기
+  - `const existingCount = (item.select_options ?? []).length; if (existingCount === 0) { toast.error(...); return; }`
+  - 정확한 논리: hasPendingSelectChange=true 면 matched.length 가 최종 매핑 수 (위 검증이 잡음) / false 면 매핑 변경 의도 없음 → 기존 select_options 길이로 판단
+- **Codex Advisory 2건 BACKLOG 이관**:
+  - **A-01**: Promise.all 부분 성공 시 UX/재시도 정책 → BACKLOG `A-01-PROMISE-ALL-PARTIAL-SUCCESS-RECONCILE`
+  - **A-02**: 직접 입력 vs ChecklistOptionMapModal 비활성 자재 처리 정책 통일 → BACKLOG `A-02-INACTIVE-MATERIAL-POLICY-UNIFY`
+- **회귀 차단**: M-01 fix 는 dirty=false 상태 100% 기존 동작 동일. M-02 fix 는 SELECT + 기존 매핑 0개 + 다른 필드만 수정하는 매우 좁은 경로만 차단 (TC 2건이 정상 통과 케이스 보증).
+- **검증**: 빌드 GREEN + vitest 47/47 PASS (45 + 신규 M-02 invariant TC 2건). M-01 race 는 단위 테스트 어려운 영역 — 코드 inspection + dirty flag 로직 단순성으로 충분.
+- **운영 시사점**: Codex 가 발생 조건 좁은 race 까지 catch 함 — 사후 검토 영역이 진정한 가치. 향후 S2 hotfix 사후 검토 의무 절대 skip 금지.
+- **Task trail**: Task #20 (HOTFIX-SPRINT42 S2 사후 Codex 검토) 종료 — deadline 5일 전 조기 완료.
+- **참조**:
+  - `app/src/components/checklist/ChecklistEditModal.tsx` (selectDirty + guard)
+  - `app/src/components/checklist/__tests__/ChecklistEditModal.test.tsx` (M-02 TC 2건)
+  - `DESIGN_FIX_SPRINT.md` § HOTFIX-CHECKLIST-EDIT-DIRTY-GUARD-20260511
+  - `BACKLOG.md` A-01-PROMISE-ALL-PARTIAL-SUCCESS-RECONCILE / A-02-INACTIVE-MATERIAL-POLICY-UNIFY
+
+---
+
 ### ADR-V018: HOTFIX-SPRINT42 — 방향 A (FE 단독 자재코드 input + FE Map 변환) + hydrated flag 패턴 (2026-05-11)
 
 - **맥락**: Sprint 42 v1.43.0 prod 배포 후 Twin파파 5-08 UI catch — ChecklistEditModal SELECT 항목 [수정] 모달 안에 자재 매핑 영역 표시 누락. cowork 추측 작성 실수 #14 (ChecklistEditModal/AddModal 통합 영역 grep 누락).
