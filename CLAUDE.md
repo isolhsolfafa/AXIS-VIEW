@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-05-11 | 버전: v1.43.4
+> 최종 갱신: 2026-05-11 | 버전: v1.43.5
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -276,7 +276,7 @@ AXIS-VIEW/
 │   │   ├── api/              API 클라이언트 13개
 │   │   ├── hooks/            TanStack Query 훅 22파일 / 41함수
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.43.4 (2026-05-11)
+│   │   ├── version.ts        v1.43.5 (2026-05-11)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
@@ -804,6 +804,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | HOTFIX-SPRINT42 (v1.43.1) | Sprint 42 후속 hotfix — ChecklistEditModal SELECT 자재 매핑 영역 통합 (Twin파파 5-08 UI catch). **방향 A** (BE 변경 0, FE 단독): 자재코드 input + debounce 500ms + FE Map 변환 → PATCH number[]. 옵션 C 강제 (최소 1자재 + 미등록 자재 차단). HOTFIX-SPRINT66BE 폐기. 신규 2 파일 (useDebounce.ts + ChecklistEditModal.test.tsx) + 수정 5 (Edit/Add/OptionMap/Manage + types). hydrated flag (사용자 입력 보호) + Promise.all + master invalidate. Severity S2, 사후 Codex 검토 deadline 2026-05-18. Codex 1·2·3차 + Claude 5·6차 누적 약 30건 합의 (cowork 실수 #11~#22 — ADR-024 candidate). ~346 LOC 실측 (신규 132 + 수정 214), 2026-05-11 | 🟡 FE 완료 (Twin파파 UI 검증 대기) |
 | PATCH v1.43.2 | 협력사 관리 > 체크리스트 성적서 항목 정렬 정합 — ChecklistManagePage 와 동일 패턴 (그룹 첫 등장 순 + item_order). 배경: OPS BE `checklist_service.py` L235-239 `ORDER BY CASE` 절에 MECH 그룹 누락 (TM/ELEC 만 명시, ELSE 99 = 정렬 미적용) — Twin파파 catch. **FE 단독 정정** (BE 변경 0): `types/checklist.ts` ChecklistReportItem 에 `item_order?: number` 추가 + `ChecklistReportView` CategoryTable 에 useMemo sort (manage 패턴 차용). 3 파일 / ~25 LOC. 빌드 GREEN + vitest 45/45 PASS. TM/ELEC 영역 회귀 0, 2026-05-11 | ✅ 완료 |
 | HOTFIX v1.43.3 | 체크리스트 항목 추가 CONFLICT 토스트 UX 보강 (Twin파파 catch) — generic "추가에 실패했습니다" 디버깅 불가 정정. BE 응답 `error:'CONFLICT'` + `existing_id` + `is_active` 활용: 활성 충돌 = "동일 항목이 이미 존재합니다 (id=199).", 비활성 충돌 = + " — 비활성 상태입니다. \"비활성 포함\" 체크 후 토글로 활성화하세요." 자동 첨부. 실패 시 모달 유지 (입력값 보존). 3 파일 / ~22 LoC (handleAdd onError 분기). 연관 BE: OPS HOTFIX-SPRINT66BE-CREATE-MASTER-ITEM-TYPE-AND-CONFLICT-MSG-20260511. Severity S3 (UX 개선, 기능 차단 아님). 빌드 GREEN + vitest 45/45 PASS, 2026-05-11 | ✅ 완료 |
+| HOTFIX v1.43.5 | Sprint 40 일괄 토스트 BE 응답 schema 호환 — HOTFIX-TASKS-BY-ORDER-SCHEMA-20260511 (Twin파파 catch). 같은 O/N 다대 환경 (TEST-1111 + TEST-1112~1116) Tank Module ▶ 시작 시 일괄 모달 미발현. **원인**: BE Sprint 64-BE `/api/app/tasks/by-order/{ON}` 응답이 `{tasks, total}` 객체 wrap 인데 FE 는 `SNTaskDetail[]` 배열 직접 가정 → `Array.isArray=false` → 빈 배열 반환 → orderTasks=[] → getOtherSNsTankStartable=0 → 일괄 모달 안 뜸. **옵션 B 채택** (VIEW + OPS 동시 fix, 배포 순서 무관): VIEW `getTasksByOrder` 두 형식 호환 처리 (배열 + 객체) + OPS v2.13.1 응답 정합 별 repo 작업. 1 파일 fix (`api/snStatus.ts` +6 LoC) + 신규 test (`api/snStatus.test.ts` 73 LoC, 3 TC). **Codex 사후 검토 누락 영역**: Sprint 40 1·2·3·4·5차 검증 모두 다른 task endpoint 응답 형식 일관성 영역 검증 누락 (POST-REVIEW catch). Severity S2 (Sprint 40 핵심 기능 부분 장애). 빌드 GREEN + vitest 50/50 PASS (47 + 신규 3), 2026-05-11 | ✅ FE 완료 (OPS v2.13.1 별 repo 대기 — 배포 순서 무관) |
 | HOTFIX v1.43.4 | Codex 사후 검토 (Task #20) M-01 + M-02 fix — HOTFIX-CHECKLIST-EDIT-DIRTY-GUARD-20260511. **M-01 (Late Hydrate Overwrite)**: `ChecklistEditModal` 에 `selectDirty` flag 도입 → 사용자가 자재코드 input 한 번이라도 건드리면 late hydrate skip (allMaterials 늦게 도착해도 입력값 덮어쓰기 차단). **M-02 (옵션 C invariant 미강제)**: SELECT 항목 + 매핑 0개 + 다른 필드만 수정 저장 차단 guard 추가 (`!hasPendingSelectChange` 분기에서 `existingCount === 0` 체크 → "SELECT 항목은 최소 1자재 매핑이 필요합니다" toast). 1 파일 fix (ChecklistEditModal.tsx +21/-3) + 테스트 +60 LoC (M-02 invariant TC 2건). Codex Advisory A-01 (Promise.all 부분 성공 롤백) + A-02 (직접 입력 vs 보조 모달 비활성 자재 정책 불일치) BACKLOG 이관 권장. Severity S3 (잠재 이슈 사전 차단, 운영 보고 0건). 빌드 GREEN + vitest 47/47 PASS, 2026-05-11 | ✅ 완료 |
 
 ### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)

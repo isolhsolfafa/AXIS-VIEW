@@ -18819,6 +18819,126 @@ ADR-023 신규 표준 (Phase 4 보강 권장):
 
 ---
 
+# 🚨 HOTFIX-TASKS-BY-ORDER-SCHEMA-20260511 (v1.43.5, FE only) — Sprint 40 일괄 토스트 BE 응답 schema 호환
+
+> **Sprint ID**: `HOTFIX-TASKS-BY-ORDER-SCHEMA-20260511`
+> **유형**: Sprint 40 (v1.40.0) 운영 catch — BE/FE 응답 schema 불일치 정정
+> **Severity**: 🟠 S2 (Sprint 40 핵심 기능 부분 장애 — 일괄 모달 미발현)
+> **사후 Codex 검토**: 7일 이내 (deadline 2026-05-18)
+> **작성일**: 2026-05-11 KST
+> **트리거**: Twin파파 catch — 같은 O/N 다대 (TEST-1111 + TEST-1112~1116) 환경에서 Tank Module ▶ 시작 시 일괄 토스트 미발현
+> **연관 OPS hotfix**: OPS v2.13.1 (`task_service_batch.py.get_tasks_by_order()` 응답 형식 정정 — `{tasks, total}` → 배열 직접)
+> **선행 의존성**: 없음 (FE 호환 처리 후 배포 순서 무관)
+
+## 원인 분석
+
+### BE 응답 (실측, TEST-1111 케이스)
+
+```json
+{
+  "tasks": [
+    { "id": 59376, "serial_number": "TEST-1112", "task_id": "TANK_MODULE", "task_category": "TMS", ... },
+    { "id": 57835, "serial_number": "TEST-1113", "task_id": "TANK_MODULE", "task_category": "TMS", ... },
+    ... 6 tasks
+  ],
+  "total": 6
+}
+```
+
+### FE 파싱 (`app/src/api/snStatus.ts:88-90` 이전 코드)
+
+```ts
+const { data } = await apiClient.get<SNTaskDetail[]>(url);
+return Array.isArray(data) ? data : [];   // ← data 는 { tasks, total } 객체 → Array.isArray=false → [] 빈 배열 반환
+```
+
+### 결과 흐름
+
+```
+BE { tasks: [6 tasks], total: 6 }
+  → FE Array.isArray() false → []
+  → orderTasks = []
+  → getOtherSNsTankStartable([]) === []
+  → otherSNsTankStartable.length === 0
+  → 일괄 모달 안 뜸 → 단일 mutation start 호출
+  → 단일 토스트만 노출 (사용자 catch)
+```
+
+### Endpoint 일관성 catch (Codex 검증 누락 영역)
+
+| Endpoint | 응답 형식 | 패턴 |
+|---|---|---|
+| `/api/app/tasks/{sn}?all=true` | `[task...]` 배열 직접 | ✅ 기존 정합 |
+| `/api/app/tasks/by-order/{ON}` (Sprint 64-BE 신규) | `{tasks, total}` 객체 wrap | ❌ 일관성 위반 |
+| `/api/app/work/start-batch` | `{succeeded, skipped, total}` 객체 | ✅ batch 응답 정합 |
+
+Codex 1·2·3·4·5차 검증 (Sprint 40) 모두 — 다른 task endpoint spec 과의 응답 형식 일관성 영역 검증 누락. POST-REVIEW catch.
+
+## 변경 영역 (옵션 B 채택 — VIEW + OPS 동시 fix)
+
+### VIEW 측 (본 hotfix, v1.43.5)
+
+**파일**: `app/src/api/snStatus.ts` `getTasksByOrder()` 함수
+
+```ts
+// v1.43.5: BE Sprint 64-BE 가 { tasks, total } 객체 wrap 으로 응답 (다른 task endpoint 는 배열 직접).
+// 두 형식 모두 호환 — OPS v2.13.1 가 배열 형식으로 정정해도 회귀 0.
+const { data } = await apiClient.get<SNTaskDetail[] | { tasks: SNTaskDetail[]; total?: number }>(url);
+if (Array.isArray(data)) return data;
+if (data && Array.isArray((data as { tasks?: unknown }).tasks)) {
+  return (data as { tasks: SNTaskDetail[] }).tasks;
+}
+return [];
+```
+
+### OPS 측 (v2.13.1, 별 repo 작업)
+
+**파일**: `backend/app/services/task_service_batch.py` `get_tasks_by_order()`
+
+```python
+# Before
+return ({'tasks': tasks, 'total': len(tasks)}, 200)
+# After
+return (tasks, 200)  # 배열 직접 — /api/app/tasks/{sn} 와 일관
+```
+
+### 테스트 (`app/src/api/snStatus.test.ts` 신규)
+
+- TC 1: `{ tasks, total }` 객체 응답 → tasks 배열 추출
+- TC 2: 배열 직접 응답 → 그대로 통과 (OPS v2.13.1 호환)
+- TC 3: null / 빈 객체 / `{ tasks: null }` → 빈 배열 fallback (회귀 차단)
+
+## 배포 순서 영역
+
+**무관** — VIEW 호환 코드가 두 형식 모두 처리. 어느 쪽이 먼저 배포되든 정상 작동.
+
+| 시나리오 | VIEW 동작 |
+|---|---|
+| VIEW 먼저 배포 → OPS 아직 객체 응답 | tasks 배열 추출 → 정상 |
+| OPS 먼저 배포 → VIEW 아직 객체 가정 | OPS 가 이미 배열 응답 → FE 의 `Array.isArray` 분기로 정상 |
+| 양쪽 모두 배포 후 | OPS 배열 응답 → FE `Array.isArray` 분기로 정상 |
+
+## 검증
+
+- 빌드 GREEN (3301 modules / 2.34s)
+- vitest 50/50 PASS (47 + 신규 schema 호환 TC 3건)
+- 운영 영향: TEST-1111 ▶ 시작 시 일괄 모달 정상 발현 + "5대 일괄 시작 (TEST-1112~1116)" 옵션 노출
+
+## 회귀 위험
+
+**0** — 두 응답 형식 모두 호환. BE 가 향후 다른 형식 (예: paginated) 으로 변경해도 fallback 동작.
+
+## Rollback
+
+git revert 1 commit (회귀 0).
+
+## 사후 Codex 검토 권장 영역 (POST-REVIEW)
+
+- 응답 schema 일관성 검증 — Sprint 40 검증 누락 영역 표준화 (체크리스트 항목 추가 권장)
+- 향후 신규 endpoint 추가 시 "기존 동급 endpoint 응답 형식 대조" 필수 영역 추가
+
+---
+
 # 🚨 HOTFIX-CHECKLIST-EDIT-DIRTY-GUARD-20260511 (v1.43.4, FE only) — Task #20 결과 반영
 
 > **Sprint ID**: `HOTFIX-CHECKLIST-EDIT-DIRTY-GUARD-20260511`

@@ -57,6 +57,52 @@
 
 ---
 
+### ADR-V020: HOTFIX-TASKS-BY-ORDER-SCHEMA (v1.43.5) — Sprint 40 일괄 토스트 BE 응답 schema 호환 (2026-05-11)
+
+- **맥락**: Sprint 40 (v1.40.0) prod 배포 후 Twin파파 catch — 같은 O/N 다대 환경 (TEST-1111 + TEST-1112~1116) Tank Module ▶ 시작 클릭 시 일괄 모달이 발현되지 않음. Network 탭에서 `start-batch` 가 아닌 `start` 단일 호출만 관찰됨.
+- **원인 분석**:
+  - BE Sprint 64-BE `/api/app/tasks/by-order/{ON}` 응답 형식 = `{tasks: SNTaskDetail[], total: number}` 객체 wrap
+  - FE `getTasksByOrder` 는 `SNTaskDetail[]` 배열 직접 응답 가정 — `const { data } = await apiClient.get<SNTaskDetail[]>(url); return Array.isArray(data) ? data : [];`
+  - 결과: `Array.isArray({tasks, total})` = false → 빈 배열 반환 → `orderTasks = []` → `getOtherSNsTankStartable([]) = []` → 일괄 모달 분기 `otherSNsTankStartable.length === 0` 진입 → 단일 mutation 호출
+- **Endpoint 응답 형식 일관성 catch** (Sprint 40 Codex 검증 누락 영역):
+  | Endpoint | 응답 형식 | 패턴 |
+  | --- | --- | --- |
+  | `/api/app/tasks/{sn}?all=true` | `[task...]` 배열 직접 | ✅ 기존 list endpoint 정합 |
+  | `/api/app/tasks/by-order/{ON}` (Sprint 64-BE 신규) | `{tasks, total}` 객체 wrap | ❌ 일관성 위반 |
+  | `/api/app/work/start-batch` | `{succeeded, skipped, total}` 객체 | ✅ batch 응답 정합 |
+- **결정**: **옵션 B 채택 (VIEW + OPS 동시 fix, 배포 순서 무관)** (Sprint Twin파파 결정)
+  - 옵션 A: VIEW 호환 처리 + OPS BACKLOG 등록 (OPS 변경 0, VIEW 즉시)
+  - 옵션 B: **VIEW 호환 + OPS v2.13.1 응답 정합** (양쪽 즉시 정합, FE 호환성 보존) ✅
+  - 옵션 C: OPS만 fix + VIEW 변경 0 (OPS 단독)
+- **VIEW 정정 패턴**: 두 형식 호환
+  ```ts
+  const { data } = await apiClient.get<SNTaskDetail[] | { tasks: SNTaskDetail[]; total?: number }>(url);
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray((data as { tasks?: unknown }).tasks)) {
+    return (data as { tasks: SNTaskDetail[] }).tasks;
+  }
+  return [];
+  ```
+- **OPS 정정 (별 repo, v2.13.1)**: `task_service_batch.py.get_tasks_by_order()` → `return (tasks, 200)` (배열 직접)
+- **배포 순서 영역**: 무관. VIEW 호환 코드가 두 형식 모두 처리 → VIEW 먼저든 OPS 먼저든 정상 작동.
+- **회귀 차단**: 빈 객체 / null / `{ tasks: null }` 모두 빈 배열 fallback (TC 3 보증).
+- **검증**: 빌드 GREEN + vitest 50/50 PASS (47 + 신규 3 schema 호환 TC). 운영 영향: TEST-1111 ▶ 시작 시 일괄 모달 정상 발현.
+- **Codex 사후 검토 영역 누락 catch (POST-REVIEW)**:
+  - Sprint 40 Codex 1·2·3·4·5차 검증 (47건 누적) 모두 다른 task endpoint 응답 형식 일관성 영역 검증 누락
+  - AGENT_TEAM_LAUNCH.md 본문에 `{tasks, total}` 형식 명시되어 있었지만 기존 endpoint spec 과 대조 안 됨
+  - **권장**: 향후 신규 endpoint 추가 시 "기존 동급 endpoint 응답 spec 대조" 필수 영역 추가 (Codex 검증 체크리스트 표준화)
+- **cowork 추측 작성 실수 trail 추가 #23**:
+  - #23 (이번 영역): 응답 schema 일관성 검증 누락 — 기존 endpoint spec 대조 단계 부재
+  - 누적 23건 — ADR-024 candidate 강화
+- **Severity**: S2 (Sprint 40 핵심 기능 부분 장애). 사후 Codex 검토 deadline 2026-05-18.
+- **참조**:
+  - `app/src/api/snStatus.ts` `getTasksByOrder()` (호환 처리)
+  - `app/src/api/snStatus.test.ts` (신규, 3 TC)
+  - `DESIGN_FIX_SPRINT.md` § HOTFIX-TASKS-BY-ORDER-SCHEMA-20260511
+  - OPS `backend/app/services/task_service_batch.py` `get_tasks_by_order()` (별 repo v2.13.1)
+
+---
+
 ### ADR-V019: HOTFIX-CHECKLIST-EDIT-DIRTY-GUARD (v1.43.4) — Codex 사후 검토 M-01 + M-02 fix (2026-05-11)
 
 - **맥락**: HOTFIX-SPRINT42 (v1.43.1) S2 사후 Codex 검토 (Task #20, deadline 2026-05-16) 1라운드 결과 — 잔존 이슈 M 2건 + Advisory 2건. CLAUDE.md L237 S2 사후 검토 의무 정합.

@@ -1,7 +1,41 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-11 (v1.43.4 HOTFIX-EDIT-GUARD — Codex 사후 검토 M-01/M-02 fix + Task #20 종료)
+> 마지막 업데이트: 2026-05-11 (v1.43.5 HOTFIX-SCHEMA — Sprint 40 일괄 토스트 BE 응답 schema 호환 fix, 옵션 B 채택)
+
+---
+
+## 🆕 2026-05-11 세션 추가 — v1.43.5 HOTFIX-TASKS-BY-ORDER-SCHEMA
+
+### 결과 요약
+
+- **트랙**: VIEW FE 호환 처리 + OPS v2.13.1 별 repo 응답 정합 (옵션 B 동시 fix)
+- **트리거**: Twin파파 catch — Sprint 40 (v1.40.0) 일괄 토스트가 안 나오는데 확인 가능? (운영 caught)
+- **Severity**: 🟠 S2 (Sprint 40 핵심 기능 부분 장애 — 일괄 모달 미발현, 단일 호출 fallback)
+- **원인**: BE Sprint 64-BE `/api/app/tasks/by-order/{ON}` 응답이 `{tasks, total}` 객체 wrap 인데 FE 는 `SNTaskDetail[]` 배열 직접 가정 → `Array.isArray=false` → 빈 배열 반환 → orderTasks=[] → otherSNs=0 → 일괄 모달 안 뜸
+- **VIEW 정정**: `app/src/api/snStatus.ts` `getTasksByOrder` 두 형식 호환 (배열 + `{tasks, total}` 객체) — 1 파일 / +6 LoC
+- **OPS 정정 (별 repo)**: `task_service_batch.py.get_tasks_by_order()` 응답 형식 정정 (`{tasks, total}` → 배열 직접) — Twin파파 별도 작업
+- **배포 순서**: 무관 (VIEW 호환 코드가 두 형식 모두 처리)
+- **테스트**: vitest 50/50 PASS (47 + 신규 schema 호환 TC 3건)
+- **빌드**: GREEN (3301 modules / 2.34s)
+
+### Codex 사후 검토 누락 catch (POST-REVIEW)
+
+Sprint 40 의 Codex 1·2·3·4·5차 검증 (47건 누적) 모두 — **다른 task endpoint 응답 형식 일관성 영역 검증 누락**. AGENT_TEAM_LAUNCH.md 본문에 `{tasks, total}` 형식 명시되어 있었지만, 기존 `/api/app/tasks/{sn}` (배열 직접) 와 spec 대조 안 됨.
+
+→ POST-REVIEW 권장 영역: 향후 신규 endpoint 추가 시 "기존 동급 endpoint 응답 spec 대조" 필수 영역 추가 (Codex 검증 체크리스트 표준화)
+
+### Twin파파 검증 권장 시나리오 (Netlify preview)
+
+- [ ] TEST-1111 S/N 상세 → Tank Module ▶ 시작 클릭 → 일괄 모달 발현 (TEST-1112~1116 후보 5대)
+- [ ] "일괄" 선택 → start-batch 호출 → "5대 시작 완료" 토스트 표시 (skipped 있으면 상세 라벨)
+- [ ] "단일" 선택 → 단일 호출 → "Tank Module 시작" 토스트
+
+### 다음 응용 포인트
+
+- OPS v2.13.1 작업 (별 repo) — `task_service_batch.py.get_tasks_by_order()` 응답 정정 + pytest TC 1건
+- ADR-024 (cowork 추측 작성 실수 trail) — 신규 항목 #23: 응답 schema 일관성 검증 누락 추가
+- Codex 사후 검토 체크리스트 표준화 (POST-REVIEW 권장)
 
 ---
 

@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-05-11 (v1.43.4 HOTFIX-EDIT-GUARD — POST-REVIEW Task #20 종료 + Codex Advisory A-01/A-02 신규 이관)
+> 마지막 업데이트: 2026-05-11 (v1.43.5 HOTFIX-SCHEMA — Sprint 40 일괄 토스트 BE 응답 schema 호환 + OPS v2.13.1 별 repo 동기 fix 권장)
 > 관련: AXIS_VIEW_ROADMAP.md, OPS_API_REQUESTS.md, DESIGN_FIX_SPRINT.md
 
 ---
@@ -97,6 +97,39 @@ Sprint 42 v1.43.0 prod 배포 (5-09) 후 Twin파파 UI 검증 영역 catch:
 
 ### 설계 상세
 `AXIS-VIEW/DESIGN_FIX_SPRINT.md` § HOTFIX-CHECKLIST-EDIT-DIRTY-GUARD-20260511
+
+---
+
+## 🟠 OPS-V2.13.1-TASKS-BY-ORDER-RESPONSE-FORMAT — by-order endpoint 응답 형식 정합 (별 repo 작업, 2026-05-11 등록)
+
+### 배경
+- VIEW v1.43.5 HOTFIX-TASKS-BY-ORDER-SCHEMA 와 옵션 B 동기 fix 권장 영역
+- OPS Sprint 64-BE `task_service_batch.py.get_tasks_by_order()` 응답 = `{tasks, total}` 객체 wrap
+- 다른 동급 endpoint (`/api/app/tasks/{sn}`) = `[task...]` 배열 직접 응답
+- 일관성 위반 — VIEW 호환 코드로 즉시 동작은 보장되나, 신규 FE 작업 시 spec 추론 혼란 가능
+
+### 변경 영역 (OPS 별 repo)
+
+| 파일 | 변경 |
+|---|---|
+| `backend/app/services/task_service_batch.py` `get_tasks_by_order()` | `return ({'tasks': tasks, 'total': N}, 200)` → `return (tasks, 200)` (배열 직접) |
+| `backend/app/routes/work_batch.py` `tasks_by_order_route()` | `jsonify(response)` 변경 0 (배열 그대로 jsonify) |
+| `tests/backend/test_work_batch.py` | TestTasksByOrder 응답 배열 형식 검증 TC 추가 또는 기존 정정 |
+
+### 추정 시간
+- 5분 (3 line 변경 + pytest TC 1건)
+
+### 배포 순서
+- 무관 — VIEW 측 호환 코드가 두 형식 모두 처리 (배열 + 객체)
+- OPS 배포 후 VIEW 측은 `Array.isArray` 분기로 자동 정상 작동
+
+### 우선순위
+- 🟠 MEDIUM — VIEW 운영 영향은 v1.43.5 호환 코드로 즉시 해소됨. OPS 측은 endpoint 일관성 측면
+
+### 참조
+- VIEW: `DESIGN_FIX_SPRINT.md` § HOTFIX-TASKS-BY-ORDER-SCHEMA-20260511
+- VIEW: `app/src/api/snStatus.ts` `getTasksByOrder()` (호환 처리)
+- ADR-V020 (HOTFIX-TASKS-BY-ORDER-SCHEMA 영역 trail)
 
 ---
 

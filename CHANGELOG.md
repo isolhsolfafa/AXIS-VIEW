@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.43.4 (2026-05-11)
+> 최신 버전: v1.43.5 (2026-05-11)
 
 ---
 
@@ -70,6 +70,38 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.43.5 — 2026-05-11
+
+**HOTFIX-SCHEMA — Sprint 40 일괄 토스트 BE 응답 schema 호환 (Twin파파 catch)**
+
+🛠️ Sprint 40 일괄 모달 미발현 정정
+ - 같은 O/N 다대 환경 (TEST-1111 + TEST-1112~1116) 에서 Tank Module ▶ 시작 시 일괄 모달이 안 떴음
+ - 단일 mutation 만 호출되어 단일 토스트만 노출
+
+🔍 근본 원인
+ - BE Sprint 64-BE `/api/app/tasks/by-order/{ON}` 응답이 `{tasks, total}` 객체 wrap
+ - FE 는 `SNTaskDetail[]` 배열 직접 응답 가정 → `Array.isArray(data)` false → 빈 배열 반환
+ - 결과: `orderTasks=[]` → `getOtherSNsTankStartable=0` → 일괄 모달 안 뜸
+
+📐 옵션 B 채택 (VIEW + OPS 동시 fix, 배포 순서 무관)
+ - VIEW: `getTasksByOrder` 두 형식 호환 처리 (배열 직접 + `{tasks, total}` 객체 모두)
+ - OPS v2.13.1: `task_service_batch.py.get_tasks_by_order()` 응답 형식 정정 (배열 직접) — 별 repo 작업
+ - VIEW 호환 코드 덕분에 배포 순서 의존성 0
+
+🛠️ FE 단독 정정 (BE 변경 0, ~6 LoC)
+ - `app/src/api/snStatus.ts` `getTasksByOrder` 함수
+ - 신규 test: `app/src/api/snStatus.test.ts` (73 LoC, 호환 TC 3건)
+
+📋 Codex 사후 검토 누락 영역 (POST-REVIEW catch)
+ - Sprint 40 Codex 1·2·3·4·5차 검증 모두 — 다른 task endpoint 응답 형식 일관성 영역 검증 누락
+ - 향후 신규 endpoint 추가 시 "기존 동급 endpoint 응답 spec 대조" 필수 영역 권장
+
+✅ 검증
+ - 빌드 GREEN, vitest 50/50 PASS (47 + 신규 3)
+ - 회귀 0 (두 응답 형식 모두 호환)
 
 ---
 

@@ -86,6 +86,12 @@ export async function getTasksByOrder(
   }
   const qs = params.toString();
   const url = `/api/app/tasks/by-order/${encodeURIComponent(salesOrder)}${qs ? `?${qs}` : ''}`;
-  const { data } = await apiClient.get<SNTaskDetail[]>(url);
-  return Array.isArray(data) ? data : [];
+  // v1.43.5: BE Sprint 64-BE 가 { tasks, total } 객체 wrap 으로 응답 (다른 task endpoint 는 배열 직접).
+  // 두 형식 모두 호환 — OPS v2.13.1 가 배열 형식으로 정정해도 회귀 0.
+  const { data } = await apiClient.get<SNTaskDetail[] | { tasks: SNTaskDetail[]; total?: number }>(url);
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray((data as { tasks?: unknown }).tasks)) {
+    return (data as { tasks: SNTaskDetail[] }).tasks;
+  }
+  return [];
 }
