@@ -18819,6 +18819,84 @@ ADR-023 신규 표준 (Phase 4 보강 권장):
 
 ---
 
+# 🚨 HOTFIX-TASK-WORKERS-DEFENSIVE-20260511 (v1.43.6, FE only — S1 긴급) — v1.43.5 후속 상세뷰 흰화면 fix
+
+> **Sprint ID**: `HOTFIX-TASK-WORKERS-DEFENSIVE-20260511`
+> **유형**: v1.43.5 회귀 fix (긴급)
+> **Severity**: 🚨 **S1** (전체 상세뷰 사용 불가 — React crash)
+> **사후 Codex 검토**: 24h 이내 (deadline 2026-05-12)
+> **작성일**: 2026-05-11 KST
+> **트리거**: Twin파파 catch — v1.43.5 배포 직후 S/N 상세뷰 진입 시 흰화면 (페이지 crash)
+> **연관 OPS 작업**: OPS v2.13.1 by-order 응답에 `workers` 필드 포함 (별 repo)
+
+## 원인
+
+v1.43.5 의 응답 schema 호환 처리로 `orderTasks` 가 정상 추출되기 시작 → `utils.getTaskCompany` 가 `task.workers.find()` 호출 → BE `/api/app/tasks/by-order/{ON}` 응답에 `workers` 필드 자체가 없음 → `TypeError: Cannot read properties of undefined` → React crash → 흰화면.
+
+v1.43.5 이전: `orderTasks = []` 라서 utils 함수가 호출 안 됐고, 흰화면 안 났음. v1.43.5 로 호환 처리 들어가자 6개 task 가 정상 추출되면서 그제서야 `workers` 누락이 노출됨.
+
+## 변경 영역 (3 파일 + test, ~16 LoC)
+
+### 1. `app/src/api/snStatus.ts` — 응답 정규화
+
+```ts
+return raw.map(t => ({
+  ...t,
+  workers: Array.isArray(t.workers) ? t.workers : [],
+}));
+```
+
+### 2. `app/src/components/sn-status/utils.ts` — 이중 안전망
+
+```ts
+export function getTaskCompany(task, orderProducts) {
+  const workers = Array.isArray(task.workers) ? task.workers : [];
+  const started = workers.find(w => w.started_at && w.company);
+  ...
+}
+```
+
+`getOtherSNsTankStartable / Completable` 도 동일 가드.
+
+### 3. `app/src/components/sn-status/SNDetailPanel.tsx` — `partnerNullCount` 가드
+
+```ts
+const workers = Array.isArray(t.workers) ? t.workers : [];
+if (workers.some(w => w.started_at)) return false;
+```
+
+### 4. `app/src/api/snStatus.test.ts` — workers 누락 응답 정규화 TC 1건
+
+## Severity S1 — 정상 파이프라인 skip (CLAUDE.md L237 정합)
+
+- Opus 단독 자가 리뷰 → 즉시 패치
+- 24h 이내 사후 Codex 검토 의무 (deadline 2026-05-12)
+
+## OPS v2.13.1 동반 작업 (별 repo)
+
+- by-order 응답에 `workers` 필드 포함 (5~10분 작업)
+- 다른 task endpoint (`/api/app/tasks/{sn}`) 와 동일한 `_task_to_dict` 헬퍼 재사용
+
+## 회귀 위험
+
+**0** — 두 응답 형식 (workers 포함 / 누락) 모두 호환. BE 가 향후 workers 포함해도 그대로 동작.
+
+## 관련 정책 결정 (ADR-V021)
+
+Twin파파 후속 결정 — admin 일괄 시작/종료의 BE 데이터 정합성 영역 (task_workers 자동 생성 + admin worker_id 기록 + progress 일관성) 은 **추가 정정 안 함**. 작업 시작/종료의 정규 trigger = AXIS-OPS app QR 태깅 유지. 정책 단순화.
+
+## 검증
+
+- 빌드 GREEN (3301 modules / 2.24s)
+- vitest 51/51 PASS (50 + 신규 1)
+- 운영 영향: S/N 상세뷰 정상 렌더 + 일괄 토스트 정상 발현
+
+## Rollback
+
+git revert 1 commit (회귀 0).
+
+---
+
 # 🚨 HOTFIX-TASKS-BY-ORDER-SCHEMA-20260511 (v1.43.5, FE only) — Sprint 40 일괄 토스트 BE 응답 schema 호환
 
 > **Sprint ID**: `HOTFIX-TASKS-BY-ORDER-SCHEMA-20260511`

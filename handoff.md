@@ -1,7 +1,57 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-11 (v1.43.5 HOTFIX-SCHEMA — Sprint 40 일괄 토스트 BE 응답 schema 호환 fix, 옵션 B 채택)
+> 마지막 업데이트: 2026-05-11 (v1.43.6 🚨 S1 HOTFIX — 상세뷰 흰화면 긴급 fix + ADR-V021 admin 일괄 처리 정책 결정)
+
+---
+
+## 🚨 2026-05-11 세션 추가 — v1.43.6 S1 HOTFIX-TASK-WORKERS-DEFENSIVE
+
+### 결과 요약
+
+- **트랙**: VIEW FE 긴급 fix (v1.43.5 후속 회귀 처리)
+- **트리거**: Twin파파 catch — v1.43.5 배포 직후 S/N 상세뷰 진입 시 흰화면 (페이지 crash)
+- **Severity**: 🚨 **S1** (전체 상세뷰 사용 불가, CLAUDE.md L237 정상 파이프라인 skip)
+- **원인**: v1.43.5 호환 처리로 orderTasks 정상 추출 → utils.getTaskCompany 가 `task.workers.find()` 호출 → BE by-order 응답에 workers 필드 누락 → TypeError → React crash → 흰화면
+- **FE 단독 fix** (BE 변경 0, ~16 LoC + test): `getTasksByOrder` 응답 정규화 (workers ?? [] 채움) + utils 이중 안전망 + SNDetailPanel.partnerNullCount 가드
+- **테스트**: vitest 51/51 PASS (50 + 신규 workers 누락 응답 정규화 TC 1건)
+- **빌드**: GREEN (3301 modules / 2.24s)
+- **commit + tag**: `e9e43c5` / `v1.43.6`
+- **사후 Codex 검토**: 24h 이내 의무 (deadline 2026-05-12)
+- **운영 검증**: Twin파파 "정상적으로 기능은 사용 가능한 상태" 확인 ✅
+
+### 후속 정책 결정 (ADR-V021)
+
+Twin파파 추가 catch — "일괄 시작 후 작업현황에 즉시 반영돼야 정상 아니냐" 영역 진단 + 결정:
+
+- **현재 동작**: admin ▶ 일괄 시작 → BE `/api/app/work/start-batch` 호출은 정상이지만, getSNProgress 응답에 즉시 반영 안 됨
+- **가능 원인 (skip)**: BE batch endpoint 가 task_workers row 안 만들 가능성 / progress API 추가 조건 / 캐시 race
+- **결정**: **추가 정정 안 함 — 정책 단순화** (BE 데이터 정합성 복잡도 회피)
+- **정규 trigger**: AXIS-OPS app QR 태깅 유지 — admin 일괄 시작은 사실상 "사전 승인" 수준
+
+### OPS v2.13.1 작업 영역 (3 → 2 로 축소)
+
+| # | 영역 | 결정 |
+|---|---|---|
+| 1 | by-order 응답 `{tasks, total}` → 배열 직접 | ✅ 진행 (별 repo) |
+| 2 | by-order 응답에 `workers` 필드 포함 | ✅ 진행 (일괄 종료 일괄 옵션 정확도) |
+| ~~3~~ | ~~start-batch / complete-batch task_workers 정합~~ | ❌ skip (정책 단순화) |
+
+### Twin파파 확인 후 다음 응용 포인트
+
+- 🚨 24h 이내 Codex 사후 검토 (v1.43.6 S1 deadline 2026-05-12)
+- OPS v2.13.1 별 repo 작업 (workers 필드 포함, 5~10분)
+- ADR-024 candidate (cowork 추측 작성 실수 trail) — 응답 schema 일관성 검증 누락 + workers 같은 필수 필드 누락 패턴
+
+### 누적 v1.43.x 시리즈 (이번 세션, 5건)
+
+| 버전 | 유형 | commit |
+|---|---|---|
+| v1.43.2 | PATCH 협력사 체크리스트 성적서 MECH 정렬 | `1ea611c` |
+| v1.43.3 | HOTFIX 체크리스트 추가 CONFLICT 토스트 | `0e216a3` |
+| v1.43.4 | HOTFIX Codex 사후 검토 M-01 + M-02 | `c8ba707` |
+| v1.43.5 | HOTFIX Sprint 40 일괄 토스트 응답 schema | `59233c5` |
+| v1.43.6 | 🚨 S1 HOTFIX 상세뷰 흰화면 긴급 fix | `e9e43c5` |
 
 ---
 

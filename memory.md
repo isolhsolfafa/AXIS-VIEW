@@ -57,6 +57,34 @@
 
 ---
 
+### ADR-V021: admin 일괄 시작/종료 정책 — QR 태깅 trigger 유지 (2026-05-11)
+
+- **맥락**: v1.43.6 흰화면 fix 직후 Twin파파 catch — "일괄 시작 후 작업현황에 즉시 반영돼야 정상 아니냐". Sprint 40 (v1.40.0) admin 일괄 시작 동작 영역.
+- **현재 동작**: admin ▶ 일괄 시작 클릭 → BE `/api/app/work/start-batch` 호출 → task `started_at` set 까지는 정상으로 추정. 다만 `getSNProgress()` (작업현황) 응답에 즉시 반영 안 됨.
+- **가능 원인** (확정 안 됨, 진단 skip):
+  - A. BE batch endpoint 가 task_workers row 안 만듦 (task only update)
+  - B. progress API 가 `location_qr_verified` 같은 추가 조건 요구
+  - C. FE 캐시 갱신 race (가능성 낮음)
+- **결정 (Twin파파)**: **추가 정정 안 함 — 정책 단순화** (2026-05-11)
+  - 작업 시작/종료의 정규 trigger = **AXIS-OPS app QR 태깅** 유지
+  - admin 일괄 시작 = 사실상 "사전 승인" 수준 (실제 작업 진행 반영은 작업자 QR 태깅 시점)
+  - BE 측 task_workers 정합성 (admin worker_id 기록 + progress 일관성) 영역 skip
+- **이유**: BE 데이터 정합성 복잡도 회피. admin 권한 일괄 처리 vs QR 태깅 기반 정규 흐름의 데이터 일관성 영역이 디자인 디버그 비용 큼.
+- **영향**:
+  - **▶ 일괄 시작 UX**: 클릭 후 작업현황 즉시 반영 X — 정상 흐름. 작업자 QR 태깅 후 반영
+  - **■ 일괄 종료**: OPS v2.13.1 #2 (workers 포함) 후 진행중 task 정확히 카운트 → 일괄 종료 모달 정상 발현
+  - **v1.43.6 흰화면 fix**: 영향 0 (계속 유효)
+- **OPS v2.13.1 작업 영역 (축소)**:
+  - #1 by-order 응답 `{tasks, total}` → 배열 직접 ✅ 진행
+  - #2 by-order 응답에 `workers` 필드 포함 ✅ 진행
+  - ~~#3 start-batch / complete-batch task_workers 정합~~ ❌ skip
+- **향후 재검토 cue**: admin 일괄 처리 사용 빈도 ↑ 또는 운영 catch 영역 누적 시 재검토.
+- **참조**:
+  - ADR-V014 (Sprint 40 admin batch 결정 #5 — manager 본인 worker_id 기록)
+  - BACKLOG.md `OPS-V2.13.1-TASKS-BY-ORDER-RESPONSE-FORMAT` (작업 영역 축소 trail)
+
+---
+
 ### ADR-V020: HOTFIX-TASKS-BY-ORDER-SCHEMA (v1.43.5) — Sprint 40 일괄 토스트 BE 응답 schema 호환 (2026-05-11)
 
 - **맥락**: Sprint 40 (v1.40.0) prod 배포 후 Twin파파 catch — 같은 O/N 다대 환경 (TEST-1111 + TEST-1112~1116) Tank Module ▶ 시작 클릭 시 일괄 모달이 발현되지 않음. Network 탭에서 `start-batch` 가 아닌 `start` 단일 호출만 관찰됨.

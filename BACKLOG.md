@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-05-11 (v1.43.5 HOTFIX-SCHEMA — Sprint 40 일괄 토스트 BE 응답 schema 호환 + OPS v2.13.1 별 repo 동기 fix 권장)
+> 마지막 업데이트: 2026-05-11 (v1.43.6 🚨 S1 흰화면 fix + ADR-V021 admin 일괄 처리 정책 결정 — OPS v2.13.1 작업 영역 3→2 축소)
 > 관련: AXIS_VIEW_ROADMAP.md, OPS_API_REQUESTS.md, DESIGN_FIX_SPRINT.md
 
 ---
@@ -100,36 +100,56 @@ Sprint 42 v1.43.0 prod 배포 (5-09) 후 Twin파파 UI 검증 영역 catch:
 
 ---
 
-## 🟠 OPS-V2.13.1-TASKS-BY-ORDER-RESPONSE-FORMAT — by-order endpoint 응답 형식 정합 (별 repo 작업, 2026-05-11 등록)
+## 🟠 OPS-V2.13.1-TASKS-BY-ORDER-RESPONSE-FORMAT — by-order endpoint 응답 형식 정합 + workers 필드 포함 (별 repo 작업, 2026-05-11 등록, v1.43.6 후속 갱신)
 
 ### 배경
-- VIEW v1.43.5 HOTFIX-TASKS-BY-ORDER-SCHEMA 와 옵션 B 동기 fix 권장 영역
-- OPS Sprint 64-BE `task_service_batch.py.get_tasks_by_order()` 응답 = `{tasks, total}` 객체 wrap
-- 다른 동급 endpoint (`/api/app/tasks/{sn}`) = `[task...]` 배열 직접 응답
-- 일관성 위반 — VIEW 호환 코드로 즉시 동작은 보장되나, 신규 FE 작업 시 spec 추론 혼란 가능
+- VIEW v1.43.5/v1.43.6 와 옵션 B 동기 fix 권장 영역 — 누적 2 영역 (응답 형식 + workers 필드)
+- OPS Sprint 64-BE `task_service_batch.py.get_tasks_by_order()` 응답이 다른 동급 endpoint 와 불일치
+- v1.43.6 흰화면 trigger 도 이 영역에서 발생 (workers 누락)
 
-### 변경 영역 (OPS 별 repo)
+### 변경 영역 (OPS 별 repo, 2 영역으로 축소)
+
+#### #1 응답 형식 정합 (`{tasks, total}` → 배열 직접)
 
 | 파일 | 변경 |
 |---|---|
 | `backend/app/services/task_service_batch.py` `get_tasks_by_order()` | `return ({'tasks': tasks, 'total': N}, 200)` → `return (tasks, 200)` (배열 직접) |
-| `backend/app/routes/work_batch.py` `tasks_by_order_route()` | `jsonify(response)` 변경 0 (배열 그대로 jsonify) |
-| `tests/backend/test_work_batch.py` | TestTasksByOrder 응답 배열 형식 검증 TC 추가 또는 기존 정정 |
+| `backend/app/routes/work_batch.py` `tasks_by_order_route()` | `jsonify(response)` 변경 0 |
+| `tests/backend/test_work_batch.py` | TestTasksByOrder 응답 배열 형식 검증 TC |
+
+#### #2 `workers` 필드 포함 (v1.43.6 흰화면 trigger 영역)
+
+| 파일 | 변경 |
+|---|---|
+| `backend/app/services/task_service_batch.py` `get_tasks_by_order()` 영역 _task_to_dict | task_workers join + workers 필드 직렬화 (다른 task endpoint `_task_to_dict` 헬퍼 재사용 가능) |
+| `tests/backend/test_work_batch.py` | workers 필드 포함 검증 TC |
+
+### ❌ skip 영역 (ADR-V021 정책 결정, 2026-05-11)
+
+| 영역 | skip 이유 |
+|---|---|
+| #3 ~~start-batch / complete-batch task_workers 정합 (admin worker_id 기록)~~ | Twin파파 정책 결정 — admin 일괄 처리의 BE 데이터 정합성 (task_workers 자동 생성 + progress 일관성) 영역 복잡도 회피. 작업 시작/종료의 정규 trigger = AXIS-OPS app QR 태깅 유지. admin 일괄 처리 = 사실상 "사전 승인" 수준 |
 
 ### 추정 시간
-- 5분 (3 line 변경 + pytest TC 1건)
+- #1: 5분 (3 line + pytest TC 1건)
+- #2: 5~10분 (기존 `_task_to_dict` 헬퍼 재사용)
+- 합계: 10~15분
 
 ### 배포 순서
-- 무관 — VIEW 측 호환 코드가 두 형식 모두 처리 (배열 + 객체)
-- OPS 배포 후 VIEW 측은 `Array.isArray` 분기로 자동 정상 작동
+- 무관 — VIEW 측 호환/정규화 코드 (v1.43.5 + v1.43.6) 가 모든 형식 처리
+- OPS 배포 후 VIEW 측은 정상 분기 + workers 정확 활용
 
 ### 우선순위
-- 🟠 MEDIUM — VIEW 운영 영향은 v1.43.5 호환 코드로 즉시 해소됨. OPS 측은 endpoint 일관성 측면
+- 🟠 MEDIUM
+  - #1: VIEW 운영 영향은 v1.43.5 호환 코드로 즉시 해소됨. endpoint 일관성 측면
+  - #2: ■ 일괄 종료 모달 정확도 영역 — workers 포함 시 진행중 task 정확히 카운트
 
 ### 참조
-- VIEW: `DESIGN_FIX_SPRINT.md` § HOTFIX-TASKS-BY-ORDER-SCHEMA-20260511
-- VIEW: `app/src/api/snStatus.ts` `getTasksByOrder()` (호환 처리)
-- ADR-V020 (HOTFIX-TASKS-BY-ORDER-SCHEMA 영역 trail)
+- VIEW: `DESIGN_FIX_SPRINT.md` § HOTFIX-TASKS-BY-ORDER-SCHEMA-20260511 (v1.43.5)
+- VIEW: `DESIGN_FIX_SPRINT.md` § HOTFIX-TASK-WORKERS-DEFENSIVE-20260511 (v1.43.6 S1)
+- VIEW: `app/src/api/snStatus.ts` `getTasksByOrder()` (호환 처리 + workers 정규화)
+- ADR-V020 (응답 schema 호환 영역 trail)
+- ADR-V021 (admin 일괄 처리 정책 결정 — #3 skip)
 
 ---
 
