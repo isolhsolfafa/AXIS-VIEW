@@ -3,7 +3,7 @@
 > OPS에 집중하느라 VIEW 컨텍스트 떠있을 때 10초 만에 복구용.
 > "지금 어디까지 와있고 / 뭐가 남았는지" 만 본다. 상세는 BACKLOG·handoff·CHANGELOG에서.
 >
-> 마지막 업데이트: 2026-05-09 (토) — **Sprint 42 (v1.43.0) FE 완료 반영 갱신** — 자재 마스터 + 체크리스트 자재 매핑 admin GUI (FEAT-AXIS-VIEW-MATERIALS-AND-CHECKLISTS-MGMT-20260507). OPS Sprint 66-BE Step 4 별 repo 분리. Claude 1~4차 + Codex 1·2차 누적 약 36건 합의. 지난 주 회고는 WEEKLY_PLAN_20260427.md 참고.
+> 마지막 업데이트: 2026-05-11 (월) — **HOTFIX-SPRINT42 (v1.43.1) FE 완료 반영 갱신** — ChecklistEditModal SELECT 자재 매핑 영역 통합 (Twin파파 5-08 UI catch). 방향 A 채택 (BE 변경 0). Severity S2, 사후 Codex 검토 deadline 2026-05-18. Codex 1·2·3차 + Claude 5·6차 누적 약 30건 합의. 지난 주 회고는 WEEKLY_PLAN_20260427.md 참고.
 
 ---
 

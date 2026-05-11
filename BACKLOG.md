@@ -16,6 +16,74 @@
 >
 > 본문은 이력 추적용으로 보존.
 
+## ✅ ARCHIVED — HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509 (v1.43.1 완료, 2026-05-11)
+
+> ⚠️ **본 BACKLOG entry = hotfix v1.43.1 FE 완료 (2026-05-11)**.
+>   - 방향 A 채택 (FE 단독, BE 변경 0)
+>   - Codex 1·2·3차 + Claude 5·6차 누적 약 30건 합의 (HOTFIX-SPRINT66BE 폐기 + cowork 실수 #11~#22 trail)
+>   - 신규 2 파일 + 수정 5 파일 / ~346 LOC / vitest 45/45 PASS / 빌드 GREEN
+>   - Severity S2 — POST-REVIEW-HOTFIX-SPRINT42 별 entry (deadline 2026-05-18) 진행 중
+>
+> 본문은 이력 추적용으로 보존.
+
+## (보존) 🚨 HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509 — Sprint 42 후속 hotfix (🔴 P1, 2026-05-09 등록, v1.43.1 minor release)
+
+### 배경
+Sprint 42 v1.43.0 prod 배포 (5-09) 후 Twin파파 UI 검증 영역 catch:
+> "여기에서 매핑된 자재리스트가 선택이 되어야되는데 랜더링되는게 없는데"
+
+스크린샷 영역 (5-08) = ChecklistEditModal 영역 (항목 수정 모달, GN2 그룹 SELECT 타입) 안에 자재 리스트 영역 표시 X.
+
+### 근본 원인
+- Sprint 42 cowork 실수 #14 영역 — `ChecklistEditModal/AddModal` 영역 grep 누락
+- Sprint 42 영역 = `ChecklistOptionMapModal` 별 모달만 작성
+- ChecklistManagePage 영역 [매핑] 버튼 → ChecklistOptionMapModal 호출 영역 ✅
+- ChecklistEditModal 영역 안에 매핑된 자재 리스트 영역 표시 영역 미설계 ⚠️
+
+### 변경 영역
+- `app/src/components/checklist/ChecklistEditModal.tsx` 확장 (~50 LoC)
+- `app/src/components/checklist/ChecklistAddModal.tsx` 확장 (~30 LoC)
+- 추정 시간: ~1h+ (~80 LoC + vitest TC 2건)
+
+### 우선순위
+- 🔴 P1 (사용자 catch 영역 + 운영 영역 영구 정정)
+- 선행 의존성: Sprint 42 v1.43.0 + Sprint 66-BE Step 3+4 prod 배포 완료 ✅
+- 권한: admin / GST (기존 영역 정합)
+
+### 설계 상세
+`AXIS-VIEW/DESIGN_FIX_SPRINT.md` § HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509
+
+---
+
+## 🟠 POST-REVIEW-HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509 — S2 사후 Codex 검토 (🟠 MEDIUM, deadline 2026-05-16)
+
+### 배경
+- 본 entry = hotfix `HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509` 의 **S2 사후 검토 영역** (CLAUDE.md L237 정합)
+- 본 hotfix = Opus 단독 리뷰 → 배포 (긴급 hotfix 예외 조항 S2)
+- 7일 이내 Codex 검토 의무 (deadline 2026-05-16)
+
+### 검증 영역
+- Codex 라운드 사후 검증 — hotfix design 영역 8 (ADR-024 candidate) 정합 + 영역 2 방향 A 단일 양식 정합
+- 운영 검증 시나리오 5건 (DESIGN_FIX_SPRINT.md 영역 7 참조):
+  - SELECT 항목 [수정] 클릭 → 자재코드 input + spec 자동 표시
+  - 미등록 자재코드 입력 → 빨간색 marker
+  - [🔍 자재 검색 도움] 버튼 → ChecklistOptionMapModal 호출
+  - [저장] 클릭 → matched.map → number[] PATCH (옵션 C 강제)
+  - ChecklistAddModal SELECT 시 안내 메시지 표시
+- 회귀 영역 검증 3건:
+  - 기존 ChecklistEditModal CHECK/INPUT 타입 영향 0
+  - ChecklistManagePage [매핑] 버튼 영역 영향 0
+  - vitest 기존 TC GREEN 유지
+
+### 우선순위
+- 🟠 MEDIUM (S2 사후 검토 의무, deadline 2026-05-16)
+- 미완 시 다음 Sprint 시작 전 중 이른 시점 진행 의무 (CLAUDE.md L237)
+
+### 설계 상세
+`AXIS-VIEW/DESIGN_FIX_SPRINT.md` § HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509 영역 7
+
+---
+
 ## (보존) 🛠 Sprint 42 — FEAT-AXIS-VIEW-MATERIALS-AND-CHECKLISTS-MGMT-20260507 — 자재 등록 + 체크리스트 관리 페이지 (🔴 P1, 2026-05-07 등록)
 
 > **Sprint Number**: `Sprint 42` (Sprint 41 후속, 5-08 cowork 측 catch 영역 정정 — Sprint 40/41 이미 prod 적용 완료)

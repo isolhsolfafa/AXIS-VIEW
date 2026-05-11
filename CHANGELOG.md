@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.43.0 (2026-05-09)
+> 최신 버전: v1.43.1 (2026-05-11)
 
 ---
 
@@ -70,6 +70,56 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.43.1 — 2026-05-11
+
+**HOTFIX-SPRINT42 — ChecklistEditModal 자재 매핑 영역 통합 (방향 A)**
+
+🔧 Twin파파 5-08 UI catch 정정
+ - SELECT 항목 [수정] 모달에서 자재 매핑 영역이 표시 안 되던 회귀 정정
+ - 항목명 / 기준/검사방법 / 1차 입력 적용 / 개정이력 외에 자재코드 input + spec 자동 표시 영역 추가
+
+🎯 방향 A 단순 양식 (BE 변경 0)
+ - 선택지 (자재코드, 쉼표 구분) input — admin 직접 입력
+   예: 1110006700, 1120094300, 1110298800
+ - debounce 500ms + client-side filter (전체 자재 useQuery 5분 캐시)
+ - 자재 정보 자동 표시: ✓ MFC | MRC | 25 SLM | P:0.2~1 / W:0.4
+ - 미등록 자재코드 → 빨간색 ✗ marker (오타 catch)
+ - 비활성 자재 → [비활성] marker
+ - [🔍 자재 검색 도움] 버튼 — 자재코드 모를 때 ChecklistOptionMapModal 보조 호출
+
+🔐 옵션 C 강제 (저장 보호)
+ - 최소 1자재 매핑 필수 (toast 안내)
+ - 미등록 자재 있을 시 저장 차단 (자재 마스터 등록 후 재시도 안내)
+
+📦 신규 SELECT 항목 추가 (ChecklistAddModal)
+ - 안내 메시지만 표시 — "항목 추가 후 [수정] 모달의 자재코드 input 영역에서 매핑 진행"
+ - 신규 생성 시 select_options 미전송 (legacy string[] 재생성 차단)
+
+🛠️ 회귀 차단 영역
+ - hydrated flag — 사용자 입력 덮어쓰기 차단 (1회 hydrate 패턴)
+ - Promise.all + mutateAsync — handleEdit 일반 필드 + select_options 동시 처리 race 차단
+ - master cache invalidate — 매핑 저장 후 ChecklistManagePage 목록 자동 갱신
+
+🧪 vitest 신규 TC 3건 (총 45 GREEN — 기존 42 + 신규 3)
+ - matched 자재 표시 + [비활성] marker
+ - 미등록 자재코드 ✗ marker
+ - [🔍 자재 검색 도움] 버튼 → ChecklistOptionMapModal 호출
+
+🔬 Codex 1·2·3차 + Claude 5·6차 누적 약 30건 합의
+ - 방향 A 채택 (BE 변경 0, FE 단독)
+ - HOTFIX-SPRINT66BE 폐기
+ - cowork 추측 작성 실수 #11~#22 누적 (ADR-024 candidate)
+
+⚠️ Severity S2 (admin SELECT 매핑 영역 사용 불가 — 부분 장애)
+ - 사후 Codex 검토 deadline: 2026-05-18 (CLAUDE.md L237 정합)
+ - BACKLOG POST-REVIEW-HOTFIX-SPRINT42 entry 등록
+
+📊 LOC 실측: 신규 132 + 수정 214 = ~346 LOC (~186 추정 +86%)
+ - 신규 2: useDebounce.ts 20 / ChecklistEditModal.test.tsx 112
+ - 수정 5: ChecklistEditModal +180/-14 / ChecklistAddModal +18/-13 / ChecklistOptionMapModal +3/-1 / ChecklistManagePage +10/-8 / types/checklist +2/-1
 
 ---
 

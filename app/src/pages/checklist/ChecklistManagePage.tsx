@@ -80,14 +80,16 @@ export default function ChecklistManagePage() {
     setShowAddModal(false);
   };
 
-  const handleEdit = (id: number, data: UpdateMasterPayload) => {
-    updateMaster.mutate({ id, data }, {
-      onSuccess: () => {
-        toast.success('항목이 수정되었습니다');
-        setEditingItem(null);
-      },
-      onError: () => toast.error('수정에 실패했습니다'),
-    });
+  // Sprint 42 hotfix (v1.43.1) — async + mutateAsync 반환 (Promise 체인 보장, race 차단)
+  // setEditingItem(null) 은 ChecklistEditModal 의 onClose 가 handleSubmit Promise.all 후 호출
+  const handleEdit = async (id: number, data: UpdateMasterPayload) => {
+    try {
+      await updateMaster.mutateAsync({ id, data });
+      toast.success('항목이 수정되었습니다');
+    } catch {
+      toast.error('수정에 실패했습니다');
+      throw new Error('수정 실패');  // ChecklistEditModal handleSubmit catch 영역으로 전파
+    }
   };
 
   const handleToggleActive = (id: number, currentlyActive: boolean) => {

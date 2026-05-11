@@ -1,7 +1,58 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-09 (Sprint 42 v1.43.0 FE 완료 — 자재 마스터 + 체크리스트 자재 매핑 admin GUI)
+> 마지막 업데이트: 2026-05-11 (HOTFIX-SPRINT42 v1.43.1 FE 완료 — ChecklistEditModal SELECT 자재 매핑 영역 통합)
+
+---
+
+## 🆕 2026-05-11 세션 요약 — HOTFIX-SPRINT42 (v1.43.1) FE 완료
+
+### 결과 요약
+
+- **트랙**: VIEW FE 단독 hotfix (BE 변경 0, 방향 A 채택)
+- **트리거**: Twin파파 5-08 UI catch — ChecklistEditModal SELECT 항목 자재 매핑 영역 누락
+- **Severity**: 🟠 S2 (부분 장애 — admin SELECT 매핑 영역 사용 불가)
+- **사후 Codex 검토 deadline**: 2026-05-18 (CLAUDE.md L237 정합)
+- **POST-REVIEW BACKLOG**: `POST-REVIEW-HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509` 등록 ✅
+- **Codex 검증**: 1·2·3차 + Claude 5·6차 누적 약 30건 합의 (HOTFIX-SPRINT66BE 폐기 + 방향 A)
+- **LOC 실측**: 신규 132 + 수정 214 = ~346 LOC, 7 파일
+- **빌드**: GREEN
+- **테스트**: vitest 45/45 PASS (기존 42 + 신규 3)
+
+### 핵심 설계 (방향 A — FE 단독)
+
+```
+자재코드 input → debounce 500ms → client-side filter (useMemo, allMaterials 5분 캐시)
+              → matched.map(m => m.id) = number[]
+              → PATCH /api/admin/checklists/master/<id>/options { material_ids: [int 배열] }
+              → DB: select_options = number[] (Sprint 42 Step 4 schema 정합)
+
+옵션 C 강제: 최소 1자재 + 미등록 자재 차단 (toast 안내)
+hydrated flag: 사용자 입력 덮어쓰기 차단 (1회 hydrate 패턴)
+Promise.all: 일반 필드 + select_options 동시 처리 race 차단
+```
+
+### 회귀 차단 trail
+
+- **hydrated flag** — useEffect 가 사용자 입력 덮어쓰기 위험 차단 (vitest TC race 발견 후 정정)
+- **Promise.all + mutateAsync** — handleEdit 일반 필드 + select_options 동시 처리, mutation onSuccess onClose 제거
+- **master cache invalidate** — `['checklist', 'master']` key 정정 (Sprint 42 결함 동시 fix)
+
+### Twin파파 검증 시나리오 (Netlify preview)
+
+- [ ] admin /checklist 페이지 → MECH 카테고리 LNG 그룹 → SELECT 항목 [수정]
+- [ ] 자재코드 input 영역 표시 (이전 누락 영역) + debounce 자동 spec 표시
+- [ ] 미등록 자재코드 입력 → ✗ 빨간색 marker
+- [ ] [🔍 자재 검색 도움] 버튼 → ChecklistOptionMapModal 호출
+- [ ] 매핑 저장 → ChecklistManagePage 자동 갱신 (master cache invalidate)
+- [ ] 신규 SELECT 항목 추가 → 안내 메시지 + select_options 미전송 확인
+- [ ] 비활성 자재 → [비활성] marker
+
+### 다음 응용 포인트
+
+- 사후 Codex 검토 (deadline 2026-05-18) — POST-REVIEW BACKLOG entry 영역
+- ADR-024 분리 (cowork 추측 작성 실수 #11~#22 누적 22건 trail 표준화 — 매우 강한 권장)
+- 운영 후속: legacy string[] master 의 admin 재매핑 진행 (방향 A 통일)
 
 ---
 

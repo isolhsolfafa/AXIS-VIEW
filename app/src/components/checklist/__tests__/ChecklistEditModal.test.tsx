@@ -1,0 +1,112 @@
+// app/src/components/checklist/__tests__/ChecklistEditModal.test.tsx
+// Sprint 42 hotfix v1.43.1 — 방향 A 자재코드 input + spec 표시 + 자재 검색 도움 버튼 TC
+
+import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import * as materialsApi from '@/api/materials';
+import type { ChecklistMasterItem } from '@/types/checklist';
+import type { Material, MaterialListResponse } from '@/api/materials';
+import ChecklistEditModal from '@/components/checklist/ChecklistEditModal';
+
+// Codex [신규-1]: QueryClientProvider wrapper 헬퍼 (useQuery 사용 영역 필수)
+const renderWithQueryClient = (ui: React.ReactElement) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+      mutations: { retry: false },
+    },
+  });
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+};
+
+// M GAP-F: ChecklistMasterItem 필수 필드 헬퍼 (strict: true 빌드 통과)
+const mockItem = (overrides: Partial<ChecklistMasterItem> = {}): ChecklistMasterItem => ({
+  id: 42,
+  product_code: 'COMMON',
+  category: 'MECH',
+  item_group: 'GN2',
+  item_name: 'MFC Maker',
+  item_type: 'SELECT',
+  item_order: 1,
+  description: null,
+  is_active: true,
+  phase1_applicable: false,
+  qi_check_required: false,
+  select_options: [12, 14, 18],
+  remarks: null,
+  ...overrides,
+});
+
+const mockMaterial = (overrides: Partial<Material>): Material => ({
+  id: 0,
+  item_code: '',
+  item_name: '',
+  is_active: true,
+  created_at: '2026-05-01T00:00:00Z',
+  updated_at: '2026-05-01T00:00:00Z',
+  ...overrides,
+});
+
+const mockMaterialsResponse: MaterialListResponse = {
+  items: [
+    mockMaterial({ id: 12, item_code: '1110006700', item_name: 'MFC', category: 'MFC', spec_1: 'MRC | 25 SLM', spec_2: 'P:0.2~1', description: 'LNG' }),
+    mockMaterial({ id: 14, item_code: '1120094300', item_name: 'MFC', category: 'MFC', spec_1: 'HORIBA | 50 SLM', spec_2: 'P:1~1.5', description: 'LNG' }),
+    mockMaterial({ id: 18, item_code: '1110298800', item_name: 'MFC', category: 'MFC', spec_1: 'MKP | 50 SLM', spec_2: 'P:0.3~2.5 / W:0.3', description: 'LNG', is_active: false }),
+  ],
+  total: 3,
+  page: 1,
+};
+
+describe('ChecklistEditModal — 방향 A 자재코드 input 영역 (HOTFIX-SPRINT42 v1.43.1)', () => {
+  beforeEach(() => {
+    vi.spyOn(materialsApi, 'listMaterials').mockResolvedValue(mockMaterialsResponse);
+  });
+
+  test('자재코드 input 변경 + debounce → matched 자재 spec 표시 + [비활성] marker', async () => {
+    renderWithQueryClient(
+      <ChecklistEditModal item={mockItem()} category="MECH" onSubmit={vi.fn()} onClose={vi.fn()} />
+    );
+
+    // hydrate useEffect 가 numeric id → item_code 변환 → input 자동 채워짐
+    // 또는 사용자 직접 입력 trigger (debounce 500ms 대기)
+    const input = await screen.findByPlaceholderText(/1110006700/);
+    fireEvent.change(input, { target: { value: '1110006700, 1120094300, 1110298800' } });
+
+    // Codex [9]: waitFor 2000ms (debounce 500ms + query + render 합산, CI flaky 방지)
+    await waitFor(() => {
+      // A-5차-2: regex 매칭 (실 jsx = "✓ 1110006700 = MFC | MRC | 25 SLM | P:0.2~1" 단일 텍스트 노드)
+      expect(screen.getByText(/1110006700.*MRC \| 25 SLM/)).toBeInTheDocument();
+      expect(screen.getByText(/1120094300.*HORIBA \| 50 SLM/)).toBeInTheDocument();
+      expect(screen.getByText('[비활성]')).toBeInTheDocument();
+    }, { timeout: 2000 });
+  });
+
+  test('미등록 자재코드 → 빨간색 marker (✗ 표시)', async () => {
+    renderWithQueryClient(
+      <ChecklistEditModal item={mockItem({ select_options: [] })} category="MECH" onSubmit={vi.fn()} onClose={vi.fn()} />
+    );
+
+    const input = await screen.findByPlaceholderText(/1110006700/);
+    fireEvent.change(input, { target: { value: '1110006700, 9999999999' } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/9999999999.*미등록 자재/)).toBeInTheDocument();
+    }, { timeout: 2000 });
+  });
+
+  test('🔍 자재 검색 도움 버튼 클릭 → ChecklistOptionMapModal 호출', async () => {
+    renderWithQueryClient(
+      <ChecklistEditModal item={mockItem()} category="MECH" onSubmit={vi.fn()} onClose={vi.fn()} />
+    );
+
+    // A-5차-1: button 텍스트 "자재 검색 도움" (방향 A jsx 정합)
+    const helpButton = await screen.findByText(/자재 검색 도움/);
+    fireEvent.click(helpButton);
+
+    // I2: specific selector — getByRole + dialog (label 영역 매칭 회피)
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: /자재 매핑/ })).toBeInTheDocument();
+    }, { timeout: 2000 });
+  });
+});

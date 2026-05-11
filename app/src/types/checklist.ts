@@ -20,7 +20,8 @@ export interface ChecklistMasterItem {
   qi_check_required: boolean;
   remarks: string | null;
   checker_role?: 'WORKER' | 'QI';
-  select_options?: string[] | null;
+  // Sprint 42 hotfix (v1.43.1): M-NEW-3 round-trip — legacy string[] | 신규 number[] union
+  select_options?: number[] | string[] | null;
 }
 
 // 마스터 목록 응답

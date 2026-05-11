@@ -2,7 +2,7 @@
 
 > 세션 간 누적되는 의사결정, 버그 분석, 아키텍처 판단을 기록합니다.
 > CLAUDE.md = 프로젝트 고정 정보 / memory.md = 누적 학습 / handoff.md = 세션 인계
-> 마지막 업데이트: 2026-05-09 (ADR-V017 추가 — Sprint 42 BE override + material_id 배열 round-trip)
+> 마지막 업데이트: 2026-05-11 (ADR-V018 추가 — HOTFIX-SPRINT42 방향 A + cowork 추측 작성 실수 #11~#22 trail)
 
 ---
 
@@ -54,6 +54,42 @@
 - **클린 코어 데이터 원칙 영향**: `force_closed` 같은 별도 처리 플래그 추가 안 함 → 자연스러운 worker row 로 기록, 단순함 유지
 - **회사 경계 정합 (M4 + M6)**: manager 인 경우 본인 회사 task 만 영향. 미시작 task 의 회사 매핑은 `product.module_outsourcing` (TMS) / `product.mech_partner` (MECH) 사용. NULL 시 카운트 제외 + toast 경고 (c-3)
 - **참조**: `DESIGN_FIX_SPRINT.md` Sprint 40 결정 #5 + #9, Sprint 40 ADR 보강 섹션
+
+---
+
+### ADR-V018: HOTFIX-SPRINT42 — 방향 A (FE 단독 자재코드 input + FE Map 변환) + hydrated flag 패턴 (2026-05-11)
+
+- **맥락**: Sprint 42 v1.43.0 prod 배포 후 Twin파파 5-08 UI catch — ChecklistEditModal SELECT 항목 [수정] 모달 안에 자재 매핑 영역 표시 누락. cowork 추측 작성 실수 #14 (ChecklistEditModal/AddModal 통합 영역 grep 누락).
+- **초기 검토 분기**:
+  - 방향 (i) BE schema 변경 (HOTFIX-SPRINT66BE) — Codex 1차 검토 catch 다수 (M1~M5 + A1~A2) → 폐기
+  - 방향 (ii) ChecklistOptionMapModal 강제 사용 — 단순화 의도 위배
+  - 방향 (iii) **방향 A** — FE 단독, 자재코드 input + FE Map 변환 → PATCH number[]
+- **결정**: **방향 A 채택** (2026-05-09 Twin파파 결정)
+  - UI: 자재코드 직접 입력 (admin UX 단순)
+  - 변환: debounce 500ms + client-side filter (allMaterials 5분 캐시) + matched.map → number[]
+  - 저장: PATCH `/api/admin/checklists/master/<id>/options { material_ids: number[] }`
+  - DB: `select_options = number[]` (Sprint 42 Step 4 schema 정합)
+  - BE 변경: 0건 (HOTFIX-SPRINT66BE 폐기)
+- **회귀 차단 패턴**:
+  - **hydrated flag**: 1회 hydrate 패턴 — useEffect 가 사용자 입력 덮어쓰기 차단 (vitest TC 발견 후 정정)
+  - **Promise.all + mutateAsync**: handleEdit 일반 필드 + select_options 동시 처리 race 차단 + mutation onSuccess 의 onClose 제거 (handleSubmit 끝에서 명시 호출)
+  - **옵션 C 강제**: missing > 0 또는 matched === 0 시 toast 차단 (legacy 회귀 방지)
+  - **master cache invalidate**: `['checklist', 'master']` key 정정 (Sprint 42 결함 동시 fix)
+  - **신규 SELECT 항목 Add flow**: select_options 미전송 (legacy string[] 재생성 차단)
+- **legacy 영역 처리**:
+  - `select_options: string[] | null` → `number[] | string[] | null` union (Sprint 42 + hotfix 양쪽 호환)
+  - hydrate useEffect: numeric id[] → item_code[] 변환 / legacy string[] → 빈 input + 안내 (admin 재매핑 영역)
+  - BE override 가 union 응답 (Sprint 42 ADR-V017 정합)
+- **cowork 추측 작성 실수 trail (#11~#22, 누적 22건)**:
+  - #11 process.env (Vite 인지 부족) / #12 src/ + httpClient / #13 api/checklists (단복수) / #14 ChecklistEditModal/AddModal grep 누락 / #15 ChecklistOptionMapModal Props (currentMaterialIds + onSave 가정) / #16 useDebounce 실파일 미존재 / #17 listMaterials 시그니처 (page required) / #18 Promise.resolve(void) race / #19 ChecklistAddModal legacy string[] 재생성 / #20 TC QueryClientProvider / #21 selectOptionsInput hydrate (numeric raw ID) / #22 master cache invalidate key
+  - **ADR-024 candidate 강한 권장**: 코드 작성 전 build tool / wrapper / Props / hooks / API 시그니처 / cache key grep 의무 (12 항목 표준화)
+- **Severity 영역**: S2 (admin 부분 장애) — CLAUDE.md L237 정합. 사후 Codex 검토 deadline 2026-05-18 (POST-REVIEW BACKLOG entry).
+- **검증**: Codex 1·2·3차 + Claude 5·6차 누적 약 30건 합의. vitest 45/45 PASS (기존 42 + 신규 3 = matched / missing / 자재 검색 도움 버튼).
+- **참조**:
+  - `app/src/components/checklist/ChecklistEditModal.tsx` (방향 A jsx + hydrated flag + Promise.all)
+  - `app/src/components/checklist/__tests__/ChecklistEditModal.test.tsx` (renderWithQueryClient + mockItem + waitFor 2000ms)
+  - `app/src/hooks/useDebounce.ts` (신규)
+  - `DESIGN_FIX_SPRINT.md` § HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509
 
 ---
 

@@ -73,7 +73,7 @@ export default function ChecklistAddModal({
   const [itemName, setItemName] = useState('');
   const [itemType, setItemType] = useState<ItemType>(typeOptions[0]);
   const [description, setDescription] = useState('');
-  const [selectOptionsInput, setSelectOptionsInput] = useState('');
+  // Sprint 42 hotfix v1.43.1 (Codex [10]): selectOptionsInput state 폐기 — SELECT 신규 생성 시 매핑 미진행 (안내 메시지만 표시)
 
   // ELEC 전용 토글
   const [phase1Applicable, setPhase1Applicable] = useState(true);
@@ -118,9 +118,10 @@ export default function ChecklistAddModal({
       payload.phase1_applicable = phase1Applicable;
       payload.qi_check_required = qiCheckRequired;
     }
-    if (itemType === 'SELECT' && selectOptionsInput.trim()) {
-      payload.select_options = selectOptionsInput.split(',').map(s => s.trim()).filter(Boolean);
-    }
+    // Sprint 42 hotfix v1.43.1 (Codex [10] 정정): SELECT 타입 신규 생성 시 select_options 미전송
+    // 매핑 = [수정] 모달의 자재코드 input 영역에서 진행 (방향 A 단일 양식, number[] 통일)
+    // 기존 코드: if (itemType === 'SELECT' && selectOptionsInput.trim()) { payload.select_options = ... }
+    // 제거 사유: legacy string[] 재생성 차단
     onSubmit(payload);
   };
 
@@ -220,16 +221,22 @@ export default function ChecklistAddModal({
             </div>
           )}
 
-          {/* SELECT 선택지 입력 */}
+          {/* Sprint 42 hotfix v1.43.1 (Codex [10]): SELECT 타입 신규 생성 = 자재 매핑 미진행
+              항목 추가 후 [수정] 모달의 자재코드 input 영역에서 매핑 진행 (방향 A 단일 양식) */}
           {itemType === 'SELECT' && (
             <div>
-              <label style={labelStyle}>선택지 (쉼표 구분)</label>
-              <input
-                value={selectOptionsInput}
-                onChange={e => setSelectOptionsInput(e.target.value)}
-                placeholder="RED, BLUE, GREEN"
-                style={inputStyle}
-              />
+              <label style={labelStyle}>선택지 (자재 매핑)</label>
+              <div
+                style={{
+                  padding: '8px 12px', background: 'var(--gx-cloud)',
+                  borderRadius: '6px', fontSize: '11px', color: 'var(--gx-slate)',
+                  lineHeight: 1.5,
+                }}
+              >
+                ⓘ 항목 추가 후 <strong>[수정] 모달</strong>의 자재코드 input 영역에서 매핑 진행.
+                <br />
+                본 모달 = 항목 신규 생성만 (select_options 빈 배열로 생성).
+              </div>
             </div>
           )}
 

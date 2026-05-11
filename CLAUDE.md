@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-05-09 | 버전: v1.43.0
+> 최종 갱신: 2026-05-11 | 버전: v1.43.1
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -276,7 +276,7 @@ AXIS-VIEW/
 │   │   ├── api/              API 클라이언트 13개
 │   │   ├── hooks/            TanStack Query 훅 22파일 / 41함수
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.43.0 (2026-05-09)
+│   │   ├── version.ts        v1.43.1 (2026-05-11)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
@@ -801,6 +801,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | Sprint 39 후속 (v1.41.1) | MECH COMMON product 자동 매핑 + UX 일관성 — `COMMON_CATEGORIES = ['TM', 'ELEC', 'MECH']` 상수 신설. `effectiveProduct` 자동 'COMMON' 매핑 (BE migration 051a v2 시드 데이터 정상 조회 보장). `hideProductDropdown` 도 동일 상수 사용 (MECH 도 dropdown 숨김, UX 일관성). v1.41.0 push 직후 사용자 후속 보강, 2026-05-04 | ✅ 완료 |
 | Sprint 41 (v1.42.0) | 협력사별 진행률 view (BIZ-COMPANY-PROGRESS-01) — admin/GST 현행, 협력사 자기 담당 카테고리(MECH/ELEC/TMS)만 평균. `utils/companyScopedProgress.ts` 신규 (82 LOC) + `getCompanyScopedPercent` / `getCompanyScopedCategories` + `PARTNER_FIELD_ALIASES` (Codex M5 — TMS(M)/(E) 부서 vs DB 'TMS' 단축 표기 정규화) + DB 빈문자 가드 (146건/11.6% 실측). SNCard / SNStatusPage (groupedByON null 가드 + sort rank null=3 + inProgressByModel 회사 뷰) / SNDetailPanel 분기. 12 케이스 단위 테스트. BE 의존 0 (Sprint 34 partner 필드 활용). Claude 1·2차 + Codex 1·2차 누적 약 41건 합의 — Codex M5 critical 포함 전건 반영. ~214 LOC, 5 파일 (utils 1 신규 + components 3 + test 1 신규), 2026-05-06 | ✅ 완료 |
 | Sprint 42 (v1.43.0) | 자재 마스터 + 체크리스트 자재 매핑 admin GUI (FEAT-AXIS-VIEW-MATERIALS-AND-CHECKLISTS-MGMT) — OPS Sprint 66-BE Step 4 별 repo 분리. `/materials` 신규 페이지 (CRUD + Excel 4단계 업로드 미리보기 + 가스 ILIKE 검색) + `/checklist` 기존 확장 (SELECT 항목 [매핑] 버튼 → ChecklistOptionMapModal). 신규 6 파일 (MaterialsPage 290 / FormModal 181 / UploadModal 208 / OptionMapModal 222 / DeactivateConfirm 80 / api/materials 116) + 수정 5 (App / api/checklist / ChecklistTable / Sidebar / ChecklistManagePage). 권한 admin/GST (M6-A). 자재 비활성화 = warn + keep (M-NEW-4-B). select_options round-trip = string[]\|number[] union (M-NEW-3). FormData multipart + UTF-8/CP949 fallback (M-NEW-1·2). Claude 1~4차 + Codex 1·2차 누적 약 36건 합의 (Codex M-2차-2 산수 오류 REJECT). 1,173 LOC 실측. ✅ FE+BE 동기 완료 (BE Sprint 66-BE Step 3·4 모두 종료 2026-05-09), 2026-05-09 | 🟡 FE 완료 (Twin파파 Netlify preview UI 검증 대기) |
+| HOTFIX-SPRINT42 (v1.43.1) | Sprint 42 후속 hotfix — ChecklistEditModal SELECT 자재 매핑 영역 통합 (Twin파파 5-08 UI catch). **방향 A** (BE 변경 0, FE 단독): 자재코드 input + debounce 500ms + FE Map 변환 → PATCH number[]. 옵션 C 강제 (최소 1자재 + 미등록 자재 차단). HOTFIX-SPRINT66BE 폐기. 신규 2 파일 (useDebounce.ts + ChecklistEditModal.test.tsx) + 수정 5 (Edit/Add/OptionMap/Manage + types). hydrated flag (사용자 입력 보호) + Promise.all + master invalidate. Severity S2, 사후 Codex 검토 deadline 2026-05-18. Codex 1·2·3차 + Claude 5·6차 누적 약 30건 합의 (cowork 실수 #11~#22 — ADR-024 candidate). ~346 LOC 실측 (신규 132 + 수정 214), 2026-05-11 | 🟡 FE 완료 (Twin파파 UI 검증 대기) |
 
 ### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)
 

@@ -105,7 +105,9 @@ export default function ChecklistOptionMapModal({ masterId, itemName, onClose }:
     onSuccess: () => {
       toast.success(`${selectedIds.length}개 자재 매핑이 저장되었습니다.`);
       queryClient.invalidateQueries({ queryKey: ['checklist-options', masterId] });
-      queryClient.invalidateQueries({ queryKey: ['checklist-master'] });
+      // Sprint 42 hotfix v1.43.1 (Codex [신규-2]): master 목록 cache invalidate
+      // 실제 query key = useChecklistMaster.ts L16 의 ['checklist', 'master', ...] (Sprint 42 결함 정정)
+      queryClient.invalidateQueries({ queryKey: ['checklist', 'master'] });
       onClose();
     },
     onError: () => toast.error('매핑 저장 중 오류가 발생했습니다.'),

@@ -17794,6 +17794,7 @@ FNI 매니저 → MECH alias 없음 → null === 'FNI' ❌ → matched = [] → 
 >   - **실측 (구현 완료, 5-08)**: 신규 1,097 + 수정 76 = **1,173 LoC** (추정 +23%, 1단계 한도 내)
 >   - 신규 6 파일 (MaterialsPage 290 / MaterialFormModal 181 / MaterialUploadModal 208 / ChecklistOptionMapModal 222 / MaterialDeactivateConfirm 80 / api/materials 116)
 >   - 수정 5 파일 (App.tsx 10 / api/checklist 29 / ChecklistTable 21 / Sidebar 7 / ChecklistManagePage 13)
+>   - ⭐ **5-08 사용자 catch + cowork 실수 #14 정정**: ChecklistEditModal/AddModal 영역 자재 매핑 통합 미완료 (~80 LoC 추가 영역) — 사용자 측 추가 작업 권장
 >   - Codex 재검토 정정: ChecklistsManagePage.tsx 신규 X (M4-B 기존 확장), src/ → app/src/ 경로
 >   - Codex 3차 정정 (5-08): api/checklist.ts 단수 (기존 파일 확장 영역, A-3차-1)
 >   - 신규 파일 5건 (MaterialsPage + MaterialFormModal + MaterialUploadModal + ChecklistOptionMapModal + api/materials.ts)
@@ -17907,6 +17908,142 @@ MaterialsPage.tsx (~250 LoC)
 ④ 업로드 실행 (BE commit API 호출)
    결과: { inserted: N, updated: M, skipped: K, rejected: R }
 ```
+
+---
+
+## 📑 영역 3.5 — ChecklistEditModal/AddModal 통합 영역 (cowork 실수 #14 정정)
+
+⚠️ **M-4차-5 정정 trail (5-09 Codex 검토)**: 본 영역 = **5-09 사용자 결정 (방향 A) 이전 초안**. 실제 정정 영역 = HOTFIX 영역 (`# HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509`) 참조.
+
+```
+영역 3.5 코드 trail 위험 영역:
+  - currentMaterialIds + onSave props = cowork 실수 #15 (실 props { masterId, itemName, onClose })
+  - state-based mappedMaterials = M-4차-2 정정 (이중 코드 영역 폐기)
+  - string[] 저장 양식 = M-4차-1 정정 (방향 A = number[] 단일 통일)
+
+→ 구현자는 본 영역 (3.5) X, HOTFIX 영역 (방향 A) 따라야 함
+```
+
+⭐ **5-08 사용자 catch + cowork 실수 #14**: 사용자 측 codebase 영역에 이미 `ChecklistEditModal.tsx` + `ChecklistAddModal.tsx` 영역 존재 (Sprint 32+39 영역). Sprint 42 영역의 자재 매핑 영역 통합 미설계 — 정정 영역.
+
+### 사용자 의도 (스크린샷 영역 기반)
+
+```
+스크린샷 1 (항목 수정 모달, GN2 그룹 SELECT 타입):
+  현재 = "항목명" + "기준/검사방법" + "1차 입력 적용" + "개정이력" 영역만
+  ⚠️ 매핑된 자재 리스트 영역 = 표시 X (cowork sprint 42 영역 누락)
+
+스크린샷 2 (항목 추가 모달, O2 그룹 + SELECT 타입):
+  현재 = "타입" 라디오 (CHECK/INPUT/SELECT) + "선택지 (쉼표 구분)" 영역
+  ⚠️ SELECT 타입 시 자재 매핑 영역 통합 X
+```
+
+### 정정 영역 — ChecklistEditModal 통합 패턴
+
+`app/src/components/checklist/ChecklistEditModal.tsx` 영역 확장 (~50 LoC 추가):
+
+```typescript
+// SELECT 타입 항목 영역 — 자재 매핑 영역 통합 (Sprint 42 정정)
+{item.item_type === 'SELECT' && (
+  <div>
+    <label>선택지 (자재 매핑) *</label>
+    
+    {/* legacy string 배열 영역 (51a placeholder) */}
+    {Array.isArray(item.select_options) &&
+     item.select_options.every(x => typeof x === 'string') && (
+      <div>
+        <textarea
+          value={selectOptionsInput}
+          readOnly  // ⭐ legacy 영역 = read-only + 매핑 권장 메시지
+        />
+        <div className="warning">
+          ⚠️ 레거시 placeholder 영역. [자재 매핑] 버튼으로 실 자재 매핑 권장.
+        </div>
+      </div>
+    )}
+    
+    {/* 신규 material_id 배열 영역 — 매핑된 자재 리스트 표시 */}
+    {Array.isArray(item.select_options) &&
+     item.select_options.every(x => typeof x === 'number') && (
+      <div className="materials-list">
+        {/* GET /api/admin/checklists/master/:id/options 응답의 materials 영역 */}
+        {mappedMaterials.map(mat => (
+          <div key={mat.id} className="material-row">
+            <span>{mat.item_code}</span>
+            <span>{mat.item_name} | {mat.spec_1} | {mat.spec_2}</span>
+            {!mat.is_active && <span className="badge-inactive">비활성</span>}
+          </div>
+        ))}
+      </div>
+    )}
+    
+    {/* [자재 매핑 변경] 버튼 → ChecklistOptionMapModal 호출 */}
+    <button onClick={() => setShowMapModal(true)}>
+      자재 매핑 변경
+    </button>
+    
+    {showMapModal && (
+      <ChecklistOptionMapModal
+        masterId={item.id}
+        currentMaterialIds={mappedMaterials.map(m => m.id)}
+        onSave={(materialIds) => {
+          updateChecklistMasterOptions(item.id, materialIds);
+          setShowMapModal(false);
+        }}
+        onClose={() => setShowMapModal(false)}
+      />
+    )}
+  </div>
+)}
+```
+
+### 정정 영역 — ChecklistAddModal 통합 패턴
+
+`app/src/components/checklist/ChecklistAddModal.tsx` 영역 확장 (~30 LoC 추가):
+
+```typescript
+// SELECT 타입 신규 추가 시
+{itemType === 'SELECT' && (
+  <div>
+    <label>선택지</label>
+    <div className="info">
+      ⓘ 항목 추가 후 [자재 매핑] 영역에서 실 자재 매핑 권장.
+        본 영역에서는 placeholder 영역 (쉼표 구분 텍스트) 만 입력 가능.
+    </div>
+    <input
+      value={selectOptionsInput}
+      placeholder="RED, BLUE, GREEN (placeholder 영역)"
+    />
+    {/* 항목 추가 후 ChecklistEditModal 영역에서 자재 매핑 진행 */}
+  </div>
+)}
+```
+
+### 흐름 요약 (5-08 사용자 catch 정정 후)
+
+```
+[기존 영역] SELECT 항목 = "선택지 (쉼표 구분)" 텍스트만 → placeholder 영역 (51a)
+                                        ↓
+[Sprint 42 정정 후 영역]
+  ① 항목 추가 (ChecklistAddModal) — placeholder 영역 텍스트만 (legacy 호환)
+  ② 항목 수정 (ChecklistEditModal):
+     - legacy 영역 = read-only + "자재 매핑 권장" 메시지
+     - 신규 영역 = 매핑된 자재 리스트 영역 표시 (item_code + spec)
+     - [자재 매핑 변경] 버튼 → ChecklistOptionMapModal 호출
+  ③ ChecklistOptionMapModal — 자재 검색 + 다중 선택 + 순서 영역
+  ④ 저장 → DB: select_options = [material_id 배열]
+  ⑤ 작업자 측 = BE override 가 자재 spec 영역 자동 표시
+```
+
+### 신규 파일 / 수정 영역 갱신 (~80 LoC 추가)
+
+| 파일 | 변경 영역 | 예상 LoC 영향 |
+|---|---|---:|
+| `app/src/components/checklist/ChecklistEditModal.tsx` | 기존 파일 확장 — SELECT 타입 자재 매핑 영역 통합 + ChecklistOptionMapModal 호출 + legacy 영역 호환 | +50 |
+| `app/src/components/checklist/ChecklistAddModal.tsx` | 기존 파일 확장 — SELECT 타입 안내 메시지 영역 + placeholder 영역 호환 | +30 |
+| **총 추가** | | **+80 LoC** |
+
+→ Sprint 42 영역 LoC 갱신: ~955 → **~1,035 LoC** (신규 860 + 수정 175).
 
 ---
 
@@ -18679,3 +18816,879 @@ ADR-023 신규 표준 (Phase 4 보강 권장):
   - FEAT-MATERIAL-AI-VISION-VERIFY-20260508 (Sprint 64 이후, P3)
 - 통합 csv 양식: `/Users/twinfafa/Desktop/GST/material_master_통합.csv` (1,654 row, 186 unique 자재)
 - ordered deploy 정합: OPS Sprint Step 3+4 영역 + Feature flag 영역
+
+---
+
+# 🚨 HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509
+
+> **Sprint ID**: `HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509`
+> **유형**: Sprint 42 후속 hotfix (Sprint number 부여 X, v1.43.1 minor release 영역)
+> **Severity**: 🟠 S2 (부분 장애 — admin SELECT 매핑 영역 사용 불가, Codex I1 정합)
+> **사후 Codex 검토**: 7일 이내 (deadline 2026-05-16) — CLAUDE.md L237 정합
+> **POST-REVIEW**: BACKLOG `POST-REVIEW-HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509` 등록
+> **작성일**: 2026-05-09 KST
+> **트리거**: Twin파파 UI 검증 영역 catch (5-08 스크린샷)
+> **우선순위**: 🔴 P1 (사용자 catch 영역 + 운영 영역 영구 정정)
+> **추정 시간**: ~2h (Codex 2차 정정 후 ~186 LoC — 코드 106 + hook 15 + types 1 + caller 3 + test 80)
+> **실측 (구현 완료, 2026-05-11)**: 신규 132 + 수정 214 = **~346 LOC** (추정 +86%)
+>   - 신규 2: `useDebounce.ts` 20 / `__tests__/ChecklistEditModal.test.tsx` 112
+>   - 수정 5: ChecklistEditModal +180/-14 / ChecklistAddModal +18/-13 / ChecklistOptionMapModal +3/-1 / ChecklistManagePage +10/-8 / types/checklist +2/-1
+>   - 빌드 GREEN, vitest 45/45 PASS (기존 42 + 신규 3)
+>   - hydrated flag 패턴 추가 (vitest TC race 발견 후 정정, ADR-V018)
+> **선행 의존성**: Sprint 42 v1.43.0 + OPS Sprint 66-BE Step 3+4 prod 배포 완료 ✅
+> **별 repo Sprint**: 본 hotfix = AXIS-VIEW 단독 영역 (BE 영역 변경 X)
+
+---
+
+## 📑 영역 1 — 트리거 + 배경
+
+### 사용자 catch 영역 (5-08)
+
+```
+스크린샷 1 (항목 수정 모달, GN2 그룹 SELECT 타입):
+  검사 그룹: GN2 (변경 불가)
+  타입: (변경 불가, 빈 영역)
+  역할: WORKER (변경 불가)
+  항목명: "MFC Maker: ▶  MFC Spec: ▶Flow Rate  ▶Working Pressure"
+  기준/검사방법: (빈)
+  ...
+  
+  ⚠️ 매핑된 자재 리스트 영역 = 표시 X
+  ⚠️ [자재 매핑 변경] 버튼 영역 = X
+
+스크린샷 2 (항목 추가 모달, O2 그룹 + SELECT 타입):
+  타입: SELECT 라디오 선택
+  선택지 (쉼표 구분): "RED, BLUE, GREEN" placeholder
+  
+  ⚠️ 자재 매핑 영역 안내 메시지 X
+```
+
+### 사용자 메시지 (5-08)
+> "여기에서 매핑된 자재리스트가 선택이 되어야되는데 랜더링되는게 없는데
+> 누락된 내용이 있는 나랑 검토한 sprint내용 재검토 해줘"
+
+### 근본 원인 — Cowork 추측 작성 실수 #14 영역
+
+```
+Sprint 42 cowork 영역 누락:
+  ├─ ChecklistOptionMapModal = 별 모달 (자재 검색 + 다중 선택 + 순서) ✅ 작성
+  ├─ ChecklistManagePage = [매핑] 버튼 → ChecklistOptionMapModal 호출 ✅ 작성
+  ├─ ChecklistEditModal = 자재 리스트 영역 통합 ❌ 누락 ⚠️
+  └─ ChecklistAddModal = 자재 매핑 안내 메시지 ❌ 누락 ⚠️
+
+근본:
+  cowork 가 codebase 의 ChecklistEditModal/AddModal 영역 grep 안 함
+  → 사용자 측 v1.43.0 prod 배포 영역 = 항목 수정 모달 안에 자재 리스트 X
+  → Twin파파 UI 검증 catch (5-08 스크린샷)
+```
+
+---
+
+## 📑 영역 2 — 변경 영역
+
+### ⭐ 5-09 사용자 결정 영역 — 방향 A (Sprint 42 Step 4 schema 정합)
+
+**5-09 Codex 검토 catch + cowork 추측 작성 실수 #17 정정**:
+- HOTFIX-SPRINT66BE 폐기 (M1~M5 + A1~A2 영역 catch)
+- AXIS-VIEW HOTFIX-SPRINT42 정정 (방향 A 채택)
+
+```
+사용자 의도 (5-09 단순화):
+  - "선택지 (쉼표 구분)" 영역에 자재코드 직접 입력
+  - 1~5개 자재코드 자유 등록
+  - admin 이 7개 SELECT 항목 모두 하나씩 진행
+  - 작업자 측 = 등록 N건 그대로 dropdown 표시
+
+방향 A 정정 영역 (Sprint 42 Step 4 schema 정합):
+  ① UI 영역 = 자재코드 직접 입력 (UX 단순)
+  ② FE 측 변환 = 자재코드 → material_id (in-memory Map, useQuery 캐시 영역에서 매핑)
+  ③ debounce 자동 spec 표시 (검증 + 정보 통합)
+  ④ [자재 검색 도움] 버튼 (보조 영역 — ChecklistOptionMapModal 활용)
+  ⑤ [저장] 시 PATCH /api/admin/checklists/master/<id>/options { material_ids: [int 배열] }
+  ⑥ DB: select_options = number[] (Sprint 42 Step 4 schema 정합)
+
+영역 정합:
+  ✅ Sprint 42 Step 4 PATCH endpoint = int 검증 영역 통과
+  ✅ ADR-027 옵션 X (selected_material_id FK) 정합
+  ✅ N+1 BATCHED 영역 정합 (Step 3 BATCHED 그대로)
+  ✅ description 영역 (5-08 name (description) | spec_1 | spec_2) 정합
+  ✅ Phase 3 AI 비전 prerequisite 보존
+  ✅ BE 변경 0 (Sprint 66-BE Step 3+4 영역 그대로)
+  ✅ HOTFIX-SPRINT66BE 영역 = 불필요 (폐기)
+
+NULL/[] 영역: 옵션 C 정합 (최소 1자재 강제, MECH COMMON spec 영역)
+저장 양식: number[] (material_id 배열, Sprint 42 Step 4 schema)
+```
+
+### 영역 2.1 — `ChecklistEditModal.tsx` 확장 (~50 LoC, 단순 영역)
+
+⭐ **5-09 사용자 결정 (방향 A = b)** — 단일 양식 (FE 변환 number[]):
+
+```
+ChecklistEditModal 영역 단일 양식 (방향 A 정합):
+  ① 선택지 (쉼표 구분) input 영역 = 자재코드 직접 입력 (UX 그대로)
+     예: 1110006700, 1120094300, 1110298800
+  ② input 아래 spec 표시 영역 = useMemo + useQuery 캐시 (client-side filter)
+     ✓ 1110006700 = MFC | MRC | 25 SLM | P:0.2~1 / W:0.4
+     ✓ 1120094300 = MFC | HORIBA | 50 SLM | P:1~1.5
+     ✗ 1110XXX    = 미등록 자재 (빨간색 marker, 오타 catch)
+  ③ [자재 검색 도움] 버튼 = ChecklistOptionMapModal 별 모달 호출 (보조)
+  ④ [저장] 클릭 시:
+     - matched.map(m => m.id) → material_ids: number[] 변환 (FE 측 Map 영역)
+     - PATCH /api/admin/checklists/master/<id>/options { material_ids: [12,14,18] }
+  ⑤ DB 저장 양식: select_options = number[] (material_id 배열, Sprint 42 Step 4 schema 정합)
+  ⑥ 옵션 C 정합 (최소 1자재 강제 + 미등록 자재 차단)
+```
+
+⭐ **Codex 라운드 정정 영역 (5-09)**:
+- M1: `ChecklistOptionMapModal` 실제 Props = `{ masterId, itemName, onClose }` (보조 영역 활용)
+- M2: `Material` import 경로 = `@/api/materials`
+- **M-2차-2**: `ChecklistMasterItem.select_options` 타입 갱신 — `string[] | null` → `number[] | string[] | null` (legacy + 신규 union, BE override 양쪽 처리 영역)
+- **M-4차-1 정정**: 단일 양식 (b) 통일 — 저장 = number[], 옛 string[] 영역 폐기
+- **A-2차-1**: BE `array_position` 정렬 보장 신뢰 영역 (FE fallback sort 영역 2.3)
+
+#### 처리 정책 (5-09 방향 A 단일 통일, M-4차-1 정정)
+
+```
+저장 양식 = number[] (material_id 배열)
+  - 신규 자재코드 입력 → FE 측 자재코드 → material_id 변환 → PATCH number[] 전송
+  - 51a legacy placeholder string[] = read-only 표시 (admin 매핑 후 number[] 전환)
+  - BE Sprint 42 Step 4 schema (int 검증) 정합 ✅
+
+기존 영역 정리:
+  - selectOptionsInput state → 자재코드 직접 입력 영역 그대로 유지 (UX)
+  - ⭐ M-4차-3 정정: handleSubmit 의 select_options 저장 영역 = SELECT 타입 분기 별도 처리
+       SELECT 타입 → updateOptionsMutation (별도 PATCH) — number[] 전송
+       CHECK/INPUT 타입 → 기존 handleSubmit 영역 그대로
+  - debounce spec 표시 영역 = useMemo + useQuery (BE 변경 0)
+  - [자재 검색 도움] 버튼 = ChecklistOptionMapModal (보조)
+```
+
+#### 코드 영역 — 방향 A (FE 단독, BE 변경 0, Sprint 42 Step 4 schema 정합) — 5-09 사용자 결정
+
+⭐ **5-09 사용자 결정 + Codex 검토 catch 정정**: 방향 A 채택 — BE 변경 0, FE 단독.
+- listMaterials 한 번 호출 (전체 186 자재) + TanStack Query 캐시 (5분)
+- client-side filter (item_code 매칭) — useMemo
+- ⭐ FE 측 자재코드 → material_id 변환 (Sprint 42 Step 4 PATCH endpoint = int 검증 영역 정합)
+- 저장 시 material_ids: number[] 전송 → DB select_options = number[]
+- BE 측 admin_materials.py / admin_checklists.py 변경 0
+
+⭐ **Codex 2차 정정 ([3] [5] [7] [8] [1] 통합)**:
+- [3] `useDebounce` hook 신규 작성 (`app/src/hooks/useDebounce.ts` — 미존재 영역)
+- [5] `listMaterials` 시그니처 = `{ page, per_page }` 모두 required → `{ page: 1, per_page: 200 }` 호출
+- [7] `useMutation` / `useQueryClient` / `toast` / `updateChecklistMasterOptions` 영역 import 트레일 명시
+- [8] `selectOptionsInput` 초기값 hydrate — numeric `id[]` → `item_code[]` 변환 (legacy string[] 영역 분기)
+- [1] `hasPendingSelectChange` numeric union 정규화 (`item.select_options` 가 union 양식이라 numeric 만 분리 비교)
+
+`app/src/components/checklist/ChecklistEditModal.tsx` (~50 LoC 추가):
+
+```typescript
+// ⭐ [7] import 트레일 명시 (Codex 2차 정정)
+import { useState, useMemo, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { useDebounce } from '@/hooks/useDebounce';  // ⭐ [3] 신규 hook 작성 필요
+import ChecklistOptionMapModal from '@/components/checklist/ChecklistOptionMapModal';
+import { listMaterials } from '@/api/materials';
+import { updateChecklistMasterOptions } from '@/api/checklist';
+import type { Material } from '@/api/materials';
+import type { UpdateMasterPayload, ChecklistMasterItem } from '@/types/checklist';
+
+// 컴포넌트 영역 추가 state
+const queryClient = useQueryClient();  // ⭐ [7] queryClient 초기화 (mutation invalidate 영역)
+const [showMapModal, setShowMapModal] = useState(false);
+
+// ① 전체 자재 한 번 조회 + TanStack Query 캐시 (BE 변경 0)
+// ⭐ [5] Codex 정정: listMaterials 시그니처 = { page, per_page } 모두 required
+const { data: allMaterialsRes } = useQuery({
+  queryKey: ['materials', { page: 1, per_page: 200 }],
+  queryFn: () => listMaterials({ page: 1, per_page: 200 }),
+  staleTime: 5 * 60 * 1000,  // 5분 캐시 — 자재 변경 빈도 낮음
+  enabled: item.item_type === 'SELECT',  // SELECT 타입만 호출 (수정 모달 = read-only type)
+});
+const allMaterials = allMaterialsRes?.items ?? [];
+
+// ⭐ [8] selectOptionsInput 초기값 hydrate 영역 (Codex 정정)
+// 기존: item.select_options?.join(', ') ?? '' → numeric id 일 때 "12, 14, 18" 표시
+// 정정: numeric id → item_code 매핑 변환 (자재 데이터 로드 후 reactive)
+useEffect(() => {
+  if (item.item_type !== 'SELECT' || allMaterials.length === 0) return;
+  const raw = item.select_options ?? [];
+  if (raw.length === 0) {
+    setSelectOptionsInput('');
+    return;
+  }
+  // numeric id[] 영역 → item_code[] 변환 (방향 A 단일 양식)
+  if (raw.every(x => typeof x === 'number')) {
+    const idMap = new Map(allMaterials.map(m => [m.id, m.item_code]));
+    const codes = (raw as number[]).map(id => idMap.get(id)).filter(Boolean);
+    setSelectOptionsInput(codes.join(', '));
+    return;
+  }
+  // legacy string[] 영역 → 빈 input + 안내 메시지 (UX trail)
+  // admin 가 자재코드로 재입력해야 하는 영역 (방향 A 단일 양식 통일)
+  setSelectOptionsInput('');
+  // 안내 toast 1회 (mount 시점만, deps = item.id)
+}, [item.id, item.item_type, allMaterials]);
+
+// ② debounce 500ms + client-side filter (useMemo)
+const debouncedInput = useDebounce(selectOptionsInput, 500);
+
+const { matched, missing } = useMemo(() => {
+  if (item.item_type !== 'SELECT' || !debouncedInput.trim()) {
+    return { matched: [] as Material[], missing: [] as string[] };
+  }
+  const codes = debouncedInput.split(',').map(s => s.trim()).filter(Boolean);
+  if (codes.length === 0) return { matched: [], missing: [] };
+  
+  const codeMap = new Map(allMaterials.map(m => [m.item_code, m]));
+  const matched: Material[] = [];
+  const missing: string[] = [];
+  codes.forEach(c => {
+    const mat = codeMap.get(c);
+    if (mat) matched.push(mat);
+    else missing.push(c);
+  });
+  return { matched, missing };
+}, [debouncedInput, allMaterials, item.item_type]);
+
+// ⭐ 방향 A 정정 + M-5차-2 정정: handleSubmit 끝에서 Promise.all 호출 영역 (mutation onSuccess 의 onClose 제거)
+//    실제 mutation 정의 + handleSubmit 통합 영역 = 아래 "handleSubmit 영역 정정 (M-4차-3 + M-5차-1·2)" 참조
+//
+// ⚠️ M-5차-2 정정 영향: 별도 handleSaveSelectOptions 영역 폐기.
+//    SELECT 매핑 저장 = handleSubmit 단일 진입점 (Promise.all 패턴) — race 차단
+
+// 미등록 자재 + 매핑 0건 검증 영역 = handleSubmit 안으로 흡수 (toast 호출 위치 갱신)
+// 사용자 측 [저장] 클릭 → handleSubmit → (1) data 변경 체크 + (2) hasPendingSelectChange 체크 → Promise.all
+
+// ⭐ M-4차-2 정정: 이중 코드 영역 폐기 (옛 state-based mappedMaterials 영역 일괄 삭제)
+//    방향 A 통일 양식 — selectOptionsInput input + useMemo + useQuery 단일 영역
+
+// SELECT 타입 영역 jsx (기존 L127-138 영역 대체) — 방향 A 단일 양식
+{item.item_type === 'SELECT' && (
+  <div style={{ marginBottom: '16px' }}>
+    <label style={labelStyle}>선택지 (자재코드, 쉼표 구분) *</label>
+    
+    {/* ① 자재코드 직접 입력 input */}
+    <input
+      value={selectOptionsInput}
+      onChange={e => setSelectOptionsInput(e.target.value)}
+      placeholder="1110006700, 1120094300, 1110298800"
+      style={inputStyle}
+    />
+    
+    {/* ② [자재 검색 도움] 버튼 — ChecklistOptionMapModal 호출 (보조) */}
+    <button
+      type="button"
+      onClick={() => setShowMapModal(true)}
+      style={{
+        marginTop: '6px', padding: '4px 10px', borderRadius: '6px',
+        border: '1px solid var(--gx-mist)', color: 'var(--gx-slate)',
+        background: 'var(--gx-white)', fontSize: '11px', cursor: 'pointer',
+      }}
+    >
+      🔍 자재 검색 도움 (자재코드 모를 때)
+    </button>
+    
+    {/* ③ debounce + useMemo client-side filter spec 표시 */}
+    {(matched.length > 0 || missing.length > 0) && (
+      <div style={{ marginTop: '8px', padding: '8px', background: 'var(--gx-cloud)', borderRadius: '6px', fontSize: '11px' }}>
+        <div style={{ fontWeight: 600, marginBottom: '4px', color: 'var(--gx-slate)' }}>
+          ⓘ 자재 정보:
+        </div>
+        {matched.map(mat => (
+          <div key={mat.id} style={{ padding: '2px 0', color: 'var(--gx-charcoal)' }}>
+            ✓ {mat.item_code} = {mat.item_name} | {mat.spec_1} | {mat.spec_2}
+            {!mat.is_active && <span style={{ color: 'var(--gx-amber)', marginLeft: '4px' }}>[비활성]</span>}
+          </div>
+        ))}
+        {missing.map(code => (
+          <div key={code} style={{ padding: '2px 0', color: 'var(--gx-error, #d33)' }}>
+            ✗ {code} = 미등록 자재 (자재 마스터 등록 후 재시도)
+          </div>
+        ))}
+      </div>
+    )}
+    
+    {/* ④ ChecklistOptionMapModal 별 모달 (보조 영역) */}
+    {showMapModal && (
+      <ChecklistOptionMapModal
+        masterId={item.id}
+        itemName={item.item_name}
+        onClose={() => setShowMapModal(false)}
+      />
+    )}
+  </div>
+)}
+```
+
+#### handleSubmit 영역 정정 (M-4차-3 + M-5차-1·2 정정 — race condition 차단)
+
+⭐ **M-4차-3 정정**: 방향 A 양식 = SELECT 타입 시 별도 PATCH (updateOptionsMutation). handleSubmit 의 select_options 저장 영역 = CHECK/INPUT 타입만 (SELECT 영역 X).
+
+⭐ **M-5차-1 정정**: `pendingMaterialIds` 변수 미정의 → `hasPendingSelectChange` 명시 정의.
+
+⭐ **M-5차-2 정정**: handleSubmit race condition (onSubmit + mutation 동시 실행, mutation onSuccess 의 onClose race) → **Promise.all 패턴 + mutation onSuccess 의 onClose 제거**.
+
+```typescript
+// ChecklistEditModal handleSubmit 영역 정정 (기존 L33-36 영역 대체)
+
+// ⭐ M-5차-2 + Codex [신규-2] 정정: updateOptionsMutation 영역
+//   - onSuccess 의 onClose() 제거 (race 차단)
+//   - master 캐시 invalidate 추가 ([신규-2]: ChecklistManagePage 목록 갱신)
+const updateOptionsMutation = useMutation({
+  mutationFn: (materialIds: number[]) =>
+    updateChecklistMasterOptions(item.id, materialIds),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['checklist-options', item.id] });
+    // ⭐ [신규-2] 정정: master 목록 영역 cache invalidate (ChecklistManagePage 갱신 영역)
+    queryClient.invalidateQueries({ queryKey: ['checklist', 'master'] });
+    // ⚠️ onClose() 제거 — handleSubmit 끝에서 Promise.all 후 명시 호출 (M-5차-2)
+  },
+  onError: (err: any) => {
+    toast.error('자재 매핑 저장 실패 — 잠시 후 다시 시도해주세요.');
+    console.error('updateChecklistMasterOptions 실패:', err);
+  },
+});
+
+// ⭐ M-5차-1 + Codex [1] 정정: pendingMaterialIds 변수 정의 + numeric union 정규화
+const hasPendingSelectChange = useMemo(() => {
+  if (item.item_type !== 'SELECT' || matched.length === 0 || missing.length > 0) {
+    return false;
+  }
+  // ⭐ Codex [1] 정정: item.select_options 가 string[] | number[] | null union 양식
+  // numeric id[] 영역만 분리 비교 (legacy string[] = 항상 pending true, admin 재매핑 필요)
+  const raw = item.select_options ?? [];
+  if (raw.length === 0) return matched.length > 0;  // 빈 배열 → 신규 매핑
+  if (raw.every(x => typeof x === 'number')) {
+    return JSON.stringify(matched.map(m => m.id)) !== JSON.stringify(raw);
+  }
+  // legacy string[] → 항상 pending (admin 자재코드 재입력 영역)
+  return true;
+}, [item.item_type, item.select_options, matched, missing]);
+// 변경 없음 영역 = handleSubmit 의 일반 필드 변경 X + matched ≡ item.select_options (numeric 정규화 후)
+
+const handleSubmit = async () => {
+  if (!itemName.trim()) return;
+  
+  // ⭐ M-5차-2 정정: SELECT 타입 자재 매핑 검증 영역 (옵션 C 강제) — Promise.all 진입 전 차단
+  if (item.item_type === 'SELECT' && selectOptionsInput.trim()) {
+    if (missing.length > 0) {
+      toast.error(`미등록 자재: ${missing.join(', ')} — 자재 마스터 등록 후 재시도`);
+      return;
+    }
+    if (matched.length === 0) {
+      toast.error('최소 1자재 매핑 필요 (옵션 C)');
+      return;
+    }
+  }
+  
+  const data: UpdateMasterPayload = {};
+  if (itemName.trim() !== item.item_name) data.item_name = itemName.trim();
+  if (description.trim() !== (item.description ?? '')) data.description = description.trim() || undefined;
+  if ((isElec || isMech) && phase1Applicable !== (item.phase1_applicable ?? true)) {
+    data.phase1_applicable = phase1Applicable;
+  }
+  if (remarks.trim() !== (item.remarks ?? '')) data.remarks = remarks.trim() || undefined;
+  
+  // ⭐ M-4차-3 정정: SELECT 타입 select_options 영역 = handleSubmit 처리 X
+  //    SELECT 타입 select_options 저장 = updateOptionsMutation (별도 PATCH, number[] 양식)
+  //    handleSubmit 영역 = item_name / description / phase1_applicable / remarks 만
+  
+  // ⭐ M-5차-1 정정: 변경사항이 없으면 그냥 닫기 (hasPendingSelectChange 정의 활용)
+  if (Object.keys(data).length === 0 && !hasPendingSelectChange) {
+    onClose();
+    return;
+  }
+  
+  // ⭐ M-5차-2 + Codex [2] 정정: Promise.all 패턴 — onSubmit 도 async mutateAsync 패턴 강제
+  //    onSubmit prop 시그니처 갱신: (data) => void | Promise<void> (caller 측 mutateAsync 반환 필요)
+  //    caller (ChecklistManagePage.handleEdit) → updateMaster.mutateAsync({id, data}) 반환
+  const tasks: Promise<unknown>[] = [];
+  
+  // 1. 일반 필드 저장 (item_name / description / 등)
+  if (Object.keys(data).length > 0) {
+    // ⭐ Codex [2] 정정: onSubmit return = Promise<void> | void 보장.
+    //    sync void 일 경우 race 발생 위험 → caller 측 mutateAsync 반환 강제 (handleEdit 갱신)
+    const result = onSubmit(data);
+    if (result instanceof Promise) tasks.push(result);
+    // ⚠️ sync void caller 영역 = race 위험. caller 측 mutateAsync 반환 필수 trail (아래 ChecklistManagePage 정정 참조)
+  }
+  
+  // 2. SELECT 타입 select_options 별도 저장 (number[] 양식, mutateAsync 활용)
+  if (hasPendingSelectChange) {
+    const materialIds = matched.map(m => m.id);
+    tasks.push(updateOptionsMutation.mutateAsync(materialIds));
+  }
+  
+  try {
+    await Promise.all(tasks);
+    onClose();
+  } catch (err) {
+    // mutation 실패 시 모달 유지 — toast 는 mutation onError 영역에서 처리
+    console.error('handleSubmit 실패:', err);
+  }
+};
+```
+
+#### onSubmit prop 시그니처 갱신 (Codex [2] 정정)
+
+⭐ **Codex [2] 정정**: `ChecklistEditModalProps.onSubmit` 시그니처 = `(data) => void | Promise<void>`. caller (ChecklistManagePage.handleEdit) 가 `mutateAsync` 반환하여 race 차단.
+
+```typescript
+// app/src/components/checklist/ChecklistEditModal.tsx
+interface ChecklistEditModalProps {
+  item: ChecklistMasterItem;
+  category: string;
+  onSubmit: (data: UpdateMasterPayload) => void | Promise<void>;  // ⭐ Codex [2] 정정
+  onClose: () => void;
+}
+
+// app/src/pages/checklist/ChecklistManagePage.tsx (caller 측)
+// 기존: handleEdit = (id, data) => { updateMaster.mutate({id, data}); }  // sync void return
+// 정정: handleEdit = async (id, data) => updateMaster.mutateAsync({id, data});  // Promise<void> return
+
+const handleEdit = async (id: number, data: UpdateMasterPayload) => {
+  await updateMaster.mutateAsync({ id, data });  // ⭐ mutateAsync 반환 → Promise 체인 보장
+};
+// ChecklistEditModal 에 onSubmit={(data) => handleEdit(editingItem.id, data)} 그대로 전달
+// (data) => handleEdit(...) = async wrapper 자동 — Promise<void> return 보장
+```
+
+**영향**:
+- ChecklistEditModal 의 handleSubmit Promise.all 영역 = 일반 필드 mutation 완료 대기 보장
+- onClose() = 모든 mutation 완료 후 실행 (race 차단)
+- mutation onError 시 모달 유지 + toast 표시 (사용자 재시도 영역)
+```
+
+**처리 흐름** (방향 A 단일 양식, M-5차-3·4 정정):
+- 모든 SELECT master → handleSubmit 의 SELECT 분기 = `updateOptionsMutation` (number[] PATCH)
+- legacy string[] DB → BE override 가 `string[] | number[]` union 응답 → admin 가 자재코드 재입력 → number[] 저장
+- 빈 배열 (신규 SELECT) → matched.length === 0 → handleSubmit 차단 (옵션 C 강제) + toast 안내
+- 일반 필드 (item_name/description/etc) + SELECT mapping 동시 변경 → Promise.all 로 둘 다 완료 대기 후 onClose
+
+### 영역 2.2 — `ChecklistAddModal.tsx` 확장 (~30 LoC)
+
+⭐ **Codex 라운드 정정 M4 + [10] 정정**:
+- 기존 placeholder 입력 영역 위에 안내 메시지 추가
+- ⭐ **[10] 정정**: 신규 SELECT 생성 시 `payload.select_options` **미전송** — legacy string[] 재생성 차단 (방향 A 단일 양식 정합)
+- 항목 추가 후 매핑 = ChecklistEditModal 의 자재코드 input 영역에서 진행
+
+`app/src/components/checklist/ChecklistAddModal.tsx`:
+
+```typescript
+// SELECT 타입 신규 추가 시 — 안내 메시지 추가 + select_options 미전송
+{itemType === 'SELECT' && (
+  <div style={{ marginBottom: '16px' }}>
+    <label style={labelStyle}>선택지 (자재 매핑 영역)</label>
+    
+    {/* ⭐ M4 + [10] 정정: 안내 메시지 영역 — 본 모달 = SELECT 매핑 미진행 */}
+    <div
+      style={{
+        padding: '8px 12px', background: 'var(--gx-cloud)',
+        borderRadius: '6px', fontSize: '11px', color: 'var(--gx-slate)',
+      }}
+    >
+      ⓘ 항목 추가 후 <strong>[수정] 모달</strong>의 자재코드 input 영역에서 매핑 진행.
+      <br />
+      본 모달 = 항목 신규 생성만 (select_options = [] 빈 배열로 생성).
+    </div>
+  </div>
+)}
+```
+
+#### handleSubmit 영역 정정 (Codex [10] 정정 — 신규 SELECT 시 select_options 미전송)
+
+⭐ **Codex [10] 정정**: 기존 L121-L123 영역의 `payload.select_options = selectOptionsInput.split(',').map(s => s.trim()).filter(Boolean)` → **삭제** (legacy string[] 생성 차단). SELECT 타입 시 신규 항목 = 빈 배열로 생성 + 매핑은 [수정] 모달에서 진행.
+
+```typescript
+// app/src/components/checklist/ChecklistAddModal.tsx handleSubmit 영역 정정 (기존 L121-L123 영역 대체)
+
+// 기존 (방향 A 의도 위반):
+// if (itemType === 'SELECT' && selectOptionsInput.trim()) {
+//   payload.select_options = selectOptionsInput.split(',').map(s => s.trim()).filter(Boolean);
+// }
+
+// ⭐ [10] 정정: SELECT 타입 신규 생성 시 select_options 미전송 (빈 배열로 생성)
+// 매핑 = [수정] 모달의 자재코드 input 영역에서 진행 (방향 A 단일 양식 정합)
+// payload.select_options = undefined → BE 측 default ([]) 또는 미설정 영역
+```
+
+**영향**:
+- 신규 SELECT 항목 = `select_options: []` 또는 `undefined` 상태 (legacy string[] 생성 차단)
+- 항목 추가 직후 ChecklistManagePage 의 [수정] 클릭 → ChecklistEditModal 의 자재코드 input 영역에서 매핑 진행 (단일 진입점)
+- ChecklistAddModal 내부 ChecklistOptionMapModal 호출 X (item.id 가 신규 부여 후라 호출 불가)
+- `selectOptionsInput` state 자체 폐기 (또는 read-only placeholder 안내 영역만 유지)
+
+---
+
+### 영역 2.2.5 — `hooks/useDebounce.ts` 신규 작성 (Codex [3] 정정)
+
+⭐ **Codex [3] 정정**: `app/src/hooks/useDebounce.ts` 실파일 미존재 → 신규 작성 (또는 컴포넌트 inline 구현 대체).
+
+```typescript
+// app/src/hooks/useDebounce.ts (신규, ~15 LoC)
+
+import { useEffect, useState } from 'react';
+
+/**
+ * 단순 debounce hook — value 변경 후 delay ms 동안 변경 없으면 반환 영역.
+ * Sprint 42 hotfix — ChecklistEditModal 의 selectOptionsInput debounce 영역.
+ */
+export function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+
+  return debounced;
+}
+```
+
+**영향 파일 누적 갱신**:
+- 신규: `app/src/hooks/useDebounce.ts` (+15 LoC)
+- 본 영역 = hotfix 영역에서 dependency 영역 (방향 A 의 debounce 의존 영역)
+
+---
+
+### 영역 2.3 — `types/checklist.ts` 갱신 (M-2차-2 정정)
+
+⭐ **M-2차-2 정정**: `ChecklistMasterItem.select_options` 타입 = 현 `string[] | null` → `number[] | string[] | null` (M-NEW-3 round-trip union 정합).
+
+```typescript
+// app/src/types/checklist.ts L23 영역 (~ +1 LoC)
+export interface ChecklistMasterItem {
+  // ...
+- select_options?: string[] | null;
++ select_options?: number[] | string[] | null;  // M-NEW-3 round-trip — Sprint 66-BE Step 3 BE override 영역 정합
+  // ...
+}
+```
+
+**위험 차단**:
+- 기존 `useState<number[] | string[]>(item.select_options ?? [])` 영역 = `string[]` 추론으로 number[] 분기 dead code 위험
+- 갱신 후 = `number[] | string[]` union 추론 — number[] 분기 동작 보장
+
+**영향 파일 누적 (Codex 2차 정정 후)**:
+- `app/src/components/checklist/ChecklistEditModal.tsx` (~+70 LoC) — 방향 A 단일 양식 + Promise.all + hydrate useEffect (Codex [2][8] 정정)
+- `app/src/components/checklist/ChecklistAddModal.tsx` (~+15 LoC) — 안내 메시지 + select_options 미전송 (Codex [10] 정정)
+- `app/src/pages/checklist/ChecklistManagePage.tsx` (~+3 LoC) — `handleEdit = async` + mutateAsync 반환 (Codex [2] 정정)
+- `app/src/types/checklist.ts` (+1 LoC) ⭐ M-2차-2 신규
+- `app/src/hooks/useDebounce.ts` (+15 LoC, 신규) ⭐ Codex [3] 정정
+- `app/src/components/checklist/ChecklistOptionMapModal.tsx` (~+2 LoC) — master cache invalidate 추가 (Codex [신규-2] 정정)
+- 테스트: `app/src/components/checklist/__tests__/ChecklistEditModal.test.tsx` (~+80 LoC, 신규) — `renderWithQueryClient` + waitFor 2000ms
+
+총 ~186 LoC (코드 ~106 + 신규 hook 15 + types 1 + caller 3 + test 80, Codex 정정 후 누적).
+
+---
+
+### 영역 2.4 — 순서 보존 trail (Codex A1 정합)
+
+```
+BE 측 보장 영역:
+  /api/admin/checklists/master/:id/options 응답의 materials 배열
+  = array_position(material_ids::int[], mm.id) 정렬 (Sprint 66-BE Step 3 영역 정합)
+  → admin 매핑 순서 그대로 응답
+
+FE 측 fallback 영역 (BE 미보장 시):
+  mappedMaterials 를 select_options_raw (number[]) 순서로 sort:
+  
+  const sortedMaterials = useMemo(() => {
+    if (!Array.isArray(selectOptionsRaw) || !selectOptionsRaw.every(x => typeof x === 'number')) {
+      return mappedMaterials;
+    }
+    const orderMap = new Map((selectOptionsRaw as number[]).map((id, idx) => [id, idx]));
+    return [...mappedMaterials].sort(
+      (a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999)
+    );
+  }, [mappedMaterials, selectOptionsRaw]);
+```
+
+→ admin 정한 순서 ≠ 표시 순서 영역 fallback 안전 영역.
+
+---
+
+## 📑 영역 3 — 흐름 영역 (hotfix 후)
+
+```
+[기존 영역 v1.43.0]
+  SELECT 항목 수정 모달:
+    ├─ 항목명 / 기준/검사방법 / 1차 입력 적용 / 개정이력 영역 만
+    └─ 매핑된 자재 리스트 영역 = X ⚠️
+
+[hotfix 영역 v1.43.1 — 방향 A 단일 양식, M-5차-3 정정]
+  SELECT 항목 수정 모달 (ChecklistEditModal):
+    ├─ 선택지 (자재코드, 쉼표 구분) input — admin 직접 입력
+    │   예: 1110006700, 1120094300, 1110298800
+    ├─ debounce 500ms + useMemo client-side filter (BE 변경 0)
+    │   ✓ 1110006700 = MFC | MRC | 25 SLM | P:0.2~1
+    │   ✗ 1110XXX    = 미등록 자재 (빨간색 marker, 오타 catch)
+    │   - 비활성 자재 = [비활성] marker
+    ├─ [🔍 자재 검색 도움] 버튼 → ChecklistOptionMapModal (보조 영역, 자재명 검색)
+    └─ [저장] 클릭 → handleSubmit Promise.all 패턴
+       - matched.map(m => m.id) → number[] 변환
+       - PATCH /api/admin/checklists/master/<id>/options { material_ids: [12,14,18] }
+       - 옵션 C 강제: missing > 0 또는 matched === 0 시 toast 차단
+
+  SELECT 항목 추가 모달 (ChecklistAddModal):
+    ├─ 안내 메시지: "항목 추가 후 [수정] 모달의 자재코드 입력 영역에서 매핑 권장"
+    └─ placeholder 영역 텍스트 입력 (legacy 호환 유지, 신규 추가 시 매핑은 별 단계)
+```
+
+---
+
+## 📑 영역 4 — 테스트 영역 (vitest TC 2건)
+
+### ⭐ Codex [신규-1] + [9] + A-5차-1·2 정정 — QueryClientProvider wrapper + waitFor 2000ms + 방향 A 정합
+
+⭐ **Codex [신규-1] 정정**: TC 의 `useQuery` 사용 시 `QueryClientProvider` wrapper 필수 — `renderWithQueryClient` 헬퍼 추가.
+⭐ **Codex [9] 정정**: TC `waitFor` timeout 1000ms → **2000ms** (debounce 500ms + query resolve + rerender 합산, CI flaky 방지).
+⭐ **A-5차-1 정정**: TC selector "자재 매핑 변경" → "자재 검색 도움" (방향 A jsx 정합).
+⭐ **A-5차-2 정정**: regex 매칭 + setSelectOptionsInput trigger.
+⭐ **M GAP-F 정정**: mockItem 헬퍼 (ChecklistMasterItem strict: true 필수 필드).
+
+### TC-HOTFIX-01 — ChecklistEditModal 자재코드 input + spec 표시 렌더링
+
+```typescript
+// app/src/components/checklist/__tests__/ChecklistEditModal.test.tsx
+import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import * as materialsApi from '@/api/materials';
+import * as checklistApi from '@/api/checklist';
+import type { ChecklistMasterItem } from '@/types/checklist';
+import ChecklistEditModal from '@/components/checklist/ChecklistEditModal';
+
+// ⭐ Codex [신규-1] 정정: QueryClientProvider wrapper 헬퍼 (useQuery 사용 영역 필수)
+const renderWithQueryClient = (ui: React.ReactElement) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },  // TC 영역 = retry/cache 영역 차단
+      mutations: { retry: false },
+    },
+  });
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+};
+
+// ⭐ M GAP-F 정정: ChecklistMasterItem 필수 필드 헬퍼 (strict: true 빌드 통과)
+const mockItem = (overrides: Partial<ChecklistMasterItem> = {}): ChecklistMasterItem => ({
+  id: 42,
+  product_code: 'COMMON',
+  category: 'MECH',
+  item_group: 'GN2',
+  item_name: 'MFC Maker',
+  item_type: 'SELECT',
+  item_order: 1,
+  description: null,
+  is_active: true,
+  phase1_applicable: false,
+  qi_check_required: false,
+  select_options: [12, 14, 18],
+  remarks: null,
+  ...overrides,
+});
+
+const mockMaterialsResponse = {
+  items: [
+    { id: 12, item_code: '1110006700', item_name: 'MFC', category: 'MFC', spec_1: 'MRC | 25 SLM', spec_2: 'P:0.2~1', unit: 'EA', description: 'LNG', is_active: true, created_at: '2026-05-01T00:00:00Z', updated_at: '2026-05-01T00:00:00Z' },
+    { id: 14, item_code: '1120094300', item_name: 'MFC', category: 'MFC', spec_1: 'HORIBA | 50 SLM', spec_2: 'P:1~1.5', unit: 'EA', description: 'LNG', is_active: true, created_at: '2026-05-01T00:00:00Z', updated_at: '2026-05-01T00:00:00Z' },
+    { id: 18, item_code: '1110298800', item_name: 'MFC', category: 'MFC', spec_1: 'MKP | 50 SLM', spec_2: 'P:0.3~2.5 / W:0.3', unit: 'EA', description: 'LNG', is_active: false, created_at: '2026-05-01T00:00:00Z', updated_at: '2026-05-01T00:00:00Z' },
+  ],
+  total: 3,
+  page: 1,
+};
+
+describe('ChecklistEditModal — 방향 A 자재코드 input 영역 (HOTFIX-SPRINT42)', () => {
+  beforeEach(() => {
+    vi.spyOn(materialsApi, 'listMaterials').mockResolvedValue(mockMaterialsResponse);
+  });
+
+  test('자재코드 input 변경 + debounce → matched 자재 spec 표시 + [비활성] marker', async () => {
+    // ⭐ [신규-1] 정정: renderWithQueryClient 사용
+    renderWithQueryClient(<ChecklistEditModal item={mockItem()} category="MECH" onSubmit={vi.fn()} onClose={vi.fn()} />);
+    
+    // ⭐ A-5차-2 정정: setSelectOptionsInput trigger (debounce 대기)
+    const input = await screen.findByPlaceholderText(/1110006700/);
+    fireEvent.change(input, { target: { value: '1110006700, 1120094300, 1110298800' } });
+    
+    // ⭐ Codex [9] 정정: debounce 500ms + useMemo client-side filter — waitFor 2000ms (CI flaky 방지)
+    await waitFor(() => {
+      // ⭐ A-5차-2 정정: regex 매칭 (실 jsx = "✓ 1110006700 = MFC | MRC | 25 SLM | P:0.2~1" 단일 텍스트 노드)
+      expect(screen.getByText(/1110006700.*MRC \| 25 SLM/)).toBeInTheDocument();
+      expect(screen.getByText(/1120094300.*HORIBA \| 50 SLM/)).toBeInTheDocument();
+      expect(screen.getByText('[비활성]')).toBeInTheDocument();  // is_active: false
+    }, { timeout: 2000 });
+  });
+
+  test('미등록 자재코드 → 빨간색 marker (✗ 표시)', async () => {
+    renderWithQueryClient(<ChecklistEditModal item={mockItem({ select_options: [] })} category="MECH" onSubmit={vi.fn()} onClose={vi.fn()} />);
+    
+    const input = await screen.findByPlaceholderText(/1110006700/);
+    fireEvent.change(input, { target: { value: '1110006700, 9999999999' } });
+    
+    await waitFor(() => {
+      expect(screen.getByText(/9999999999.*미등록 자재/)).toBeInTheDocument();
+    }, { timeout: 2000 });
+  });
+});
+```
+
+### TC-HOTFIX-02 — ChecklistOptionMapModal 호출 영역 (보조)
+
+```typescript
+test('🔍 자재 검색 도움 버튼 클릭 시 ChecklistOptionMapModal 호출', async () => {
+  vi.spyOn(materialsApi, 'listMaterials').mockResolvedValue(mockMaterialsResponse);
+  // ⭐ [신규-1] 정정: renderWithQueryClient 사용
+  renderWithQueryClient(<ChecklistEditModal item={mockItem()} category="MECH" onSubmit={vi.fn()} onClose={vi.fn()} />);
+  
+  // ⭐ A-5차-1 정정: button 텍스트 "자재 검색 도움" (방향 A jsx 정합)
+  const helpButton = await screen.findByText(/자재 검색 도움/);
+  fireEvent.click(helpButton);
+  
+  // ⭐ Codex I2 정정: specific selector — getByRole + dialog (label 영역 매칭 회피)
+  expect(screen.getByRole('dialog', { name: /자재 매핑/ })).toBeInTheDocument();
+});
+```
+
+---
+
+## 📑 영역 5 — Pre-deploy Gate
+
+```
+v1.43.1 hotfix release:
+  ✓ TypeScript 0 에러 + npm run build GREEN
+  ✓ vitest TC 2건 (TC-HOTFIX-01 + 02) GREEN
+  ✓ Sprint 42 영역 회귀 0 (기존 vitest TC GREEN 유지)
+  ✓ 운영 검증:
+    - admin /checklist 페이지 → MECH 카테고리 → SELECT 항목 [수정] 클릭
+    - 매핑된 자재 리스트 영역 표시 ✅
+    - [자재 매핑 변경] 버튼 → ChecklistOptionMapModal 호출 ✅
+    - legacy string 영역 = read-only 표시 ✅
+    - 매핑 저장 후 자동 재로드 ✅
+```
+
+---
+
+## 📑 영역 6 — 회귀 위험 + Rollback
+
+```
+회귀 위험 = 0
+  ├─ ChecklistEditModal/AddModal = additive 변경 (기존 영역 영향 0)
+  ├─ ChecklistOptionMapModal 영역 = 기존 그대로 (호출 영역만 추가)
+  ├─ BE API 영역 = 변경 0 (Sprint 66-BE Step 4 그대로)
+  └─ legacy string 배열 영역 호환 (read-only 영역 + 매핑 권장 메시지)
+
+Rollback:
+  git revert v1.43.1 (1 commit) → v1.43.0 영역 복귀
+  DB 변경 0 (admin 매핑 영역만 select_options 영향, 보존)
+```
+
+---
+
+## 📑 영역 7 — 사후 기록 양식 (배포 후) + POST-REVIEW BACKLOG 등록 (A-2차-2 정합)
+
+### 구현 단계 동시 처리 영역 (A-2차-2 정정)
+
+⭐ **A-2차-2**: BACKLOG `POST-REVIEW-HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509` 등록 — hotfix 정정 단계에서 동시 처리.
+
+```
+구현 단계 동시 처리:
+  ① 코드 정정 (ChecklistEditModal/AddModal/types/checklist.ts) + vitest TC 2건
+  ② BACKLOG.md 영역 신규 entry 추가:
+     "🟠 POST-REVIEW-HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509"
+     - Severity: S2 (CLAUDE.md L237 정합)
+     - deadline: 2026-05-16 (5-09 + 7일)
+     - 사후 Codex 검토 영역 (Opus 단독 hotfix 영역 → Codex 라운드 사후 검증)
+     - 검증 영역 = 본 영역 7 운영 검증 시나리오 5건 + 회귀 영역 검증 3건
+  ③ git commit + push
+  ④ Twin파파 prod 배포 승인
+```
+
+→ 사후 검토 누락 차단 영역 (CLAUDE.md 🚨 긴급 HOTFIX 예외 조항 정합).
+
+### 사후 기록 양식 (배포 후)
+
+```
+✅ HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509 종합 결과
+   (작성일: 2026-05-09 KST, AXIS-VIEW v1.43.1 release)
+
+선행 의존성:
+  ├─ Sprint 42 v1.43.0 prod 배포: ✅
+  └─ OPS Sprint 66-BE Step 3+4 prod 배포: ✅
+
+변경 영역 (~80 LoC):
+  ├─ ChecklistEditModal.tsx: ___ LoC (+50)
+  └─ ChecklistAddModal.tsx: ___ LoC (+30)
+
+vitest TC (~2건):
+  ├─ TC-HOTFIX-01 자재 리스트 영역 렌더링: ___ (PASS/FAIL)
+  └─ TC-HOTFIX-02 ChecklistOptionMapModal 호출: ___ (PASS/FAIL)
+
+운영 검증 시나리오:
+  ├─ 1. SELECT 항목 [수정] 클릭 → 매핑된 자재 리스트 영역 표시: ___ (Y/N)
+  ├─ 2. legacy string 영역 = read-only 표시: ___ (Y/N)
+  ├─ 3. [자재 매핑 변경] 버튼 → ChecklistOptionMapModal 호출: ___ (Y/N)
+  ├─ 4. 매핑 저장 후 자동 재로드: ___ (Y/N)
+  └─ 5. ChecklistAddModal SELECT 시 안내 메시지 표시: ___ (Y/N)
+
+회귀 영역 검증:
+  ├─ 기존 ChecklistEditModal CHECK/INPUT 타입 영향 0: ___ (Y/N)
+  ├─ ChecklistManagePage [매핑] 버튼 영역 영향 0: ___ (Y/N)
+  └─ vitest 기존 TC GREEN 유지: ___ (Y/N)
+```
+
+---
+
+## 📑 영역 8 — ADR-024 candidate (cowork 누적 실수 #11~#15) — Codex A2 정합
+
+### Cowork 추측 작성 실수 trail 영역
+
+| # | Sprint | 실수 영역 | 정정 영역 |
+|---|---|---|---|
+| 11 | Sprint 42 | `process.env.REACT_APP_*` (Vite 인지 부족) | `import.meta.env.VITE_*` |
+| 12 | Sprint 42 | `src/` 경로 + `httpClient` (codebase grep 누락) | `app/src/` + `apiClient` (axios) |
+| 13 | Sprint 42 | `api/checklists.ts` (단복수 grep 누락, 신규 파일) | `api/checklist.ts` (단수, 기존 확장) |
+| 14 | HOTFIX (본 sprint) | ChecklistEditModal/AddModal 통합 영역 grep 누락 | 본 hotfix 정정 (~80 LoC) |
+| 15 | HOTFIX (본 sprint) | ChecklistOptionMapModal Props 영역 grep 누락 (currentMaterialIds + onSave 가정) | 실제 `{ masterId, itemName, onClose }` + Material import 경로 정정 |
+| 16 | HOTFIX (본 sprint) | `useDebounce` hook 실파일 미존재 검증 누락 (방향 A 의존 영역) | `app/src/hooks/useDebounce.ts` 신규 작성 (영역 2.2.5) |
+| 17 | HOTFIX (본 sprint) | `listMaterials({ per_page: 200 })` 호출 — 실 API 시그니처 `{ page, per_page }` 모두 required (Sprint 42 신규 작성 영역 grep 누락) | `listMaterials({ page: 1, per_page: 200 })` 갱신 |
+| 18 | HOTFIX (본 sprint) | `Promise.resolve(onSubmit(data))` 즉시 resolve — onSubmit prop 시그니처 `(data) => void` race 위험 (caller side mutateAsync 반환 미보장) | onSubmit prop 타입 `void \| Promise<void>` + caller `handleEdit = async (id, data) => await mutateAsync(...)` 갱신 |
+| 19 | HOTFIX (본 sprint) | ChecklistAddModal `payload.select_options = string[]` 전송 — 방향 A 단일 양식 (number[]) 위반 | 신규 SELECT 생성 시 select_options 미전송 (빈 배열 영역) |
+| 20 | HOTFIX (본 sprint) | TC `QueryClientProvider` wrapper 누락 — useQuery 사용 영역 TC 실행 에러 | `renderWithQueryClient` 헬퍼 추가 |
+| 21 | HOTFIX (본 sprint) | `selectOptionsInput` 초기값 `item.select_options?.join(', ')` — numeric id `[12,14,18]` → `"12, 14, 18"` 표시 → 자재코드 ≠ id → 전부 missing → 다른 필드 저장 차단 | useEffect 영역 — id → item_code hydrate (방향 A 단일 양식 + legacy string[] 분기) |
+| 22 | HOTFIX (본 sprint) | options 저장 후 `['checklist-master']` cache invalidate 누락 — master 목록 stale | mutation onSuccess 영역 `invalidateQueries({ queryKey: ['checklist', 'master'] })` 추가 |
+
+### ADR-024 candidate (Twin파파 결정 시점, 누적 22건 → 분리 검토 영역 — 매우 강한 권장)
+
+```
+✅ FE 코드 작성 시 build tool grep 의무 (Vite vs CRA vs Next.js)
+✅ codebase 디렉토리 영역 grep (app/src vs src) 의무
+✅ HTTP wrapper 영역 grep (apiClient vs httpClient vs fetch) 의무
+✅ 신규 파일 작성 전 기존 파일 영역 grep (단수/복수 + 위치) 의무
+✅ 신규 모달 작성 전 기존 모달 영역 grep (Edit/Add/Detail 패턴 통합) 의무
+✅ 컴포넌트 Props 영역 grep 의무 (실제 interface vs 가정 영역 검증) — #15
+✅ 타입 import 경로 영역 grep (`@/types/*` vs `@/api/*` 영역) 의무 — #15
+✅ ⭐ Hook/유틸 실파일 존재 영역 grep 의무 (방향 A 의존 hook 영역) — NEW #16
+✅ ⭐ API 함수 시그니처 grep 의무 (required 영역 정합) — NEW #17
+✅ ⭐ Promise 체인 영역 grep 의무 (sync void vs Promise return) — NEW #18
+✅ ⭐ 단일 양식 의도 / Add Flow 정합 영역 grep 의무 (방향 A legacy 재생성 차단) — NEW #19
+✅ ⭐ TC infrastructure 영역 grep 의무 (QueryClientProvider/setup) — NEW #20
+✅ ⭐ State hydrate 영역 grep 의무 (initial state vs 의도된 표시값) — NEW #21
+✅ ⭐ Cache invalidation key 영역 grep 의무 (mutation 후 stale 차단) — NEW #22
+✅ 본 hotfix #14~#22 = 누적 22건, 가장 큰 운영 영향 (사용자 catch + 빌드 실패 + race + UX 회귀)
+   → ADR-024 분리 매우 강한 권장 시점
+```
+
+→ **ADR-024 분리 영역 = Twin파파 즉시 결정 권장 시점**. cowork 추측 작성 실수 영역 표준 영역 분리 필요 (누적 22건 = 1 hotfix 에서 #14~#22 = 9건 추가 발생).
+
+---
+
+## 🔗 관련 문서
+
+- 본 hotfix 영역 = Sprint 42 (FEAT-AXIS-VIEW-MATERIALS-AND-CHECKLISTS-MGMT-20260507) 후속
+- BACKLOG entry: `AXIS-VIEW/BACKLOG.md` § HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509
+- Sprint 42 영역 영역 3.5 (cowork 실수 #14 영역 정정 영역) 참조
+- OPS BE 영역 변경 0 (Sprint 66-BE Step 3+4 그대로)
+- POST-REVIEW BACKLOG entry: `POST-REVIEW-HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509` (deadline 2026-05-16)
