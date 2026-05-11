@@ -126,6 +126,7 @@ export interface ChecklistReportItem {
   item_group: string;
   item_name: string;
   item_type: 'CHECK' | 'INPUT' | 'SELECT';
+  item_order?: number;                   // v1.43.2: BE 응답 포함 — FE 측 정렬용 (MECH 그룹 정렬 미적용 정정)
   description: string | null;
   result: 'PASS' | 'NA' | null;         // CHECK 타입
   input_value: string | null;            // INPUT 타입 (MECH)

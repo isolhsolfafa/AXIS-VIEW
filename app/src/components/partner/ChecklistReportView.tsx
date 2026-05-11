@@ -1,6 +1,9 @@
 // src/components/partner/ChecklistReportView.tsx
 // 체크리스트 성적서 뷰 — Sprint 28
+// v1.43.2 (2026-05-11): 항목 정렬 정합 — ChecklistManagePage 와 동일 패턴 (그룹 첫 등장 순 + item_order)
+//   배경: BE checklist_service.py:235-239 CASE 절이 MECH 그룹 미포함 (ELSE 99 처리) → FE 측에서 정렬 보강
 
+import { useMemo } from 'react';
 import { Download } from 'lucide-react';
 import { maskName, formatDateTime } from '@/utils/format';
 import type { ChecklistReportData, ChecklistReportCategory } from '@/types/checklist';
@@ -189,7 +192,24 @@ export default function ChecklistReportView({ data }: Props) {
 
 // ── 카테고리 테이블 ──
 function CategoryTable({ cat }: { cat: ChecklistReportCategory }) {
-  if (cat.items.length === 0) return null;
+  // v1.43.2: ChecklistManagePage 와 동일 정렬 (그룹 첫 등장 순 + item_order)
+  // — BE CASE 절이 MECH 미포함 (ELSE 99) 이라 FE 측에서 정렬 보강
+  const sortedItems = useMemo(() => {
+    const groupOrder = new Map<string, number>();
+    for (const item of cat.items) {
+      if (!groupOrder.has(item.item_group)) {
+        groupOrder.set(item.item_group, groupOrder.size);
+      }
+    }
+    return [...cat.items].sort((a, b) => {
+      const ga = groupOrder.get(a.item_group) ?? 0;
+      const gb = groupOrder.get(b.item_group) ?? 0;
+      if (ga !== gb) return ga - gb;
+      return (a.item_order ?? 0) - (b.item_order ?? 0);
+    });
+  }, [cat.items]);
+
+  if (sortedItems.length === 0) return null;
 
   return (
     <div style={{ marginBottom: '28px' }}>
@@ -225,7 +245,7 @@ function CategoryTable({ cat }: { cat: ChecklistReportCategory }) {
           </tr>
         </thead>
         <tbody>
-          {cat.items.map((item, idx) => {
+          {sortedItems.map((item, idx) => {
             const [spec, method] = splitDescription(item.description);
             return (
             <tr key={idx} style={{ borderBottom: '1px solid var(--gx-cloud)' }}>

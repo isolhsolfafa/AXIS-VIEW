@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.43.1 (2026-05-11)
+> 최신 버전: v1.43.2 (2026-05-11)
 
 ---
 
@@ -70,6 +70,31 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.43.2 — 2026-05-11
+
+**PATCH 정렬 정합 — 협력사 관리 > 체크리스트 성적서 항목 순서**
+
+📋 ChecklistReportView 항목 정렬을 ChecklistManagePage 와 동일 패턴으로 통일
+ - 그룹 첫 등장 순 + 그룹 내 item_order 정렬
+ - Twin파파 catch: TM/ELEC 카테고리는 정렬 OK, MECH 만 순서 비정합
+
+🔍 근본 원인
+ - OPS BE `checklist_service.py` L235-239 의 `ORDER BY CASE` 절에 MECH 그룹 누락
+ - TM (BURNER/REACTOR/EXHAUST/TANK) ✅
+ - ELEC (PANEL 검사/조립 검사/JIG 검사…) ✅
+ - MECH = `ELSE 99` 처리 → 그룹 간 정렬 미적용
+
+🛠️ FE 단독 정정 (BE 변경 0, ~25 LoC)
+ - types/checklist.ts: ChecklistReportItem 에 `item_order?: number` 추가 (BE 응답에 이미 포함)
+ - ChecklistReportView 의 CategoryTable: useMemo sort 추가 (manage 패턴 차용)
+
+✅ 검증
+ - 빌드 GREEN, vitest 45/45 PASS
+ - TM/ELEC 영역 영향 없음 (이미 정렬된 응답 + FE 정렬 = 동일 결과)
+ - MECH 영역 정합 달성
 
 ---
 
