@@ -18819,6 +18819,85 @@ ADR-023 신규 표준 (Phase 4 보강 권장):
 
 ---
 
+# 🚨 HOTFIX-CHECKLIST-ADD-CONFLICT-TOAST-20260511 (v1.43.3, FE only)
+
+> **Sprint ID**: `HOTFIX-CHECKLIST-ADD-CONFLICT-TOAST-20260511`
+> **유형**: 체크리스트 항목 추가 UX 보강 hotfix (FE only)
+> **Severity**: 🟡 S3 (UX 개선 — 기능 차단 아님, 사용자 디버깅 가능성 회복)
+> **사후 Codex 검토**: 7일 이내 (deadline 2026-05-18, 선택)
+> **작성일**: 2026-05-11 KST
+> **트리거**: 사용자 catch — 체크리스트 관리 페이지에서 "+ 항목 추가" 시 generic toast "추가에 실패했습니다" + 모달 자동 닫힘 → CONFLICT 원인 디버깅 불가
+> **연관 BE hotfix**: OPS `HOTFIX-SPRINT66BE-CREATE-MASTER-ITEM-TYPE-AND-CONFLICT-MSG-20260511` (BE 가 `existing_id` + `is_active` 응답 schema 도입)
+> **추정 시간**: ~10분 (정정 완료, +22 LoC)
+> **선행 의존성**: OPS BE HOTFIX-SPRINT66BE-CREATE-MASTER-ITEM-TYPE-AND-CONFLICT-MSG 배포 완료 ✅
+
+## 변경 사항
+
+**파일**: `app/src/pages/checklist/ChecklistManagePage.tsx` `handleAdd()` 함수
+
+**Before** (v1.43.2 이전):
+```tsx
+const handleAdd = (payload: CreateMasterPayload) => {
+  createMaster.mutate(payload, {
+    onSuccess: () => toast.success('항목이 추가되었습니다'),
+    onError: () => toast.error('추가에 실패했습니다'),  // ← generic, 디버깅 불가
+  });
+  setShowAddModal(false);  // ← 무조건 닫힘, 실패 시 입력값 손실
+};
+```
+
+**After** (v1.43.3):
+```tsx
+const handleAdd = (payload: CreateMasterPayload) => {
+  createMaster.mutate(payload, {
+    onSuccess: () => {
+      toast.success('항목이 추가되었습니다');
+      setShowAddModal(false);  // 성공 시에만 모달 닫힘
+    },
+    onError: (err: any) => {
+      const resp = err?.response?.data;
+      if (resp?.error === 'CONFLICT') {
+        const idTxt = resp.existing_id != null ? ` (id=${resp.existing_id})` : '';
+        const hint = resp.is_active === false
+          ? ' — 비활성 상태입니다. "비활성 포함" 체크 후 토글로 활성화하세요.'
+          : '';
+        toast.error(`동일 항목이 이미 존재합니다${idTxt}.${hint}`, { duration: 6000 });
+      } else if (resp?.message) {
+        toast.error(resp.message);
+      } else {
+        toast.error('추가에 실패했습니다');
+      }
+      // 모달 유지 — 사용자가 입력값 조정 후 재시도 가능
+    },
+  });
+};
+```
+
+## 회귀 위험
+
+**0** — BE 응답이 CONFLICT 가 아닐 경우 `resp?.message` fallback → `'추가에 실패했습니다'` fallback (기존 동작 보존). axios `err.response.data` 패턴은 codebase 표준 (PermissionsPage, MaterialFormModal, MaterialUploadModal 동일 패턴).
+
+## UX 개선 결과
+
+| 시나리오 | Before | After |
+|---|---|---|
+| 신규 항목 추가 성공 | ✅ 토스트 + 모달 닫힘 | ✅ 동일 |
+| 활성 항목 충돌 | ❌ "추가에 실패했습니다" (디버깅 불가) | ✅ "동일 항목이 이미 존재합니다 (id=199)." |
+| 비활성 항목 충돌 | ❌ 동일 (게다가 목록에 안 보임) | ✅ "동일 항목이 이미 존재합니다 (id=199). — 비활성 상태입니다. \"비활성 포함\" 체크 후 토글로 활성화하세요." |
+| 입력값 보존 | ❌ 모달 자동 닫힘 → 입력값 손실 | ✅ 모달 유지, 즉시 재시도 가능 |
+
+## Rollback
+
+git revert 1 commit (회귀 0).
+
+## 연관
+
+- OPS BE HOTFIX-SPRINT66BE-MASTER-LIST-ITEM-TYPE-20260511 (GET item_type 직렬화)
+- OPS BE HOTFIX-SPRINT66BE-CREATE-MASTER-ITEM-TYPE-AND-CONFLICT-MSG-20260511 (POST + CONFLICT schema)
+- AXIS-OPS ADR-029 Cowork 작업 분리 정책 (Tier 2 동일 endpoint 그룹 일관성 검증 영역 정합)
+
+---
+
 # 🚨 HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509
 
 > **Sprint ID**: `HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509`

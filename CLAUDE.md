@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-05-11 | 버전: v1.43.1
+> 최종 갱신: 2026-05-11 | 버전: v1.43.3
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -276,7 +276,7 @@ AXIS-VIEW/
 │   │   ├── api/              API 클라이언트 13개
 │   │   ├── hooks/            TanStack Query 훅 22파일 / 41함수
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.43.1 (2026-05-11)
+│   │   ├── version.ts        v1.43.3 (2026-05-11)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
@@ -802,6 +802,8 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | Sprint 41 (v1.42.0) | 협력사별 진행률 view (BIZ-COMPANY-PROGRESS-01) — admin/GST 현행, 협력사 자기 담당 카테고리(MECH/ELEC/TMS)만 평균. `utils/companyScopedProgress.ts` 신규 (82 LOC) + `getCompanyScopedPercent` / `getCompanyScopedCategories` + `PARTNER_FIELD_ALIASES` (Codex M5 — TMS(M)/(E) 부서 vs DB 'TMS' 단축 표기 정규화) + DB 빈문자 가드 (146건/11.6% 실측). SNCard / SNStatusPage (groupedByON null 가드 + sort rank null=3 + inProgressByModel 회사 뷰) / SNDetailPanel 분기. 12 케이스 단위 테스트. BE 의존 0 (Sprint 34 partner 필드 활용). Claude 1·2차 + Codex 1·2차 누적 약 41건 합의 — Codex M5 critical 포함 전건 반영. ~214 LOC, 5 파일 (utils 1 신규 + components 3 + test 1 신규), 2026-05-06 | ✅ 완료 |
 | Sprint 42 (v1.43.0) | 자재 마스터 + 체크리스트 자재 매핑 admin GUI (FEAT-AXIS-VIEW-MATERIALS-AND-CHECKLISTS-MGMT) — OPS Sprint 66-BE Step 4 별 repo 분리. `/materials` 신규 페이지 (CRUD + Excel 4단계 업로드 미리보기 + 가스 ILIKE 검색) + `/checklist` 기존 확장 (SELECT 항목 [매핑] 버튼 → ChecklistOptionMapModal). 신규 6 파일 (MaterialsPage 290 / FormModal 181 / UploadModal 208 / OptionMapModal 222 / DeactivateConfirm 80 / api/materials 116) + 수정 5 (App / api/checklist / ChecklistTable / Sidebar / ChecklistManagePage). 권한 admin/GST (M6-A). 자재 비활성화 = warn + keep (M-NEW-4-B). select_options round-trip = string[]\|number[] union (M-NEW-3). FormData multipart + UTF-8/CP949 fallback (M-NEW-1·2). Claude 1~4차 + Codex 1·2차 누적 약 36건 합의 (Codex M-2차-2 산수 오류 REJECT). 1,173 LOC 실측. ✅ FE+BE 동기 완료 (BE Sprint 66-BE Step 3·4 모두 종료 2026-05-09), 2026-05-09 | 🟡 FE 완료 (Twin파파 Netlify preview UI 검증 대기) |
 | HOTFIX-SPRINT42 (v1.43.1) | Sprint 42 후속 hotfix — ChecklistEditModal SELECT 자재 매핑 영역 통합 (Twin파파 5-08 UI catch). **방향 A** (BE 변경 0, FE 단독): 자재코드 input + debounce 500ms + FE Map 변환 → PATCH number[]. 옵션 C 강제 (최소 1자재 + 미등록 자재 차단). HOTFIX-SPRINT66BE 폐기. 신규 2 파일 (useDebounce.ts + ChecklistEditModal.test.tsx) + 수정 5 (Edit/Add/OptionMap/Manage + types). hydrated flag (사용자 입력 보호) + Promise.all + master invalidate. Severity S2, 사후 Codex 검토 deadline 2026-05-18. Codex 1·2·3차 + Claude 5·6차 누적 약 30건 합의 (cowork 실수 #11~#22 — ADR-024 candidate). ~346 LOC 실측 (신규 132 + 수정 214), 2026-05-11 | 🟡 FE 완료 (Twin파파 UI 검증 대기) |
+| PATCH v1.43.2 | 협력사 관리 > 체크리스트 성적서 항목 정렬 정합 — ChecklistManagePage 와 동일 패턴 (그룹 첫 등장 순 + item_order). 배경: OPS BE `checklist_service.py` L235-239 `ORDER BY CASE` 절에 MECH 그룹 누락 (TM/ELEC 만 명시, ELSE 99 = 정렬 미적용) — Twin파파 catch. **FE 단독 정정** (BE 변경 0): `types/checklist.ts` ChecklistReportItem 에 `item_order?: number` 추가 + `ChecklistReportView` CategoryTable 에 useMemo sort (manage 패턴 차용). 3 파일 / ~25 LOC. 빌드 GREEN + vitest 45/45 PASS. TM/ELEC 영역 회귀 0, 2026-05-11 | ✅ 완료 |
+| HOTFIX v1.43.3 | 체크리스트 항목 추가 CONFLICT 토스트 UX 보강 (Twin파파 catch) — generic "추가에 실패했습니다" 디버깅 불가 정정. BE 응답 `error:'CONFLICT'` + `existing_id` + `is_active` 활용: 활성 충돌 = "동일 항목이 이미 존재합니다 (id=199).", 비활성 충돌 = + " — 비활성 상태입니다. \"비활성 포함\" 체크 후 토글로 활성화하세요." 자동 첨부. 실패 시 모달 유지 (입력값 보존). 3 파일 / ~22 LoC (handleAdd onError 분기). 연관 BE: OPS HOTFIX-SPRINT66BE-CREATE-MASTER-ITEM-TYPE-AND-CONFLICT-MSG-20260511. Severity S3 (UX 개선, 기능 차단 아님). 빌드 GREEN + vitest 45/45 PASS, 2026-05-11 | ✅ 완료 |
 
 ### HOTFIX 연계 — 후속 BACKLOG (2026-04-17 정리)
 

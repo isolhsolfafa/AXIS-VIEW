@@ -72,12 +72,30 @@ export default function ChecklistManagePage() {
     return Array.from(groups);
   }, [items]);
 
+  // HOTFIX 2026-05-11 — CONFLICT 응답 (existing_id + is_active) 활용 토스트 + 실패 시 모달 유지
+  // BE 응답 schema: {error, message, existing_id?, is_active?} — OPS HOTFIX-SPRINT66BE-CREATE-MASTER-ITEM-TYPE-AND-CONFLICT-MSG 정합
   const handleAdd = (payload: CreateMasterPayload) => {
     createMaster.mutate(payload, {
-      onSuccess: () => toast.success('항목이 추가되었습니다'),
-      onError: () => toast.error('추가에 실패했습니다'),
+      onSuccess: () => {
+        toast.success('항목이 추가되었습니다');
+        setShowAddModal(false);
+      },
+      onError: (err: any) => {
+        const resp = err?.response?.data;
+        if (resp?.error === 'CONFLICT') {
+          const idTxt = resp.existing_id != null ? ` (id=${resp.existing_id})` : '';
+          const hint = resp.is_active === false
+            ? ' — 비활성 상태입니다. "비활성 포함" 체크 후 토글로 활성화하세요.'
+            : '';
+          toast.error(`동일 항목이 이미 존재합니다${idTxt}.${hint}`, { duration: 6000 });
+        } else if (resp?.message) {
+          toast.error(resp.message);
+        } else {
+          toast.error('추가에 실패했습니다');
+        }
+        // 모달 유지 — 사용자가 입력값 조정 후 재시도 가능
+      },
     });
-    setShowAddModal(false);
   };
 
   // Sprint 42 hotfix (v1.43.1) — async + mutateAsync 반환 (Promise 체인 보장, race 차단)

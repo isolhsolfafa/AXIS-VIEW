@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.43.2 (2026-05-11)
+> 최신 버전: v1.43.3 (2026-05-11)
 
 ---
 
@@ -70,6 +70,29 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.43.3 — 2026-05-11
+
+**HOTFIX UX 보강 — 체크리스트 항목 추가 CONFLICT 토스트 정밀화**
+
+🔧 Twin파파 catch — generic "추가에 실패했습니다" 디버깅 불가 정정
+ - BE 응답 `error: 'CONFLICT'` + `existing_id` + `is_active` 활용 토스트
+ - 활성 항목 충돌: "동일 항목이 이미 존재합니다 (id=199)."
+ - 비활성 항목 충돌: 위 메시지 + " — 비활성 상태입니다. \"비활성 포함\" 체크 후 토글로 활성화하세요." 안내 자동 첨부
+ - 실패 시 모달 유지 (입력값 보존 → 즉시 재시도 가능)
+
+🛠️ FE 단독 정정 (BE 변경 0, ~22 LoC)
+ - ChecklistManagePage `handleAdd()` onError 분기 (CONFLICT → resp.message → generic 3단계 fallback)
+ - 성공 시에만 `setShowAddModal(false)` (race 차단)
+
+🔗 BE 연관
+ - OPS HOTFIX-SPRINT66BE-CREATE-MASTER-ITEM-TYPE-AND-CONFLICT-MSG-20260511 응답 schema 정합
+
+✅ 검증
+ - 빌드 GREEN, vitest 45/45 PASS
+ - 회귀 0 (BE 응답 누락 시 generic fallback 보존)
 
 ---
 
