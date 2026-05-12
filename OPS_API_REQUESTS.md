@@ -5030,3 +5030,273 @@ tests/backend/test_factory_kpi.py (v2.4 기준 재정렬)
 1. OPS `factory.py` v2.4 수정·배포
 2. Twin파파 R-02 해석 A 검증 쿼리 실행
 3. FE Sprint 36 착수 (3옵션 토글 교체 + 타입 단순화)
+
+---
+
+## #63 자재 마스터 Excel 일괄 업로드 엔드포인트 (`POST /api/admin/materials/upload`)
+
+**우선순위**: ~~🟡 MEDIUM~~ → ✅ **DONE** (2026-05-12 prod 배포 완료)
+**Sprint**: 66-BE-FOLLOWUP (FEAT-MATERIAL 후속, generator script 패턴 차용)
+**날짜**: 2026-05-11 등록 → 2026-05-12 완료
+**관련 FE**: Sprint 42 (v1.43.0) — Material master + Excel 업로드 모달
+**상태**: ✅ **DONE** — OPS 측 BE endpoint 정상 작동 확인 (Twin파파 2026-05-12 보고). VIEW /materials 페이지에서 test_materials_upload.xlsx 업로드 시 preview 정상 응답 (신규 3 / 변경 2 / 동일 0 / 신규 BOM 매핑 5). description (11번째 컬럼) 처리 영역도 OPS 진행 중 — 배포 시 모달 라벨 "10 컬럼" → "11 컬럼" 정정 batch 권장.
+
+---
+
+### 1. 배경 & 현재 상태
+
+#### 1.1 FE 상태 (✅ 완료)
+- **Sprint 42** 에서 4단계 업로드 워크플로우 구현 완료 (`MaterialUploadModal.tsx` 209줄)
+- **흐름**: `file` → `preview` → `strategy` → `commit` → `done`
+- **호출 시그니처** (`app/src/api/materials.ts` L88-114):
+  ```typescript
+  // 미리보기
+  POST /api/admin/materials/upload
+  Content-Type: multipart/form-data
+  Body: { file: File, mode: 'preview' }
+
+  // 실제 커밋
+  POST /api/admin/materials/upload
+  Content-Type: multipart/form-data
+  Body: {
+    file: File,
+    mode: 'commit',
+    strategy: 'all' | 'selected' | 'skip',
+    selected_item_codes?: string  // JSON.stringify(string[])
+  }
+  ```
+
+#### 1.2 BE 상태 (🔴 미구현)
+- **현재 구현된 라우트** (`backend/app/routes/admin_materials.py`):
+  - `GET    /api/admin/materials` — 목록 조회
+  - `POST   /api/admin/materials` — 단건 생성
+  - `PATCH  /api/admin/materials/{id}` — 단건 수정
+  - `PATCH  /api/admin/materials/{id}/deactivate` — 비활성화
+  - `PATCH  /api/admin/materials/{id}/reactivate` — 재활성화
+- **미구현**: `POST /api/admin/materials/upload` ← FE가 호출하면 **404**
+- **파일 L14 주석**: `# 후속 BACKLOG: /api/admin/materials/upload (Excel 일괄 업로드 — generator script 패턴 차용)`
+
+#### 1.3 운영 영향
+- 자재 마스터 (185건) + product_bom (1626건) 은 마이그레이션 053a (`generate_migration_053a.py`) 로 1회성 직접 INSERT 완료
+- **이후 신규 자재 / 변경 자재가 발생하면** Twin파파가 Excel 양식으로 추가/수정 → 업로드 시도 시 404 → 갱신 불가
+- 임시 우회: SQL 직접 INSERT 또는 단건 POST 반복 호출 (운영자 부담)
+
+---
+
+### 2. 업로드 파일 양식 (FE 모달 안내문 기준)
+
+**`MaterialUploadModal.tsx` L93-97**:
+> CSV 또는 Excel 파일 (한글 헤더 10컬럼: 품번/고객사/모델/자재코드/자재내역/규격1/규격2/수량/단위/생성일).
+> UTF-8 권장 (다른 이름으로 저장 → CSV UTF-8). CP949/EUC-KR 도 자동 인식.
+
+**실제 양식 (`material_master_통합.csv` 1654 rows / 136KB 기준)**:
+
+| 한글 헤더 | DB 필드 매핑 | 용도 | 필수 |
+|---|---|---|---|
+| 품번 | `product_code` (BOM key) | BOM 매핑 키 | ✅ |
+| 고객사 | `customer` (BOM key) | BOM 매핑 키 (예: SEC, SK, IMEC) | ✅ |
+| 모델 | `model` (BOM key) | BOM 매핑 키 (예: DRAGON LE DUAL) | ✅ |
+| 자재코드 | `item_code` (PK, UNIQUE) | material_master 키 | ✅ |
+| 자재내역 | `item_name` | 자재명 | ✅ |
+| 규격1 | `spec_1` | 규격 (예: O3 DESTRUCTOR) | ⬜ |
+| 규격2 | `spec_2` | 규격 (예: STANDARD) | ⬜ |
+| 수량 | `quantity` (BOM only) | BOM 수량 | ✅ |
+| 단위 | `unit` | 단위 (EA / SET / m 등) | ⬜ |
+| 생성일 | `_ignored` | 무시 (운영자 메모용) | ⬜ |
+| 비고 | `description` | 가스 종류 등 MFC 검색 보조 | ⬜ |
+
+→ **실제 11컬럼** (모달 안내문은 10으로 표기되어 있으나 비고 포함 11)
+→ `CSV_COLUMN_MAP` 정의 위치: `backend/scripts/generate_migration_053a.py` L30-42
+
+```python
+CSV_COLUMN_MAP = {
+    '품번':     'product_code',
+    '고객사':   'customer',
+    '모델':     'model',
+    '자재코드': 'item_code',
+    '자재내역': 'item_name',
+    '규격1':    'spec_1',
+    '규격2':    'spec_2',
+    '수량':     'quantity',
+    '단위':     'unit',
+    '생성일':   '_ignored',
+    '비고':     'description',
+}
+```
+
+**샘플 파일** (Twin파파 Desktop):
+- `/Users/twinfafa/Desktop/GST/material_upload_sample_full.csv` (1654 rows, 원본)
+- `/Users/twinfafa/Desktop/GST/material_upload_sample_30rows.csv` (30 rows, 미리보기용)
+- `/Users/twinfafa/Desktop/GST/material_upload_sample.xlsx` (Excel 양식 + 가이드 시트)
+
+---
+
+### 3. 응답 스키마
+
+#### 3.1 `mode=preview` → `UploadPreview`
+
+```typescript
+interface UploadPreview {
+  new_materials: Array<{
+    item_code: string;
+    item_name: string;
+    spec_1?: string;
+    spec_2?: string;
+    unit?: string;
+    description?: string;
+  }>;
+  changed_materials: Array<{
+    item_code: string;
+    changes: Array<{
+      field: string;       // 'item_name' | 'spec_1' | 'spec_2' | 'unit' | 'description'
+      before: string | null;
+      after: string | null;
+    }>;
+  }>;
+  unchanged_materials: Array<{ item_code: string }>;
+  bom_mappings_new: number;       // 신규 product_bom 행 수
+  bom_mappings_changed: number;   // 수량 변경 product_bom 행 수
+  total_rows: number;
+  rejected_rows?: Array<{
+    row_number: number;
+    reason: string;     // 'MISSING_ITEM_CODE' | 'INVALID_QUANTITY' | ...
+  }>;
+}
+```
+
+#### 3.2 `mode=commit` → `UploadResult`
+
+```typescript
+interface UploadResult {
+  inserted: number;   // 신규 material_master 행 수
+  updated: number;    // 갱신 material_master 행 수
+  skipped: number;    // 건너뛴 행 수
+  rejected: number;   // 오류로 거부된 행 수
+  bom_inserted: number;
+  bom_updated: number;
+}
+```
+
+#### 3.3 오류 응답
+
+```json
+{ "error": "ENCODING_DETECTION_FAILED", "detail": "CSV 인코딩 감지 실패" }
+{ "error": "INVALID_HEADER", "detail": "필수 컬럼 누락: 자재코드" }
+{ "error": "PARSE_ERROR", "detail": "Excel 파일 손상 또는 빈 시트" }
+```
+
+FE는 이미 `ENCODING_DETECTION_FAILED` 케이스를 토스트로 안내함 (`MaterialUploadModal.tsx` L42-46).
+
+---
+
+### 4. 처리 로직 (mode + strategy 분기)
+
+#### 4.1 `mode=preview` 로직 (read-only)
+1. file 받기 (CSV / xlsx / xls)
+2. 인코딩 자동 감지 (`chardet` → UTF-8 → CP949 → EUC-KR fallback)
+3. pandas / openpyxl 로 파싱 → DataFrame
+4. `CSV_COLUMN_MAP` 으로 한글→영문 컬럼 rename
+5. 각 행을 `material_master` 와 대조:
+   - DB 미존재 → `new_materials`
+   - DB 존재 + 필드 차이 → `changed_materials` (변경 필드만 diff)
+   - DB 존재 + 동일 → `unchanged_materials`
+6. BOM 매핑(`product_bom`): `(product_code, customer, model, item_code)` 4-key 로 대조
+7. JSON 응답 — **DB 변경 없음**
+
+#### 4.2 `mode=commit` 로직 (write)
+1. preview 동일 파싱 단계 반복 (idempotency: 같은 파일 재호출 가능)
+2. `strategy` 분기:
+   - **`all`** — 변경 자재 모두 UPDATE + 신규 모두 INSERT (운영 기본)
+   - **`selected`** — `selected_item_codes` 에 포함된 자재만 UPDATE + 신규 모두 INSERT
+   - **`skip`** — 기존 자재 UPDATE 안함, 신규만 INSERT (변경 무시, 보존 우선)
+3. BOM 매핑: 신규 매핑은 항상 INSERT, 기존 매핑 수량 변경은 `selected/all` 일 때만 UPDATE
+4. 트랜잭션 단위로 일괄 처리 → 결과 카운트 응답
+
+---
+
+### 5. 구현 참고 (기존 자산 재사용)
+
+| 자산 | 위치 | 활용 |
+|---|---|---|
+| `CSV_COLUMN_MAP` | `backend/scripts/generate_migration_053a.py` L30-42 | 한글→영문 컬럼 매핑 그대로 재사용 |
+| 인코딩 감지 로직 | `generate_migration_053a.py` (chardet) | preview/commit 양쪽에 공통 추출 |
+| material_master schema | `migrations/053_material_master_and_bom_schema_migration.sql` | UPSERT 대상 |
+| description 컬럼 | `migrations/053b_*.sql` | `INSERT INTO material_master(... description) ON CONFLICT (item_code) DO UPDATE SET ...` |
+| 1654행 원본 CSV | `material_master_통합.csv` | TC 데이터로 활용 가능 |
+
+---
+
+### 6. FE 안전 degrade (이미 구현)
+
+**현 상태에서 BE 미구현이어도 FE는 안전**:
+- 업로드 버튼 클릭 → 404 → `previewMutation.onError` → 토스트 "미리보기 중 오류가 발생했습니다."
+- 모달이 닫히지 않고 사용자 재시도 가능
+- 자재 목록 페이지 자체는 정상 동작 (GET / POST / PATCH 만 사용)
+
+→ **BE 배포 즉시 FE는 추가 작업 없이 동작**
+
+---
+
+### 7. 테스트 케이스 (BE 측 pytest 권장)
+
+```
+tests/backend/test_admin_materials_upload.py
+├─ TC-MU-01: preview — 신규 자재만 있는 CSV → new_materials 카운트 일치
+├─ TC-MU-02: preview — 동일 파일 재업로드 → unchanged_materials 만 채워짐
+├─ TC-MU-03: preview — item_name 변경 → changed_materials.changes[0].field='item_name'
+├─ TC-MU-04: preview — 한글 헤더 누락 (자재코드 없음) → 400 INVALID_HEADER
+├─ TC-MU-05: preview — CP949 인코딩 CSV → 자동 감지 성공
+├─ TC-MU-06: preview — 손상된 xlsx → 400 PARSE_ERROR
+├─ TC-MU-07: commit strategy=all — changed 전체 UPDATE 확인
+├─ TC-MU-08: commit strategy=selected — selected_item_codes 만 UPDATE
+├─ TC-MU-09: commit strategy=skip — 기존 자재 UPDATE 안됨, 신규만 INSERT
+├─ TC-MU-10: commit — BOM 4-key 신규 매핑 INSERT 확인
+├─ TC-MU-11: commit — 트랜잭션 롤백 (중간 오류 시 전체 원상복구)
+└─ TC-MU-12: commit — 빈 selected_item_codes 배열 → updated=0, inserted만 동작
+```
+
+---
+
+### 8. 배포 우선순위 & 영향
+
+| 항목 | 값 |
+|---|---|
+| 우선순위 | 🟡 MEDIUM |
+| 운영 영향 | 자재 마스터 변경 시 SQL 직접 INSERT 필요 (Twin파파 운영 부담) |
+| 차단 여부 | FE 4단계 모달 GUI 완료, BE 미구현으로 사용 불가 |
+| 예상 작업량 | BE 1-2일 (generator script 로직 재사용 시 50% 단축) |
+| 안전성 | preview는 read-only, commit은 트랜잭션으로 보호 |
+
+---
+
+### 9. FE ↔ BE 호환성 검증 매트릭스
+
+| FE 호출 | BE 예상 응답 | 현재 상태 |
+|---|---|---|
+| `POST /upload mode=preview` | 200 + `UploadPreview` | ❌ 404 |
+| `POST /upload mode=commit strategy=all` | 200 + `UploadResult` | ❌ 404 |
+| `POST /upload mode=commit strategy=selected` | 200 + `UploadResult` (선택만 UPDATE) | ❌ 404 |
+| `POST /upload mode=commit strategy=skip` | 200 + `UploadResult` (신규만 INSERT) | ❌ 404 |
+| 인코딩 오류 | 400 `ENCODING_DETECTION_FAILED` | ❌ N/A |
+
+---
+
+### 10. 진행 흐름 (FE/BE 분리)
+
+```
+1. BE: /api/admin/materials/upload 신규 라우트 작성 (preview / commit 2-mode)
+   ├─ generate_migration_053a.py 의 파싱 로직 추출 (utils/material_parser.py)
+   ├─ admin_materials.py 에 upload() handler 추가
+   └─ tests/test_admin_materials_upload.py 작성 (TC-MU-01~12)
+2. BE: Railway 배포 후 Twin파파 검증:
+   └─ Desktop/GST/material_upload_sample_30rows.csv 로 preview → commit strategy=all 1회 검증
+3. FE: 추가 작업 없음 (Sprint 42 코드 그대로 동작)
+4. 운영자 가이드: 자재 마스터 관리 페이지 우측 상단 "Excel 업로드" 버튼 클릭 → 4단계 워크플로우 사용
+```
+
+---
+
+**OPS 측 반영 위치**: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 66-BE-FOLLOWUP 섹션 추가 필요
+**FE 상태**: v1.43.x — Sprint 42 완료, BE 응답 대기 (degrade safe)
+**문서 상태**: 🔴 **OPEN** (BE 미구현)
+**관련 BACKLOG**: AXIS-VIEW/BACKLOG.md — FEAT-MATERIAL-UPLOAD-01

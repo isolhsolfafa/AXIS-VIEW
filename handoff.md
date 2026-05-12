@@ -1,7 +1,7 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-11 (v1.43.6 🚨 S1 HOTFIX — 상세뷰 흰화면 긴급 fix + ADR-V021 admin 일괄 처리 정책 결정)
+> 마지막 업데이트: 2026-05-12 (OPS #63 자재 마스터 Excel 일괄 업로드 endpoint DONE + v1.43.7 SNDetailPanel outside-click-to-close)
 
 ---
 
