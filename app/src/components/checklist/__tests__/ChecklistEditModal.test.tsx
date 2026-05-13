@@ -101,6 +101,31 @@ describe('ChecklistEditModal — 방향 A 자재코드 input 영역 (HOTFIX-SPRI
     }, { timeout: 2000 });
   });
 
+  test('v1.43.8: 대소문자 무관 자재코드 매칭 — DB MFC1234 / 입력 mfc1234 → matched', async () => {
+    // 영문 포함 자재코드 영역 case-insensitive 검증
+    const upperMaterials = {
+      items: [
+        mockMaterial({ id: 100, item_code: 'MFC1234', item_name: 'MFC', spec_1: 'TEST SPEC', spec_2: 'TEST P' }),
+      ],
+      total: 1,
+      page: 1,
+    };
+    vi.spyOn(materialsApi, 'listMaterials').mockResolvedValue(upperMaterials);
+
+    renderWithQueryClient(
+      <ChecklistEditModal item={mockItem({ select_options: [] })} category="MECH" onSubmit={vi.fn()} onClose={vi.fn()} />
+    );
+
+    const input = await screen.findByPlaceholderText(/1110006700/);
+    // 소문자 입력 → DB 대문자 자재와 매칭돼야 함
+    fireEvent.change(input, { target: { value: 'mfc1234' } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/MFC1234.*TEST SPEC/)).toBeInTheDocument();
+      expect(screen.queryByText(/mfc1234.*미등록 자재/)).not.toBeInTheDocument();
+    }, { timeout: 2000 });
+  });
+
   test('🔍 자재 검색 도움 버튼 클릭 → ChecklistOptionMapModal 호출', async () => {
     renderWithQueryClient(
       <ChecklistEditModal item={mockItem()} category="MECH" onSubmit={vi.fn()} onClose={vi.fn()} />

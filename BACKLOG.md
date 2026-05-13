@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-05-11 (v1.43.6 🚨 S1 흰화면 fix + ADR-V021 admin 일괄 처리 정책 결정 — OPS v2.13.1 작업 영역 3→2 축소)
+> 마지막 업데이트: 2026-05-13 (v1.43.8 자재 매핑 검색 case-insensitive + OPS BE keyword ILIKE 후속 권장)
 > 관련: AXIS_VIEW_ROADMAP.md, OPS_API_REQUESTS.md, DESIGN_FIX_SPRINT.md
 
 ---
@@ -97,6 +97,34 @@ Sprint 42 v1.43.0 prod 배포 (5-09) 후 Twin파파 UI 검증 영역 catch:
 
 ### 설계 상세
 `AXIS-VIEW/DESIGN_FIX_SPRINT.md` § HOTFIX-CHECKLIST-EDIT-DIRTY-GUARD-20260511
+
+---
+
+## 🟡 OPS-MATERIALS-KEYWORD-ILIKE — listMaterials keyword 검색 case-insensitive 정정 (별 repo 작업, 2026-05-13 등록, v1.43.8 후속)
+
+### 배경
+- VIEW v1.43.8 FE 측 client filter (`ChecklistEditModal` 자재코드 input) 는 toLowerCase 정규화로 case-insensitive 정정 완료
+- 다만 **BE 측 `listMaterials` keyword 검색** (MaterialsPage / ChecklistOptionMapModal) 은 case-sensitive 영역으로 추정
+- Twin파파 catch: "등록되있는 DB 는 대문자 이면 대문자만 검색되는데 대소문자 키워드로 검색되게"
+
+### 변경 영역 (OPS 별 repo)
+
+| 파일 | 변경 추정 |
+|---|---|
+| `backend/app/routes/admin_materials.py` `listMaterials` keyword 영역 | `Material.item_name LIKE '%' \|\| query \|\| '%'` → `ILIKE` |
+| `backend/app/routes/admin_materials.py` keyword 영역 (item_code / category) | 동일 ILIKE 정정 |
+| `tests/backend/test_admin_materials.py` | case-insensitive 검색 TC 추가 |
+
+### 추정 시간
+- 5~10분 (LIKE → ILIKE 정정, 다만 item_code/item_name/category 영역 모두 점검)
+
+### 우선순위
+- 🟡 LOW — UX 보강 영역, 기능 차단 X. 다음 BE Sprint 와 batch 가능
+
+### 참조
+- VIEW: `app/src/components/checklist/ChecklistEditModal.tsx` (FE filter — 이미 case-insensitive)
+- VIEW: `app/src/pages/MaterialsPage.tsx` / `ChecklistOptionMapModal.tsx` (BE keyword 호출 영역)
+- VIEW CHANGELOG v1.43.8 entry
 
 ---
 

@@ -1,7 +1,7 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-12 (OPS #63 자재 마스터 Excel 일괄 업로드 endpoint DONE + v1.43.7 SNDetailPanel outside-click-to-close)
+> 마지막 업데이트: 2026-05-13 (v1.43.8 UX — 체크리스트 자재 매핑 검색 case-insensitive + OPS BE keyword ILIKE 후속 권장)
 
 ---
 

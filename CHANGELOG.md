@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.43.7 (2026-05-11)
+> 최신 버전: v1.43.8 (2026-05-13)
 
 ---
 
@@ -70,6 +70,31 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.43.8 — 2026-05-13
+
+**UX 보강 — 체크리스트 자재 매핑 검색 대소문자 무관 매칭 (Twin파파 catch)**
+
+🔍 체크리스트 항목 수정 모달 (자재코드 input)
+ - DB 대문자 자재코드 (예: MFC1234) 에 소문자 입력 (mfc1234) 시 미등록으로 분류되던 문제 정정
+ - 양쪽 toLowerCase 정규화 후 비교 — case-insensitive 매칭
+
+🛠️ FE 단독 정정 (BE 변경 0, ~3 LoC)
+ - ChecklistEditModal.tsx codeMap 정규화
+ - missing 배열은 원본 입력 보존 (사용자가 입력한 그대로 표시)
+
+📝 ChecklistOptionMapModal 안내 메시지 가독성 정정 (Twin파파 catch)
+ - "placeholder string 배열 / material_id 배열로 전환 / legacy 데이터" 등 개발자 용어 제거
+ - 변경: "⚠️ 이 항목은 이전 형식의 자재 정보가 저장되어 있습니다. 저장 시 선택하신 자재 목록으로 덮어써집니다."
+
+📋 BE 측 후속 권장 (별 repo)
+ - OPS listMaterials keyword 검색이 case-sensitive 면 ILIKE 정정
+ - MaterialsPage / ChecklistOptionMapModal 검색 영역 영향
+
+✅ 검증
+ - 빌드 GREEN, vitest 52/52 PASS (51 + 신규 case-insensitive TC 1건)
 
 ---
 

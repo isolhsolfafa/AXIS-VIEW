@@ -91,11 +91,13 @@ export default function ChecklistEditModal({ item, category, onSubmit, onClose }
     if (codes.length === 0 || allMaterials.length === 0) {
       return { matched: [] as Material[], missing: [] as string[] };
     }
-    const codeMap = new Map(allMaterials.map(m => [m.item_code, m]));
+    // v1.43.8: case-insensitive 비교 (codeMap key/lookup 모두 toLowerCase 정규화)
+    // missing 배열은 원본 입력 보존 (사용자가 입력한 값 그대로 표시)
+    const codeMap = new Map(allMaterials.map(m => [m.item_code.toLowerCase(), m]));
     const m: Material[] = [];
     const miss: string[] = [];
     codes.forEach(c => {
-      const mat = codeMap.get(c);
+      const mat = codeMap.get(c.toLowerCase());
       if (mat) m.push(mat); else miss.push(c);
     });
     return { matched: m, missing: miss };

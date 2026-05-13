@@ -120,7 +120,9 @@ export default function ChecklistOptionMapModal({ masterId, itemName, onClose }:
 
         {isLegacy && (
           <div style={legacyWarnStyle}>
-            ⚠️ 기존 placeholder string 배열이 있습니다. 저장 시 material_id 배열로 전환됩니다 (legacy 데이터 덮어쓰기).
+            ⚠️ 이 항목은 이전 형식의 자재 정보가 저장되어 있습니다.
+            <br />
+            저장 시 선택하신 자재 목록으로 덮어써집니다.
           </div>
         )}
 
