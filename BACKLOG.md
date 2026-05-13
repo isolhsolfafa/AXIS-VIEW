@@ -100,6 +100,44 @@ Sprint 42 v1.43.0 prod 배포 (5-09) 후 Twin파파 UI 검증 영역 catch:
 
 ---
 
+## 🟡 FEAT-MATERIAL-UPLOAD-SAMPLE-DOWNLOAD — 자재 마스터 Excel 업로드 샘플 양식 다운로드 (🟡 LOW, 2026-05-13 등록)
+
+### 배경
+- MaterialUploadModal step='file' 영역에 현재 input + 안내 text 만 있음
+- "샘플 양식 다운로드" 버튼 영역 미구현 — 사용자가 양식 형식 catch 어려움 (11 컬럼 + 비고 컬럼 영역)
+- Twin파파 catch: "자재 마스터 관리에서 샘플 양식 다운받는게 진행이 안되는거 같은데"
+
+### 구현 옵션
+
+#### A. FE 단독 — 정적 파일 영역 (즉시, BE 변경 0) — **권장**
+- `app/public/templates/material_upload_sample.xlsx` 영역 추가
+- MaterialUploadModal step='file' 영역에 다운로드 버튼 + anchor `<a href="/templates/material_upload_sample.xlsx" download>`
+- 양식 spec: 11 컬럼 (품번/고객사/모델/자재코드/자재내역/규격1/규격2/수량/단위/생성일/비고) + 정상 데이터 3~5행 (가이드용)
+- 비고 컬럼 예시 영역 — LNG / CDA / PCW-R / TANK 등
+- 추정 시간: 5분 작업
+
+#### B. BE 측 endpoint
+- `/api/admin/materials/sample` endpoint 영역 (OPS 별 repo)
+- BE 가 동적으로 양식 생성 + 응답
+- BE 변경 영역 필요
+
+### 우선순위
+- 🟡 LOW — UX 보강 영역, 기능 차단 X (사용자가 외부 양식 영역 참조 가능)
+
+### 참조
+- `app/src/components/materials/MaterialUploadModal.tsx:90-107` (step='file' 영역)
+- Twin파파 보유: `/Users/twinfafa/Desktop/test_materials_upload.xlsx` (11 컬럼 + 비고, 정상/중복/누락 시나리오)
+- OPS BE `description` Excel parser = "비고" 헤더 매핑 (material_parser.py:35)
+
+### 진행 흐름 (옵션 A 선택 시)
+```
+1. test_materials_upload.xlsx 정리 영역 → app/public/templates/material_upload_sample.xlsx
+2. MaterialUploadModal step='file' 영역에 다운로드 버튼 추가 (+ ~10 LoC)
+3. version v1.43.x bump + 메타 갱신 (또는 다음 batch)
+```
+
+---
+
 ## ✅ ARCHIVED — OPS-MATERIALS-KEYWORD-ILIKE — listMaterials `category` 필드 ILIKE 정정 (2026-05-13 완료)
 
 > ⚠️ **본 entry = OPS_API_REQUESTS #64 영역 정합. 2026-05-13 prod 배포 완료**.
