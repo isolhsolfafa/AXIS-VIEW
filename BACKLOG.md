@@ -100,31 +100,42 @@ Sprint 42 v1.43.0 prod 배포 (5-09) 후 Twin파파 UI 검증 영역 catch:
 
 ---
 
-## 🟡 OPS-MATERIALS-KEYWORD-ILIKE — listMaterials keyword 검색 case-insensitive 정정 (별 repo 작업, 2026-05-13 등록, v1.43.8 후속)
+## 🟡 OPS-MATERIALS-KEYWORD-ILIKE — listMaterials `category` 필드 ILIKE 정정 (별 repo 작업, 2026-05-13 등록, v1.43.8 후속)
 
 ### 배경
 - VIEW v1.43.8 FE 측 client filter (`ChecklistEditModal` 자재코드 input) 는 toLowerCase 정규화로 case-insensitive 정정 완료
-- 다만 **BE 측 `listMaterials` keyword 검색** (MaterialsPage / ChecklistOptionMapModal) 은 case-sensitive 영역으로 추정
-- Twin파파 catch: "등록되있는 DB 는 대문자 이면 대문자만 검색되는데 대소문자 키워드로 검색되게"
+- BE 측 코드 영역 catch 결과: **`keyword` / `description` 는 이미 ILIKE 정상 동작**, **`category` 영역만 `=` 정확 매칭** 사용 중
+- Twin파파 catch: "MFC면 m을 쓰던 M을 쓰던 한자라도 치면 필터링 되서 목록이 나와야"
+
+### BE 측 현재 코드 (admin_materials.py:82-84)
+
+```python
+if category:
+    where_clauses.append("category = %s")   # ⚠️ 정확 매칭
+    params.append(category)
+```
 
 ### 변경 영역 (OPS 별 repo)
 
-| 파일 | 변경 추정 |
+| 파일 | 변경 |
 |---|---|
-| `backend/app/routes/admin_materials.py` `listMaterials` keyword 영역 | `Material.item_name LIKE '%' \|\| query \|\| '%'` → `ILIKE` |
-| `backend/app/routes/admin_materials.py` keyword 영역 (item_code / category) | 동일 ILIKE 정정 |
-| `tests/backend/test_admin_materials.py` | case-insensitive 검색 TC 추가 |
+| `backend/app/routes/admin_materials.py:82-84` | `category = %s` → `category ILIKE %s` + params `%{category}%` (3 line) |
+| `tests/backend/test_admin_materials.py` | category 검색 case-insensitive + 부분 매칭 TC 추가 (1~2건) |
 
 ### 추정 시간
-- 5~10분 (LIKE → ILIKE 정정, 다만 item_code/item_name/category 영역 모두 점검)
+- 5분 (3 line + pytest TC 1~2건)
 
 ### 우선순위
-- 🟡 LOW — UX 보강 영역, 기능 차단 X. 다음 BE Sprint 와 batch 가능
+- 🟡 LOW — UX 보강 영역, 정확한 카테고리명 입력 시는 정상 동작 (기능 차단 X)
+
+### 회귀 위험
+- 0 — `=` → `ILIKE '%...%'` 정정은 기존 정확 매칭 케이스 보장. 신규 부분 매칭 케이스 추가만 발생.
 
 ### 참조
 - VIEW: `app/src/components/checklist/ChecklistEditModal.tsx` (FE filter — 이미 case-insensitive)
 - VIEW: `app/src/pages/MaterialsPage.tsx` / `ChecklistOptionMapModal.tsx` (BE keyword 호출 영역)
 - VIEW CHANGELOG v1.43.8 entry
+- OPS_API_REQUESTS.md #64 — 동일 영역 detail 정리
 
 ---
 

@@ -5298,5 +5298,148 @@ tests/backend/test_admin_materials_upload.py
 
 **OPS 측 반영 위치**: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 66-BE-FOLLOWUP 섹션 추가 필요
 **FE 상태**: v1.43.x — Sprint 42 완료, BE 응답 대기 (degrade safe)
-**문서 상태**: 🔴 **OPEN** (BE 미구현)
+**문서 상태**: ✅ **DONE** (2026-05-12 prod 배포 완료)
 **관련 BACKLOG**: AXIS-VIEW/BACKLOG.md — FEAT-MATERIAL-UPLOAD-01
+
+---
+
+## #64 자재 마스터 검색 — `category` 필드 ILIKE 정정 (case-insensitive + 부분 매칭)
+
+**우선순위**: 🟡 **LOW** (UX 보강 — 기능 차단 X, 정확한 카테고리명 입력 시는 정상 동작)
+**Sprint**: 66-BE-FOLLOWUP (자재 마스터 검색 UX 보강)
+**날짜**: 2026-05-13
+**관련 FE**: v1.43.8 (`ChecklistEditModal` 자재코드 input case-insensitive 정정 완료) — 그 후속 BE 영역
+**상태**: 🔴 **BE 미정정** (Twin파파 catch — 카테고리 검색 시 정확 매칭만 동작, 한 글자/대소문자 입력 시 결과 0건)
+
+---
+
+### 1. 배경 & catch 영역
+
+#### 1.1 Twin파파 catch
+
+> "키워드 서칭이 안되는데 예를 들어 MFC면 m을 쓰던 M을 쓰던 한자라도 치면 필터링 되서 목록이 나와야 되는데 현재 안나옴"
+
+#### 1.2 ChecklistOptionMapModal 검색 흐름
+
+```
+default: searchCategory = 'MFC' (line 22)
+사용자가 카테고리 input 에 "M" 또는 "m" 한 글자 입력
+  → BE 가 `category = 'M'` 정확 매칭 처리
+  → DB 에 정확히 'M' 인 자재 0건 → 목록 빈 영역
+```
+
+#### 1.3 다른 필드는 이미 ILIKE 적용됨 (catch X)
+
+`admin_materials.py:86-93`:
+```python
+if keyword:
+    where_clauses.append("(item_name ILIKE %s OR item_code ILIKE %s)")  # ✅ ILIKE + 부분 매칭
+    params.extend([f'%{keyword}%', f'%{keyword}%'])
+
+if description:
+    where_clauses.append("description ILIKE %s")  # ✅ ILIKE + 부분 매칭
+    params.append(f'%{description}%')
+```
+
+→ `keyword` / `description` 영역은 이미 case-insensitive + 부분 매칭 정상 동작.
+
+---
+
+### 2. 현재 동작 (BE)
+
+`backend/app/routes/admin_materials.py:82-84`:
+
+```python
+if category:
+    where_clauses.append("category = %s")   # ⚠️ 정확 매칭 (case-sensitive)
+    params.append(category)
+```
+
+| 사용자 입력 | BE 처리 | DB 매칭 결과 |
+|---|---|---|
+| `MFC` (정확) | `category = 'MFC'` | ✅ MFC 자재 N건 |
+| `mfc` (소문자) | `category = 'mfc'` | ❌ 0건 |
+| `M` (한 글자) | `category = 'M'` | ❌ 0건 |
+| `Mfc` (혼합) | `category = 'Mfc'` | ❌ 0건 |
+
+---
+
+### 3. 정정안 (BE)
+
+`backend/app/routes/admin_materials.py:82-84`:
+
+```python
+# Before
+if category:
+    where_clauses.append("category = %s")
+    params.append(category)
+
+# After
+if category:
+    where_clauses.append("category ILIKE %s")
+    params.append(f'%{category}%')
+```
+
+정정 후 동작:
+
+| 사용자 입력 | BE 처리 | DB 매칭 결과 |
+|---|---|---|
+| `MFC` | `category ILIKE '%MFC%'` | ✅ MFC 자재 |
+| `mfc` | `category ILIKE '%mfc%'` | ✅ MFC 자재 (case-insensitive) |
+| `M` | `category ILIKE '%M%'` | ✅ MFC + 다른 'M' 포함 카테고리 |
+| `Mfc` | `category ILIKE '%Mfc%'` | ✅ MFC 자재 |
+
+---
+
+### 4. 변경 영역
+
+| 파일 | 변경 |
+|---|---|
+| `backend/app/routes/admin_materials.py:82-84` | `category = %s` → `category ILIKE %s` + params `%{category}%` (3 line) |
+| `tests/backend/test_admin_materials.py` | category 검색 case-insensitive + 부분 매칭 TC 추가 (예: `test_list_materials_category_partial_match`, `test_list_materials_category_case_insensitive`) |
+
+추정 시간: **5분** (3 line + pytest TC 1~2건)
+
+---
+
+### 5. 검증 시나리오
+
+| # | 입력 | 기대 결과 |
+|---|---|---|
+| 1 | category=`MFC` | ✅ MFC 자재 N건 (회귀 0) |
+| 2 | category=`mfc` | ✅ MFC 자재 N건 (case-insensitive) |
+| 3 | category=`M` | ✅ MFC 자재 + 'M' 포함 카테고리 모두 |
+| 4 | category=`mf` | ✅ MFC 자재 (부분 매칭) |
+| 5 | category=`xyz` (없는 영역) | ✅ 0건 (정상) |
+
+---
+
+### 6. 회귀 위험
+
+**0** — `=` → `ILIKE '%...%'` 정정은 기존 정확 매칭 케이스 (영역 #1) 보장. 신규 부분 매칭 케이스 추가만 발생.
+
+---
+
+### 7. 연관 영역
+
+- **VIEW v1.43.8** (`ChecklistEditModal` 자재코드 input case-insensitive 정정) — FE 측 client filter 영역. 본 BE 정정은 그 후속 BE 영역
+- **VIEW BACKLOG `OPS-MATERIALS-KEYWORD-ILIKE`** — 본 entry 와 동일 영역, BACKLOG trail 도 동기 갱신 권장
+
+---
+
+### 8. 진행 흐름
+
+```
+1. BE: admin_materials.py:82-84 정정 (3 line)
+2. BE: tests/test_admin_materials.py 에 case-insensitive + 부분 매칭 TC 추가
+3. BE: Railway 배포
+4. VIEW 측: 변경 X — 자동 정상 작동
+5. Twin파파 검증: ChecklistOptionMapModal 영역에서 카테고리 'm', 'M', 'mf' 등 입력 → 결과 표시 확인
+```
+
+---
+
+**OPS 측 반영 위치**: 신규 hotfix 또는 다음 BE Sprint 영역
+**FE 상태**: v1.43.8 — FE client filter 영역 정정 완료, BE 정정 영역 의존 X (각자 독립 영역)
+**문서 상태**: 🔴 **OPEN** (BE 미정정)
+**관련 BACKLOG**: AXIS-VIEW/BACKLOG.md — OPS-MATERIALS-KEYWORD-ILIKE
