@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-05-13 | 버전: v1.43.8 (UX — 자재 매핑 검색 case-insensitive)
+> 최종 갱신: 2026-05-13 | 버전: v1.43.9 (UX — Util 명칭 + dropdown 확장, OPS #64 동기)
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -276,7 +276,7 @@ AXIS-VIEW/
 │   │   ├── api/              API 클라이언트 13개
 │   │   ├── hooks/            TanStack Query 훅 22파일 / 41함수
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.43.8 (2026-05-13)
+│   │   ├── version.ts        v1.43.9 (2026-05-13)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
@@ -804,6 +804,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | HOTFIX-SPRINT42 (v1.43.1) | Sprint 42 후속 hotfix — ChecklistEditModal SELECT 자재 매핑 영역 통합 (Twin파파 5-08 UI catch). **방향 A** (BE 변경 0, FE 단독): 자재코드 input + debounce 500ms + FE Map 변환 → PATCH number[]. 옵션 C 강제 (최소 1자재 + 미등록 자재 차단). HOTFIX-SPRINT66BE 폐기. 신규 2 파일 (useDebounce.ts + ChecklistEditModal.test.tsx) + 수정 5 (Edit/Add/OptionMap/Manage + types). hydrated flag (사용자 입력 보호) + Promise.all + master invalidate. Severity S2, 사후 Codex 검토 deadline 2026-05-18. Codex 1·2·3차 + Claude 5·6차 누적 약 30건 합의 (cowork 실수 #11~#22 — ADR-024 candidate). ~346 LOC 실측 (신규 132 + 수정 214), 2026-05-11 | 🟡 FE 완료 (Twin파파 UI 검증 대기) |
 | PATCH v1.43.2 | 협력사 관리 > 체크리스트 성적서 항목 정렬 정합 — ChecklistManagePage 와 동일 패턴 (그룹 첫 등장 순 + item_order). 배경: OPS BE `checklist_service.py` L235-239 `ORDER BY CASE` 절에 MECH 그룹 누락 (TM/ELEC 만 명시, ELSE 99 = 정렬 미적용) — Twin파파 catch. **FE 단독 정정** (BE 변경 0): `types/checklist.ts` ChecklistReportItem 에 `item_order?: number` 추가 + `ChecklistReportView` CategoryTable 에 useMemo sort (manage 패턴 차용). 3 파일 / ~25 LOC. 빌드 GREEN + vitest 45/45 PASS. TM/ELEC 영역 회귀 0, 2026-05-11 | ✅ 완료 |
 | HOTFIX v1.43.3 | 체크리스트 항목 추가 CONFLICT 토스트 UX 보강 (Twin파파 catch) — generic "추가에 실패했습니다" 디버깅 불가 정정. BE 응답 `error:'CONFLICT'` + `existing_id` + `is_active` 활용: 활성 충돌 = "동일 항목이 이미 존재합니다 (id=199).", 비활성 충돌 = + " — 비활성 상태입니다. \"비활성 포함\" 체크 후 토글로 활성화하세요." 자동 첨부. 실패 시 모달 유지 (입력값 보존). 3 파일 / ~22 LoC (handleAdd onError 분기). 연관 BE: OPS HOTFIX-SPRINT66BE-CREATE-MASTER-ITEM-TYPE-AND-CONFLICT-MSG-20260511. Severity S3 (UX 개선, 기능 차단 아님). 빌드 GREEN + vitest 45/45 PASS, 2026-05-11 | ✅ 완료 |
+| UX v1.43.9 | 자재 마스터/매핑 "가스" → "Util" 명칭 변경 + dropdown 옵션 확장 (Twin파파 catch + OPS #64 동기). GAS_OPTIONS → UTIL_OPTIONS (전체+LNG+CDA+O2+N2+PCW-R+BCW+TANK+DRAIN 9개) / option 라벨 "가스: X" → "Util: X" / 테이블 헤더 "가스" → "Util". OPS BE #64 (admin_materials.py `category` 필드 ILIKE 정정) 2026-05-13 prod 배포 완료 후속. 2 파일 (`MaterialsPage.tsx` + `ChecklistOptionMapModal.tsx`) / ~5 LoC. 빌드 GREEN + vitest 52/52 PASS. 회귀 0 (값 변경 X, 라벨 + dropdown 옵션만 확장), 2026-05-13 | ✅ 완료 |
 | UX v1.43.8 | 체크리스트 자재 매핑 검색 대소문자 무관 매칭 (Twin파파 catch). FE client filter `codeMap` 비교가 case-sensitive 라서 DB 대문자 자재코드(예: MFC1234) 에 소문자 입력(mfc1234) 시 미등록 분류 → 양쪽 toLowerCase 정규화. 1 파일 / +3 LoC (`ChecklistEditModal.tsx`) + test +24 LoC (case-insensitive 매칭 TC). missing 배열은 원본 입력 보존. OPS BE `listMaterials` keyword 검색 영역 ILIKE 정정은 별 repo 후속 (MaterialsPage / ChecklistOptionMapModal 영향). Severity 사소함 (UX 보강). 빌드 GREEN + vitest 52/52 PASS, 2026-05-13 | ✅ 완료 |
 | UX v1.43.7 | S/N 디테일 패널 outside-click-to-close + ESC 닫기 (Twin파파 catch). 패널 밖 빈 영역 클릭 → 자동 닫힘 + ESC 키 닫기. ParallelConfirmDialog 열려있을 때는 모달 우선 처리 (parallelDialog null 아니면 outside click skip). S/N 카드 클릭 시에는 자연스럽게 다른 S/N 전환 (기존 onSelectSerial 동작 유지). 1 파일 / +18 LoC (`SNDetailPanel.tsx` useEscapeKey 재사용 + useRef + useEffect mousedown). Severity 사소함 (UX 보강). 빌드 GREEN + vitest 51/51 PASS, 2026-05-11 | ✅ 완료 |
 | 🚨 HOTFIX v1.43.6 (S1) | v1.43.5 후속 — S/N 상세뷰 흰화면 긴급 fix (HOTFIX-TASK-WORKERS-DEFENSIVE-20260511, Twin파파 catch). **원인**: v1.43.5 호환 처리로 orderTasks 정상 추출 → `utils.getTaskCompany` 가 `task.workers.find()` 호출 → BE by-order 응답에 workers 필드 누락 → TypeError → React crash 흰화면. **FE 단독 긴급 fix** (BE 변경 0, ~16 LoC): `getTasksByOrder` 응답 정규화 (`workers ?? []` 채움) + `utils.getTaskCompany/getOtherSNs...` 이중 안전망 (`Array.isArray` 가드) + `SNDetailPanel.partnerNullCount` 동일 가드. 3 파일 + test +24 LoC. **Severity S1** (전체 상세뷰 사용 불가) — Opus 단독 자가 리뷰 → 즉시 패치 (CLAUDE.md L237 정합). 24h 이내 사후 Codex 검토 의무 (deadline 2026-05-12). OPS v2.13.1 동반: by-order 응답에 workers 포함 필수. 빌드 GREEN + vitest 51/51 PASS, 2026-05-11 | ✅ FE 완료 (OPS v2.13.1 workers 포함 동기) |

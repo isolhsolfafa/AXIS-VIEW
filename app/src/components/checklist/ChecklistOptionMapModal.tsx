@@ -8,7 +8,8 @@ import { toast } from 'sonner';
 import { listMaterials } from '@/api/materials';
 import { getChecklistMasterOptions, updateChecklistMasterOptions } from '@/api/checklist';
 
-const GAS_OPTIONS = ['전체', 'LNG', 'CDA', 'O2', 'N2'] as const;
+// v1.43.9: 가스 → Util 명칭 변경 + Flow sensor 영역 4종 추가 (PCW-R/BCW/TANK/DRAIN)
+const UTIL_OPTIONS = ['전체', 'LNG', 'CDA', 'O2', 'N2', 'PCW-R', 'BCW', 'TANK', 'DRAIN'] as const;
 
 interface Props {
   masterId: number;
@@ -21,7 +22,7 @@ export default function ChecklistOptionMapModal({ masterId, itemName, onClose }:
 
   const [searchCategory, setSearchCategory] = useState('MFC');  // 기본 MFC (가스 분기 가장 빈번)
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [gasFilter, setGasFilter] = useState<typeof GAS_OPTIONS[number]>('전체');
+  const [gasFilter, setGasFilter] = useState<typeof UTIL_OPTIONS[number]>('전체');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);  // 순서 보존 (배열)
 
   // ESC 닫기
@@ -135,8 +136,8 @@ export default function ChecklistOptionMapModal({ masterId, itemName, onClose }:
             placeholder="카테고리"
             style={{ ...inputStyle, width: '120px' }}
           />
-          <select value={gasFilter} onChange={(e) => setGasFilter(e.target.value as typeof GAS_OPTIONS[number])} style={{ ...inputStyle, width: '120px' }}>
-            {GAS_OPTIONS.map(g => <option key={g} value={g}>가스: {g}</option>)}
+          <select value={gasFilter} onChange={(e) => setGasFilter(e.target.value as typeof UTIL_OPTIONS[number])} style={{ ...inputStyle, width: '120px' }}>
+            {UTIL_OPTIONS.map(g => <option key={g} value={g}>Util: {g}</option>)}
           </select>
           <input
             type="text"

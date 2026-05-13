@@ -13,14 +13,15 @@ import { listMaterials } from '@/api/materials';
 import type { Material } from '@/api/materials';
 
 const PER_PAGE = 50;
-const GAS_OPTIONS = ['전체', 'LNG', 'CDA', 'O2', 'N2'] as const;
+// v1.43.9: 가스 → Util 명칭 변경 + Flow sensor 영역 4종 추가 (PCW-R/BCW/TANK/DRAIN)
+const UTIL_OPTIONS = ['전체', 'LNG', 'CDA', 'O2', 'N2', 'PCW-R', 'BCW', 'TANK', 'DRAIN'] as const;
 
 export default function MaterialsPage() {
   const queryClient = useQueryClient();
 
   const [category, setCategory] = useState('');
   const [keyword, setKeyword] = useState('');
-  const [gasFilter, setGasFilter] = useState<typeof GAS_OPTIONS[number]>('전체');
+  const [gasFilter, setGasFilter] = useState<typeof UTIL_OPTIONS[number]>('전체');
   const [page, setPage] = useState(1);
 
   const [editingItem, setEditingItem] = useState<Material | null>(null);
@@ -135,10 +136,10 @@ export default function MaterialsPage() {
           {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
 
-        {/* 가스 필터 (description ILIKE — Sprint 42 5-08 추가) */}
+        {/* Util 필터 (description ILIKE — Sprint 42 5-08 추가, v1.43.9 가스→Util) */}
         <select
           value={gasFilter}
-          onChange={(e) => { setGasFilter(e.target.value as typeof GAS_OPTIONS[number]); setPage(1); }}
+          onChange={(e) => { setGasFilter(e.target.value as typeof UTIL_OPTIONS[number]); setPage(1); }}
           style={{
             padding: '6px 10px',
             fontSize: '13px',
@@ -147,7 +148,7 @@ export default function MaterialsPage() {
             background: 'var(--gx-white)',
           }}
         >
-          {GAS_OPTIONS.map(g => <option key={g} value={g}>가스: {g}</option>)}
+          {UTIL_OPTIONS.map(g => <option key={g} value={g}>Util: {g}</option>)}
         </select>
 
         <input
@@ -187,7 +188,7 @@ export default function MaterialsPage() {
                 <th style={thStyle}>카테고리</th>
                 <th style={thStyle}>규격1</th>
                 <th style={thStyle}>규격2</th>
-                <th style={thStyle}>가스</th>
+                <th style={thStyle}>Util</th>
                 <th style={thStyle}>활성</th>
                 <th style={thStyle}>작업</th>
               </tr>

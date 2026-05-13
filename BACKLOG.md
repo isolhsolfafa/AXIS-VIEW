@@ -1,6 +1,6 @@
 # AXIS-VIEW 백로그
 
-> 마지막 업데이트: 2026-05-13 (v1.43.8 자재 매핑 검색 case-insensitive + OPS BE keyword ILIKE 후속 권장)
+> 마지막 업데이트: 2026-05-13 (v1.43.9 "가스" → "Util" + dropdown 확장 + OPS #64 DONE 처리)
 > 관련: AXIS_VIEW_ROADMAP.md, OPS_API_REQUESTS.md, DESIGN_FIX_SPRINT.md
 
 ---
@@ -100,7 +100,16 @@ Sprint 42 v1.43.0 prod 배포 (5-09) 후 Twin파파 UI 검증 영역 catch:
 
 ---
 
-## 🟡 OPS-MATERIALS-KEYWORD-ILIKE — listMaterials `category` 필드 ILIKE 정정 (별 repo 작업, 2026-05-13 등록, v1.43.8 후속)
+## ✅ ARCHIVED — OPS-MATERIALS-KEYWORD-ILIKE — listMaterials `category` 필드 ILIKE 정정 (2026-05-13 완료)
+
+> ⚠️ **본 entry = OPS_API_REQUESTS #64 영역 정합. 2026-05-13 prod 배포 완료**.
+>   - OPS 측 `admin_materials.py:82-84` `category = %s` → `category ILIKE %s%` 정정 완료
+>   - VIEW v1.43.9 ("가스" → "Util" 명칭 + dropdown 9 옵션 확장) 동기 완료
+>   - 검증: ChecklistOptionMapModal 카테고리 input 'm', 'M', 'mf' 등 입력 시 정상 매칭
+>
+> 본문은 이력 추적용으로 보존.
+
+## (보존) 🟡 OPS-MATERIALS-KEYWORD-ILIKE — listMaterials `category` 필드 ILIKE 정정 (별 repo 작업, 2026-05-13 등록, v1.43.8 후속)
 
 ### 배경
 - VIEW v1.43.8 FE 측 client filter (`ChecklistEditModal` 자재코드 input) 는 toLowerCase 정규화로 case-insensitive 정정 완료

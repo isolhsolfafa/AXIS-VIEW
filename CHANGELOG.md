@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.43.8 (2026-05-13)
+> 최신 버전: v1.43.9 (2026-05-13)
 
 ---
 
@@ -70,6 +70,29 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.43.9 — 2026-05-13
+
+**UX — 자재 마스터/매핑 "가스" → "Util" 명칭 변경 + dropdown 옵션 확장 (Twin파파 catch)**
+
+🏷️ 명칭 변경
+ - 자재 마스터 페이지 + 자재 매핑 모달의 "가스" 필터/컬럼 → "Util" 로 통일
+ - 테이블 헤더 / dropdown 라벨 / 변수명 모두 동기
+
+➕ Util dropdown 옵션 확장 (Flow sensor 영역 4종 추가)
+ - 기존: 전체, LNG, CDA, O2, N2
+ - 추가: PCW-R, BCW, TANK, DRAIN
+ - 총 9 옵션
+
+🔗 OPS BE #64 동기
+ - admin_materials.py `category` 필드 `=` → `ILIKE %s%` 정정 배포 완료 (2026-05-13)
+ - 카테고리 검색 case-insensitive + 부분 매칭 정상 작동
+
+✅ 검증
+ - 빌드 GREEN, vitest 52/52 PASS
+ - 회귀 0 (값 변경 X, 라벨 + dropdown 옵션만 확장)
 
 ---
 

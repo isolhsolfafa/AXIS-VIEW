@@ -5305,11 +5305,11 @@ tests/backend/test_admin_materials_upload.py
 
 ## #64 자재 마스터 검색 — `category` 필드 ILIKE 정정 (case-insensitive + 부분 매칭)
 
-**우선순위**: 🟡 **LOW** (UX 보강 — 기능 차단 X, 정확한 카테고리명 입력 시는 정상 동작)
+**우선순위**: ~~🟡 LOW~~ → ✅ **DONE** (2026-05-13 prod 배포 완료)
 **Sprint**: 66-BE-FOLLOWUP (자재 마스터 검색 UX 보강)
-**날짜**: 2026-05-13
-**관련 FE**: v1.43.8 (`ChecklistEditModal` 자재코드 input case-insensitive 정정 완료) — 그 후속 BE 영역
-**상태**: 🔴 **BE 미정정** (Twin파파 catch — 카테고리 검색 시 정확 매칭만 동작, 한 글자/대소문자 입력 시 결과 0건)
+**날짜**: 2026-05-13 등록 → 2026-05-13 완료 (당일 처리)
+**관련 FE**: v1.43.8 (`ChecklistEditModal` 자재코드 input case-insensitive 정정 완료) + v1.43.9 ("가스" → "Util" 명칭 + dropdown 확장)
+**상태**: ✅ **DONE** — OPS 측 `admin_materials.py` `category = %s` → `category ILIKE %s%` 정정 완료. ChecklistOptionMapModal 카테고리 input 에 'm', 'M', 'mf' 등 입력 시 자재 목록 정상 표시.
 
 ---
 
@@ -5439,7 +5439,7 @@ if category:
 
 ---
 
-**OPS 측 반영 위치**: 신규 hotfix 또는 다음 BE Sprint 영역
-**FE 상태**: v1.43.8 — FE client filter 영역 정정 완료, BE 정정 영역 의존 X (각자 독립 영역)
-**문서 상태**: 🔴 **OPEN** (BE 미정정)
-**관련 BACKLOG**: AXIS-VIEW/BACKLOG.md — OPS-MATERIALS-KEYWORD-ILIKE
+**OPS 측 반영 위치**: 2026-05-13 prod hotfix 영역
+**FE 상태**: v1.43.8 (FE client filter) + v1.43.9 ("가스" → "Util" + dropdown 확장 9 옵션)
+**문서 상태**: ✅ **DONE** (2026-05-13 prod 배포 완료)
+**관련 BACKLOG**: AXIS-VIEW/BACKLOG.md — OPS-MATERIALS-KEYWORD-ILIKE (ARCHIVED 권장)
