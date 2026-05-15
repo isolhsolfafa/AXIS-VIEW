@@ -100,6 +100,28 @@ Sprint 42 v1.43.0 prod 배포 (5-09) 후 Twin파파 UI 검증 영역 catch:
 
 ---
 
+## 🟡 REFACTOR-CHECKLIST-UI-KEY — ChecklistStatusItem UI 전용 key 필드 분리 (🟡 LOW, 2026-05-15 등록)
+
+### 배경
+- v1.43.11 MECH 1차+2차 검수 합산 시, phase 2 항목의 `master_id` 가 phase 1 과 겹쳐 React key 충돌 → `MECH_PHASE2_KEY_OFFSET = 1_000_000` 더해서 회피 (`api/checklist.ts`)
+- Codex 교차검증 A-1 지적: `ChecklistStatusItem.master_id` 는 공유 타입상 "BE master id" 의미인데 offset 으로 값을 변형 → 미래 소비자가 offset 된 값을 실제 BE id 로 오해할 여지
+- 현 플로우에서는 안전 — offset 된 master_id 가 BE mutation 호출 키로 전달되는 경로 없음 (Codex I-3 확인). 배포 블로커 아님
+
+### 구현 옵션
+- `ChecklistStatusItem` 에 UI 전용 `ui_key: string` 필드 신설 (예: `'p2-{master_id}'`)
+- `master_id` 는 BE 원본 값 그대로 유지 (offset 제거)
+- `ProcessStepCard` 의 `key={i.master_id}` → `key={i.ui_key}` 교체
+
+### 우선순위
+- 🟡 LOW — 현재 동작 정상, 타입 의미 명확화용 리팩토링
+
+### 참조
+- `app/src/api/checklist.ts` — `MECH_PHASE2_KEY_OFFSET`, `flattenChecklistDetail` idOffset
+- `app/src/components/sn-status/ProcessStepCard.tsx:379` — `key={i.master_id}`
+- `app/src/types/checklist.ts` — `ChecklistStatusItem`
+
+---
+
 ## 🟡 FEAT-MATERIAL-UPLOAD-SAMPLE-DOWNLOAD — 자재 마스터 Excel 업로드 샘플 양식 다운로드 (🟡 LOW, 2026-05-13 등록)
 
 ### 배경

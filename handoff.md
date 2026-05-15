@@ -1,7 +1,38 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-13 (v1.43.9 "가스" → "Util" 명칭 + dropdown 9 옵션 확장 + OPS #64 DONE 처리)
+> 마지막 업데이트: 2026-05-15 (v1.43.10 MECH 체크리스트 상세 미표시 fix → v1.43.11 MECH 1차+2차 검수 합산·폰트 → v1.43.12 Tank Module DUAL 일괄 fix)
+
+---
+
+## 🆕 2026-05-15 세션 — MECH 체크리스트 상세화면 (v1.43.10~12) + #65 교차검증
+
+### v1.43.10 — 생산현황 상세화면 MECH 체크리스트 미표시 fix
+- **트리거**: Twin파파 catch — ELEC/TM 은 상세화면에 체크리스트 진행률 뜨는데 MECH 만 안 뜸
+- **원인**: `api/checklist.ts` `getChecklistStatus()` 의 `CAT_MAP` 에 MECH 누락 (MECH BE 엔드포인트 OPS Sprint 63-BE 생성 전 작성된 코드) → MECH 항상 `EMPTY_CHECKLIST` early-return
+- **fix**: `CAT_MAP` 에 `MECH: 'mech'` 추가 + Codex M-1 동반 fix (상세 파서가 `id/status/worker_name` 기대 → BE 실제 `master_id/check_result/checked_by_name` 정합, TM/ELEC 잠재 버그 동시 해소)
+- **commit + tag**: `ceb21a5` / `v1.43.10`. Codex 1차 NO-GO(M-1) → fix → 2차 GO. vitest 59/59
+
+### v1.43.11 — MECH 체크리스트 1차+2차 검수 합산 + 상세 폰트 확대
+- **트리거**: Twin파파 catch — v1.43.10 배포 후 MECH 체크리스트가 1차 검수(phase 1) 11개만 카운트, 2차 검수(phase 2) 미포함
+- **원인**: `getChecklistStatus()` 가 BE status/detail 을 phase 파라미터 없이 호출 → BE 기본값 phase=1
+- **fix (옵션 A — 합산 1개 바)**: `getMechChecklistCombined()` 신규 — MECH 는 status/detail 각각 phase 1·2 분리 호출(4건) → summary 합산. `flattenChecklistDetail()` 헬퍼 추출. + 상세화면 폰트 +1px (`SNDetailPanel`/`ProcessStepCard`)
+- **commit**: 별 commit/tag 없음 — 병행 세션 `919e44b` 에 v1.43.12 와 동반 커밋됨. Codex 확인 라운드 GO (M 0건, A-1 `ui_key` 분리 → BACKLOG `REFACTOR-CHECKLIST-UI-KEY`). vitest 62/62
+
+### v1.43.12 — Tank Module DUAL 일괄 시작/종료 fix (병행 Claude Code 세션)
+- **트리거**: Twin파파 catch — DUAL 모델(L/R 2개) Tank Module 일괄 시작 시 1개만 시작
+- **원인**: `SNDetailPanel.tsx` 가 TANK_MODULE task 를 `.find()` 로 첫 1개만 잡음 (DUAL = L/R 2개)
+- **fix**: `.find()` → `.filter()` 배열화, `parallelDialog` `taskId` → `taskIds`, `handleTankStart/Complete` 배열 수신 + single/batch 분기, `TankModuleActions` props `task` → `tasks`. Codex 라운드 1 M=3 반영
+- **commit + tag**: `919e44b` (v1.43.11 동반) + `2b771ca` (#67 docs). APP_VERSION = `v1.43.12`
+- v1.43.11(MECH 합산·폰트) + v1.43.12(DUAL) 는 한 번에 배포 — 옵션 C 양쪽 라벨링
+
+### #65 MECH 체크리스트 자동 동기화 — Codex POST-REVIEW 교차검증
+- #65 entry(`OPS_API_REQUESTS.md`)에 §9 Codex 교차검증 기록 추가 — M 2건(M-A4 `_try_mech_close()` completion_status UPDATE 누락 / M-A7 경로 2 게이트 phase 단독 판정) 확정 → BE v2.15.18 fix 배포 → 재검토 GO. #65 ✅ DONE
+- **commit**: `5bd34f4` (docs)
+
+### 다음 세션 참고
+- v1.43.12 Netlify 실기기 검증 — 생산현황 MECH 상세화면 체크리스트 1차+2차 합산 카운트 + DUAL Tank Module 일괄 시작/종료 확인
+- BACKLOG `REFACTOR-CHECKLIST-UI-KEY` (🟡 LOW) — MECH phase 2 master_id offset → UI 전용 key 필드 분리
 
 ---
 
