@@ -5443,3 +5443,734 @@ if category:
 **FE 상태**: v1.43.8 (FE client filter) + v1.43.9 ("가스" → "Util" + dropdown 확장 9 옵션)
 **문서 상태**: ✅ **DONE** (2026-05-13 prod 배포 완료)
 **관련 BACKLOG**: AXIS-VIEW/BACKLOG.md — OPS-MATERIALS-KEYWORD-ILIKE (ARCHIVED 권장)
+
+---
+
+## #65 MECH 체크리스트 자동 동기화 — Dual-Trigger 패턴 확장 (HOTFIX)
+
+**우선순위**: 🔴 **HIGH** (운영 즉시 영향 — MECH 체크리스트 완료해도 생산현황 상세뷰 동기화 안됨)
+**Sprint**: 67-BE-HOTFIX (ELEC `_try_elec_close()` 패턴 차용 0.5~1h 작업)
+**날짜**: 2026-05-14 (보강: 2026-05-14 KST)
+**관련 FE**: 없음 (FE는 BE 응답 그대로 표시 — 변경 불필요)
+**상태**: ✅ **COMPLETED (OPS v2.15.13, 2026-05-15)** — `_try_mech_close()` 신규 + Dual-Trigger 경로 2 호출 완료. AXIS-OPS `checklist_service.py` L1577 `_try_mech_close()` 함수 + L1888 `upsert_mech_check()` 영역 호출 추가. 후속 v2.15.16 (5-15) 영역 추가 정정: (1) MECH Phase 1+2 합산 검증 (`check_mech_completion_all()` 신규, ELEC 패턴 정합) (2) force_closed=False 통일 (auto-close 영역 자연 close 처리) (3) PREV_DAY_CAP enum 추가 (익일/주말 trigger duration cap). pytest 50/50 GREEN (회귀 위험 0). 운영 검증 진행 중 (사용자 측 5-15).
+**관련 항목**: 본 entry 와 동시에 작성된 **#66 진행률 + 가압검사 토글 BE 반영** 는 OPS 측 별 sprint (`SPRINT-V2-15-16-FOLLOWUP-PRODUCTION-TOGGLE` 영역 등록 권고 — 사용자 5-15 결정 "운영 검증 우선")
+
+---
+
+### 0. ⭐ Twin파파 의도 명시 — 실적 카운트 3-Layer 구조 (재해석 방지)
+
+> 본 #65 작업의 본질을 잘못 파악하지 않도록 Twin파파 의도를 명시한다.
+> 이 entry 가 향후 다시 읽힐 때 "단순히 ELEC 패턴 복사" 로 끝나지 않게, 전체 카운트 구조 안에서의 위치를 명확히 한다.
+
+**Twin파파 정의 (2026-05-14 KST 확정)**:
+
+```
+실적 카운트 = [Layer 1] + [Layer 2] + [Layer 3]
+
+[Layer 1] 진행률 base — 토글로 조절 가능
+   └ confirm_progress_required = TRUE  (default) : 카테고리 전체 task 의 completed_at 100%
+   └ confirm_progress_required = FALSE           : trigger task 만 완료해도 OK (다른 task 미완료 무관)
+
+[Layer 2] Trigger task — 공정별 핵심 task 명시
+   └ MECH : SELF_INSPECTION (자주검사)            ← 본 #65 의 trigger
+   └ ELEC : INSPECTION (자주검사) AND IF_2        ← 둘 다 필수
+   └ TM   : TANK_MODULE                          ← (+ tm_pressure_test_required=TRUE 시 PRESSURE_TEST)
+
+[Layer 3] 체크리스트 — 토글로 조절 가능
+   └ confirm_checklist_required = TRUE  : 공정별 체크리스트 100% 필수
+   └ confirm_checklist_required = FALSE : 체크리스트 무관
+```
+
+**4 조합 카운트 동작 매트릭스**:
+
+| 진행률 | 체크리스트 | MECH 카운트 | ELEC 카운트 | TM 카운트 |
+|:-:|:-:|---|---|---|
+| ON | ON | 전체 task + 체크리스트 | 전체 task + 체크리스트 | TANK_MODULE (+가압검사 토글) + 체크리스트 |
+| ON | OFF | 전체 task | 전체 task | TANK_MODULE (+가압검사 토글) |
+| OFF | ON | SELF_INSPECTION + 체크리스트 | INSPECTION + IF_2 + 체크리스트 | TANK_MODULE (+가압검사 토글) + 체크리스트 |
+| OFF | OFF | SELF_INSPECTION | INSPECTION + IF_2 | TANK_MODULE (+가압검사 토글) |
+
+**작업 분할**:
+- **#65 (본 entry)** = **Layer 2 의 MECH trigger close 핸들러** 신규 추가 (`_try_mech_close()` Dual-Trigger)
+- **#66** = **Layer 1 진행률 토글 BE 분기** + **TM 가압검사 토글 BE 반영** + FE 토글 UI 추가
+
+→ #65 만 단독 진행해도 운영 정상화 가능. #66 은 운영자 카운트 엄격도 조절 옵션 추가.
+
+---
+
+### 1. 배경 & 증상
+
+#### 1.1 증상 (Twin파파 보고 — 2026-05-14)
+- **생산관리 > 생산현황 상세뷰**에서 **ELEC / TM 공정은 체크리스트 완료 시 자동 동기화** 됨 (`completion_status.elec_completed / tm_completed = TRUE` 반영)
+- **MECH 체크리스트는 완료되어도 동기화 안 됨** → `mech_completed` 가 FALSE 로 남음 → 생산현황 상세에서 MECH 영역만 미완료 표시
+- 운영자가 "MECH 체크리스트 다 했는데 왜 미완료로 나오나" 혼란
+
+#### 1.2 원인 분석 (코드 추적 완료)
+
+| 항목 | ELEC | TM | MECH |
+|---|---|---|---|
+| 완료 판정 함수 | `check_elec_completion()` ✅ | `check_tm_completion()` ✅ | `check_mech_completion()` ✅ **Sprint 63-BE 구현 완료** |
+| Dual-Trigger Close 함수 | `_try_elec_close()` ✅ | (TM 패턴 동등) ✅ | ❌ **누락** |
+| task_service 트리거 훅 | `IF_2` 완료 시 호출 (L625-640) | PRESSURE_TEST 완료 시 호출 | ❌ **SELF_INSPECTION 완료 훅 누락** |
+| production.py 분기 | `check_elec_completion` ✅ | `check_tm_completion` ✅ | `check_mech_completion` ✅ (L276-279) |
+| DB 컬럼 | `completion_status.elec_completed` | `tm_completed` | `mech_completed` ✅ (이미 존재) |
+
+→ **인프라(완료 판정 + DB 컬럼 + production.py 분기)는 모두 준비됨. 핸들러 2개(close 함수 + task 훅) 만 누락.**
+
+---
+
+### 2. 구현 명세
+
+#### 2.1 `_try_mech_close()` 함수 추가
+
+**파일**: `AXIS-OPS/backend/app/services/checklist_service.py`
+**위치**: L1331 직후 (ELEC `_try_elec_close()` 종료 다음, Sprint 63-BE MECH 섹션(L1334) 직전)
+
+**구현 (ELEC L1279-1331 패턴 그대로 차용)**:
+
+```python
+def _try_mech_close(serial_number: str) -> bool:
+    """Dual-Trigger 경로 2: MECH 체크리스트 완료 시 SELF_INSPECTION 확인 → 양쪽 완료면 MECH 닫기.
+
+    ELEC `_try_elec_close()` 패턴 차용 (Sprint 57 동일 구조).
+    MECH 의 '진짜 종료' task = SELF_INSPECTION (task_service.py L66 주석 참조).
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT td.id
+            FROM app_task_details td
+            JOIN work_completion_log wcl ON wcl.task_id = td.id
+            WHERE td.serial_number = %s
+              AND td.task_id = 'SELF_INSPECTION'
+              AND td.task_category = 'MECH'
+            LIMIT 1
+            """,
+            (serial_number,)
+        )
+        self_inspection_completed = cur.fetchone() is not None
+
+        if not self_inspection_completed:
+            logger.info(
+                f"MECH checklist complete but SELF_INSPECTION not yet done (waiting path 1): "
+                f"serial={serial_number}"
+            )
+            return False
+
+        cur.execute(
+            """
+            UPDATE completion_status
+            SET mech_completed = TRUE,
+                updated_at = NOW()
+            WHERE serial_number = %s
+              AND mech_completed = FALSE
+            """,
+            (serial_number,)
+        )
+        conn.commit()
+
+        logger.info(
+            f"MECH close triggered (path 2: checklist last): serial={serial_number}"
+        )
+        return True
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"_try_mech_close failed (non-blocking): serial={serial_number}, error={e}")
+        return False
+    finally:
+        if conn:
+            put_conn(conn)
+```
+
+#### 2.2 task_service.py — MECH SELF_INSPECTION 완료 훅 추가 (경로 1)
+
+**파일**: `AXIS-OPS/backend/app/services/task_service.py`
+**위치**: L640 (ELEC IF_2 분기 블록) 바로 다음에 동일 패턴으로 MECH 분기 추가
+
+**ELEC 패턴 (L625-640, 참조)**:
+```python
+# Sprint 57: ELEC IF_2 완료 → ELEC 닫기 판정 (Dual-Trigger 경로 1)
+elec_close_blocked = False
+if task.task_category == 'ELEC' and task.task_id == 'IF_2':
+    from app.services.checklist_service import check_elec_completion
+    elec_checklist_complete = check_elec_completion(task.serial_number)
+    if elec_checklist_complete:
+        logger.info(f"ELEC close triggered (path 1: IF_2 last): ...")
+    else:
+        elec_close_blocked = True
+        ...
+```
+
+**MECH 추가 (그대로 적용)**:
+```python
+# Sprint 67-BE-HOTFIX: MECH SELF_INSPECTION 완료 → MECH 닫기 판정 (Dual-Trigger 경로 1)
+mech_close_blocked = False
+if task.task_category == 'MECH' and task.task_id == 'SELF_INSPECTION':
+    from app.services.checklist_service import check_mech_completion
+    mech_checklist_complete = check_mech_completion(task.serial_number)
+    if mech_checklist_complete:
+        logger.info(
+            f"MECH close triggered (path 1: SELF_INSPECTION last): "
+            f"serial={task.serial_number}, task_id={task_detail_id}"
+        )
+    else:
+        mech_close_blocked = True
+        logger.info(
+            f"MECH SELF_INSPECTION completed but checklist incomplete (waiting path 2): "
+            f"serial={task.serial_number}, task_id={task_detail_id}"
+        )
+```
+
+**Response 키 추가 (L662 직후 ELEC 응답 분기와 동일 패턴)**:
+```python
+# Sprint 67-BE-HOTFIX: MECH SELF_INSPECTION 완료 응답에 체크리스트 상태 포함
+if task.task_category == 'MECH' and task.task_id == 'SELF_INSPECTION':
+    response['mech_close_blocked'] = mech_close_blocked
+    if mech_close_blocked:
+        response['message'] = '자가검사 완료 — MECH 체크리스트 미완료 항목이 있습니다.'
+        response['checklist_ready'] = True
+        response['checklist_category'] = 'MECH'
+```
+
+#### 2.2-A ⭐ Sprint 41-D v2.15.3 (AUTO_FINALIZE_BLOCKED_TASK_IDS) 정합 명시
+
+> 본 hotfix 와 같은 날짜 (2026-05-14) 에 OPS 측 v2.15.3 (Sprint 41-D HOTFIX) 가 배포됨.
+> MECH `SELF_INSPECTION` 의 흐름이 v2.15.3 의 새 set 과 정합되는지 명확히 함 — 향후 재해석 방지.
+
+**v2.15.3 (Sprint 41-D) 의 핵심 set**:
+
+```python
+# task_service.py L47-94 (v2.15.3 신규)
+AUTO_FINALIZE_BLOCKED_TASK_IDS: Set[Tuple[str, str]] = {
+    # FIRST_FINAL
+    ('MECH', 'TANK_DOCKING'),
+    ('ELEC', 'IF_2'),
+    # MECH 일반 phase
+    ('MECH', 'WASTE_GAS_LINE_1'), ('MECH', 'UTIL_LINE_1'),
+    ('MECH', 'WASTE_GAS_LINE_2'), ('MECH', 'UTIL_LINE_2'),
+    ('MECH', 'HEATING_JACKET'),
+    # ELEC 일반 phase
+    ('ELEC', 'PANEL_WORK'), ('ELEC', 'CABINET_PREP'),
+    ('ELEC', 'WIRING'), ('ELEC', 'IF_1'),
+    # ⚠️ SECOND_FINAL (SELF_INSPECTION, INSPECTION) 포함 안 함
+    # ⚠️ SINGLE_FINAL (TMS/PI/QI/SI) 포함 안 함
+}
+```
+
+**MECH `SELF_INSPECTION` 의 흐름** (v2.15.3 적용 후):
+
+| Step | 동작 | 코드 분기 |
+|---|---|---|
+| 1. SELF_INSPECTION complete (finalize=false 호출) | `AUTO_FINALIZE_BLOCKED_TASK_IDS` 에 미포함 → 차단 분기 진입 X | L353-378 의 `is_auto_finalize_blocked` 분기 패스 |
+| 2. Sprint 55 (3-C) 강제 finalize=true 분기 | `is_second_final == True` → `finalize = True` 강제 | L36851-36858 (v2.15.3) |
+| 3. category_completed 판정 → `update_process_completion('MECH', True)` | mech_completed = TRUE (Progress 100% 충족 시) | task_service.py L606-608 |
+| 4. **`_trigger_completion_alerts(task)`** 호출 | Second Close 트리거 흐름 진입 | L618 |
+| 5. ⭐ **본 #65 가 추가하는 MECH SELF_INSPECTION 분기** | Dual-Trigger 경로 1 → `_try_mech_close()` 호출 | L640 직후 (신규) |
+
+**→ `_try_mech_close()` 호출 위치 = L640 직후 (ELEC IF_2 분기 패턴) 그대로 OK**:
+- v2.15.3 의 `is_auto_finalize_blocked` 차단 분기 (L353-378) 와 무관 (SELF_INSPECTION 은 set 미포함)
+- v2.15.3 의 SECOND_FINAL 강제 finalize=true (L36851-36858) 통과 후 정상 close 흐름 진입
+- 따라서 L640 직후 분기에서 `check_mech_completion()` 호출 → `_try_mech_close()` 호출이 자연스러움
+
+**핵심 정합 포인트** (BE 개발자 즉시 참조):
+1. `_try_mech_close()` 신규 함수는 v2.15.3 의 `AUTO_FINALIZE_BLOCKED_TASK_IDS` 와 **무관** — 별도 흐름
+2. `task_service.py` L640 직후 MECH 분기 추가는 v2.15.3 L353-378 분기 **이후** 영역 → 충돌 없음
+3. ELEC `IF_2` 패턴 (L625-640) 도 v2.15.3 에서 동작 정합 검증됨 — 그대로 복사 가능
+
+---
+
+#### 2.3 체크리스트 완료 측 훅 추가 (경로 2: 체크리스트가 더 늦게 끝난 케이스)
+
+**위치**: MECH 체크리스트 record INSERT/UPDATE 라우트
+→ ELEC 측 `_try_elec_close` **호출처** 1줄 grep 으로 확인 후 동일 위치에 MECH 추가
+
+**ELEC 패턴 (검색 명령)**:
+```bash
+grep -n "_try_elec_close" AXIS-OPS/backend/app/routes/checklist*.py
+# 또는
+grep -rn "_try_elec_close(" AXIS-OPS/backend/app/
+```
+
+**MECH 추가 (동일 위치 1줄)**:
+```python
+# Sprint 67-BE-HOTFIX: MECH 체크리스트 완료 시 Dual-Trigger 경로 2 시도
+if check_mech_completion(serial_number, judgment_phase=1):
+    _try_mech_close(serial_number)
+```
+
+---
+
+### 3. 영향 범위 (Surface)
+
+| 영역 | 변경 | 비고 |
+|---|---|---|
+| `checklist_service.py` | `_try_mech_close()` 함수 1개 추가 (~50줄) | ELEC 패턴 그대로 |
+| `task_service.py` | MECH SELF_INSPECTION 분기 + response 키 (~25줄) | ELEC 분기 그대로 |
+| `routes/checklist*.py` (MECH 저장 라우트) | 1줄 호출 추가 | ELEC 패턴 그대로 |
+| DB 스키마 | 변경 없음 | `completion_status.mech_completed` 이미 존재 |
+| FE | 변경 없음 | response 키 `mech_close_blocked` 는 옵션 — 무시해도 동작 |
+| 마이그레이션 | 없음 | 신규 SQL 0건 |
+
+---
+
+### 4. 테스트 케이스 (BE pytest)
+
+```
+tests/backend/test_mech_dual_trigger.py
+├─ TC-MD-01: MECH 체크리스트만 완료 + SELF_INSPECTION 미완료 → mech_completed FALSE 유지
+├─ TC-MD-02: SELF_INSPECTION 만 완료 + 체크리스트 미완료 → mech_completed FALSE 유지
+├─ TC-MD-03: SELF_INSPECTION 완료 후 체크리스트 완료 (경로 2) → mech_completed TRUE
+├─ TC-MD-04: 체크리스트 완료 후 SELF_INSPECTION 완료 (경로 1) → mech_completed TRUE
+├─ TC-MD-05: DUAL 모델 (DRAGON LE DUAL) — L/R 양쪽 체크리스트 완료 시점 검증
+├─ TC-MD-06: `_try_mech_close` 예외 발생 시 non-blocking (work 완료 응답 200 유지)
+└─ TC-MD-07: response 키 `mech_close_blocked` 형식 검증 (true / false 명확)
+```
+
+---
+
+### 5. Rollback 경로
+
+| 위험 | 대응 |
+|---|---|
+| `_try_mech_close` 예외로 work 완료 막힘 | 함수 내부 `try/except` + non-blocking 보장 (ELEC 동일 패턴) |
+| DUAL 모델 L/R 한쪽만 완료 시 오진단 | `check_mech_completion()` 이 SINGLE/DUAL 분기 이미 처리 (`checklist_service.py:1443-1450`) |
+| 기존 ELEC/TM 동작 영향 | MECH 분기 추가만 — ELEC/TM 코드 미변경 |
+| Full rollback | 추가한 3개 코드 블록 revert 1 PR — 즉시 이전 버전 복귀 |
+
+---
+
+### 6. 우선순위 & 운영 영향
+
+| 항목 | 값 |
+|---|---|
+| 우선순위 | 🔴 **HIGH** (Twin파파 운영 즉시 영향) |
+| 차단 여부 | MECH 공정 완료 후에도 생산현황 상세뷰에서 미완료 표시 → 운영자 혼란 |
+| 예상 작업량 | **BE 0.5~1시간** (ELEC 패턴 복사 + 테스트 7건) |
+| 안전성 | non-blocking 패턴 — 기존 동작 영향 0 |
+| 리스크 | 매우 낮음 (이미 검증된 ELEC 패턴 동등 차용) |
+
+---
+
+### 7. 참고 라인 (BE 개발자 즉시 참조)
+
+```
+AXIS-OPS/backend/app/services/checklist_service.py
+├─ L1279-1331  _try_elec_close()         ← 패턴 차용 원본
+├─ L1334       # Sprint 63-BE: MECH 섹션 시작
+├─ L1412-1483  check_mech_completion()   ← 이미 구현됨, 호출만 하면 됨
+└─ (신규)       _try_mech_close()         ← 추가 위치 = L1332
+
+AXIS-OPS/backend/app/services/task_service.py
+├─ L66          ('MECH', 'SELF_INSPECTION'),  # MECH 진짜 종료
+├─ L533         # MECH SELF_INSPECTION → 항상 작동
+├─ L625-640     ELEC IF_2 분기            ← 패턴 차용 원본
+├─ L662-667     ELEC response 분기         ← 패턴 차용 원본
+└─ (신규)       MECH SELF_INSPECTION 분기  ← L640 직후 + L667 직후 추가
+
+AXIS-OPS/backend/app/routes/production.py
+└─ L276-279    MECH 분기 이미 추가됨 (check_mech_completion 호출)
+```
+
+---
+
+### 8. 진행 흐름
+
+```
+1. BE: _try_mech_close() 함수 추가 (checklist_service.py L1332)
+2. BE: task_service.py MECH SELF_INSPECTION 분기 + response 키 추가 (L640 직후 + L667 직후)
+3. BE: routes/checklist*.py MECH 체크리스트 저장 라우트에서 _try_mech_close 호출 (ELEC 위치 grep 후 동일 위치)
+4. BE: pytest TC-MD-01~07 작성 + 통과 확인
+5. BE: Railway 배포 → Twin파파 운영 검증 (실제 S/N 1건으로 MECH 체크리스트 → SELF_INSPECTION → 상세뷰 동기화 확인)
+6. FE: 변경 없음 (자동 정상 작동)
+```
+
+---
+
+**OPS 측 반영 위치**: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 67-BE-HOTFIX 신규 섹션 (#66 묶음 권장)
+**FE 상태**: 변경 불필요 (response 키 추가는 옵션) — 단 #66 은 FE 토글 UI 작업 동반
+**문서 상태**: 🔴 **OPEN** — BE 즉시 수정 권장
+**관련 Sprint**: Sprint 57 (ELEC Dual-Trigger), Sprint 63-BE (MECH 체크리스트 본체), Sprint 41-D v2.15.3 (AUTO_FINALIZE_BLOCKED_TASK_IDS 정합)
+**관련 항목**: **#66 진행률 + 가압검사 토글 BE 반영** 와 묶음 1 PR 권장
+**검증 책임**: Twin파파 — 배포 후 실 S/N 1건으로 동기화 확인
+**다음 단계**:
+1. BE Claude Code 측 Sprint 67-BE-HOTFIX 착수 (#65 + #66 묶음 5개 코드 블록 추가)
+2. Railway 배포 후 Twin파파 검증
+3. 생산실적 페이지 카운트 매트릭스 4 조합 검증 (진행률 ON/OFF × 체크리스트 ON/OFF)
+
+---
+
+## #66 실적 카운트 토글 BE 반영 — 진행률 100% + TM 가압검사 (HOTFIX)
+
+**우선순위**: 🟡 **MEDIUM-HIGH** (#65 와 묶음 1 PR — Sprint 67-BE-HOTFIX 통합)
+**Sprint**: 67-BE-HOTFIX (with #65)
+**날짜**: 2026-05-14 KST
+**관련 FE**: AXIS-VIEW `DESIGN_FIX_SPRINT.md` Sprint 43 (진행률 토글 UI 추가)
+**상태**: 🔴 **BE 분기 미구현** (FE 토글 UI 는 일부 존재 — TM "가압검사 포함" 토글은 UI 만 있고 BE 미반영)
+**관련 항목**: **#65 MECH 동기화** 와 묶음 1 PR 권장
+
+---
+
+### 0. ⭐ Twin파파 의도 명시 — 실적 카운트 3-Layer 구조 (재해석 방지)
+
+> 본 #66 의 본질은 Twin파파의 **실적 카운트 3-Layer 구조** 중 **Layer 1 (진행률 base) + Layer 2 (TM 가압검사 trigger 확장)** BE 반영이다.
+> #65 entry 의 "Layer 2 — MECH trigger close 핸들러" 와 직교적 보완.
+
+**Twin파파 정의 (2026-05-14 KST 확정 — #65 entry §0 와 동일 내용)**:
+
+```
+실적 카운트 = [Layer 1] + [Layer 2] + [Layer 3]
+
+[Layer 1] 진행률 base — 토글로 조절 가능  ← ⭐ 본 #66 의 핵심
+   └ confirm_progress_required = TRUE  (default) : 카테고리 전체 task 의 completed_at 100%
+   └ confirm_progress_required = FALSE           : trigger task 만 완료해도 OK
+
+[Layer 2] Trigger task — 공정별 핵심 task 명시
+   └ MECH : SELF_INSPECTION (자주검사)
+   └ ELEC : INSPECTION (자주검사) AND IF_2        ← 둘 다 필수 (AND)
+   └ TM   : TANK_MODULE (+ tm_pressure_test_required=TRUE 시 PRESSURE_TEST)  ← ⭐ 본 #66 의 핵심
+       └ TM 의 자주검사 task 는 존재 X — TANK_MODULE 자체가 trigger 역할
+
+[Layer 3] 체크리스트 — 토글로 조절 가능
+   └ confirm_checklist_required = TRUE  : 공정별 체크리스트 100% 필수 (기존, 정상 동작)
+   └ confirm_checklist_required = FALSE : 체크리스트 무관 (기존, 정상 동작)
+```
+
+**4 조합 카운트 동작 매트릭스 (확정)**:
+
+| 진행률 | 체크리스트 | MECH 카운트 | ELEC 카운트 | TM 카운트 (가압검사 OFF) | TM 카운트 (가압검사 ON) |
+|:-:|:-:|---|---|---|---|
+| ON | ON | 전체 MECH task + 체크리스트 | 전체 ELEC task + 체크리스트 | TANK_MODULE + TM 체크리스트 | TANK_MODULE + PRESSURE_TEST + TM 체크리스트 |
+| ON | OFF | 전체 MECH task | 전체 ELEC task | TANK_MODULE | TANK_MODULE + PRESSURE_TEST |
+| OFF | ON | SELF_INSPECTION + 체크리스트 | INSPECTION + IF_2 + 체크리스트 | TANK_MODULE + TM 체크리스트 (변화 없음) | TANK_MODULE + PRESSURE_TEST + TM 체크리스트 |
+| OFF | OFF | SELF_INSPECTION | INSPECTION + IF_2 | TANK_MODULE (변화 없음) | TANK_MODULE + PRESSURE_TEST |
+
+→ **TM 은 진행률 토글 영향 없음** — 이미 `_CONFIRM_TASK_FILTER` 가 TANK_MODULE 만 카운트하므로 사실상 진행률 OFF 모드.
+→ **TM 의 토글 영향은 가압검사 토글** — ON 시 PRESSURE_TEST 까지 trigger 에 포함.
+
+---
+
+### 1. 배경 & 증상
+
+#### 1.1 운영자가 인지한 토글 (FE UI)
+
+이미 FE 모달 ("실적확인 설정") 에 다음 토글 존재 — 일부는 BE 반영 없음:
+
+| 토글 | FE UI 존재 | BE 반영 | 상태 |
+|---|:-:|:-:|---|
+| 기구(MECH) 실적확인 | ✅ | ✅ | 정상 |
+| 전장(ELEC) 실적확인 | ✅ | ✅ | 정상 |
+| TM 실적확인 | ✅ | ✅ | 정상 |
+| **가압검사 포함** (TM 하위) | ✅ | 🔴 **미반영** | BE `_CONFIRM_TASK_FILTER` 가 TANK_MODULE 만 고정 |
+| PI / QI / SI 실적확인 | ✅ | (현재 OFF 운영) | 보류 |
+| 체크리스트 필수 | ✅ | ✅ | 정상 (`confirm_checklist_required`) |
+| **진행률 100% 필수** (신규) | ❌ | ❌ | 🔴 **신규 추가 필요** (FE+BE 양쪽) |
+
+#### 1.2 현재 코드 동작 분석
+
+**`production.py` `_is_process_confirmable()` L189-227** (현재):
+```python
+# 카테고리 전체 체크 (MECH, ELEC, PI, QI, SI 등)
+if cat_data.get('total', 0) == 0:
+    continue
+has_data = True
+if cat_data.get('completed', 0) < cat_data.get('total', 0):
+    return False
+```
+→ **항상 Progress 100% 가 base 로 깔림** — 토글 옵션 없음.
+
+**`production.py` `_CONFIRM_TASK_FILTER` L153-158** (현재):
+```python
+# TMS: TANK_MODULE만 (PRESSURE_TEST는 progress/알람 전용, 실적확인 대상 아님)
+_CONFIRM_TASK_FILTER: Dict[str, str] = {
+    'TMS': 'TANK_MODULE',
+}
+```
+→ **TM 은 가압검사 토글 무관 — 항상 TANK_MODULE 만 카운트** (가압검사 토글이 BE 에 반영되지 않음).
+
+#### 1.3 운영 영향
+
+- 운영자가 카운트 엄격도를 조절하고 싶어도 **진행률 토글 자체가 없음** → 운영 초기/예외 케이스 대응 불가
+- TM "가압검사 포함" 토글을 ON 으로 켜도 **실제 카운트는 변화 없음** → UI 와 실제 동작 불일치 (사용자 혼란)
+
+---
+
+### 2. 구현 명세
+
+#### 2.1 신규 admin_settings 키
+
+| 설정 키 | 타입 | Default | 의미 |
+|---|---|:-:|---|
+| `confirm_progress_required` | BOOLEAN | **TRUE** | 진행률 100% 필수 (전체 task `completed_at` 100%) |
+| `tm_pressure_test_required` | BOOLEAN | **FALSE** | TM 카운트 trigger 에 PRESSURE_TEST 포함 |
+| `confirm_checklist_required` | BOOLEAN | (기존) | 체크리스트 100% 필수 (이미 정상 동작) |
+
+**마이그레이션** (신규 SQL 1건):
+
+```sql
+-- migrations/054_progress_and_pressure_toggles.sql
+INSERT INTO admin_settings (setting_key, setting_value, description, updated_at)
+VALUES
+    ('confirm_progress_required', 'true', '실적확인 시 카테고리 전체 task 의 진행률 100% 필수 여부 (FALSE 시 trigger task 만)', NOW()),
+    ('tm_pressure_test_required', 'false', 'TM 실적 카운트 시 PRESSURE_TEST 까지 포함 여부 (FALSE 시 TANK_MODULE 만)', NOW())
+ON CONFLICT (setting_key) DO NOTHING;
+```
+
+→ default 값은 **현재 운영 동작과 호환되도록** 설정 (배포 즉시 행동 변화 없음).
+
+---
+
+#### 2.2 `_is_process_confirmable()` 분기 추가
+
+**파일**: `backend/app/routes/production.py` L189-227
+
+**Before**:
+```python
+# 카테고리 전체 체크 (MECH, ELEC, PI, QI, SI 등)
+if cat_data.get('total', 0) == 0:
+    continue
+has_data = True
+if cat_data.get('completed', 0) < cat_data.get('total', 0):
+    return False
+```
+
+**After**:
+```python
+# Sprint 67-BE-HOTFIX #66: 진행률 100% 토글 분기
+progress_required = settings.get('confirm_progress_required', True)  # default TRUE
+
+# 카테고리 전체 체크 (MECH, ELEC, PI, QI, SI 등)
+if cat_data.get('total', 0) == 0:
+    continue
+has_data = True
+
+if progress_required:
+    # 기존 로직 — 전체 task 100%
+    if cat_data.get('completed', 0) < cat_data.get('total', 0):
+        return False
+else:
+    # 신규 — trigger task 만 확인 (Layer 2)
+    trigger_tasks = _PROGRESS_TRIGGER_TASKS.get(process_type, [])
+    for tid in trigger_tasks:
+        task_data = cat_data.get('tasks', {}).get(tid, {})
+        if task_data.get('total', 0) == 0:
+            return False  # is_applicable=FALSE 면 trigger 없음 → 카운트 X
+        if task_data.get('completed', 0) < task_data.get('total', 0):
+            return False
+```
+
+**신규 상수 `_PROGRESS_TRIGGER_TASKS`** (production.py L158 부근, `_CONFIRM_TASK_FILTER` 옆):
+```python
+# Sprint 67-BE-HOTFIX #66: 진행률 토글 OFF 시 trigger task 매핑
+# Twin파파 정의 (2026-05-14):
+#   - MECH: SELF_INSPECTION 단독
+#   - ELEC: INSPECTION + IF_2 양쪽 (AND 조건)
+#   - TMS: TANK_MODULE (가압검사 토글 ON 시 PRESSURE_TEST 추가 — 별도 처리)
+_PROGRESS_TRIGGER_TASKS: Dict[str, List[str]] = {
+    'MECH': ['SELF_INSPECTION'],
+    'ELEC': ['INSPECTION', 'IF_2'],
+    # 'TMS' 는 별도 분기 — _CONFIRM_TASK_FILTER + tm_pressure_test_required 토글로 처리
+}
+```
+
+→ **`_is_sn_process_confirmable()` (L230-265) 도 동일 패턴으로 분기 추가**.
+
+---
+
+#### 2.3 TM 가압검사 토글 BE 반영
+
+**파일**: `backend/app/routes/production.py` L153-158 (`_CONFIRM_TASK_FILTER`) + L195-208 (TMS 분기 영역)
+
+**현재** (TMS 는 `_CONFIRM_TASK_FILTER` 로 TANK_MODULE 만 고정):
+```python
+_CONFIRM_TASK_FILTER: Dict[str, str] = {
+    'TMS': 'TANK_MODULE',
+}
+
+# L201-208 영역
+confirm_task = _CONFIRM_TASK_FILTER.get(process_type)
+if confirm_task:
+    task_data = cat_data.get('tasks', {}).get(confirm_task, {})
+    if task_data.get('total', 0) == 0:
+        continue
+    has_data = True
+    if task_data.get('completed', 0) < task_data.get('total', 0):
+        return False
+```
+
+**After** (TMS 는 가압검사 토글에 따라 trigger task list 동적):
+```python
+# Sprint 67-BE-HOTFIX #66: TM 가압검사 토글 반영
+def _get_tm_trigger_tasks(settings: Dict[str, bool]) -> List[str]:
+    tasks = ['TANK_MODULE']
+    if settings.get('tm_pressure_test_required', False):
+        tasks.append('PRESSURE_TEST')
+    return tasks
+
+# L201-208 영역 정정
+if process_type == 'TMS':
+    trigger_tasks = _get_tm_trigger_tasks(settings)
+    found_any = False
+    for tid in trigger_tasks:
+        task_data = cat_data.get('tasks', {}).get(tid, {})
+        if task_data.get('total', 0) == 0:
+            continue
+        found_any = True
+        if task_data.get('completed', 0) < task_data.get('total', 0):
+            return False
+    if not found_any:
+        continue
+    has_data = True
+elif _CONFIRM_TASK_FILTER.get(process_type):
+    # 기존 단일 task filter 로직 (현재는 사용처 없음, 미래 확장용)
+    ...
+else:
+    # MECH/ELEC/PI/QI/SI — Layer 1 진행률 토글 분기 (위 2.2 참조)
+    ...
+```
+
+→ **TMS 는 `_CONFIRM_TASK_FILTER` 와 분리된 별도 분기로 처리** (가압검사 토글 동적 매핑 위해).
+
+---
+
+#### 2.4 FE 토글 UI 추가 (AXIS-VIEW Sprint 43 — `DESIGN_FIX_SPRINT.md` 참조)
+
+**파일**: `AXIS-VIEW/app/src/pages/production/ProductionPerformancePage.tsx` ConfirmSettingsPanel
+
+**추가 토글** (체크리스트 필수 토글 옆):
+```
+[진행률 100% 필수]                                  [ ON/OFF ]
+ON: 전체 task 완료 시만 / OFF: 자주검사 task 만 완료해도 인정
+```
+
+**기존 토글 BE 연동 보완** (가압검사 포함 토글):
+- UI 는 이미 존재 (TM 영역 하위)
+- 현재 토글 ON/OFF 가 admin_settings 의 `tm_pressure_test_required` 키로 저장되는지 확인 + 미저장 시 추가 작업
+- FE 작업 상세는 AXIS-VIEW Sprint 43 entry 참조
+
+---
+
+### 3. 영향 범위
+
+| 영역 | 변경 | 비고 |
+|---|---|---|
+| `production.py` (`_is_process_confirmable`) | 진행률 토글 분기 추가 (~20줄) | Layer 1 |
+| `production.py` (`_is_sn_process_confirmable`) | 동일 분기 추가 (~15줄) | Layer 1 (S/N 단일) |
+| `production.py` (`_PROGRESS_TRIGGER_TASKS` 상수) | 신규 dict (~10줄) | Layer 2 trigger 매핑 |
+| `production.py` (TMS 분기 분리) | `_get_tm_trigger_tasks()` 신규 + TMS 별도 처리 (~15줄) | Layer 2 TM 확장 |
+| `migrations/054_*.sql` | admin_settings 키 2건 신규 | UPSERT |
+| FE `ProductionPerformancePage.tsx` | 진행률 토글 1개 + 가압검사 토글 BE 연동 검증 | AXIS-VIEW Sprint 43 |
+| FE `admin_settings` API | 신규 키 2건 처리 | 기존 GET/PUT 패턴 차용 |
+| pytest | TC 8건 신규 (4 조합 × MECH/ELEC + TM 가압검사 ON/OFF 2건) | |
+
+**총 BE 변경**: production.py ~60줄 + 마이그레이션 1건 + pytest ~120줄 = 약 180 LoC
+
+---
+
+### 4. 테스트 케이스 (BE pytest)
+
+```
+tests/backend/test_production_confirm_toggles.py
+├─ TC-PT-01: confirm_progress_required=TRUE + ELEC 전체 task 100% → confirmable TRUE
+├─ TC-PT-02: confirm_progress_required=TRUE + ELEC 9/10 task → confirmable FALSE
+├─ TC-PT-03: confirm_progress_required=FALSE + ELEC INSPECTION+IF_2 완료 (다른 task 미완료) → confirmable TRUE
+├─ TC-PT-04: confirm_progress_required=FALSE + ELEC INSPECTION 만 완료 (IF_2 미완료) → confirmable FALSE (AND 조건)
+├─ TC-PT-05: confirm_progress_required=FALSE + MECH SELF_INSPECTION 완료 (다른 task 미완료) → confirmable TRUE
+├─ TC-PT-06: tm_pressure_test_required=FALSE + TANK_MODULE 완료 → confirmable TRUE (회귀 보장)
+├─ TC-PT-07: tm_pressure_test_required=TRUE + TANK_MODULE 완료 + PRESSURE_TEST 미완료 → confirmable FALSE
+└─ TC-PT-08: tm_pressure_test_required=TRUE + TANK_MODULE + PRESSURE_TEST 모두 완료 → confirmable TRUE
+```
+
+**confirm_checklist_required 조합 검증** (기존 TC 회귀 보장):
+- 모든 신규 TC 는 `confirm_checklist_required=FALSE` 전제 + 별도 1건씩 ON 케이스 추가 (TC-PT-01b ~ 08b)
+
+---
+
+### 5. Rollback 경로
+
+| 위험 | 대응 |
+|---|---|
+| 진행률 토글 OFF 시 trigger task is_applicable=FALSE → 카운트 누락 | trigger task `total == 0` 시 `return False` 명시 (TC-PT-04 영역 처리 동일) |
+| 가압검사 토글 ON 시 PRESSURE_TEST is_applicable=FALSE 모델 → 카운트 안 됨 | `_get_tm_trigger_tasks` 에서 `total == 0` 인 task 는 skip (found_any 분기) |
+| ELEC INSPECTION + IF_2 AND 조건 누락 → 단일 OR 로 잘못 구현 | TC-PT-04 (INSPECTION 만 완료 → FALSE) 회귀 가드 |
+| Default 값 변경으로 기존 운영 영향 | `confirm_progress_required=TRUE` (현재 동작 그대로), `tm_pressure_test_required=FALSE` (현재 동작 그대로) — 배포 즉시 행동 변화 0 |
+| Full rollback | `production.py` 3개 함수 + 1개 상수 revert + 마이그레이션 SQL DELETE 1건 → 즉시 이전 동작 복귀 |
+
+---
+
+### 6. 우선순위 & 운영 영향
+
+| 항목 | 값 |
+|---|---|
+| 우선순위 | 🟡 **MEDIUM-HIGH** (#65 와 묶음 — Sprint 67-BE-HOTFIX 1 PR) |
+| 운영 영향 | 운영자가 카운트 엄격도 조절 가능 — 운영 초기/예외 케이스 회복 옵션 |
+| 차단 여부 | 토글 OFF 시에만 행동 변화 — default 유지 시 회귀 0 |
+| 예상 작업량 | **BE 1.5~2시간** (production.py 분기 + 마이그레이션 + pytest 8건) |
+| 안전성 | default 값으로 현재 동작 보존 — 토글 OFF 는 운영자 명시 선택 시에만 발동 |
+| 리스크 | 낮음 (default 호환 + TC 8건 회귀 가드) |
+
+---
+
+### 7. 참고 라인 (BE 개발자 즉시 참조)
+
+```
+AXIS-OPS/backend/app/routes/production.py
+├─ L100-150    _calc_sn_progress()              ← Progress 계산 기존 로직 (변경 없음)
+├─ L153-158    _CONFIRM_TASK_FILTER             ← 기존 TMS 단일 task filter
+├─ (신규)       _PROGRESS_TRIGGER_TASKS         ← MECH/ELEC 진행률 OFF 시 trigger 매핑 (~L160)
+├─ (신규)       _get_tm_trigger_tasks()         ← TM 가압검사 토글 동적 매핑 (~L165)
+├─ L189-227    _is_process_confirmable()        ← 진행률 토글 분기 추가
+├─ L230-265    _is_sn_process_confirmable()     ← 동일 패턴 분기 추가
+└─ L268-281    _check_sn_checklist_complete()   ← 기존 (변경 없음)
+
+AXIS-OPS/backend/migrations/
+└─ (신규) 054_progress_and_pressure_toggles.sql  ← admin_settings 키 2건 UPSERT
+
+AXIS-VIEW/app/src/pages/production/ProductionPerformancePage.tsx
+└─ ConfirmSettingsPanel  ← 진행률 토글 UI 추가 + 가압검사 토글 BE 연동 검증
+```
+
+---
+
+### 8. 진행 흐름
+
+```
+1. BE: migrations/054_progress_and_pressure_toggles.sql 작성 + Railway 실행
+2. BE: production.py L153-160 영역 _PROGRESS_TRIGGER_TASKS + _get_tm_trigger_tasks 추가
+3. BE: _is_process_confirmable / _is_sn_process_confirmable 분기 추가
+4. BE: tests/test_production_confirm_toggles.py 작성 (TC-PT-01~08 + 회귀 8건)
+5. BE: Railway 배포
+6. FE: AXIS-VIEW Sprint 43 착수 (진행률 토글 UI + 가압검사 토글 BE 연동 검증)
+7. FE 배포 (v1.44.x)
+8. Twin파파 검증: 4 조합 매트릭스 검증 (진행률 ON/OFF × 체크리스트 ON/OFF) + TM 가압검사 ON/OFF
+```
+
+---
+
+### 9. FE ↔ BE 호환성 매트릭스
+
+| FE 토글 | admin_settings 키 | BE 동작 | 현재 상태 |
+|---|---|---|---|
+| 진행률 100% 필수 (신규) | `confirm_progress_required` | `_is_process_confirmable` 분기 | 🔴 BE/FE 모두 신규 |
+| 체크리스트 필수 | `confirm_checklist_required` | `_check_sn_checklist_complete` 호출 | ✅ 정상 동작 |
+| 가압검사 포함 (TM) | `tm_pressure_test_required` | `_get_tm_trigger_tasks` 동적 | 🔴 BE 미반영 (FE UI 만 존재) |
+| 기구/전장/TM 실적확인 | `confirm_mech_enabled` 등 | `_is_process_confirmable` key | ✅ 정상 동작 |
+
+---
+
+**OPS 측 반영 위치**: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 67-BE-HOTFIX 신규 섹션 (#65 묶음)
+**FE 측 반영 위치**: `AXIS-VIEW/DESIGN_FIX_SPRINT.md` Sprint 43 신규 섹션
+**문서 상태**: 🔴 **OPEN** — BE/FE 동시 작업
+**관련 Sprint**: Sprint 58-BE (`confirm_checklist_required` 도입), Sprint 67-BE-HOTFIX #65 (MECH 동기화)
+**관련 항목**: **#65 MECH 동기화** 와 묶음 1 PR 권장
+**검증 책임**: Twin파파 — 배포 후 4 조합 매트릭스 검증
+**다음 단계**:
+1. BE: production.py + 마이그레이션 + pytest (1.5~2h)
+2. FE: Sprint 43 (진행률 토글 UI — 0.5~1h)
+3. Twin파파 검증: 매트릭스 4 조합 + TM 가압검사 ON/OFF
+4. 검증 후 default 값 운영 결정 (계속 TRUE / FALSE 운영자 선택)
