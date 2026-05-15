@@ -6326,3 +6326,46 @@ AXIS-VIEW/app/src/pages/production/ProductionPerformancePage.tsx
 2. FE: Sprint 43 (진행률 토글 UI — 0.5~1h)
 3. Twin파파 검증: 매트릭스 4 조합 + TM 가압검사 ON/OFF
 4. 검증 후 default 값 운영 결정 (계속 TRUE / FALSE 운영자 선택)
+
+---
+
+## #67 생산현황 상세화면 Tank Module 일괄 시작 — DUAL 모델 L/R 1개만 시작 (FE 버그)
+
+**우선순위**: 🟠 MEDIUM (운영 편의 기능 — DUAL 모델 일괄 시작 부분 동작)
+**Sprint**: FIX-VIEW-DUAL-TANK-MODULE-BATCH-START-20260515 (v1.43.12)
+**날짜**: 2026-05-15 (Twin파파 운영 catch)
+**관련 FE**: AXIS-VIEW `SNDetailPanel.tsx` + `ParallelConfirmDialog.tsx`
+**상태**: ✅ **COMPLETED (AXIS-VIEW v1.43.12, 2026-05-15)** — FE only fix, OPS BE 변경 0
+
+---
+
+### 1. 증상 (Twin파파 catch)
+
+생산현황 상세화면 Tank Module 일괄 시작/종료 키 — DUAL 모델에서 TANK_MODULE 2개(L/R)가 다 시작 안 되고 하나만 시작됨.
+
+### 2. 진단 (병렬 Explore — OPS BE + VIEW FE)
+
+**OPS BE — 정상 (변경 0)**:
+- `task_seed.py` — DUAL 모델 TANK_MODULE L/R 2개 row 정상 생성 (qr_doc_id `DOC_{S/N}-L` / `-R`, task_id 둘 다 'TANK_MODULE')
+- `get_tasks_by_order()` (task_service_batch.py) — qr_doc_id 필터 없음 → DUAL 2개 모두 반환
+- `start_work_batch()` — `task_detail_ids` 배열 받은 만큼 처리
+
+**VIEW — Root Cause**:
+- `SNDetailPanel.tsx` 현재 S/N 의 TANK_MODULE task 를 `catTasks.find(isTankModule)` 로 첫 1개만 잡음 → DUAL L/R 2개인데 1개만 → `handleTankStart` → batch `task_detail_ids` 에 현재 S/N 1개만 포함
+- `others` (다른 S/N) 는 정상 전수 수집됨 — 현재 보고 있는 S/N (DUAL) 만 1개 누락
+
+### 3. fix (AXIS-VIEW v1.43.12)
+
+- `SNDetailPanel.tsx` — `.find()` → `.filter()` 배열화 (tankTask → tankTasks)
+- `parallelDialog` state `taskId: number` → `taskIds: number[]`
+- `handleTankStart/Complete` 배열 받기 + single(1개)/batch(DUAL 2개) 분기
+- `handleParallelConfirm` — `ids = [...taskIds, ...others]`
+- `TankModuleActions` props `task` → `tasks` 배열
+- Codex 라운드 1 M=3 반영: (Q2) 미시작/진행중 분리 — DUAL 부분 상태 양쪽 버튼 노출 / (Q6) force_closed task 판정 제외 / (Q4) `ParallelConfirmDialog` "1대만" → "이 S/N만"
+
+### 4. 검증
+
+- tsc -b 에러 0 + vite build GREEN + vitest 62/62 PASS
+- 회귀 0 — SINGLE 모델 기존 동작 유지, others/다른 S/N 영역 무관
+
+**OPS 측 작업**: 없음 (BE 변경 0 — 진단으로 BE 정상 확인). 본 entry = trail 기록용.
