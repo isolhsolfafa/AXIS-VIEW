@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.43.9 (2026-05-13)
+> 최신 버전: v1.43.10 (2026-05-15)
 
 ---
 
@@ -70,6 +70,29 @@
  - 비활성화/재활성화 버튼으로 계정 관리
  - 협력사 관리자가 소속 인원 비활성화 요청 가능
 ```
+
+---
+
+## v1.43.10 — 2026-05-15
+
+**HOTFIX — 생산현황 상세화면 MECH 체크리스트 미표시 fix (Twin파파 catch)**
+
+🐛 증상
+ - 생산현황 상세화면에서 ELEC / TM 공정은 체크리스트 진행률이 표시되는데 MECH 만 안 나옴
+
+🔍 원인
+ - `api/checklist.ts` 의 카테고리 → BE 경로 매핑(CAT_MAP)에 MECH 가 누락
+ - MECH 체크리스트 BE 엔드포인트(OPS Sprint 63-BE)가 생기기 전에 작성된 코드 → MECH BE 추가 후 매핑 갱신이 빠짐
+ - 상세화면 구조 자체(CHECKLIST_CATEGORIES)는 이미 MECH 포함 — API 레이어만 미반영
+
+🔧 수정
+ - CAT_MAP 에 `MECH: 'mech'` 추가 → MECH 도 ELEC/TM 처럼 체크리스트 진행률 표시
+ - (동반) 상세 항목 파서 필드명 정정 — BE 실제 응답(`master_id`/`check_result`/`checked_by_name`) 정합. 기존엔 다른 이름(`id`/`status`/`worker_name`)을 찾아 검사 완료 항목이 "미완료 목록"에 잘못 뜨던 잠재 버그 (TM/ELEC 도 동일 영향) 동시 해소
+
+✅ 검증
+ - BE 변경 0 (엔드포인트 이미 존재)
+ - Codex 교차검증 1차 NO-GO(필드명 불일치) → fix → 2차 GO
+ - 빌드 GREEN, vitest 59/59 PASS (52 + 신규 7)
 
 ---
 

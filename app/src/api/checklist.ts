@@ -97,14 +97,19 @@ interface BeStatusResponse {
 }
 
 interface BeDetailItem {
+  // BE 실제 필드명 (TM/ELEC/MECH 공통 _get_checklist_by_category): master_id / check_result / checked_by_name
+  master_id?: number;
+  check_result?: 'PASS' | 'NA' | null;
+  checked_by_name?: string | null;
+  // legacy 가정 필드명 (fallback) — 일부 엔드포인트 호환
   id?: number;
+  status?: 'PASS' | 'NA' | null;
+  worker_name?: string | null;
   item_group: string;
   item_name: string;
   item_type: 'CHECK' | 'INPUT' | 'SELECT';
   description?: string | null;
-  status?: 'PASS' | 'NA' | null;
   checked_at?: string | null;
-  worker_name?: string | null;
 }
 
 interface BeDetailResponse {
@@ -117,16 +122,17 @@ export async function getChecklistStatus(
   serialNumber: string,
   category: string,
 ): Promise<ChecklistStatusResponse> {
-  // 카테고리 → BE 경로 매핑 (Sprint 31: ELEC 허용, Sprint 58-BE 엔드포인트 활용)
+  // 카테고리 → BE 경로 매핑 (Sprint 31: ELEC, Sprint 63-BE: MECH 엔드포인트 활용)
   const CAT_MAP: Record<string, string> = {
     TM: 'tm',
     TMS: 'tm',
     ELEC: 'elec',
+    MECH: 'mech',
   };
 
   const beCat = CAT_MAP[category];
   if (!beCat) {
-    // MECH 등 미구현 카테고리 — 빈 응답
+    // 미매핑 카테고리 — 빈 응답
     return { ...EMPTY_CHECKLIST, serial_number: serialNumber, category };
   }
 
@@ -156,24 +162,29 @@ export async function getChecklistStatus(
       flatItems = detail.items;
     }
 
-    const items: ChecklistStatusItem[] = flatItems.map((item, i) => ({
-      master_id: item.id ?? i,
-      item_group: item.item_group ?? '',
-      item_name: item.item_name,
-      item_type: item.item_type ?? 'CHECK',
-      description: item.description ?? null,
-      record: item.status ? {
-        id: item.id ?? i,
-        serial_number: serialNumber,
-        master_id: item.id ?? i,
-        status: item.status,
-        note: null,
-        judgment_round: 1,
-        worker_id: 0,
-        worker_name: item.worker_name ?? '',
-        checked_at: item.checked_at ?? '',
-      } : null,
-    }));
+    const items: ChecklistStatusItem[] = flatItems.map((item, i) => {
+      // BE 실제 필드명 우선 (master_id / check_result / checked_by_name), legacy 가정 필드명 fallback
+      const masterId = item.master_id ?? item.id ?? i;
+      const result = item.check_result ?? item.status ?? null;
+      return {
+        master_id: masterId,
+        item_group: item.item_group ?? '',
+        item_name: item.item_name,
+        item_type: item.item_type ?? 'CHECK',
+        description: item.description ?? null,
+        record: result ? {
+          id: masterId,
+          serial_number: serialNumber,
+          master_id: masterId,
+          status: result,
+          note: null,
+          judgment_round: 1,
+          worker_id: 0,
+          worker_name: item.checked_by_name ?? item.worker_name ?? '',
+          checked_at: item.checked_at ?? '',
+        } : null,
+      };
+    });
 
     return {
       serial_number: serialNumber,
