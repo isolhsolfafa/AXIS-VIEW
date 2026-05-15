@@ -5526,7 +5526,11 @@ if category:
 **Sprint**: 67-BE-HOTFIX (ELEC `_try_elec_close()` 패턴 차용 0.5~1h 작업)
 **날짜**: 2026-05-14 (보강: 2026-05-14 KST)
 **관련 FE**: 없음 (FE는 BE 응답 그대로 표시 — 변경 불필요)
-**상태**: ✅ **COMPLETED (OPS v2.15.13, 2026-05-15)** — `_try_mech_close()` 신규 + Dual-Trigger 경로 2 호출 완료. AXIS-OPS `checklist_service.py` L1577 `_try_mech_close()` 함수 + L1888 `upsert_mech_check()` 영역 호출 추가. 후속 v2.15.16 (5-15) 영역 추가 정정: (1) MECH Phase 1+2 합산 검증 (`check_mech_completion_all()` 신규, ELEC 패턴 정합) (2) force_closed=False 통일 (auto-close 영역 자연 close 처리) (3) PREV_DAY_CAP enum 추가 (익일/주말 trigger duration cap). pytest 50/50 GREEN (회귀 위험 0). 운영 검증 진행 중 (사용자 측 5-15).
+**상태**: ✅ **COMPLETED (OPS v2.15.18, 2026-05-15)** — Codex 교차검증 M 2건 fix 배포 + 재검토 GREEN. Dual-Trigger 양방향(경로 1·2) 정상 동작 확인.
+  - (이력) v2.15.13/v2.15.16 배포 후 Codex 교차검증서 M(Must) 2건 확정 (§9) → BE 후속 fix v2.15.18 배포 → 재검토 GO.
+  - **M-A4 fix 확인** (`checklist_service.py:1710-1722`): `_try_mech_close()` 말미에 `UPDATE completion_status SET mech_completed=TRUE WHERE ... AND mech_completed=FALSE` 추가 — ELEC `_try_elec_close()` 패턴 정합 + idempotency 가드 + non-blocking 유지.
+  - **M-A7 fix 확인** (`checklist_service.py:1906`): 경로 2 close 게이트를 `check_mech_completion_all()` (Phase 1 AND Phase 2) 로 교체. L1898 `check_mech_completion(..., judgment_phase)` 는 FE 진행률 표시용으로 분리 유지.
+  - (이전 배포) v2.15.13 `_try_mech_close()` 신규 + 경로 2 호출. v2.15.16 `check_mech_completion_all()` 함수 추가 + force_closed=False 통일 + PREV_DAY_CAP enum. pytest 50/50 GREEN.
 **관련 항목**: 본 entry 와 동시에 작성된 **#66 진행률 + 가압검사 토글 BE 반영** 는 OPS 측 별 sprint (`SPRINT-V2-15-16-FOLLOWUP-PRODUCTION-TOGGLE` 영역 등록 권고 — 사용자 5-15 결정 "운영 검증 우선")
 
 ---
@@ -5774,9 +5778,18 @@ grep -rn "_try_elec_close(" AXIS-OPS/backend/app/
 **MECH 추가 (동일 위치 1줄)**:
 ```python
 # Sprint 67-BE-HOTFIX: MECH 체크리스트 완료 시 Dual-Trigger 경로 2 시도
-if check_mech_completion(serial_number, judgment_phase=1):
+# ⚠️ Codex 교차검증 M-A7 (2026-05-15): close 판정 게이트는 1차 검수 + 2차 검수 모두 충족 필요.
+#    check_mech_completion(..., judgment_phase) 는 해당 phase 단독 검증 → 1차 검수만 끝나도
+#    _try_mech_close() 발동 → 2차 검수(관리자 보강 입력) 미입력 상태로 close 위험.
+#    → check_mech_completion_all() = Phase 1 AND Phase 2 (checklist_service.py:1478, v2.15.16 신규)
+if check_mech_completion_all(serial_number):
     _try_mech_close(serial_number)
 ```
+
+> ⚠️ **배포 코드 확인 (2026-05-15)**: 실제 `upsert_mech_check()` (`checklist_service.py:1882-1888`) 는
+> `check_mech_completion(serial_number, judgment_phase)` 로 게이트 중 — 1차 검수 PUT 시 `judgment_phase=1`
+> 단독 판정으로 `_try_mech_close()` 발동. v2.15.16 에서 `check_mech_completion_all()` 함수는 추가됐으나
+> **경로 2 호출처(L1882)는 교체 누락**. → §9 Codex 교차검증 기록 M-A7 참조.
 
 ---
 
@@ -5866,9 +5879,74 @@ AXIS-OPS/backend/app/routes/production.py
 
 ---
 
+### 9. Codex 교차검증 기록 (2026-05-15, 배포 후 POST-REVIEW)
+
+> #65 가 v2.15.13 으로 ✅ COMPLETED 표기된 후, Codex 독립 교차검증 1라운드 수행.
+> 검증 핵심 = "설계서대로 추가됐는가" 가 아니라 "이미 배포된 v2.15.13/v2.15.16 구현이 설계 의도와 정확히 맞는가".
+> 결과: **배포 코드에서 M(Must) 2건 확정** — `_try_mech_close()` 가 핵심 목적(MECH 동기화)을 미달성.
+
+#### M (Must) — 배포 코드 실제 결함 2건
+
+**M-A4 — `_try_mech_close()` 가 `completion_status.mech_completed` 미갱신** 🔴
+- **근거**: `checklist_service.py:1577-1719` (`_try_mech_close()`) — SELF_INSPECTION + 잔여 MECH task 를 `auto_close_relay_task()` 로 close 하지만, ELEC `_try_elec_close()` (`checklist_service.py:1372-1383`) 에 있는 `UPDATE completion_status SET ..._completed = TRUE` 구문이 **MECH 버전에는 누락**.
+- **영향**: 경로 2 (체크리스트가 더 늦게 끝난 케이스) 발동 시 task 는 close 되지만 `mech_completed` 플래그는 FALSE 로 잔존 → 생산현황 상세뷰가 계속 "미완료" 표시 → **#65 가 고치려던 증상 그대로 재현**.
+- **조치 (BE)**: `_try_mech_close()` 말미 (L1710 `return True` 직전) 에 ELEC 패턴 동일 구문 추가:
+  ```python
+  cur.execute(
+      "UPDATE completion_status SET mech_completed = TRUE, updated_at = NOW() "
+      "WHERE serial_number = %s AND mech_completed = FALSE",
+      (serial_number,)
+  )
+  conn.commit()
+  ```
+  `AND mech_completed = FALSE` 가드로 이중 호출 idempotent 보장.
+
+**M-A7 — 경로 2 close 게이트가 1차 검수만 판정** 🔴
+- **근거**: `checklist_service.py:1882-1888` (`upsert_mech_check()`) — `is_complete = check_mech_completion(serial_number, judgment_phase)` 로 게이트. `judgment_phase` 는 현재 upsert 의 phase 값 → 1차 검수 PUT 시 `judgment_phase=1` 단독 판정.
+- **영향**: 1차 검수(작업자 입력) 19항목만 채워지면 `is_complete=True` → `_try_mech_close()` 발동 → **2차 검수(관리자 보강 입력) 미입력 상태로 MECH close**.
+- **조치 (BE)**: v2.15.16 에 이미 추가된 `check_mech_completion_all()` (`checklist_service.py:1478` — Phase 1 AND Phase 2) 로 게이트 교체. 함수는 추가됐으나 경로 2 호출처(L1882) 교체가 누락됨.
+
+> M-A4 와 M-D11 (idempotency 미구현) 은 실질 동일 결함의 두 표현 — M-A4 fix 의 `AND mech_completed = FALSE` 가드로 동시 해소.
+
+#### A (Advisory) — 설계서 문서 drift (BACKLOG 이관 권장)
+
+| 라벨 | 내용 | 비고 |
+|---|---|---|
+| A-A1 | `_try_mech_close()` 추가 위치 "L1331 직후" → 실제 L1577 (`check_mech_completion()` 뒤) | 설계서 §2.1 위치 기술 |
+| A-A2 | 설계서 쿼리 예시 `JOIN work_completion_log` → 실제 `EXISTS (SELECT 1 ...)` + audit 필드 병행 | 설계서 §2.1 쿼리 |
+| A-A6 | task_service 측 "전용 MECH 분기 추가" → 실제는 `SECOND_FINAL_TASK_IDS` 공용 경로 처리 | 설계서 §2.2 |
+| A-B9 | §2.2-A 5-step 라인 번호 (L353-378 등) 실제 제어흐름과 불일치 | 설계서 §2.2-A |
+| A-D13 | `mech_close_blocked` 응답 키 — `work.py` forward 미처리 (`elec_close_blocked` 만 특수 처리). FE 미사용이라 무해하나 설계서/실제 경로 불일치 | 설계서 §2.2 |
+
+→ A 항목은 모두 **설계서 문구가 실제 배포 코드와 어긋난 drift** — 동작 영향 0. 본 §9 기록으로 trail 확보, 별도 정정은 BACKLOG `OPS-65-DOC-DRIFT` 로 이관 권장.
+
+#### 종합 판정 (1차 — 2026-05-15)
+
+- **M 2건 (M-A4, M-A7) 미해결 → 실질 NO-GO**: #65 는 v2.15.13 으로 COMPLETED 표기됐으나, 경로 2 (체크리스트 last) 시나리오에서 핵심 목적인 MECH 동기화가 작동하지 않음.
+- **경로 1 (SELF_INSPECTION last)** 은 `task_service` 공용 `SECOND_FINAL` 경로 → `update_process_completion('MECH', True)` 로 정상 동작 (I-D12 확인).
+- **다음 단계**: BE 측 #65 후속 fix 1 PR (M-A4 UPDATE 추가 + M-A7 호출처 `check_mech_completion_all` 교체) → 재배포 → Twin파파 경로 2 시나리오 재검증 (체크리스트를 SELF_INSPECTION 보다 늦게 완료).
+
+#### ✅ 재검토 (2026-05-15, v2.15.18 fix 배포 후)
+
+BE 후속 fix 가 `v2.15.18` 로 배포됨. AXIS-OPS 실코드 직접 재검증 결과 **M 2건 모두 정상 해소 — GO**.
+
+| 항목 | fix 위치 | 검증 결과 |
+|---|---|---|
+| **M-A4** | `checklist_service.py:1710-1722` | ✅ `_try_mech_close()` 말미 `UPDATE completion_status SET mech_completed=TRUE WHERE ... AND mech_completed=FALSE` 추가. ELEC 패턴 정합 + idempotency 가드 + try 블록 내부(non-blocking 유지) |
+| **M-A7** | `checklist_service.py:1906` | ✅ 경로 2 close 게이트 `check_mech_completion_all()` (Phase 1 AND Phase 2) 로 교체. L1898 `check_mech_completion(..., judgment_phase)` 는 FE 진행률 표시용으로 용도 분리 유지 |
+
+**Opus 자가 검토 추가 확인**:
+- `_try_mech_close()` 내부 SELF_INSPECTION work_log `EXISTS` 체크(L1620) 잔존 → 이중 게이트 (체크리스트 전 phase 완료 AND 자주검사 완료) — Dual-Trigger 경로 2 조건 정확.
+- 조기 return(L1628, SELF_INSPECTION 미완료) 경로는 UPDATE 미도달 — 올바름.
+- 경로 1 / ELEC / TM 코드 미변경 — 회귀 위험 0.
+
+→ **Dual-Trigger 양방향(경로 1·2) 완성. #65 종결.**
+
+---
+
 **OPS 측 반영 위치**: `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 67-BE-HOTFIX 신규 섹션 (#66 묶음 권장)
 **FE 상태**: 변경 불필요 (response 키 추가는 옵션) — 단 #66 은 FE 토글 UI 작업 동반
-**문서 상태**: 🔴 **OPEN** — BE 즉시 수정 권장
+**문서 상태**: ✅ **DONE (v2.15.18, 2026-05-15)** — Codex 교차검증 M 2건 → BE fix 배포 → 재검토 GREEN (§9). Dual-Trigger 양방향 정상 동작
 **관련 Sprint**: Sprint 57 (ELEC Dual-Trigger), Sprint 63-BE (MECH 체크리스트 본체), Sprint 41-D v2.15.3 (AUTO_FINALIZE_BLOCKED_TASK_IDS 정합)
 **관련 항목**: **#66 진행률 + 가압검사 토글 BE 반영** 와 묶음 1 PR 권장
 **검증 책임**: Twin파파 — 배포 후 실 S/N 1건으로 동기화 확인
