@@ -95,7 +95,7 @@ export function ParallelConfirmDialog({
         <DialogActions
           primaryRef={primaryRef}
           primaryLabel={`네 — ${otherCount + 1}대 일괄 ${verb}`}
-          secondaryLabel={`아니오 — 1대만 ${verb}`}
+          secondaryLabel={`아니오 — 이 S/N만 ${verb}`}
           onPrimary={() => onConfirm('batch')}
           onSecondary={() => onConfirm('single')}
           onClose={onClose}

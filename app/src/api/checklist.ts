@@ -118,6 +118,82 @@ interface BeDetailResponse {
   total?: number;
 }
 
+// detail 응답(groups[] | items[]) → ChecklistStatusItem[] 평탄화 + BE 실제 필드명 정규화
+// idOffset: phase 합산 시 master_id 충돌(React key) 회피용. groupPrefix: 그룹명에 검수 차수 표기.
+function flattenChecklistDetail(
+  detail: BeDetailResponse | undefined,
+  serialNumber: string,
+  opts: { groupPrefix?: string; idOffset?: number; judgmentRound?: number } = {},
+): ChecklistStatusItem[] {
+  const { groupPrefix = '', idOffset = 0, judgmentRound = 1 } = opts;
+  let flatItems: BeDetailItem[] = [];
+  if (detail?.groups && Array.isArray(detail.groups)) {
+    for (const g of detail.groups) {
+      for (const item of g.items ?? []) {
+        flatItems.push({ ...item, item_group: item.item_group ?? g.group_name });
+      }
+    }
+  } else if (detail?.items && Array.isArray(detail.items)) {
+    flatItems = detail.items;
+  }
+
+  return flatItems.map((item, i) => {
+    // BE 실제 필드명 우선 (master_id / check_result / checked_by_name), legacy 가정 필드명 fallback
+    const masterId = (item.master_id ?? item.id ?? i) + idOffset;
+    const result = item.check_result ?? item.status ?? null;
+    return {
+      master_id: masterId,
+      item_group: groupPrefix + (item.item_group ?? ''),
+      item_name: item.item_name,
+      item_type: item.item_type ?? 'CHECK',
+      description: item.description ?? null,
+      record: result ? {
+        id: masterId,
+        serial_number: serialNumber,
+        master_id: masterId,
+        status: result,
+        note: null,
+        judgment_round: judgmentRound,
+        worker_id: 0,
+        worker_name: item.checked_by_name ?? item.worker_name ?? '',
+        checked_at: item.checked_at ?? '',
+      } : null,
+    };
+  });
+}
+
+// MECH: 1차 검수(phase 1) + 2차 검수(phase 2) 를 BE 에서 분리 조회 → 합산.
+// phase 2 항목은 master_id 가 phase 1 과 겹치므로 React key 충돌 방지 offset 부여.
+const MECH_PHASE2_KEY_OFFSET = 1_000_000;
+
+async function getMechChecklistCombined(serialNumber: string): Promise<ChecklistStatusResponse> {
+  const base = `/api/app/checklist/mech/${serialNumber}`;
+  const [s1, s2, d1, d2] = await Promise.all([
+    apiClient.get<BeStatusResponse>(`${base}/status?phase=1`).catch(() => null),
+    apiClient.get<BeStatusResponse>(`${base}/status?phase=2`).catch(() => null),
+    apiClient.get<BeDetailResponse>(`${base}?phase=1`).catch(() => null),
+    apiClient.get<BeDetailResponse>(`${base}?phase=2`).catch(() => null),
+  ]);
+
+  const totalCheck = (s1?.data?.total_count ?? 0) + (s2?.data?.total_count ?? 0);
+  const completed = (s1?.data?.checked_count ?? 0) + (s2?.data?.checked_count ?? 0);
+  const percent = totalCheck > 0 ? Math.round((completed / totalCheck) * 100) : 0;
+
+  const items: ChecklistStatusItem[] = [
+    ...flattenChecklistDetail(d1?.data, serialNumber, { groupPrefix: '1차 · ', judgmentRound: 1 }),
+    ...flattenChecklistDetail(d2?.data, serialNumber, {
+      groupPrefix: '2차 · ', idOffset: MECH_PHASE2_KEY_OFFSET, judgmentRound: 2,
+    }),
+  ];
+
+  return {
+    serial_number: serialNumber,
+    category: 'MECH',
+    items,
+    summary: { total_check: totalCheck, completed, percent },
+  };
+}
+
 export async function getChecklistStatus(
   serialNumber: string,
   category: string,
@@ -136,6 +212,15 @@ export async function getChecklistStatus(
     return { ...EMPTY_CHECKLIST, serial_number: serialNumber, category };
   }
 
+  // MECH: 1차 검수 + 2차 검수 합산 (BE phase 1/2 분리 조회)
+  if (category === 'MECH') {
+    try {
+      return await getMechChecklistCombined(serialNumber);
+    } catch {
+      return { ...EMPTY_CHECKLIST, serial_number: serialNumber, category };
+    }
+  }
+
   try {
     // status + 상세 병렬 호출
     const [statusRes, detailRes] = await Promise.all([
@@ -143,48 +228,12 @@ export async function getChecklistStatus(
       apiClient.get<BeDetailResponse>(`/api/app/checklist/${beCat}/${serialNumber}`).catch(() => null),
     ]);
 
-    // summary 구성
     const st = statusRes?.data;
     const totalCheck = st?.total_count ?? 0;
     const completed = st?.checked_count ?? 0;
     const percent = totalCheck > 0 ? Math.round((completed / totalCheck) * 100) : 0;
 
-    // items 구성 — groups 배열 또는 items 배열 둘 다 대응
-    const detail = detailRes?.data;
-    let flatItems: BeDetailItem[] = [];
-    if (detail?.groups && Array.isArray(detail.groups)) {
-      for (const g of detail.groups) {
-        for (const item of g.items ?? []) {
-          flatItems.push({ ...item, item_group: item.item_group ?? g.group_name });
-        }
-      }
-    } else if (detail?.items && Array.isArray(detail.items)) {
-      flatItems = detail.items;
-    }
-
-    const items: ChecklistStatusItem[] = flatItems.map((item, i) => {
-      // BE 실제 필드명 우선 (master_id / check_result / checked_by_name), legacy 가정 필드명 fallback
-      const masterId = item.master_id ?? item.id ?? i;
-      const result = item.check_result ?? item.status ?? null;
-      return {
-        master_id: masterId,
-        item_group: item.item_group ?? '',
-        item_name: item.item_name,
-        item_type: item.item_type ?? 'CHECK',
-        description: item.description ?? null,
-        record: result ? {
-          id: masterId,
-          serial_number: serialNumber,
-          master_id: masterId,
-          status: result,
-          note: null,
-          judgment_round: 1,
-          worker_id: 0,
-          worker_name: item.checked_by_name ?? item.worker_name ?? '',
-          checked_at: item.checked_at ?? '',
-        } : null,
-      };
-    });
+    const items = flattenChecklistDetail(detailRes?.data, serialNumber);
 
     return {
       serial_number: serialNumber,

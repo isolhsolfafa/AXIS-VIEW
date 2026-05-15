@@ -198,9 +198,10 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
   const startBatchMut = useStartTaskBatchMutation(serialNumber);
   const completeBatchMut = useCompleteTaskBatchMutation(serialNumber);
 
+  // taskIds: 현재 S/N 의 TANK_MODULE task id 배열 — DUAL 모델은 L/R 2개, SINGLE 은 1개.
   const [parallelDialog, setParallelDialog] = useState<{
     action: 'start' | 'complete';
-    taskId: number;
+    taskIds: number[];
     others: SNTaskDetail[];
   } | null>(null);
 
@@ -221,45 +222,72 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
   }, [onClose, parallelDialog]);
   useEscapeKey(parallelDialog === null, onClose);
 
-  function handleTankStart(task: SNTaskDetail) {
+  // tankTasks: 현재 S/N 의 시작/종료 대상 TANK_MODULE task 배열 (DUAL L/R 2개 / SINGLE 1개).
+  function handleTankStart(tankTasks: SNTaskDetail[]) {
+    const currentIds = tankTasks.map(t => t.id);
+    if (currentIds.length === 0) return;
     if (otherSNsTankStartable.length === 0) {
-      startMut.mutate(task.id, {
-        onSuccess: () => toast.success('Tank Module 시작'),
-        onError: () => toast.error('시작 실패. 다시 시도해주세요.'),
-      });
+      if (currentIds.length === 1) {
+        startMut.mutate(currentIds[0], {
+          onSuccess: () => toast.success('Tank Module 시작'),
+          onError: () => toast.error('시작 실패. 다시 시도해주세요.'),
+        });
+      } else {
+        // DUAL — 현재 S/N L/R 2개 일괄 시작
+        startBatchMut.mutate(currentIds, {
+          onSuccess: (res) => toast.success(formatBatchResult(res, '시작')),
+          onError: () => toast.error('시작 실패. 다시 시도해주세요.'),
+        });
+      }
     } else {
-      setParallelDialog({ action: 'start', taskId: task.id, others: otherSNsTankStartable });
+      setParallelDialog({ action: 'start', taskIds: currentIds, others: otherSNsTankStartable });
     }
   }
 
-  function handleTankComplete(task: SNTaskDetail) {
+  function handleTankComplete(tankTasks: SNTaskDetail[]) {
+    const currentIds = tankTasks.map(t => t.id);
+    if (currentIds.length === 0) return;
     if (otherSNsTankCompletable.length === 0) {
-      completeMut.mutate(task.id, {
-        onSuccess: () => toast.success('Tank Module 종료'),
-        onError: () => toast.error('종료 실패. 다시 시도해주세요.'),
-      });
+      if (currentIds.length === 1) {
+        completeMut.mutate(currentIds[0], {
+          onSuccess: () => toast.success('Tank Module 종료'),
+          onError: () => toast.error('종료 실패. 다시 시도해주세요.'),
+        });
+      } else {
+        // DUAL — 현재 S/N L/R 2개 일괄 종료
+        completeBatchMut.mutate(currentIds, {
+          onSuccess: (res) => toast.success(formatBatchResult(res, '종료')),
+          onError: () => toast.error('종료 실패. 다시 시도해주세요.'),
+        });
+      }
     } else {
-      setParallelDialog({ action: 'complete', taskId: task.id, others: otherSNsTankCompletable });
+      setParallelDialog({ action: 'complete', taskIds: currentIds, others: otherSNsTankCompletable });
     }
   }
 
   function handleParallelConfirm(mode: 'batch' | 'single') {
     if (!parallelDialog) return;
-    const { action, taskId, others } = parallelDialog;
+    const { action, taskIds, others } = parallelDialog;
+    const verb = action === 'start' ? '시작' : '종료';
+    const batchMut = action === 'start' ? startBatchMut : completeBatchMut;
     if (mode === 'single') {
-      const mut = action === 'start' ? startMut : completeMut;
-      mut.mutate(taskId, {
-        onSuccess: () => toast.success(`Tank Module ${action === 'start' ? '시작' : '종료'}`),
-        onError: () => toast.error('처리 실패. 다시 시도해주세요.'),
-      });
+      // 현재 S/N 만 — SINGLE(1개) 은 single mutate, DUAL(L/R 2개) 은 batch
+      if (taskIds.length === 1) {
+        const mut = action === 'start' ? startMut : completeMut;
+        mut.mutate(taskIds[0], {
+          onSuccess: () => toast.success(`Tank Module ${verb}`),
+          onError: () => toast.error('처리 실패. 다시 시도해주세요.'),
+        });
+      } else {
+        batchMut.mutate(taskIds, {
+          onSuccess: (res) => toast.success(formatBatchResult(res, verb)),
+          onError: () => toast.error('처리 실패. 다시 시도해주세요.'),
+        });
+      }
     } else {
-      const ids = [taskId, ...others.map(o => o.id)];
-      const mut = action === 'start' ? startBatchMut : completeBatchMut;
-      mut.mutate(ids, {
-        onSuccess: (res) => {
-          const verb = action === 'start' ? '시작' : '종료';
-          toast.success(formatBatchResult(res, verb));
-        },
+      const ids = [...taskIds, ...others.map(o => o.id)];
+      batchMut.mutate(ids, {
+        onSuccess: (res) => toast.success(formatBatchResult(res, verb)),
         onError: () => toast.error('일괄 처리 실패.'),
       });
     }
@@ -300,7 +328,7 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              fontSize: '13px',
+              fontSize: '14px',
               color: 'var(--gx-accent)',
               fontWeight: 500,
               padding: '4px 0',
@@ -308,12 +336,12 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
           >
             ← S/N 목록
           </button>
-          <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gx-charcoal)', fontFamily: "'JetBrains Mono', monospace" }}>
+          <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--gx-charcoal)', fontFamily: "'JetBrains Mono', monospace" }}>
             {serialNumber}
           </span>
         </div>
 
-        <div style={{ fontSize: '13px', color: 'var(--gx-slate)', display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+        <div style={{ fontSize: '14px', color: 'var(--gx-slate)', display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
           <span style={{ fontWeight: 600, color: 'var(--gx-charcoal)' }}>{product.model}</span>
           <span>·</span>
           <span>{product.customer}</span>
@@ -335,8 +363,8 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
         {/* Progress — Sprint 41: displayPercent (회사 분기), null 시 '—' */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--gx-steel)' }}>Progress</span>
-            <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: product.all_completed ? 'var(--gx-success)' : 'var(--gx-charcoal)' }}>
+            <span style={{ fontSize: '12px', color: 'var(--gx-steel)' }}>Progress</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: product.all_completed ? 'var(--gx-success)' : 'var(--gx-charcoal)' }}>
               {displayPercent === null ? '—' : `${displayPercent}%`} ({completedCount}/{totalCount} 공정)
             </span>
           </div>
@@ -372,8 +400,9 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
           PROCESS_ORDER.map((cat) => {
             if (product.categories[cat] == null) return null;
             const catTasks = tasks.filter(t => t.task_category === cat);
-            // Sprint 40: 카테고리 내 Tank Module task (있으면)
-            const tankTask = catTasks.find(t => isTankModule(t));
+            // Sprint 40 + FIX-VIEW-DUAL-TANK (2026-05-15): 카테고리 내 Tank Module task 전체.
+            // DUAL 모델은 L/R 2개 task — .find() 가 1개만 잡던 버그 → .filter() 로 전수 수집.
+            const tankTasks = catTasks.filter(t => isTankModule(t));
 
             // 같은 카테고리의 모든 task workers를 병합하여 1개 카드로 렌더링
             // Sprint 33: workers=[]인 미시작 task도 포함 (flatMap 소실 방지)
@@ -434,7 +463,7 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
               <span style={{ display: 'flex', gap: '4px' }}>
                 {overdueCount > 0 && (
                   <span style={{
-                    fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '8px',
+                    fontSize: '11px', fontWeight: 600, padding: '1px 6px', borderRadius: '8px',
                     background: 'rgba(239,68,68,0.1)', color: 'var(--gx-danger)',
                   }}>
                     ⚠️ 미종료 {overdueCount}건
@@ -442,7 +471,7 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
                 )}
                 {notStartedCount > 0 && (
                   <span style={{
-                    fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '8px',
+                    fontSize: '11px', fontWeight: 600, padding: '1px 6px', borderRadius: '8px',
                     background: 'rgba(245,158,11,0.1)', color: 'var(--gx-warning)',
                   }}>
                     ⏳ 미시작 {notStartedCount}건
@@ -451,10 +480,10 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
               </span>
             );
 
-            // Sprint 40: Tank Module 시작/종료 액션 버튼 (canStartStop && tankTask)
-            const tankAction = canStartStop && tankTask ? (
+            // Sprint 40: Tank Module 시작/종료 액션 버튼 (canStartStop && tankTasks)
+            const tankAction = canStartStop && tankTasks.length > 0 ? (
               <TankModuleActions
-                task={tankTask}
+                tasks={tankTasks}
                 onStart={handleTankStart}
                 onComplete={handleTankComplete}
                 pending={startMut.isPending || completeMut.isPending || startBatchMut.isPending || completeBatchMut.isPending}
@@ -520,28 +549,34 @@ export default function SNDetailPanel({ serialNumber, product, tasks, isLoading,
   );
 }
 
-// Sprint 40: Tank Module 시작/종료 inline 버튼 (카드 아래)
+// Sprint 40 + FIX-VIEW-DUAL-TANK (2026-05-15): Tank Module 시작/종료 inline 버튼 (카드 아래)
+// DUAL 모델 L/R 2개 task 배열 처리 — Codex Q2/Q6 반영:
+//   - force_closed task 제외 (버튼 오판 방지)
+//   - 미시작(startable) / 진행중(completable) 분리 → DUAL 부분 상태 (L 진행중 / R 미시작) 시 양쪽 버튼 동시 노출
 interface TankModuleActionsProps {
-  task: SNTaskDetail;
-  onStart: (task: SNTaskDetail) => void;
-  onComplete: (task: SNTaskDetail) => void;
+  tasks: SNTaskDetail[];
+  onStart: (tasks: SNTaskDetail[]) => void;
+  onComplete: (tasks: SNTaskDetail[]) => void;
   pending: boolean;
 }
 
-function TankModuleActions({ task, onStart, onComplete, pending }: TankModuleActionsProps) {
-  const allNotStarted = task.workers.every(w => !w.started_at);
-  const someInProgress = task.workers.some(w => w.started_at && !w.completed_at);
-  if (!allNotStarted && !someInProgress) return null;
+function TankModuleActions({ tasks, onStart, onComplete, pending }: TankModuleActionsProps) {
+  // Q6: force_closed task 제외 (강제종료된 task 는 시작/종료 대상 아님)
+  const activeTasks = tasks.filter(t => !t.force_closed);
+  // Q2: 미시작 task = 시작 대상 / 진행중 task = 종료 대상 (DUAL 부분 상태 양쪽 노출)
+  const startableTasks = activeTasks.filter(t => t.workers.every(w => !w.started_at));
+  const completableTasks = activeTasks.filter(t => t.workers.some(w => w.started_at && !w.completed_at));
+  if (startableTasks.length === 0 && completableTasks.length === 0) return null;
   return (
     <div style={{ display: 'flex', gap: '6px', padding: '6px 4px 0 4px', justifyContent: 'flex-end' }}>
-      {allNotStarted && (
+      {startableTasks.length > 0 && (
         <button
           type="button"
-          onClick={() => onStart(task)}
+          onClick={() => onStart(startableTasks)}
           disabled={pending}
           style={{
             padding: '4px 10px',
-            fontSize: '11px',
+            fontSize: '12px',
             fontWeight: 600,
             background: 'var(--gx-info)',
             color: 'var(--gx-white)',
@@ -554,14 +589,14 @@ function TankModuleActions({ task, onStart, onComplete, pending }: TankModuleAct
           ▶ Tank Module 시작
         </button>
       )}
-      {someInProgress && (
+      {completableTasks.length > 0 && (
         <button
           type="button"
-          onClick={() => onComplete(task)}
+          onClick={() => onComplete(completableTasks)}
           disabled={pending}
           style={{
             padding: '4px 10px',
-            fontSize: '11px',
+            fontSize: '12px',
             fontWeight: 600,
             background: 'var(--gx-success)',
             color: 'var(--gx-white)',
