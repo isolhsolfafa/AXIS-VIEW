@@ -8,7 +8,7 @@ vi.mock('./client', () => ({
 }));
 
 import apiClient from './client';
-import { getChecklistStatus } from './checklist';
+import { getChecklistStatus, searchSNList } from './checklist';
 
 const mockedGet = vi.mocked(apiClient.get);
 
@@ -185,5 +185,28 @@ describe('getChecklistStatus — BE 응답 필드 정규화 (ELEC/TM/MECH 공통
     expect(result.summary.total_check).toBe(10);
     expect(result.summary.percent).toBe(40);
     expect(result.items).toEqual([]);
+  });
+});
+
+describe('searchSNList — O/N + S/N 동시 검색', () => {
+  it('숫자만 입력해도 sales_order + serial_number 양쪽 파라미터 전송', async () => {
+    mockedGet.mockResolvedValueOnce({ data: { sales_order: '1111', products: [] } });
+
+    await searchSNList({ query: '1111' });
+
+    expect(mockedGet.mock.calls[0][0]).toBe('/api/admin/checklist/report/orders');
+    expect(mockedGet.mock.calls[0][1]).toEqual({
+      params: { sales_order: '1111', serial_number: '1111' },
+    });
+  });
+
+  it('영문 prefix 포함 S/N 도 양쪽 파라미터 전송 (regex 분기 제거)', async () => {
+    mockedGet.mockResolvedValueOnce({ data: { sales_order: null, products: [] } });
+
+    await searchSNList({ query: 'TEST-1111' });
+
+    expect(mockedGet.mock.calls[0][1]).toEqual({
+      params: { sales_order: 'TEST-1111', serial_number: 'TEST-1111' },
+    });
   });
 });

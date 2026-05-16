@@ -252,10 +252,9 @@ export async function getChecklistStatus(
 export async function searchSNList(opts: {
   query: string;
 }): Promise<OrderSNListResponse> {
-  const isSN = /^[A-Z]{2,5}-/.test(opts.query.toUpperCase());
-  const params = isSN
-    ? { serial_number: opts.query }
-    : { sales_order: opts.query };
+  // O/N(sales_order 정확 매칭) + S/N(serial_number ILIKE 부분 매칭) 동시 전송 — BE 가 OR 처리.
+  // 숫자만 입력해도 O/N·S/N 양쪽에서 검색됨 (이전: 영문 prefix 정규식 없으면 S/N 검색 누락).
+  const params = { sales_order: opts.query, serial_number: opts.query };
 
   const { data } = await apiClient.get<OrderSNListResponse>(
     '/api/admin/checklist/report/orders',
