@@ -1,7 +1,20 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-15 (v1.43.10 MECH 체크리스트 상세 미표시 fix → v1.43.11 MECH 1차+2차 검수 합산·폰트 → v1.43.12 Tank Module DUAL 일괄 fix)
+> 마지막 업데이트: 2026-05-16 (v1.43.10~12 MECH 체크리스트 상세화면 + Tank Module DUAL → v1.43.13 체크리스트 성적서 검색 O/N·S/N 정합)
+
+---
+
+## 🆕 2026-05-16 세션 — 체크리스트 성적서 검색 O/N·S/N 정합 (v1.43.13)
+
+- **트리거**: Twin파파 catch — 협력사 관리 > 체크리스트 성적서 검색에서 O/N 은 숫자만 입력해도 나오는데 S/N 은 영문 prefix 까지 쳐야 나옴
+- **원인**: `api/checklist.ts` `searchSNList()` 가 `/^[A-Z]{2,5}-/` 정규식으로 query 를 `sales_order`/`serial_number` 중 하나로만 라우팅 → 숫자만 입력 시 항상 O/N 검색 → S/N 검색 누락
+- **fix**: regex 분기 제거 → 두 파라미터 항상 동시 전송 (BE 엔드포인트가 OR + `serial_number` ILIKE 부분 매칭 이미 지원)
+- **commit + tag**: `8465aa1` / `v1.43.13`. 1 파일 (~3 LoC) + `checklist.test.ts` TC 2건. BE 변경 0. 빌드 GREEN + vitest 64/64
+
+### 다음 세션 참고
+- v1.43.13 Netlify 실기기 검증 — 체크리스트 성적서 검색에 숫자만 입력해 S/N 나오는지 확인
+- 우선순위 task: REF-V-01 `ProductionPerformancePage` 895줄 분할 (🔴 의존성 0) / Sprint 43 (OPS #66 BE 선행 대기)
 
 ---
 
