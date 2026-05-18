@@ -2,12 +2,15 @@
 // 대시보드 설정 관리 훅 — localStorage 동기화
 
 import { useState, useCallback } from 'react';
+import type { ProcessToggles } from '@/utils/processToggleFilter';
+import { NO_PROCESS_TOGGLE } from '@/utils/processToggleFilter';
 
 export interface DashboardSettings {
   refreshInterval: number;        // 분 단위. 0 = 수동
   defaultView: 'card' | 'table';
   showHqSiteBreakdown: boolean;
-  showTestSN: boolean;            // 테스트 S/N 표시 여부 (DOC_TEST-, TEST-)
+  showTestSN: boolean;            // 테스트 S/N 전용 보기 (Sprint 45: ON=테스트만 / OFF=운영만)
+  processFilters: ProcessToggles; // Sprint 46: 생산현황 PI/QI/SI 공정 토글 (전부 OFF=전체보기)
 }
 
 const STORAGE_KEY = 'axis_view_settings';
@@ -17,6 +20,7 @@ const DEFAULT_SETTINGS: DashboardSettings = {
   defaultView: 'card',
   showHqSiteBreakdown: true,
   showTestSN: false,
+  processFilters: { ...NO_PROCESS_TOGGLE },
 };
 
 function loadSettings(): DashboardSettings {

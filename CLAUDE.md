@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-05-18 | 버전: v1.45.1 (헤더 메뉴얼 버튼 추가 — 검색 stub 교체)
+> 최종 갱신: 2026-05-18 | 버전: v1.46.0 (Sprint 46 — 생산현황 PI/QI/SI 공정 토글 필터)
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -276,7 +276,7 @@ AXIS-VIEW/
 │   │   ├── api/              API 클라이언트 13개
 │   │   ├── hooks/            TanStack Query 훅 22파일 / 41함수
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.45.1 (2026-05-18)
+│   │   ├── version.ts        v1.46.0 (2026-05-18)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
@@ -804,6 +804,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | HOTFIX-SPRINT42 (v1.43.1) | Sprint 42 후속 hotfix — ChecklistEditModal SELECT 자재 매핑 영역 통합 (Twin파파 5-08 UI catch). **방향 A** (BE 변경 0, FE 단독): 자재코드 input + debounce 500ms + FE Map 변환 → PATCH number[]. 옵션 C 강제 (최소 1자재 + 미등록 자재 차단). HOTFIX-SPRINT66BE 폐기. 신규 2 파일 (useDebounce.ts + ChecklistEditModal.test.tsx) + 수정 5 (Edit/Add/OptionMap/Manage + types). hydrated flag (사용자 입력 보호) + Promise.all + master invalidate. Severity S2, 사후 Codex 검토 deadline 2026-05-18. Codex 1·2·3차 + Claude 5·6차 누적 약 30건 합의 (cowork 실수 #11~#22 — ADR-024 candidate). ~346 LOC 실측 (신규 132 + 수정 214), 2026-05-11 | 🟡 FE 완료 (Twin파파 UI 검증 대기) |
 | PATCH v1.43.2 | 협력사 관리 > 체크리스트 성적서 항목 정렬 정합 — ChecklistManagePage 와 동일 패턴 (그룹 첫 등장 순 + item_order). 배경: OPS BE `checklist_service.py` L235-239 `ORDER BY CASE` 절에 MECH 그룹 누락 (TM/ELEC 만 명시, ELSE 99 = 정렬 미적용) — Twin파파 catch. **FE 단독 정정** (BE 변경 0): `types/checklist.ts` ChecklistReportItem 에 `item_order?: number` 추가 + `ChecklistReportView` CategoryTable 에 useMemo sort (manage 패턴 차용). 3 파일 / ~25 LOC. 빌드 GREEN + vitest 45/45 PASS. TM/ELEC 영역 회귀 0, 2026-05-11 | ✅ 완료 |
 | HOTFIX v1.43.3 | 체크리스트 항목 추가 CONFLICT 토스트 UX 보강 (Twin파파 catch) — generic "추가에 실패했습니다" 디버깅 불가 정정. BE 응답 `error:'CONFLICT'` + `existing_id` + `is_active` 활용: 활성 충돌 = "동일 항목이 이미 존재합니다 (id=199).", 비활성 충돌 = + " — 비활성 상태입니다. \"비활성 포함\" 체크 후 토글로 활성화하세요." 자동 첨부. 실패 시 모달 유지 (입력값 보존). 3 파일 / ~22 LoC (handleAdd onError 분기). 연관 BE: OPS HOTFIX-SPRINT66BE-CREATE-MASTER-ITEM-TYPE-AND-CONFLICT-MSG-20260511. Severity S3 (UX 개선, 기능 차단 아님). 빌드 GREEN + vitest 45/45 PASS, 2026-05-11 | ✅ 완료 |
+| Sprint 46 (v1.46.0) | 생산현황 PI/QI/SI 공정 토글 편의 필터 (FEAT-SNSTATUS-PROCESS-TOGGLE-FILTER, Twin파파 재결정). Sprint 45 의 GST `role` 자동 스코프(권한 제한)는 폐기 — GST 전공정 봐도 무방 → **토글 편의 필터**로 전환. **(1) Sprint 45 기능 B 롤백** — `companyScopedProgress`/`SNCard`/`SNDetailPanel`/`SNStatusPage` `git checkout a8e5813^` 복원 (Sprint 41 상태). 기능 A(테스트 토글 의미 변경 `matchesTestFilter`)는 유지. **(2) PI/QI/SI 토글 신규** — `SNStatusSettingsPanel` 토글 3개(GST/admin, `ToggleRow` 추출) + `DashboardSettings.processFilters` + `processToggleFilter.ts` `isVisibleForProcessToggle` 순수함수. 표시 조건: PI/QI=`started`(work_start_log) AND (미완료 OR `completed_today`), SI=`done<total`. 다중 OR 합집합, 전부 OFF=전체보기. BE `progress_service` 가 `categories` 에 `started`/`completed_at`/`completed_today` 추가(OPS 완료). Codex 1라운드 M1(`work_start_log`)/A6 → 설계서 영역 9 반영. 신규 2(`processToggleFilter`+test 13 TC) + 수정 4 + 롤백 4. 빌드 GREEN + vitest 89/89, 2026-05-18 | ✅ 완료 |
 | v1.45.1 | 헤더 상단바 메뉴얼 버튼 추가 (Twin파파 요청). 동작 없던 검색 버튼(전역 검색 기획 후 미구현 stub — `onClick` 부재) 제거 + 메뉴얼 버튼 신규 (공지사항·설정 사이, 책 아이콘, `https://axis-manual.netlify.app/` 새 탭, `noopener,noreferrer`). 새 route 0. `Header.tsx` 1 파일. 빌드 GREEN + vitest 84/84, 2026-05-18 | ✅ 완료 |
 | Sprint 45 (v1.45.0) | 생산현황 view/filter 정리 (FEAT-SNSTATUS-PROCESS-SCOPE-AND-TEST-FILTER, Twin파파 요청). **(A) 테스트 S/N 토글** — `showTestSN` 의미 변경 (옵션 B): ON = 운영+테스트 혼재 → **테스트 전용**. `matchesTestFilter()` 신규 export. `SNStatusSettingsPanel` 라벨 변경. **(B) GST 자체공정 PI/QI/SI role 자동 스코프** — 협력사 view 패턴 확장. `is_manager` 만 전체, 일반 GST 작업자는 자기 `role` 공정(PI/QI/SI)만 (진행률 + S/N 목록). `companyScopedProgress.ts`: `UserScope` +`isManager`/`role`, `userToScope()` 신규(호출처 5곳 중복 제거), GST manager(전체)/작업자(`[role]`) 분기. `SNStatusPage`: `isAdminOrGst` → `seesAll`+`scope`+`scopeCats`. edge: GST 작업자 role≠PI/QI/SI → `[]` 빈 목록 (전체 fallback 금지). BE 변경 0 (`user.role`/`is_manager` 기존 필드). Codex 1라운드 M2/A3 → 설계서 영역 9 명문화 반영. 5 파일 + test 2 (companyScopedProgress 21 TC + SNStatusPage matchesTestFilter 3 TC). 빌드 GREEN + vitest 84/84, 2026-05-18 | ✅ 완료 |
 | v1.44.2 | 강제종료 task 재활성화 버튼 표시 일관성 fix (Twin파파 catch, 병행 세션). `ProcessStepCard` 재활성화 버튼 조건 `w.completed_at` → `(w.completed_at \|\| w.force_closed)` (1줄) — 미시작 강제종료 placeholder 도 버튼 노출. BE 동반 OPS v2.15.20 (reactivate_task 4컬럼 리셋). 회귀 0, 2026-05-18 | ✅ 완료 |

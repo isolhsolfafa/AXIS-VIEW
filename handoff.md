@@ -1,11 +1,26 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-18 (Sprint 44 공장 대시보드 도넛 → v1.44.x 후속 → Sprint 45 v1.45.0 생산현황 view/filter 정리)
+> 마지막 업데이트: 2026-05-18 (Sprint 45 생산현황 정리 → v1.45.1 메뉴얼 버튼 → Sprint 46 v1.46.0 PI/QI/SI 공정 토글)
 
 ---
 
-## 🆕 2026-05-18 세션 — Sprint 45 생산현황 view/filter 정리 (v1.45.0)
+## 🆕 2026-05-18 세션 — Sprint 46 생산현황 PI/QI/SI 공정 토글 필터 (v1.46.0)
+
+- **트리거**: Twin파파 재결정 — Sprint 45 의 GST `role` 자동 스코프(권한 제한)는 불필요(GST 전공정 봐도 무방) → PI/QI/SI 토글 **편의 필터**로 전환
+- **(1) Sprint 45 기능 B 롤백**: `companyScopedProgress`/`SNCard`/`SNDetailPanel`/`SNStatusPage` `git checkout a8e5813^` (Sprint 41 상태 복원). 기능 A(테스트 토글 `matchesTestFilter`)는 유지
+- **(2) PI/QI/SI 토글**: `SNStatusSettingsPanel` 토글 3개(GST/admin) + `DashboardSettings.processFilters` + `processToggleFilter.ts` `isVisibleForProcessToggle`. 표시 조건 PI/QI=`started`+미완료/오늘완료, SI=`done<total`. 다중 OR, 전부 OFF=전체
+- **BE**: `progress_service` 가 `categories` 에 `started`/`completed_at`/`completed_today` 추가 — OPS 측 완료
+- **설계**: `DESIGN_FIX_SPRINT.md` Sprint 46 (영역 1~9). Codex 1라운드 M1/A6 → 영역 9 반영
+- **구현**: 신규 2(processToggleFilter + test 13 TC) + 수정 4 + 롤백 4. 빌드 GREEN + vitest 89/89
+
+### 다음 세션 참고
+- v1.46.0 Netlify 실기기 검증 — 생산현황 설정 PI/QI/SI 토글 동작 / 전부 OFF=전체 / 다중 선택
+- 우선순위 task: REF-V-01 `ProductionPerformancePage` 895줄 분할
+
+---
+
+## 🆕 2026-05-18 세션 (이전) — Sprint 45 생산현황 view/filter 정리 (v1.45.0)
 
 - **트리거**: Twin파파 요청 — (A) 테스트 S/N 토글 의미 변경 / (B) GST 자체공정 PI/QI/SI 작업자별 view
 - **A — 테스트 토글 (옵션 B)**: `showTestSN` ON = 혼재 → **테스트 전용**. `matchesTestFilter()` 신규. `SNStatusSettingsPanel` 라벨 변경

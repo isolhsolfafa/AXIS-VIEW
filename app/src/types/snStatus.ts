@@ -1,6 +1,17 @@
 // src/types/snStatus.ts
 // S/N 작업 현황 카드뷰 타입 — Sprint 18
 
+// 공정 카테고리 진행 정보
+// Sprint 46: BE progress_service 가 started/completed_at/completed_today 추가 (공정 토글 필터용)
+export interface CategoryProgress {
+  total: number;
+  done: number;
+  percent: number;
+  started?: boolean;          // work_start_log 시작 이력 존재 (BE — 미배포 시 undefined)
+  completed_at?: string | null;
+  completed_today?: boolean;  // 완료일 == 오늘 (KST, BE 계산)
+}
+
 // GET /api/app/product/progress 응답 타입
 export interface SNProduct {
   serial_number: string;
@@ -11,7 +22,7 @@ export interface SNProduct {
   all_completed: boolean;
   all_completed_at: string | null;
   overall_percent: number;
-  categories: Record<string, { total: number; done: number; percent: number }>;
+  categories: Record<string, CategoryProgress>;
   my_category: string | null;
   last_worker: string | null;         // Sprint 38 이후
   last_activity_at: string | null;    // Sprint 38 이후
