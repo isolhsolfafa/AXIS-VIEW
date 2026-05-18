@@ -1,7 +1,7 @@
 # AXIS-VIEW 업데이트 내역
 
 > Manufacturing Execution Platform — 관리자 대시보드
-> 최신 버전: v1.46.0 (2026-05-18)
+> 최신 버전: v1.46.1 (2026-05-18)
 
 ---
 
