@@ -20079,3 +20079,468 @@ vitest TC (~2건):
 - Sprint 42 영역 영역 3.5 (cowork 실수 #14 영역 정정 영역) 참조
 - OPS BE 영역 변경 0 (Sprint 66-BE Step 3+4 그대로)
 - POST-REVIEW BACKLOG entry: `POST-REVIEW-HOTFIX-SPRINT42-CHECKLIST-EDIT-MATERIAL-MAPPING-20260509` (deadline 2026-05-16)
+
+---
+
+# Sprint 43 — FEAT-CONFIRM-SETTINGS-PROGRESS-AND-PRESSURE-TOGGLE-20260514
+
+> **Sprint ID**: `FEAT-CONFIRM-SETTINGS-PROGRESS-AND-PRESSURE-TOGGLE-20260514`
+> **작성일**: 2026-05-14 KST
+> **작성자**: Cowork (Twin파파 5-14 의도 확정 + 3-Layer 카운트 구조 합의)
+> **우선순위**: 🟡 P2 (운영 정상화 — 실적 카운트 토글 정합)
+> **추정 시간**: ~1~1.5h (FE 신규 토글 UI + admin_settings 키 연동 + 표시 카운트 검증)
+> **상태**: 🟢 OPEN
+> **선행 의존성**: ✅ OPS `Sprint 67-BE-HOTFIX` (#65 + #66 묶음) — `OPS_API_REQUESTS.md` #66 admin_settings 키 2건 배포 완료 필요
+> **별 repo Sprint**: 본 sprint = AXIS-VIEW repo `Sprint 43` / OPS sprint = AXIS-OPS repo `Sprint 67-BE-HOTFIX (#65+#66)`
+> **관련 OPS 명세**: `AXIS-VIEW/OPS_API_REQUESTS.md` #65 + #66 (3-Layer 카운트 구조 정의 + admin_settings 키 + BE 분기)
+
+---
+
+## 📑 영역 0 — ⭐ Twin파파 의도 명시 — 실적 카운트 3-Layer 구조 (재해석 방지)
+
+> 본 Sprint 43 의 본질은 Twin파파의 **실적 카운트 3-Layer 구조** 중 **Layer 1 + Layer 2 의 FE 토글 UI** 추가이다.
+> 이 entry 가 향후 재해석되지 않게 전체 구조 안에서의 위치를 명확히 한다.
+
+**Twin파파 정의 (2026-05-14 KST 확정)**:
+
+```
+실적 카운트 = [Layer 1] + [Layer 2] + [Layer 3]
+
+[Layer 1] 진행률 base — 토글로 조절 가능  ← ⭐ 본 sprint 의 신규 토글
+   └ confirm_progress_required = TRUE  (default) : 카테고리 전체 task 의 completed_at 100%
+   └ confirm_progress_required = FALSE           : trigger task 만 완료해도 OK
+
+[Layer 2] Trigger task — 공정별 핵심 task 명시
+   └ MECH : SELF_INSPECTION (자주검사)
+   └ ELEC : INSPECTION (자주검사) AND IF_2        ← 둘 다 필수 (AND)
+   └ TM   : TANK_MODULE (+ tm_pressure_test_required=TRUE 시 PRESSURE_TEST)  ← ⭐ TM 가압검사 토글 BE 연동
+
+[Layer 3] 체크리스트 — 토글로 조절 가능 (기존, 정상 동작)
+   └ confirm_checklist_required = TRUE  : 공정별 체크리스트 100% 필수
+   └ confirm_checklist_required = FALSE : 체크리스트 무관
+```
+
+**4 조합 카운트 동작 매트릭스 (확정)**:
+
+| 진행률 | 체크리스트 | MECH 카운트 | ELEC 카운트 | TM (가압 OFF) | TM (가압 ON) |
+|:-:|:-:|---|---|---|---|
+| ON | ON | 전체 MECH + 체크리스트 | 전체 ELEC + 체크리스트 | TANK_MODULE + 체크리스트 | TANK_MODULE + PRESSURE_TEST + 체크리스트 |
+| ON | OFF | 전체 MECH | 전체 ELEC | TANK_MODULE | TANK_MODULE + PRESSURE_TEST |
+| OFF | ON | SELF_INSPECTION + 체크리스트 | INSPECTION + IF_2 + 체크리스트 | TANK_MODULE + 체크리스트 (변화 X) | TANK_MODULE + PRESSURE_TEST + 체크리스트 |
+| OFF | OFF | SELF_INSPECTION | INSPECTION + IF_2 | TANK_MODULE (변화 X) | TANK_MODULE + PRESSURE_TEST |
+
+→ **TM 은 진행률 토글 영향 없음** — 이미 TANK_MODULE 만 카운트 (`_CONFIRM_TASK_FILTER`).
+→ **TM 의 토글 영향은 가압검사 토글** — ON 시 PRESSURE_TEST 까지 trigger 에 포함.
+
+---
+
+## 📑 영역 1 — 트리거 + 배경
+
+### 트리거 (5-14)
+
+Twin파파의 운영 영역 catch:
+> "진행률도 토글 옵션 필요함"
+> "TM은 pressure 토글 옵션도 넣어야되 현재도 있어"
+> "mech 실적은 아직 구현전"
+
+→ ConfirmSettingsPanel 영역에 신규 토글 추가 + 기존 가압검사 토글의 BE 연동 검증 영역 필요.
+
+### 현재 상태 (5-14 검증)
+
+| 토글 | FE UI | admin_settings 키 | BE 반영 | 상태 |
+|---|:-:|---|:-:|---|
+| 기구(MECH) 실적확인 | ✅ | `confirm_mech_enabled` | ✅ | 정상 |
+| 전장(ELEC) 실적확인 | ✅ | `confirm_elec_enabled` | ✅ | 정상 |
+| TM 실적확인 | ✅ | `confirm_tm_enabled` | ✅ | 정상 |
+| **가압검사 포함** (TM 하위) | ✅ | `tm_pressure_test_required`? | 🔴 미반영 | **BE 연동 검증 필요** |
+| PI / QI / SI 실적확인 | ✅ | `confirm_pi_enabled` 등 | (현재 OFF 운영) | 보류 |
+| 체크리스트 필수 | ✅ | `confirm_checklist_required` | ✅ | 정상 |
+| **진행률 100% 필수** (신규) | ❌ | `confirm_progress_required` | ❌ | 🔴 **신규 추가 필요** |
+
+---
+
+## 📑 영역 2 — 변경 영역
+
+### 2.1 ProductionPerformancePage ConfirmSettingsPanel — 진행률 토글 신규
+
+**파일**: `app/src/pages/production/ProductionPerformancePage.tsx`
+**위치**: ConfirmSettingsPanel 컴포넌트, "체크리스트 필수" 토글 직전 (L184-198 영역 근처)
+
+**추가 UI**:
+
+```tsx
+{/* Sprint 43: 진행률 100% 필수 토글 (신규) */}
+<div style={settingRowStyle}>
+  <div>
+    <div style={settingTitleStyle}>진행률 100% 필수</div>
+    <div style={settingDescStyle}>
+      ON: 전체 task 완료 시만 실적확인 / OFF: 자주검사 task 만 완료해도 인정
+    </div>
+  </div>
+  <button
+    type="button"
+    onClick={() => handleToggle('confirm_progress_required', !settings.confirm_progress_required)}
+    style={toggleStyle(settings.confirm_progress_required)}
+    aria-label="진행률 100% 필수"
+  >
+    <span style={toggleKnobStyle(settings.confirm_progress_required)} />
+  </button>
+</div>
+```
+
+**타입 갱신** (`app/src/types/admin.ts` 또는 settings 정의 파일):
+```typescript
+interface ConfirmSettings {
+  // 기존
+  confirm_mech_enabled: boolean;
+  confirm_elec_enabled: boolean;
+  confirm_tm_enabled: boolean;
+  confirm_checklist_required: boolean;
+  tm_pressure_test_required: boolean;  // ⭐ 기존 UI ↔ BE 연동 정합 확인
+  // Sprint 43 신규
+  confirm_progress_required: boolean;
+}
+```
+
+### 2.2 TM 가압검사 토글 BE 연동 검증
+
+**파일**: `app/src/pages/production/ProductionPerformancePage.tsx` ConfirmSettingsPanel 의 "가압검사 포함" 토글 영역
+
+**검증 작업**:
+1. 현재 토글의 `onClick` 핸들러가 `handleToggle('tm_pressure_test_required', ...)` 로 admin_settings 에 저장하는지 확인
+2. 미저장 (FE 로컬 state 만) 인 경우 → admin_settings API 호출 추가
+3. admin_settings GET 응답에 `tm_pressure_test_required` 키가 포함되도록 검증
+
+**예상 코드 패턴** (체크리스트 필수 토글과 동일):
+```tsx
+<button
+  type="button"
+  onClick={() => handleToggle('tm_pressure_test_required', !settings.tm_pressure_test_required)}
+  style={toggleStyle(settings.tm_pressure_test_required)}
+>
+  <span style={toggleKnobStyle(settings.tm_pressure_test_required)} />
+</button>
+```
+
+### 2.3 admin_settings API 시그니처 검증
+
+**파일**: `app/src/api/admin.ts` (또는 settings 관련 api 파일)
+
+**검증 작업**:
+- GET `/api/admin/settings` 응답에 `confirm_progress_required` + `tm_pressure_test_required` 2건 포함 확인 (OPS 측 BE 배포 후)
+- PUT/PATCH `/api/admin/settings` 페이로드에 2건 전송 정합 확인
+- TypeScript 타입 갱신 (위 2.1 참조)
+
+### 2.4 카운트 표시 정합 검증 (read-only)
+
+본 sprint 는 토글 UI + admin_settings 연동만. 실제 카운트 로직은 BE 가 처리.
+**검증만**: 토글 ON/OFF 시 페이지 새로고침 / refetch 시 카운트 숫자가 BE 응답대로 변경되는지 확인.
+
+→ FE 측 카운트 SQL/계산 로직은 변경 0 (BE 가 응답 값을 다르게 반환).
+
+---
+
+## 📑 영역 3 — 구현 명세 + 라인 추정
+
+| # | 파일 | 변경 | LoC |
+|---|---|---|---|
+| 1 | `app/src/pages/production/ProductionPerformancePage.tsx` | (a) 진행률 토글 UI 추가 (~25) (b) 가압검사 토글 BE 연동 검증/정정 (~10) | +35 |
+| 2 | `app/src/types/admin.ts` (또는 settings 타입 파일) | ConfirmSettings 타입 `confirm_progress_required` + `tm_pressure_test_required` 검증/추가 | +5 |
+| 3 | `app/src/api/admin.ts` (또는 settings api 파일) | 신규 키 정합 검증 (변경 0건 가능, 패스스루) | 0~10 |
+| 4 | (옵션) `app/src/__tests__/ProductionPerformancePage.test.tsx` | 토글 상태 변경 → admin_settings API 호출 verify TC 2~4건 | +60 |
+
+**총 추정**: ~100 LoC 신규 + 검증 (1~1.5h)
+
+---
+
+## 📑 영역 4 — pytest / vitest TC
+
+**vitest TC** (선택 — 이미 ConfirmSettingsPanel 테스트가 있다면 확장):
+
+```
+app/src/__tests__/ProductionPerformancePage.test.tsx (또는 ConfirmSettingsPanel.test.tsx)
+├─ TC-CP-01: 진행률 토글 ON/OFF 클릭 → handleToggle('confirm_progress_required', ...) 호출
+├─ TC-CP-02: 가압검사 토글 ON/OFF 클릭 → handleToggle('tm_pressure_test_required', ...) 호출 (BE 저장)
+├─ TC-CP-03: admin_settings GET 응답 mock — 신규 키 2건 hydrate 정합
+└─ TC-CP-04: 토글 변경 후 useQuery invalidate — 카운트 refetch trigger 검증
+```
+
+---
+
+## 📑 영역 5 — BE 의존성 + 배포 순서
+
+### BE 의존 명세 (OPS Sprint 67-BE-HOTFIX #66)
+
+| 의존 항목 | 출처 | 상태 |
+|---|---|---|
+| `confirm_progress_required` admin_settings 키 | OPS BE migrations/054 | 🔴 BE 배포 대기 |
+| `tm_pressure_test_required` admin_settings 키 | OPS BE migrations/054 | 🔴 BE 배포 대기 |
+| `_is_process_confirmable` 진행률 분기 | OPS BE production.py L189-227 | 🔴 BE 배포 대기 |
+| `_get_tm_trigger_tasks` TM 가압검사 분기 | OPS BE production.py L153-160 | 🔴 BE 배포 대기 |
+| admin_settings GET 응답에 신규 키 2건 포함 | OPS BE admin_settings 라우트 | 🔴 BE 배포 대기 |
+
+### 배포 순서
+
+```
+1. OPS BE Sprint 67-BE-HOTFIX (#65 + #66) Railway 배포
+   ├─ migrations/054 admin_settings 키 2건 UPSERT
+   ├─ production.py 분기 추가
+   └─ _try_mech_close() MECH 동기화 추가 (#65)
+
+2. Twin파파: OPS BE 검증
+   ├─ admin_settings GET 응답에 신규 키 2건 포함 확인
+   └─ MECH 동기화 실 S/N 1건 검증
+
+3. FE Sprint 43 착수
+   ├─ 진행률 토글 UI 추가
+   ├─ 가압검사 토글 BE 연동 검증
+   └─ admin_settings API 시그니처 정합
+
+4. FE v1.44.x 배포
+
+5. Twin파파 매트릭스 검증
+   ├─ 진행률 ON/OFF × 체크리스트 ON/OFF (MECH/ELEC 2공정 × 4 조합 = 8 케이스)
+   ├─ TM 가압검사 ON/OFF × 체크리스트 ON/OFF (TM 4 케이스)
+   └─ MECH 동기화 (#65) 실 S/N 1건 검증
+```
+
+---
+
+## 📑 영역 6 — 검증 매트릭스 (Twin파파 운영 검증용)
+
+**MECH 8 케이스**:
+
+| # | 진행률 | 체크리스트 | 입력 상태 | 기대 결과 |
+|:-:|:-:|:-:|---|---|
+| 1 | ON | ON | 전체 task + 체크리스트 100% | ✅ 카운트 |
+| 2 | ON | ON | 전체 task 100% + 체크리스트 90% | ❌ 미카운트 |
+| 3 | ON | OFF | 전체 task 100% | ✅ 카운트 |
+| 4 | ON | OFF | 9/10 task | ❌ 미카운트 |
+| 5 | OFF | ON | SELF_INSPECTION + 체크리스트 100% | ✅ 카운트 |
+| 6 | OFF | ON | SELF_INSPECTION + 체크리스트 90% | ❌ 미카운트 |
+| 7 | OFF | OFF | SELF_INSPECTION 완료 (다른 task 미완료) | ✅ 카운트 |
+| 8 | OFF | OFF | 다른 task 만 완료 (SELF_INSPECTION 미완료) | ❌ 미카운트 |
+
+**ELEC 8 케이스**: 동일 매트릭스 (trigger = INSPECTION + IF_2 AND)
+- 특히 # 7 / 8 에서 **AND 조건** 검증: INSPECTION 만 완료 → ❌ / IF_2 만 완료 → ❌ / 둘 다 완료 → ✅
+
+**TM 4 케이스** (진행률 토글 영향 X — 가압검사 토글만):
+
+| # | 가압검사 | 체크리스트 | 입력 상태 | 기대 결과 |
+|:-:|:-:|:-:|---|---|
+| 1 | OFF | ON | TANK_MODULE + 체크리스트 | ✅ 카운트 |
+| 2 | OFF | OFF | TANK_MODULE | ✅ 카운트 |
+| 3 | ON | ON | TANK_MODULE + PRESSURE_TEST + 체크리스트 | ✅ 카운트 |
+| 4 | ON | OFF | TANK_MODULE 만 (PRESSURE_TEST 미완료) | ❌ 미카운트 |
+
+**총 검증 케이스**: 8 (MECH) + 8 (ELEC) + 4 (TM) = **20 케이스**
+
+---
+
+## 📑 영역 7 — Rollback 경로
+
+| 위험 | 대응 |
+|---|---|
+| FE 토글 UI 추가 후 BE 미배포 상태 — admin_settings GET 응답에 신규 키 없음 | settings 객체에서 키 조회 시 `?? true` (default TRUE) 패턴 적용 — UI 렌더 안전 |
+| 진행률 토글 OFF + ELEC INSPECTION 만 완료 → 잘못 카운트 (AND 조건 미적용) | BE TC-PT-04 회귀 가드 (#66 영역) — FE 측 변경 없음 |
+| Default 변경 운영 영향 | `confirm_progress_required=TRUE` (현재 동작), `tm_pressure_test_required=FALSE` (현재 동작) — 배포 즉시 행동 변화 0 |
+| Full rollback | ProductionPerformancePage.tsx 진행률 토글 영역 revert + 가압검사 토글 BE 연동 영역 revert → FE 1 PR 즉시 복귀 |
+
+---
+
+## 📑 영역 8 — 참고 라인
+
+```
+AXIS-VIEW/app/src/pages/production/ProductionPerformancePage.tsx
+├─ L184-198    체크리스트 필수 토글 (기존 — 진행률 토글 추가 위치 직전)
+├─ L165-180    가압검사 포함 토글 (기존 — BE 연동 검증 영역)
+├─ (신규)       진행률 100% 필수 토글 (체크리스트 필수 토글 직전 또는 직후)
+└─ ConfirmSettingsPanel 컴포넌트 영역 전체
+
+AXIS-VIEW/app/src/types/admin.ts (또는 settings 타입 파일)
+└─ ConfirmSettings interface — confirm_progress_required + tm_pressure_test_required 검증
+
+AXIS-OPS/backend/app/routes/production.py
+├─ L153-158    _CONFIRM_TASK_FILTER (기존 — 변경 없음, _get_tm_trigger_tasks 별도 분기)
+├─ L189-227    _is_process_confirmable (BE 분기 추가 — #66)
+└─ migrations/054_progress_and_pressure_toggles.sql (신규 — admin_settings 키 2건)
+```
+
+---
+
+## 📑 영역 9 — 연관 문서 + 관계도
+
+| 문서 | 위치 | 영역 |
+|---|---|---|
+| OPS BE 명세 (#65 MECH 동기화) | `AXIS-VIEW/OPS_API_REQUESTS.md` #65 | MECH `_try_mech_close()` Dual-Trigger |
+| OPS BE 명세 (#66 토글 BE 반영) | `AXIS-VIEW/OPS_API_REQUESTS.md` #66 | 진행률 + TM 가압검사 BE 분기 + admin_settings 마이그레이션 |
+| OPS BE Sprint (묶음) | `AXIS-OPS/AGENT_TEAM_LAUNCH.md` Sprint 67-BE-HOTFIX | 묶음 1 PR |
+| AXIS-VIEW BACKLOG | `AXIS-VIEW/BACKLOG.md` | `FEAT-CONFIRM-SETTINGS-PROGRESS-TOGGLE-20260514` entry 신규 작성 권장 |
+| 관련 Sprint | Sprint 9 (실적확인 설정 패널 본체), Sprint 15 (TM 가압검사 옵션 UI), Sprint 58-BE (`confirm_checklist_required` 도입) | 패턴 차용 |
+
+---
+
+## ✅ Sprint 43 완료 기준
+
+- [ ] OPS BE Sprint 67-BE-HOTFIX (#65 + #66) Railway 배포 완료
+- [ ] admin_settings GET 응답에 `confirm_progress_required` + `tm_pressure_test_required` 2건 포함 확인
+- [ ] FE ProductionPerformancePage 에 진행률 100% 필수 토글 추가 + admin_settings 저장 정합
+- [ ] FE 가압검사 포함 토글 BE 연동 정정 (admin_settings 저장 정합)
+- [ ] vitest TC-CP-01~04 통과 (옵션)
+- [ ] FE v1.44.x 배포
+- [ ] Twin파파 매트릭스 20 케이스 검증 완료
+- [ ] BACKLOG entry 작성 + ARCHIVE 처리
+
+---
+
+## 📌 Twin파파 의도 재확인 영역 (잘못 파악 방지)
+
+본 sprint 가 향후 다시 읽힐 때 의도가 명확하도록:
+
+1. **이 sprint 는 BE 가 아니다** — 토글 UI + admin_settings 연동만. 실제 카운트 로직은 OPS #66 에서 처리.
+2. **3-Layer 구조의 Layer 1 (진행률) FE 토글만 신규** — Layer 2 (trigger task) 는 BE 영역, Layer 3 (체크리스트) 는 기존 정상 동작.
+3. **TM 가압검사 토글은 UI 가 이미 있음** — BE 연동만 정정 (admin_settings 저장 확인).
+4. **MECH 실적은 Sprint 67-BE-HOTFIX #65 가 별 처리** — 본 sprint 는 MECH 카운트 로직 변경 없음.
+5. **카운트 표시 자체는 BE 응답 그대로** — FE 는 토글 상태만 BE 에 전달하고 응답 수치 표시.
+
+→ 위 5개 포인트가 사용자 의도 정합 영역. 이 부분이 변경되면 영역 0 (Twin파파 정의 + 매트릭스) 영역 재정의 필요.
+
+---
+
+# Sprint 44 — FEAT-FACTORY-DASHBOARD-CUSTOMER-DONUT-20260518
+
+> **Sprint ID**: `FEAT-FACTORY-DASHBOARD-CUSTOMER-DONUT-20260518`
+> **작성일**: 2026-05-18 KST
+> **작성자**: Claude Code (Twin파파 5-16 요청 + 차트 타입·색상 합의)
+> **우선순위**: 🟡 MEDIUM (공장 대시보드 신규 위젯 — 운영 차단 아님)
+> **추정 시간**: ~1.5~2h (도넛 컴포넌트 + 기존 패널 추출 + period 분기)
+> **상태**: 🟢 OPEN — Codex 1라운드 반영 완료 (영역 8), 구현 진입 가능
+> **선행 의존성**: ✅ OPS `monthly-detail` `by_customer` 집계 — `OPS_API_REQUESTS.md #68` BE route 추가 완료 (2026-05-18)
+> **별 repo Sprint**: 본 sprint = AXIS-VIEW repo `Sprint 44` / OPS = `OPS_API_REQUESTS.md #68` (factory.py `get_monthly_detail()`)
+> **관련 OPS 명세**: `AXIS-VIEW/OPS_API_REQUESTS.md` #68 (`by_customer` 집계 필드)
+> **예정 버전**: FE v1.44.0 (MINOR — 신규 위젯)
+
+---
+
+## 📑 영역 1 — 배경 & 목적
+
+공장 대시보드 우측 1fr 패널("공정별 완료율")이 주간/월간 무관하게 고정 표시됨. 월간 뷰에서는 "월생산 고객사 비율"을 보여주는 게 맥락에 맞음 (Twin파파 5-16 요청).
+
+**목적**: 우측 패널을 대시보드 주간/월간 토글에 연동 — 월간 뷰일 때 고객사 비율 도넛 표시.
+
+## 📑 영역 2 — 위치 & 동작
+
+| 영역 | 현재 | 변경 후 |
+|---|---|---|
+| 좌측 2fr | `ProductionChart` (세로 막대) | 변경 없음 |
+| **우측 1fr** | "공정별 완료율" (가로 진행 바) 고정 | **주간 → 공정별 완료율 / 월간 → 고객사 비율 도넛** |
+
+- 전환 트리거: **기존 `KpiSwipeDeck` 의 `period` state 재사용** — 별도 타이머 신설 X. 대시보드 전체 30초 주간↔월간 동기 전환에 편승
+- `FactoryDashboardPage` 가 `period === 'monthly' ? <CustomerDonutCard> : <StageCompletionCard>` 분기
+
+## 📑 영역 3 — 도넛 차트 스펙
+
+- 라이브러리: Recharts `PieChart` + `innerRadius` (도넛) — 좌측 세로 막대와 형태 대비
+- 데이터 변환: 고객사별 생산 대수 내림차순 → **Top 5 개별 조각 + "기타" 1조각**(6번째 이하 합산) = 최대 6조각
+- 도넛 홀(중앙): **월 총 생산 대수** 표기
+- 조각 라벨/범례: 고객사명 + 대수 + %
+- **`TEST CUSTOMER` 제외** — FE 필터 (테스트 데이터)
+- 색상: **G-AXIS 디자인 토큰 순환** (`--gx-accent`/`--gx-info`/`--gx-success`/`--gx-warning` 등 — 현 대시보드 컨셉 정합)
+
+> 실측(2026-05): 11개 고객사, MICRON 69·SEC 52 = 72% 쏠림. Top5(MICRON/SEC/SK-HYNIX/SAS/SCS) + 기타(나머지 6개 합산) 구조.
+
+## 📑 영역 4 — 데이터 (OPS #68 의존)
+
+`monthly-detail` 응답의 `items[]` 는 페이지네이션 → FE 집계 불가. BE 가 `by_model` 과 동일 패턴으로 `by_customer` 집계 제공 필요.
+
+```json
+"by_customer": [ { "customer": "MICRON", "count": 69 }, ... ]
+```
+
+- 월 기준 날짜: 공장 대시보드 설정 패널 `monthlyDateField` 토글 그대로 — `by_customer` 도 동일 `date_field` 기준 (BE #68 에서 처리)
+- 상세: `OPS_API_REQUESTS.md #68`
+
+## 📑 영역 5 — FE 구현 범위
+
+| 파일 | 작업 |
+|---|---|
+| `api/factory.ts` | `MonthlyDetailResponse` 에 `by_customer: CustomerCount[]` 타입 추가 (`{ customer: string; count: number }`) |
+| `pages/factory/components/CustomerDonutCard.tsx` (신규) | 도넛 카드 — Top5+기타 변환 + `TEST CUSTOMER` 제외 + Recharts PieChart + 중앙 총대수 |
+| `pages/factory/components/StageCompletionCard.tsx` (신규, 추출) | 기존 인라인 "공정별 완료율" JSX → 컴포넌트 추출 (FactoryDashboardPage L317-343) |
+| `FactoryDashboardPage.tsx` | 우측 패널 `period` 분기 + 인라인 stage JSX 제거 |
+
+## 📑 영역 6 — 안전 degrade
+
+- BE #68 미배포 시 `by_customer` undefined → 도넛 "데이터 없음" 표시 (crash 0)
+- 월간 데이터 0건 → `by_customer: []` → 빈 상태 표시
+- `TEST CUSTOMER` 만 있는 월 → 제외 후 0건 → 빈 상태
+
+## 📑 영역 7 — 구현 체크리스트
+
+- [ ] OPS #68 `by_customer` 배포 확인
+- [ ] `api/factory.ts` 타입 추가
+- [ ] `StageCompletionCard` 추출 (기존 동작 100% 동일 — 회귀 0)
+- [ ] `CustomerDonutCard` 신규 (Top5+기타 / TEST 제외 / G-AXIS 색상)
+- [ ] `FactoryDashboardPage` period 분기
+- [ ] 빌드 GREEN + vitest (도넛 변환 로직 TC: Top5+기타 / TEST 제외 / 빈 데이터)
+- [ ] Netlify preview 실기기 — 30초 토글 시 우측 패널 주간/월간 전환 확인
+- [ ] v1.44.0 릴리스 (version.ts + CHANGELOG + tag)
+
+## 📌 Twin파파 의도 재확인 영역 (잘못 파악 방지)
+
+1. **별도 타이머 신설 금지** — 기존 `KpiSwipeDeck` 30초 `period` 토글에 편승. 우측 패널은 그 state 를 따라갈 뿐.
+2. **"월생산 고객사 비율" = 월간 뷰 전용** — 주간 뷰는 기존 "공정별 완료율" 유지.
+3. **Top 5 + 기타 고정** — 조각 6개 상한. 11개 고객사 전부 개별 표시 X (쏠림·꼬리 가독성).
+4. **`TEST CUSTOMER` 제외** — FE 필터. BE 응답은 원본 유지.
+5. **차트는 도넛** — 좌측 막대와 형태 대비 (막대 2개 나란히 = UI 단조 회피, Twin파파 5-18 확인).
+
+---
+
+## 📑 영역 8 — Codex 교차검증 반영 (2026-05-18, 1라운드)
+
+> Codex 1라운드 결과 M 3 / A 3 / I 5 → NO-GO. 아래 반영으로 설계 확정.
+> ⚠️ **Claude 원안 약점 trail**: §영역 4 의 "`monthlyDateField` 토글 그대로" 를 `useMonthlyDetail` 의 실제 `date_field` 배선 확인 없이 단정 → Codex A2 catch.
+
+### 확정 사항 (Twin파파 2026-05-18 결정)
+
+**[A2 — 월 기준 date_field]** 🔧 **범위 확장 확정**
+- 현행: `useMonthlyDetail` 이 `date_field: 'mech_start'` 하드코딩 → `monthlyDateField` 설정 토글이 `useMonthlyKpi` 에만 내려감
+- 결정: **Sprint 44 범위에 `useMonthlyDetail` 도 `monthlyDateField` 배선 포함** → 도넛 + 월간 테이블이 설정 토글을 따라감
+- ⚠️ 회귀 면: 월간 생산 현황 테이블의 date_field 가 토글 영향 받게 됨 — 구현 시 회귀 확인 필수
+
+**[C10 — 도넛 중앙 숫자]** 🔧 **표시 고객사 합계 확정**
+- 도넛 중앙 "총 생산 대수" = **TEST CUSTOMER 제외 후 표시 고객사 합** (도넛 조각 합과 일치)
+- BE 응답 `total`(페이지네이션 총건수, TEST 포함) 사용 X — 조각 합과 어긋남 회피
+
+### 설계 보강 (M/A/I 반영)
+
+| 라벨 | 항목 | 반영 |
+|---|---|---|
+| M-A1 | SQL injection | `by_customer` 쿼리 `date_field` f-string = `factory.py:200` 화이트리스트 선검증 후 삽입 — `by_model` 동일, 안전 (문서 명시) |
+| M-A3 | `customer` NULL/빈값 | FE 변환에서 `customer || '(미지정)'` 처리 — 라벨 빈값 노출 방지 (실측 null 0건이나 방어적) |
+| I-A4 | 응답 순서 | BE `ORDER BY count DESC, customer ASC` tiebreaker 신뢰 — **FE 재정렬 금지**, 받은 순서대로 Top5 추출 |
+| M-B6 | 고객사 ≤5개 | "기타" 조각 **미생성** — 5개 이하면 전부 개별 표시. vitest TC 추가 (영역 7) |
+| A-B7 | TEST CUSTOMER 제외 순서 | **`by_customer` 에서 TEST CUSTOMER 먼저 제거 → 그 다음 Top5+기타 변환** (순서 역전 시 TEST 가 Top5 에 낄 수 있음) |
+| I-B8 | `by_customer` optional | `MonthlyDetailResponse.by_customer?: CustomerCount[]` **optional** — BE 미배포 시 `undefined`. UI 는 `undefined`("데이터 없음")와 `[]`("월 데이터 0건") 구분 |
+| A-B9 | `StageCompletionCard` props | props 계약 명시 — `{ stageData: StageItem[]; weekLabel: string }`. `kpi?.week` 기반 서브타이틀·색상 분기·`toFixed(1)` 모두 컴포넌트 내부로 이동, 회귀면 축소 |
+| A-C11 | OPS #68 상태 | `OPS_API_REQUESTS.md #68` 상태 `🔴 OPEN` → `✅ BE COMPLETED` 정정 (BE route 추가 완료 2026-05-18) |
+
+### 도넛 변환 로직 순서 (확정 — 구현 기준)
+
+```
+1. by_customer (BE 응답, count DESC 정렬됨)
+2. TEST CUSTOMER 행 제거          ← B7
+3. customer 빈값 → '(미지정)'      ← A3
+4. 상위 5개 개별 + 6번째 이하 합산 "기타"  ← B6 (≤5개면 기타 미생성)
+5. 도넛 중앙 = 2~4 결과 전체 합     ← C10 (표시 합계)
+6. 재정렬 금지 — BE 순서 유지       ← A4
+```
+
+### 영역 7 체크리스트 추가분
+
+- [ ] `useMonthlyDetail` `monthlyDateField` 배선 + 월간 테이블 회귀 확인 (A2)
+- [ ] vitest: 고객사 ≤5개 → 기타 미생성 / TEST 제외가 Top5 전 / 빈값 `(미지정)` TC
+
+### 종합
+
+→ M 3 (A1·A3·B6) + A 3 (B7·B9·C11) + I 5 — 위 반영으로 전건 해소. **설계 확정 가능 (GO).** 구현 진입 시 본 영역 8 = 단일 기준.

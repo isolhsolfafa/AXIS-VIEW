@@ -6448,6 +6448,6 @@ ORDER BY count DESC
 
 ---
 
-**OPS 측 반영 위치**: `AXIS-OPS/backend/app/routes/factory.py` `get_monthly_detail()`
-**FE 상태**: 설계 확정 (Top 5 + 기타 도넛 / `monthlyDateField` 토글 연동 / G-AXIS 토큰 색상) — BE `by_customer` 배포 후 FE 구현
-**문서 상태**: 🔴 **OPEN** — BE 집계 필드 1건 추가 요청
+**OPS 측 반영 위치**: `AXIS-OPS/backend/app/routes/factory.py` `get_monthly_detail()` L281-292 (구현 완료)
+**FE 상태**: 설계 확정 — `DESIGN_FIX_SPRINT.md` Sprint 44 영역 8 (Codex 1라운드 반영). Top 5+기타 도넛 / `monthlyDateField` 토글 배선 / G-AXIS 색상 / `TEST CUSTOMER` FE 제외. FE 구현 대기
+**문서 상태**: ✅ **BE DONE (2026-05-18)** — `by_customer` 배포 완료. FE Sprint 44 구현만 남음
