@@ -20550,3 +20550,128 @@ AXIS-OPS/backend/app/routes/production.py
 → M 3 (A1·A3·B6) + A 3 (B7·B9·C11) + I 5 — 위 반영으로 전건 해소.
 → A2 는 1차 "직접 배선"(v1.34.4 충돌) → **분기 방식**(도넛 전용 별도 호출, v1.34.4 유지)으로 재확정 (2026-05-18 Twin파파).
 **설계 확정 (GO).** 구현 진입 시 본 영역 8 = 단일 기준.
+
+---
+
+# Sprint 45 — FEAT-SNSTATUS-PROCESS-SCOPE-AND-TEST-FILTER-20260518
+
+> **Sprint ID**: `FEAT-SNSTATUS-PROCESS-SCOPE-AND-TEST-FILTER-20260518`
+> **작성일**: 2026-05-18 KST
+> **작성자**: Claude Code (Twin파파 5-18 요청 — GST 자체공정 view 정리 + 테스트 필터)
+> **우선순위**: 🟡 MEDIUM (생산현황 view 정합 — 운영 차단 아님)
+> **추정 시간**: ~1.5~2h
+> **상태**: 🟢 OPEN — Codex 교차검증 대기
+> **선행 의존성**: 없음 (BE 변경 0 — `user.role`/`is_manager` 기존 필드 활용)
+> **예정 버전**: FE v1.45.0 (MINOR — 권한 기반 view 동작 추가)
+
+---
+
+## 📑 영역 1 — 배경 & 목적
+
+생산현황(`SNStatusPage`) 의 두 가지 view/filter 정리:
+- **A. 테스트 S/N 토글** — 현재 ON 시 운영+테스트 혼재. 테스트만 보고 싶을 때 불편 → "테스트 전용" 으로 의미 변경
+- **B. GST 자체공정 스코프** — 현재 GST 계정은 전부 6공정 표시. GST 자체공정(PI/QI/SI) 작업자도 결국 작업자 → 전체를 다 알 필요 없음. **`is_manager` 만 전체, 일반 작업자는 자기 공정만** (협력사 view 패턴 확장)
+
+## 📑 영역 2 — 기능 A: 테스트 S/N 토글 (옵션 B)
+
+**현재** (`SNStatusSettingsPanel` + `SNStatusPage`):
+- `showTestSN` boolean (admin 전용 토글)
+- OFF → 테스트 S/N(`TEST-`/`DOC_TEST-` prefix) 숨김 / ON → **포함 (운영과 혼재)**
+
+**변경 (옵션 B — 의미 재정의)**:
+- OFF → 운영 S/N만 (기존 동일)
+- ON → **테스트 S/N 전용** (운영 숨김)
+- 라벨 "테스트 S/N 표시" → **"테스트 S/N 전용 보기"**, 설명 문구 갱신
+- `showTestSN` 키 이름 **유지** (localStorage 호환) — 의미만 변경
+
+`SNStatusPage` 필터 (현재 L56-58 + L168-170 2곳):
+```
+[현재] if (!showTestSN) result = result.filter(운영만)
+[변경] showTestSN ? result.filter(테스트만) : result.filter(운영만)
+```
+
+## 📑 영역 3 — 기능 B: GST 자체공정 PI/QI/SI role 자동 스코프
+
+협력사 view(Sprint 41) 와 동일한 **자동 role 기반** — 토글/메뉴/셀렉터 없음.
+
+| 사용자 | 현재 | 변경 후 |
+|---|---|---|
+| admin | 전체 6공정 | 전체 (유지) |
+| GST + `is_manager` | 전체 6공정 | 전체 (유지) |
+| **GST + non-manager** | 전체 6공정 | **`role` 공정만** (PI→PI / QI→QI / SI→SI) |
+| 협력사 | 자기 카테고리 (MECH/ELEC/TMS) | (유지) |
+
+- `role` 값 = BE `auth.py` 기준 `MECH/ELEC/TM/PI/QI/SI`. PI/QI/SI 는 `PROCESS_ORDER` 카테고리 키와 **직결** (매핑 불필요)
+- GST non-manager 작업자 = 진행률·S/N 목록 모두 자기 공정으로 스코프 (협력사가 자기 공정만 보는 것과 동일)
+
+## 📑 영역 4 — `companyScopedProgress.ts` 확장 명세
+
+`UserScope` 에 필드 추가:
+```ts
+interface UserScope {
+  company?: string;
+  isAdmin: boolean;
+  isManager: boolean;   // 신규
+  role?: string;        // 신규
+}
+```
+
+**`getCompanyScopedCategories(product, user)`**:
+```
+1. user.isAdmin                       → 전체 (PROCESS_ORDER)
+2. user.company === 'GST':
+   2a. user.isManager                 → 전체
+   2b. else (GST 작업자):
+       - role ∈ PROCESS_ORDER         → [role]   (PI/QI/SI)
+       - 그 외                         → []        (edge — 영역 6)
+3. 협력사 (기존 로직 유지)             → partner 매칭 카테고리
+```
+
+**`getCompanyScopedPercent(product, user)`**:
+```
+1. user.isAdmin                       → product.overall_percent
+2. user.company === 'GST' && isManager → product.overall_percent
+3. else (GST 작업자 + 협력사)          → matched 카테고리 평균, 0매칭 → null ('—')
+```
+
+## 📑 영역 5 — FE 구현 범위
+
+| 파일 | 작업 |
+|---|---|
+| `utils/companyScopedProgress.ts` | `UserScope` +2 필드, `getCompanyScopedCategories`/`Percent` GST 분기 추가 |
+| `pages/production/SNStatusPage.tsx` | `isAdminOrGst` → `seesAll = is_admin \|\| (GST && is_manager)` 로 재정의. 협력사 필터(L61·L171)를 GST 작업자도 포함. `getCompanyScopedPercent` 호출에 `isManager`/`role` 전달 |
+| `components/sn-status/SNCard.tsx` | `getCompanyScopedPercent`/`Categories` 호출에 `isManager`/`role` 전달 |
+| `components/sn-status/SNDetailPanel.tsx` | 동일 — 호출처 인자 보강 |
+| `components/sn-status/SNStatusSettingsPanel.tsx` | 테스트 토글 라벨/설명 문구 변경 (기능 A) |
+| `utils/companyScopedProgress.test.ts` | GST manager 전체 / GST 작업자 role 스코프 / edge case TC 추가 |
+
+→ BE 변경 0 (`user.role`/`is_manager` 기존 `Worker` 타입 필드).
+
+## 📑 영역 6 — Edge case & 안전 처리
+
+| 케이스 | 처리 |
+|---|---|
+| GST non-manager 인데 `role` 이 PI/QI/SI 아님 (미설정·MECH 등) | `getCompanyScopedCategories` → `[]` → `getCompanyScopedPercent` → `null` → 카드 진행률 `—`, S/N 목록 빈 상태. **전체 fallback 금지** (Twin파파 원칙: is_manager 만 전체) |
+| `role` 빈 문자열/undefined | 위와 동일 — `[]` |
+| 협력사 0매칭 | 기존 동작 유지 (`null` → `—`) |
+
+→ 빈 목록은 협력사 0매칭과 **동일 패턴** — 데이터 이상을 숨기지 않고 드러냄.
+
+## 📑 영역 7 — 구현 체크리스트
+
+- [ ] `companyScopedProgress.ts` — `UserScope` +2 필드 + GST 분기
+- [ ] `SNStatusPage` — `seesAll` 재정의 + 필터 GST 작업자 포함 + 호출처 인자
+- [ ] `SNCard` / `SNDetailPanel` — 호출처 `isManager`/`role` 전달
+- [ ] `SNStatusSettingsPanel` — 테스트 토글 라벨/설명 (기능 A)
+- [ ] `SNStatusPage` 테스트 필터 2곳 (L56·L168) 반전 로직
+- [ ] vitest — GST manager 전체 / GST PI 작업자 PI만 / edge `[]` / 테스트 전용 필터 TC
+- [ ] 빌드 GREEN + vitest
+- [ ] v1.45.0 릴리스
+
+## 📌 Twin파파 의도 재확인 영역 (잘못 파악 방지)
+
+1. **PI/QI/SI 는 토글이 아니다** — 협력사 view 처럼 100% 자동 role 기반. UI 컨트롤 0.
+2. **is_manager 만 전체** — GST 자체공정 작업자도 작업자. 일반 GST 계정은 자기 공정만. 전체 fallback 금지.
+3. **테스트 토글은 신규 추가 아님** — 기존 `showTestSN` 토글의 의미만 "포함"→"전용" 변경.
+4. **BE 변경 0** — `user.role`/`is_manager` 기존 필드 활용.
+5. **새 route/페이지 없음** — 전부 기존 `SNStatusPage` 안.
