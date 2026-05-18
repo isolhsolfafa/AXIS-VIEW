@@ -20503,10 +20503,13 @@ AXIS-OPS/backend/app/routes/production.py
 
 ### 확정 사항 (Twin파파 2026-05-18 결정)
 
-**[A2 — 월 기준 date_field]** 🔧 **범위 확장 확정**
-- 현행: `useMonthlyDetail` 이 `date_field: 'mech_start'` 하드코딩 → `monthlyDateField` 설정 토글이 `useMonthlyKpi` 에만 내려감
-- 결정: **Sprint 44 범위에 `useMonthlyDetail` 도 `monthlyDateField` 배선 포함** → 도넛 + 월간 테이블이 설정 토글을 따라감
-- ⚠️ 회귀 면: 월간 생산 현황 테이블의 date_field 가 토글 영향 받게 됨 — 구현 시 회귀 확인 필수
+**[A2 — 월 기준 date_field]** 🔧 **분기 방식 확정 (2026-05-18 재결정)**
+- 배경: `useMonthlyDetail` 이 `date_field: 'mech_start'` 하드코딩 — 이는 **v1.34.4 결정 (2026-04-23) "monthly-detail date_field = mech_start 영구 유지"** 에 의한 의도적 고정. 소비처 3곳(생산현황 상세 테이블 + 월간 생산 지표 차트 + 월간 ProductionChart) 모두 "이번 달 기구 착수 S/N" 관점.
+- ⚠️ **폐기된 1차 결정**: "`useMonthlyDetail` 에 `monthlyDateField` 직접 배선" → 테이블·차트까지 토글 따라가 **v1.34.4 정면 충돌** (생산현황 테이블 행 의미 변경). Twin파파 catch 로 재검토.
+- ✅ **확정 (분기 방식)**: 도넛 전용 `useMonthlyDetail` 호출을 **별도로 1개 추가** — `{ date_field: monthlyDateField, per_page: 1 }`. `by_customer` 집계는 페이지네이션 무관(월 전체 GROUP BY)이므로 `per_page: 1` 로 `items` payload 최소화하고 `by_customer` 만 사용.
+- 결과: 기존 `useMonthlyDetail`(테이블/차트용, `mech_start` 고정) **불변 → v1.34.4 유지, 3 소비처 회귀 0**. 도넛만 `monthlyDateField` 토글 따라감.
+- 비용: API 호출 1개 추가 (경량 — `per_page:1`, `enabled: period === 'monthly'` 로 월간 뷰에서만 fetch)
+- whitelist: `monthlyDateField` 4값(mech_start/finishing_plan_end/ship_plan_date/actual_ship_date) ⊆ monthly-detail `_ALLOWED_DATE_FIELDS` 5값 → 400 위험 0
 
 **[C10 — 도넛 중앙 숫자]** 🔧 **표시 고객사 합계 확정**
 - 도넛 중앙 "총 생산 대수" = **TEST CUSTOMER 제외 후 표시 고객사 합** (도넛 조각 합과 일치)
@@ -20538,9 +20541,12 @@ AXIS-OPS/backend/app/routes/production.py
 
 ### 영역 7 체크리스트 추가분
 
-- [ ] `useMonthlyDetail` `monthlyDateField` 배선 + 월간 테이블 회귀 확인 (A2)
+- [ ] 도넛 전용 `useMonthlyDetail({ date_field: monthlyDateField, per_page: 1, enabled: period==='monthly' })` 별도 호출 추가 (A2 분기 방식)
+- [ ] 기존 `useMonthlyDetail`(mech_start 고정) 불변 확인 — 테이블/차트 회귀 0
 - [ ] vitest: 고객사 ≤5개 → 기타 미생성 / TEST 제외가 Top5 전 / 빈값 `(미지정)` TC
 
 ### 종합
 
-→ M 3 (A1·A3·B6) + A 3 (B7·B9·C11) + I 5 — 위 반영으로 전건 해소. **설계 확정 가능 (GO).** 구현 진입 시 본 영역 8 = 단일 기준.
+→ M 3 (A1·A3·B6) + A 3 (B7·B9·C11) + I 5 — 위 반영으로 전건 해소.
+→ A2 는 1차 "직접 배선"(v1.34.4 충돌) → **분기 방식**(도넛 전용 별도 호출, v1.34.4 유지)으로 재확정 (2026-05-18 Twin파파).
+**설계 확정 (GO).** 구현 진입 시 본 영역 8 = 단일 기준.
