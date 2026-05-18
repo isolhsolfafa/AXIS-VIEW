@@ -20560,7 +20560,7 @@ AXIS-OPS/backend/app/routes/production.py
 > **작성자**: Claude Code (Twin파파 5-18 요청 — GST 자체공정 view 정리 + 테스트 필터)
 > **우선순위**: 🟡 MEDIUM (생산현황 view 정합 — 운영 차단 아님)
 > **추정 시간**: ~1.5~2h
-> **상태**: ✅ 구현 완료 (v1.45.0, 2026-05-18) — 빌드 GREEN + vitest 84/84 PASS
+> **상태**: ⚠️ **롤백 예정 — Sprint 46 으로 대체** (2026-05-18 Twin파파 재결정). role 자동 스코프(권한 제한) → PI/QI/SI 토글(편의 필터) 전환. 본 설계서는 이력 보존용 — 실효 설계 = Sprint 46.
 > **선행 의존성**: 없음 (BE 변경 0 — `user.role`/`is_manager` 기존 필드 활용)
 > **예정 버전**: FE v1.45.0 (MINOR — 권한 기반 view 동작 추가)
 
@@ -20726,3 +20726,214 @@ GST 작업자 **유효 role = PI/QI/SI 만** 기대. role 이 `TM`/`MECH`/`ELEC`
 ### 종합
 
 → M-2(필터 경로) + M-1(null 처리) 명문화 + A-1/2/3 보강 완료. **설계 확정 (GO).** 구현 진입 시 영역 4 + 영역 9 = 단일 기준.
+
+---
+
+# Sprint 46 — FEAT-SNSTATUS-PROCESS-TOGGLE-FILTER-20260518
+
+> **Sprint ID**: `FEAT-SNSTATUS-PROCESS-TOGGLE-FILTER-20260518`
+> **작성일**: 2026-05-18 KST
+> **작성자**: Claude Code (Twin파파 5-18 재결정 — Sprint 45 role 자동 스코프 폐기, PI/QI/SI 토글 편의 필터 전환)
+> **우선순위**: 🟡 MEDIUM (생산현황 view 편의 — 운영 차단 아님)
+> **상태**: 📝 설계 작성 완료 — Codex 교차검증 대기
+> **선행 의존성**: Sprint 45 (v1.45.0) 롤백 (영역 2)
+> **예정 버전**: FE v1.46.0 (MINOR — 토글 필터 신규)
+
+---
+
+## 📑 영역 1 — 배경 & Sprint 45 와의 차이
+
+Sprint 45 (v1.45.0) = GST 작업자 `role` 자동 스코프 (PI 작업자 → PI 고정). 목적은 **권한 제한**("일반 인원은 자기 공정만").
+
+**Twin파파 재검토 (2026-05-18)**: GST 인원은 전공정을 봐도 무방 → **권한 제한은 불필요**. 다만 불필요하게 많은 데이터를 보지 않도록 "보고 싶은 공정만" 고르는 **편의 필터**가 필요.
+
+→ role 자동 스코프(권한)를 폐기하고 **PI/QI/SI 토글(편의 필터)** 로 전환.
+
+| 항목 | Sprint 45 (폐기) | Sprint 46 |
+|---|---|---|
+| 방식 | `role` 자동 (UI 컨트롤 0) | PI/QI/SI 토글 (다중 선택) |
+| 목적 | 권한 제한 | 편의 필터 |
+| GST 일반 작업자 | 자기 공정 강제 | 토글로 자유 선택 (전공정 가능) |
+| 전체보기 | is_manager/admin 만 | 누구나 (토글 전부 OFF) |
+
+### 큰 그림 (Twin파파 의도)
+
+- SI 마무리공정은 포장 후 QR 태깅이 어려움 → SI 토글 = "SI 완료 후 출하 대기" 목록 역할
+- SI 토글 목록의 제품을 일괄 시작/종료 → 추후 **출하 완료 체크 페이지**(별 Sprint)의 입력원
+
+---
+
+## 📑 영역 2 — Sprint 45 (v1.45.0) 롤백 범위
+
+v1.45.0 커밋(`git log` 로 SHA 확정)의 **기능 B(GST role 자동 스코프)** 되돌림. 6 파일:
+
+| 파일 | 롤백 대상 |
+|---|---|
+| `utils/companyScopedProgress.ts` | `UserScope` +2 필드(`isManager`/`role`) + `getCompanyScopedCategories`/`Percent` GST 분기 |
+| `pages/production/SNStatusPage.tsx` | `seesAll` 재정의 + GST 작업자 필터 분기 + 호출처 인자 |
+| `components/sn-status/SNCard.tsx` | `getCompanyScoped*` 호출 인자 보강 |
+| `components/sn-status/SNDetailPanel.tsx` | 동일 |
+| `utils/companyScopedProgress.test.ts` | GST 스코프 TC |
+
+⚠️ **기능 A (테스트 S/N 토글 의미 "포함→전용" 변경) 처리 — 결정 필요**:
+- Sprint 45 가 기능 A + 기능 B 를 한 릴리스(v1.45.0)에 묶음
+- 기능 A 는 Sprint 46 과 무관 — 유지할지 함께 롤백할지 Twin파파 결정
+- **권장**: 기능 A 는 유지 (별 가치 있음) → `git revert` 전체 대신 **기능 B 코드만 수동 되돌림** (partial)
+
+---
+
+## 📑 영역 3 — 토글 필터 설계
+
+`SNStatusSettingsPanel` 에 **PI / QI / SI 토글 3개** 추가.
+
+| 속성 | 값 |
+|---|---|
+| 선택 방식 | **다중 선택** (PI+SI 동시 ON 가능) |
+| 기본값 | 전부 OFF (= 전체보기) |
+| 조합 로직 | 켜진 토글들의 **OR 합집합** |
+| 상태 저장 | `localStorage` (재진입 유지) |
+| 노출 대상 | **GST 계정 + admin 만**. 협력사 계정엔 토글 자체 숨김 (협력사는 자사 공정 필터가 우선이라 무의미) |
+
+```
+전부 OFF        → 전체보기 (필터 skip)
+PI ON           → PI 조건 만족 S/N
+PI + SI ON      → PI 조건 OR SI 조건
+```
+
+---
+
+## 📑 영역 4 — 공정별 표시 조건
+
+| 토글 | 표시 조건 | 제거 시점 |
+|---|---|---|
+| **PI** | PI task 태깅됨(시작 이력) AND (PI 미완료 OR PI 완료일 = 오늘) | 완료 익일 |
+| **QI** | QI task 태깅됨 AND (QI 미완료 OR QI 완료일 = 오늘) | 완료 익일 |
+| **SI** | SI task(2개) 중 **하나라도 미완료** | SI 2개 task 모두 완료 시 (= 출하 완료) |
+
+- "오늘" = KST 기준 당일. PI/QI 는 완료 당일까지 보이고 익일 자동 제거.
+- SI 는 익일 개념 없음 — task 2개가 모두 완료되면 즉시 제거 (출하 완료로 간주).
+- **"태깅됨"** = 해당 공정 task 에 작업 시작 이력 존재 (단순 task 존재가 아님). "다음 할 일"(미시작)은 생산일정 페이지에서 확인 — 본 토글 범위 아님.
+
+### 재작업(재활성화) 케이스 — 자동 해결
+
+목록에서 "삭제"하는 액션을 만들지 않고 **매 조회 시 표시 조건을 동적 판정**. 따라서:
+- 완료되어 목록에서 빠진 S/N 을 전체보기에서 검색 → 재활성화 (OPS v2.15.20 `reactivate_task` — `completed_at` NULL 복원)
+- → "미완료" 판정으로 돌아감 → 해당 토글 목록에 **자동 재등장**. 별도 복원 로직 0.
+- 재활성화 권한 = manager/admin. 재작업 잦은 인원은 VIEW 권한관리에서 `is_manager` 부여 (Twin파파 결정).
+
+---
+
+## 📑 영역 5 — 구현 전 확인 필요 (데이터 구조)
+
+> 본 설계의 표시 조건은 아래 데이터가 product/progress 응답에 있어야 성립. 구현 착수 전 코드 확인 필수.
+
+1. **PI/QI/SI 공정별 "태깅 여부"** — 해당 공정 task 의 시작 이력(`started_at` 또는 진행 상태). `product.categories[PI]` 구조가 무엇을 담는지 (Sprint 45 영역 3 은 categories 키 = PI/QI/SI 직결로 전제).
+2. **공정별 완료 시각** — PI/QI "완료일 = 오늘" 판정용 `completed_at`.
+3. **SI task 2개의 정체** — `task_id` 2개 식별 (CLAUDE.md Task Seed 기준 SI 공정 task 확인). 2개 AND 완료 판정.
+4. progress API 가 위 정보를 S/N 단위로 내려주는지 / BE 보강 필요 여부.
+
+→ BE 보강이 필요하면 별 작업으로 분리. FE 만으로 가능하면 v1.46.0 단독.
+
+---
+
+## 📑 영역 6 — FE 구현 범위 (예상)
+
+| 파일 | 작업 |
+|---|---|
+| `components/sn-status/SNStatusSettingsPanel.tsx` | PI/QI/SI 토글 3개 추가 (GST/admin 만 노출) |
+| `pages/production/SNStatusPage.tsx` | 토글 state(localStorage) + 표시 조건 필터 (메인 L56-66 + 모델칩 baseline L168-174 2곳) |
+| `utils/` (신규 or 기존) | 공정별 표시 조건 순수 함수 (`isVisibleForProcessToggle(product, toggles)` 등) — 테스트 가능하게 분리 |
+| `utils/*.test.ts` | PI/QI 익일 / SI 2개완료 / 다중 OR / 재활성화 재등장 / 전체보기 TC |
+
+→ Sprint 45 롤백 후 작업. BE 변경 여부 = 영역 5 확인 결과에 따름.
+
+---
+
+## 📑 영역 7 — Edge case & 안전 처리
+
+| 케이스 | 처리 |
+|---|---|
+| 토글 전부 OFF | 전체보기 (필터 skip) |
+| PI 완료일 = 오늘인데 자정 경과 | 다음 조회 시 "완료일 ≠ 오늘" → 자동 제거 (날짜 동적 판정) |
+| SI task 가 1개뿐인 모델 (2개 아님) | "있는 SI task 전부 완료" 로 일반화 — 2개 하드코딩 회피 |
+| 협력사 계정 | 토글 미노출 — 기존 자사 공정 필터 유지 |
+| 완료 S/N 재활성화 | 동적 판정으로 자동 재등장 (영역 4) |
+| 토글 ON 인데 조건 만족 S/N 0건 | 빈 목록 정상 표시 (데이터 이상 숨기지 않음) |
+
+---
+
+## 📑 영역 8 — 구현 체크리스트
+
+- [ ] 영역 5 데이터 구조 확인 (progress API 응답 — 태깅/완료시각/SI task)
+- [ ] Sprint 45 기능 B 롤백 (기능 A 유지 여부 Twin파파 확정 후)
+- [ ] `SNStatusSettingsPanel` PI/QI/SI 토글 (GST/admin 노출)
+- [ ] `SNStatusPage` 토글 state + 표시 조건 필터 2곳
+- [ ] 표시 조건 순수 함수 분리 + vitest
+- [ ] 빌드 GREEN + vitest
+- [ ] Codex 교차검증
+- [ ] v1.46.0 릴리스
+
+---
+
+## 📌 Twin파파 의도 재확인 영역 (잘못 파악 방지)
+
+1. **권한 제한 아님** — GST 인원 전공정 봐도 무방. 토글은 순수 편의 필터, 누구나 조작 가능.
+2. **다중 선택** — 여러 옵션을 다 제공해 추후 재수정 회피. PI/QI/SI 동시 ON 가능, OR 합집합.
+3. **PI/QI = 익일 제거 / SI = 2개 task 완료 시 제거** — SI 는 출하 워크플로우라 익일 아닌 완료 기준.
+4. **"삭제 액션" 없음** — 동적 표시 조건. 재활성화 시 자동 재등장.
+5. **토글 노출 = GST + admin 만** — 협력사는 숨김.
+6. **Sprint 45 폐기** — role 자동 스코프 롤백. 단 기능 A(테스트 토글)는 별도 결정.
+
+---
+
+## 📑 영역 9 — Codex 교차검증 반영 (2026-05-18, 1라운드)
+
+> Codex 1라운드 M=1 / A=6 / N=0. M-Q2("태깅됨" 판정)가 핵심 수정. 아래 반영으로 설계 확정.
+> ⚠️ **Claude 원안 약점 trail**: 영역 4 의 "task 태깅됨" 을 `categories` 진행률로 판정 가능하다고 암묵 전제 → Codex M-Q2 catch (task_seed 가 전 모델에 PI/QI/SI 항상 생성하므로 `total>0` 은 무의미).
+
+### M-Q2 — "태깅됨" = `work_start_log` 기반 (핵심 수정)
+
+**문제**: 영역 4 의 "PI task 태깅됨" 을 `categories[PI].total>0` 으로 판정하면 안 됨. `task_seed.py` 가 PI/QI/SI task 를 **전 모델에 항상 seed** → `total>0` 이 항상 true → 토글이 전체보기와 동일해져 의미 상실.
+
+→ **정정**: "태깅됨" = `work_start_log` 에 해당 공정 task 의 **작업 시작 이력**이 존재. 표시 조건 정정:
+```
+PI 토글: work_start_log 에 PI 공정 task 시작 이력 존재
+         AND (PI 미완료 OR PI 완료일 = 오늘)
+```
+
+### A-Q6 — 재활성화 후 재등장이 보장되는 이유
+
+`reactivate_task()`(OPS v2.15.20)는 `app_task_details.started_at/completed_at` 을 NULL 로 리셋하되 **`work_start_log` 는 보존**.
+- "태깅됨" 을 `work_start_log` 기반으로 하면 → 재활성화 후에도 "태깅됨" 유지 + `completed_at` NULL → "미완료" → **자동 재등장** ✅
+- ⚠️ "태깅됨" 을 `app_task_details.started_at` 기반으로 하면 재활성화 시 NULL → "태깅됨" 소실 → 재등장 실패. **`work_start_log` 기반 필수.**
+
+### Q1 / Q5 — BE 보강 범위 확정 (progress API)
+
+- `completion_status` 에 `pi_completed_at` 류 컬럼 **없음**(Codex 확인) → **migration 불필요**
+- `progress_service.py _aggregate_products()` 의 category 집계에 공정별 추가:
+  - `started`: `work_start_log` EXISTS (해당 공정 task 시작 이력)
+  - `completed_at`: `MAX(app_task_details.completed_at)` per category
+  - `completed_today`: 위 `completed_at` 의 KST 날짜 == 오늘 (**BE 계산** — A-Q3)
+- progress API **단독**으로 표시 조건 충족 (per-SN task fan-out = N+1 회피)
+- 응답 형식: `categories[PI]` 객체 확장 `{total, done, percent, started, completed_at, completed_today}` 권장 (categories 일관성)
+
+### A-Q3 — "오늘 완료" KST 판정 = BE 책임
+
+DB timezone Asia/Seoul. BE 가 `completed_today` boolean 을 계산해 반환. FE 가 ISO string 으로 날짜 비교 시 브라우저 timezone 의존 → 자정 경계 오류 → BE 판정으로 회피.
+
+### A-Q4 — SI 2 task 판정
+
+`categories[SI].done == categories[SI].total`(applicable 기준)로 "SI 전부 완료" 판정 신뢰 가능. `SI_SHIPMENT`(SINGLE_ACTION) `completed_at` 정상 set 확인. 모델별 SI applicable 분기 대비 — BE applicable total 계산 현행 유지.
+
+### A-Q7 — Sprint 45 롤백
+
+수동 부분 롤백(기능 B만, 기능 A 유지)은 기능 A/B 가 같은 파일 혼재 → 슬라이스 누락 리스크. 롤백 후 `grep -rn "getCompanyScoped" src/` 등 callsite 전수 검증 필수.
+
+### 종합 — BE 작업이 Sprint 46 의 본체
+
+당초 "FE 토글"로 시작했으나 Codex 검증 결과 **BE(progress API) 보강이 핵심**:
+- **BE**: `progress_service` category 집계 확장 (`started` / `completed_at` / `completed_today`) — OPS 측 작업
+- **FE**: 토글 UI + 표시 조건 (BE 가 준 신호로 단순 필터)
+- → **Sprint 46 을 BE 선행 + FE 후속 2-part 로 분리** 권장. BE = OPS repo, FE = VIEW repo.
+
+→ M=1 + A=6 전건 반영. **설계 확정 (GO).** 구현 진입 시 영역 9 = 단일 기준.
