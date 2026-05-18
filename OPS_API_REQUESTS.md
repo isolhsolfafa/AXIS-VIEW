@@ -6369,3 +6369,85 @@ AXIS-VIEW/app/src/pages/production/ProductionPerformancePage.tsx
 - 회귀 0 — SINGLE 모델 기존 동작 유지, others/다른 S/N 영역 무관
 
 **OPS 측 작업**: 없음 (BE 변경 0 — 진단으로 BE 정상 확인). 본 entry = trail 기록용.
+
+---
+
+## #68 monthly-detail 응답에 `by_customer` 집계 추가 — 공장 대시보드 월간 고객사 비율 도넛
+
+**우선순위**: 🟡 **MEDIUM** (공장 대시보드 신규 위젯 — 운영 차단 아님)
+**Sprint**: AXIS-VIEW `FEAT-FACTORY-DASHBOARD-CUSTOMER-DONUT` (FE) 동반
+**날짜**: 2026-05-16 (Twin파파 요청)
+**관련 FE**: AXIS-VIEW `FactoryDashboardPage.tsx` 우측 패널 (월간 뷰)
+**상태**: ✅ **BE COMPLETED (OPS v2.15.19, 2026-05-18)** — `factory.py get_monthly_detail()` 영역 `by_customer` 집계 쿼리 + 응답 dict 키 추가 (~14 LoC, `by_model` 1:1 복제). `date_field` 화이트리스트 검증 후 f-string 안전. NULL customer 는 `by_model` 의 NULL model 과 동일 처리. pytest test_factory.py 19/19 GREEN (`test_md01b_by_customer_aggregate` 신규 — 키 구조 + count 내림차순 + 합계=total). Codex 라운드 1 M=6 (3건 prompt 오독, 유효분 반영). 회귀 위험 0 (additive). → **FE 측 도넛 위젯 구현 가능** (by_customer 응답 배포 완료).
+
+---
+
+### 1. 배경
+
+공장 대시보드 우측 1fr 패널을 주간/월간 토글에 연동 — 월간 뷰에서 "월생산 고객사 비율"을 도넛 차트로 표시 (Top 5 고객사 + 기타).
+
+현재 `monthly-detail` 응답:
+- `items[]` — 페이지네이션됨 (`page`/`per_page`) → FE 에서 고객사 집계 불가 (한 페이지만 보임)
+- `by_model` — 월 전체 모델별 집계 ✅ 존재
+
+→ `by_model` 과 동일하게 **월 전체 고객사별 집계 `by_customer`** 가 필요.
+
+### 2. 요청 — `by_customer` 필드 신설
+
+**파일**: `AXIS-OPS/backend/app/routes/factory.py` `get_monthly_detail()` (L183~)
+
+`by_model` 집계 쿼리 (L271~) 바로 옆에 동일 패턴으로 `by_customer` 추가:
+
+```sql
+SELECT p.customer, COUNT(*) AS count
+FROM plan.product_info p
+WHERE p.{date_field} >= %s AND p.{date_field} < %s
+GROUP BY p.customer
+ORDER BY count DESC
+```
+
+- `date_field` — 기존 monthly-detail 파라미터 그대로 적용 (`by_model` 과 일관 / 공장 대시보드 설정 토글 `monthlyDateField` 연동)
+- 응답 추가:
+
+```json
+{
+  "month": "2026-05",
+  "items": [...],
+  "by_model": [...],
+  "by_customer": [
+    { "customer": "MICRON", "count": 69 },
+    { "customer": "SEC", "count": 52 },
+    { "customer": "SK-HYNIX", "count": 11 }
+  ],
+  "total": 169, "page": 1, "per_page": 50, "total_pages": 4
+}
+```
+
+### 3. 영향 범위
+
+| 영역 | 변경 |
+|---|---|
+| `factory.py` `get_monthly_detail()` | `by_customer` 집계 쿼리 1건 + 응답 dict 1 키 추가 (~10 LoC) |
+| DB 스키마 | 변경 없음 (`plan.product_info.customer` 기존 컬럼) |
+| 마이그레이션 | 없음 |
+| FE | `MonthlyDetailResponse` 타입에 `by_customer` 추가 + 도넛 컴포넌트 (별 작업) |
+
+### 4. 비고
+
+- `TEST CUSTOMER` 등 테스트 데이터 제외는 **FE 에서 필터** (BE 응답은 원본 유지 — 범용성)
+- `customer` NULL/빈값 — 실측 0건 (2026-05 기준) 이나 BE 쿼리는 GROUP BY 자연 처리
+- FE 안전 degrade: BE 미배포 시 `by_customer` undefined → 도넛 "데이터 없음" 표시
+
+### 5. 검증 시나리오
+
+| # | 입력 | 기대 |
+|---|---|---|
+| 1 | `month=2026-05` | `by_customer` 11개 행, count 내림차순 |
+| 2 | `date_field` 변경 | `by_customer` 도 동일 date_field 기준 재집계 (`by_model` 과 일관) |
+| 3 | 데이터 없는 월 | `by_customer: []` |
+
+---
+
+**OPS 측 반영 위치**: `AXIS-OPS/backend/app/routes/factory.py` `get_monthly_detail()`
+**FE 상태**: 설계 확정 (Top 5 + 기타 도넛 / `monthlyDateField` 토글 연동 / G-AXIS 토큰 색상) — BE `by_customer` 배포 후 FE 구현
+**문서 상태**: 🔴 **OPEN** — BE 집계 필드 1건 추가 요청
