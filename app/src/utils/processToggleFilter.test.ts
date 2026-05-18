@@ -55,24 +55,29 @@ describe('isVisibleForProcessToggle — PI/QI 토글', () => {
 });
 
 describe('isVisibleForProcessToggle — SI 토글 (출하 대기)', () => {
-  it('SI ON — 미완료(done<total) → true', () => {
-    const p = mockProduct({ SI: { total: 2, done: 1, percent: 50 } });
+  it('SI ON — 마무리공정 시작 + 미완료(done<total) → true', () => {
+    const p = mockProduct({ SI: { total: 2, done: 1, percent: 50, started: true } });
     expect(isVisibleForProcessToggle(p, { PI: false, QI: false, SI: true })).toBe(true);
   });
 
-  it('SI ON — 전부 완료(done==total) → false (출하 완료 제거)', () => {
-    const p = mockProduct({ SI: { total: 2, done: 2, percent: 100 } });
+  it('SI ON — 미태깅(started=false) → false (v1.46.1 hotfix — 시작 안 한 제품 제외)', () => {
+    const p = mockProduct({ SI: { total: 2, done: 0, percent: 0, started: false } });
     expect(isVisibleForProcessToggle(p, { PI: false, QI: false, SI: true })).toBe(false);
   });
 
-  it('SI ON — SI task 1개 모델도 done<total 일반화', () => {
-    const p = mockProduct({ SI: { total: 1, done: 0, percent: 0 } });
+  it('SI ON — 시작 + 전부 완료(done==total) → false (출하 완료 제거)', () => {
+    const p = mockProduct({ SI: { total: 2, done: 2, percent: 100, started: true } });
+    expect(isVisibleForProcessToggle(p, { PI: false, QI: false, SI: true })).toBe(false);
+  });
+
+  it('SI ON — SI task 1개 모델도 시작 + done<total → true', () => {
+    const p = mockProduct({ SI: { total: 1, done: 0, percent: 0, started: true } });
     expect(isVisibleForProcessToggle(p, { PI: false, QI: false, SI: true })).toBe(true);
   });
 
   it('SI ON — SI 카테고리 없음/total 0 → false', () => {
     expect(isVisibleForProcessToggle(mockProduct({}), { PI: false, QI: false, SI: true })).toBe(false);
-    expect(isVisibleForProcessToggle(mockProduct({ SI: { total: 0, done: 0, percent: 0 } }), { PI: false, QI: false, SI: true })).toBe(false);
+    expect(isVisibleForProcessToggle(mockProduct({ SI: { total: 0, done: 0, percent: 0, started: true } }), { PI: false, QI: false, SI: true })).toBe(false);
   });
 });
 

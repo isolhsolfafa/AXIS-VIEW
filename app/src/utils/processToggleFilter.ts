@@ -19,10 +19,10 @@ function piqiVisible(cat: CategoryProgress | undefined): boolean {
   return cat.done < cat.total || !!cat.completed_today;
 }
 
-// SI 표시 조건 (영역 4/9): SI task 중 하나라도 미완료 (전부 완료 → 출하 완료로 제거)
-// task 1개/2개 무관 — done < total 로 일반화
+// SI 표시 조건 (영역 4/9 + v1.46.1 hotfix): 마무리공정 시작됨(started) AND 출하 미완료(done<total)
+// started 누락 시 출하 전 전 제품이 노출되어 토글이 무의미 → started 조건 필수 (PI/QI 와 동일)
 function siVisible(cat: CategoryProgress | undefined): boolean {
-  if (!cat || cat.total <= 0) return false;
+  if (!cat || !cat.started || cat.total <= 0) return false;
   return cat.done < cat.total;
 }
 

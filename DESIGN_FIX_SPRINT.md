@@ -20808,7 +20808,7 @@ PI + SI ON      → PI 조건 OR SI 조건
 |---|---|---|
 | **PI** | PI task 태깅됨(시작 이력) AND (PI 미완료 OR PI 완료일 = 오늘) | 완료 익일 |
 | **QI** | QI task 태깅됨 AND (QI 미완료 OR QI 완료일 = 오늘) | 완료 익일 |
-| **SI** | SI task(2개) 중 **하나라도 미완료** | SI 2개 task 모두 완료 시 (= 출하 완료) |
+| **SI** | SI 마무리공정 **시작됨(started)** AND SI task 미완료 (`done<total`) | SI 2개 task 모두 완료 시 (= 출하 완료) — v1.46.1 hotfix: started 조건 추가, 영역 10 |
 
 - "오늘" = KST 기준 당일. PI/QI 는 완료 당일까지 보이고 익일 자동 제거.
 - SI 는 익일 개념 없음 — task 2개가 모두 완료되면 즉시 제거 (출하 완료로 간주).
@@ -20937,3 +20937,29 @@ DB timezone Asia/Seoul. BE 가 `completed_today` boolean 을 계산해 반환. F
 - → **Sprint 46 을 BE 선행 + FE 후속 2-part 로 분리** 권장. BE = OPS repo, FE = VIEW repo.
 
 → M=1 + A=6 전건 반영. **설계 확정 (GO).** 구현 진입 시 영역 9 = 단일 기준.
+
+---
+
+## 📑 영역 10 — v1.46.1 hotfix (SI 토글 `started` 조건 누락)
+
+> 운영 catch (2026-05-18, Twin파파): "SI 토글 on/off 해도 화면 변화 없음". PI 토글은 정상.
+
+### 원인 — SI 표시 조건 설계 누락
+
+영역 4 의 SI 표시 조건이 `done<total` 만 — PI/QI 의 `started`(work_start_log 태깅) 조건이 **SI 에는 누락**됨. 출하 전 제품은 거의 전부 SI 미완료(`done<total`)이므로, SI 토글 ON 해도 거의 모든 제품이 남아 토글이 무의미해짐 → "화면 변화 없음".
+
+영역 9 Codex 검증도 PI/QI 의 work_start_log 기반 판정(M-Q2)은 잡았으나 SI 에 동일 적용은 누락 (Claude 원안 + Codex 양쪽 miss).
+
+### Fix
+
+`processToggleFilter.ts` `siVisible()` 에 `started` 조건 추가 (PI/QI 와 동일 패턴):
+```
+function siVisible(cat) {
+  if (!cat || !cat.started || cat.total <= 0) return false;  // !cat.started 추가
+  return cat.done < cat.total;
+}
+```
+
+→ SI 토글 = **SI 마무리공정 시작됨(work_start_log) AND 출하 미완료** = "출하 대기 목록" (Twin파파 의도 정합 — "마무리공정 시작 + 출하완료 안 된 것"). 영역 4 SI 행 정정 반영.
+
+`processToggleFilter.test.ts` SI TC 보강 — 미태깅(started=false) → false 추가. v1.46.1 release.
