@@ -19,6 +19,7 @@ export function useMonthlyDetail(
     staleTime: 5 * 60 * 1000,
     enabled: enabled ?? true,
     refetchInterval: refetchInterval ?? false,
+    placeholderData: keepPreviousData, // date_field 토글 전환 시 빈 화면 깜빡임 완화
   });
 }
 

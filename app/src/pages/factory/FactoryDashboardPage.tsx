@@ -107,14 +107,14 @@ export default function FactoryDashboardPage() {
 
   // Sprint 44: 고객사 도넛 전용 monthly-detail 호출 — date_field=monthlyDateField.
   // 테이블/차트용 monthly 호출(mech_start 고정, v1.34.4)과 분리. per_page:1 로 items 최소화, by_customer 만 사용.
-  const { data: monthlyDonut, isLoading: monthlyDonutLoading } = useMonthlyDetail({
+  const { data: monthlyDonut, isLoading: monthlyDonutLoading, refetch: refetchMonthlyDonut } = useMonthlyDetail({
     date_field: monthlyDateField,
     per_page: 1,
     enabled: period === 'monthly',
     refetchInterval: autoRefreshInterval,
   });
 
-  const handleRefreshAll = () => { refetchKpi(); refetchMonthly(); refetchEtl(); refetchMonthlyKpi(); };
+  const handleRefreshAll = () => { refetchKpi(); refetchMonthly(); refetchEtl(); refetchMonthlyKpi(); refetchMonthlyDonut(); };
   const lastSync = kpiUpdatedAt ? new Date(kpiUpdatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '—';
 
   /* ── 카테고리 필터 (localStorage 저장) ── */

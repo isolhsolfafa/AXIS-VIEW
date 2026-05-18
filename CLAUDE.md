@@ -1,6 +1,6 @@
 # AXIS-VIEW — Agent Teams 프로젝트
 
-> 최종 갱신: 2026-05-18 | 버전: v1.44.0 (Sprint 44 — 공장 대시보드 월생산 고객사 비율 도넛)
+> 최종 갱신: 2026-05-18 | 버전: v1.44.1 (Sprint 44 후속 — 공장 대시보드 차트 정리 + OPS #69 동반)
 > 이 파일은 모든 에이전트가 작업 시작 전 반드시 읽어야 하는 프로젝트 컨텍스트입니다.
 
 ---
@@ -276,7 +276,7 @@ AXIS-VIEW/
 │   │   ├── api/              API 클라이언트 13개
 │   │   ├── hooks/            TanStack Query 훅 22파일 / 41함수
 │   │   ├── types/            TypeScript 타입 7개
-│   │   ├── version.ts        v1.44.0 (2026-05-18)
+│   │   ├── version.ts        v1.44.1 (2026-05-18)
 │   │   └── index.css         G-AXIS Design System CSS
 │   ├── package.json
 │   └── netlify.toml
@@ -804,6 +804,7 @@ radius-sm: 6px | radius-md: 10px | radius-lg: 14px | radius-xl: 18px
 | HOTFIX-SPRINT42 (v1.43.1) | Sprint 42 후속 hotfix — ChecklistEditModal SELECT 자재 매핑 영역 통합 (Twin파파 5-08 UI catch). **방향 A** (BE 변경 0, FE 단독): 자재코드 input + debounce 500ms + FE Map 변환 → PATCH number[]. 옵션 C 강제 (최소 1자재 + 미등록 자재 차단). HOTFIX-SPRINT66BE 폐기. 신규 2 파일 (useDebounce.ts + ChecklistEditModal.test.tsx) + 수정 5 (Edit/Add/OptionMap/Manage + types). hydrated flag (사용자 입력 보호) + Promise.all + master invalidate. Severity S2, 사후 Codex 검토 deadline 2026-05-18. Codex 1·2·3차 + Claude 5·6차 누적 약 30건 합의 (cowork 실수 #11~#22 — ADR-024 candidate). ~346 LOC 실측 (신규 132 + 수정 214), 2026-05-11 | 🟡 FE 완료 (Twin파파 UI 검증 대기) |
 | PATCH v1.43.2 | 협력사 관리 > 체크리스트 성적서 항목 정렬 정합 — ChecklistManagePage 와 동일 패턴 (그룹 첫 등장 순 + item_order). 배경: OPS BE `checklist_service.py` L235-239 `ORDER BY CASE` 절에 MECH 그룹 누락 (TM/ELEC 만 명시, ELSE 99 = 정렬 미적용) — Twin파파 catch. **FE 단독 정정** (BE 변경 0): `types/checklist.ts` ChecklistReportItem 에 `item_order?: number` 추가 + `ChecklistReportView` CategoryTable 에 useMemo sort (manage 패턴 차용). 3 파일 / ~25 LOC. 빌드 GREEN + vitest 45/45 PASS. TM/ELEC 영역 회귀 0, 2026-05-11 | ✅ 완료 |
 | HOTFIX v1.43.3 | 체크리스트 항목 추가 CONFLICT 토스트 UX 보강 (Twin파파 catch) — generic "추가에 실패했습니다" 디버깅 불가 정정. BE 응답 `error:'CONFLICT'` + `existing_id` + `is_active` 활용: 활성 충돌 = "동일 항목이 이미 존재합니다 (id=199).", 비활성 충돌 = + " — 비활성 상태입니다. \"비활성 포함\" 체크 후 토글로 활성화하세요." 자동 첨부. 실패 시 모달 유지 (입력값 보존). 3 파일 / ~22 LoC (handleAdd onError 분기). 연관 BE: OPS HOTFIX-SPRINT66BE-CREATE-MASTER-ITEM-TYPE-AND-CONFLICT-MSG-20260511. Severity S3 (UX 개선, 기능 차단 아님). 빌드 GREEN + vitest 45/45 PASS, 2026-05-11 | ✅ 완료 |
+| v1.44.1 | Sprint 44 후속 검토 fix (자가 검토 catch 3건). (1) `ProductionChart` 옵션 E — 도넛 카드가 더 커서 생긴 좌측 막대차트 빈 공간 → `flex` stretch 매칭 + 막대 `%` height (병행 세션 작업 동반 커밋). (2) 막대 위 count 숫자가 컬럼 최상단 고정되던 것 → 막대 wrapper 안으로 이동해 막대 높이 따라가게 (Twin파파 결정). (3) `FactoryDashboardPage` `handleRefreshAll` 에 `monthlyDonut` refetch 누락 보완. (4) `useMonthlyDetail` `placeholderData: keepPreviousData` 추가 (date_field 토글 깜빡임 완화). 3 파일. 빌드 GREEN + vitest 72/72. 동반 OPS #69 — 월간 생산량 KPI `TEST CUSTOMER` 제외 (169→164 도넛 정합, BE 요청), 2026-05-18 | ✅ 완료 |
 | Sprint 44 (v1.44.0) | 공장 대시보드 월생산 고객사 비율 도넛 (FEAT-FACTORY-DASHBOARD-CUSTOMER-DONUT, Twin파파 요청). 우측 패널을 주간/월간 토글에 연동 — 주간=공정별 완료율(기존)/월간=고객사 도넛. 별도 타이머 없이 기존 `KpiSwipeDeck` 30초 `period` 편승. 도넛: Recharts PieChart, Top5 고객사 + 기타 합산(6조각 상한), `TEST CUSTOMER` FE 제외, 중앙 총 생산대수, G-AXIS 색상. 데이터=OPS #68 `monthly-detail` `by_customer` 집계. **A2 분기 방식**: 도넛 전용 `useMonthlyDetail` 별도 호출(`date_field=monthlyDateField`, `per_page:1`) — 테이블/차트용 `mech_start` 호출 불변 → v1.34.4 결정 유지, 회귀 0. 신규 2 파일(`CustomerDonutCard` + `buildDonutSlices` 순수함수 / `StageCompletionCard` 인라인 추출) + 수정 3(`api/factory.ts` `CustomerCount`+`by_customer?` / `useFactory.ts` `useMonthlyDetail` `enabled` / `FactoryDashboardPage` period 분기) + `CustomerDonutCard.test.ts` 8 TC. Codex 1라운드 M3/A3/I5 → 설계서 영역 8 전건 반영. 빌드 GREEN + vitest 72/72, 2026-05-18 | ✅ 완료 |
 | v1.43.14 | QR 관리 CSV 다운로드 협력사 컬럼 추가 (Twin파파 요청, 병행 세션). QR 관리 페이지 CSV 에 기구협력사(mech) + 전장협력사(elec) 컬럼 추가. QR 목록 API 가 `mech_partner`/`elec_partner` 이미 응답 → FE CSV 생성부 3줄 (`QrManagementPage.tsx` `downloadCsv` header + 행 매핑). BE 변경 0. 회귀 0 (additive), 2026-05-18 | ✅ 완료 |
 | v1.43.13 | 협력사 관리 > 체크리스트 성적서 검색 정합 — O/N 은 숫자만 입력해도 나오는데 S/N 은 영문 prefix 까지 쳐야 나오던 비대칭 fix (Twin파파 catch). 원인: `api/checklist.ts` `searchSNList()` 가 `/^[A-Z]{2,5}-/` 정규식으로 query 를 `sales_order` 또는 `serial_number` 중 하나로만 라우팅 → 숫자만 입력 시 항상 O/N 검색으로만 감 → S/N 검색 누락. BE 엔드포인트 `/api/admin/checklist/report/orders` 는 두 파라미터 동시 전송 시 OR + `serial_number` ILIKE 부분 매칭 이미 지원. fix: regex 분기 제거 → `sales_order` + `serial_number` 항상 동시 전송. 1 파일 (`api/checklist.ts` ~3 LoC) + `checklist.test.ts` TC 2건. BE 변경 0. 빌드 GREEN + vitest 64/64 PASS, 2026-05-16 | ✅ 완료 |

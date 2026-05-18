@@ -6451,3 +6451,76 @@ ORDER BY count DESC
 **OPS 측 반영 위치**: `AXIS-OPS/backend/app/routes/factory.py` `get_monthly_detail()` L281-292 (구현 완료)
 **FE 상태**: 설계 확정 — `DESIGN_FIX_SPRINT.md` Sprint 44 영역 8 (Codex 1라운드 반영). Top 5+기타 도넛 / `monthlyDateField` 토글 배선 / G-AXIS 색상 / `TEST CUSTOMER` FE 제외. FE 구현 대기
 **문서 상태**: ✅ **BE DONE (2026-05-18)** — `by_customer` 배포 완료. FE Sprint 44 구현만 남음
+
+---
+
+## #69 월간 생산량 KPI — `TEST CUSTOMER` 제외 (집계 정합)
+
+**우선순위**: 🟠 **MEDIUM** (운영 KPI 정합 — 테스트 데이터가 생산량에 집계됨)
+**Sprint**: AXIS-VIEW Sprint 44 후속 (고객사 도넛 vs 월간 생산량 카드 숫자 불일치)
+**날짜**: 2026-05-18 (Twin파파 catch)
+**관련 FE**: AXIS-VIEW 공장 대시보드 월간 생산량 KPI 카드 (`monthly-kpi` `production_count`)
+**상태**: 🔴 **OPEN** — BE 작업 필요
+
+---
+
+### 1. 배경
+
+공장 대시보드에서 두 숫자가 어긋남 (Twin파파 catch):
+- **월간 생산량 KPI 카드**: 169 — `monthly-kpi` `production_count` (전체 COUNT)
+- **고객사 도넛 중앙 (Sprint 44)**: 164 — `TEST CUSTOMER` 5대 FE 제외 후 합
+
+`TEST CUSTOMER` 는 테스트 데이터인데 **월간 생산량 KPI 가 이를 실 생산량에 집계**해서 169 로 부풀려짐. 도넛(164)과 불일치 → 운영자 혼란.
+
+→ Twin파파 결정: **월간 생산량도 `TEST CUSTOMER` 제외** (169 → 164, 도넛과 일치).
+
+### 2. 요청 — `monthly-kpi` `production_count` 에서 TEST CUSTOMER 제외
+
+**파일**: `AXIS-OPS/backend/app/routes/factory.py` `get_monthly_kpi()` L556-561
+
+**현재**:
+```sql
+SELECT COUNT(*) AS cnt FROM plan.product_info p
+WHERE p.{date_field} >= %s AND p.{date_field} < %s
+```
+
+**요청**:
+```sql
+SELECT COUNT(*) AS cnt FROM plan.product_info p
+WHERE p.{date_field} >= %s AND p.{date_field} < %s
+  AND COALESCE(p.customer, '') <> 'TEST CUSTOMER'
+```
+
+→ `production_count` 가 `TEST CUSTOMER` 제외 → FE 월간 생산량 카드 자동 164 표시 (FE 변경 0).
+
+### 3. ⚠️ 일관성 — 확장 검토 필요
+
+`TEST CUSTOMER` 는 `monthly-kpi` 외에도 아래에 집계됨. 동일하게 제외할지 Twin파파/BE 판정 필요:
+
+| 영역 | 엔드포인트 | 현재 TEST 포함 여부 |
+|---|---|---|
+| 주간 생산량 KPI | `weekly-kpi` | 포함 (제외 시 동일 WHERE 추가) |
+| 월간 생산 지표 차트 (by_model) | `monthly-detail` `by_model` | 포함 — TEST 모델이 막대로 표시됨 |
+| 생산현황 상세 테이블 / `total` | `monthly-detail` `items`/`total` | 포함 |
+| 고객사 도넛 (`by_customer`) | `monthly-detail` `by_customer` | FE 에서 제외 중 (Sprint 44) |
+
+→ 본 #69 는 우선 **월간 생산량 KPI (169)** 만 대상. 전면 제외 원하면 별 작업으로 확장.
+
+### 4. 영향 범위
+
+| 영역 | 변경 |
+|---|---|
+| `factory.py` `get_monthly_kpi()` | `production_count` 쿼리 WHERE 1줄 추가 |
+| DB / 마이그레이션 | 없음 |
+| FE | 없음 — `production_count` 응답값만 바뀜 (자동 반영) |
+
+### 5. 비고
+
+- `TEST CUSTOMER` 문자열 하드코딩 — 테스트 customer 가 여럿이면 패턴(`ILIKE '%TEST%'`)/화이트리스트 검토
+- FE 도넛은 이미 `TEST CUSTOMER` 제외 (Sprint 44 `buildDonutSlices`) — BE 와 제외 기준 문자열 일치 필요
+
+---
+
+**OPS 측 반영 위치**: `AXIS-OPS/backend/app/routes/factory.py` `get_monthly_kpi()` L556-561
+**FE 상태**: 변경 0 (BE `production_count` 값만 바뀜 → 월간 생산량 카드 자동 164)
+**문서 상태**: 🔴 **OPEN** — BE WHERE 절 1줄 추가 요청

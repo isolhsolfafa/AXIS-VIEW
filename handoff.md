@@ -1,7 +1,7 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-18 (v1.43.13 검색 정합 → v1.43.14 QR CSV 협력사 컬럼(병행) → v1.44.0 Sprint 44 공장 대시보드 고객사 도넛)
+> 마지막 업데이트: 2026-05-18 (v1.44.0 Sprint 44 공장 대시보드 고객사 도넛 → v1.44.1 후속 검토 fix + OPS #69 동반)
 
 ---
 
@@ -13,8 +13,13 @@
 - **구현**: 신규 `CustomerDonutCard`(Recharts 도넛 + `buildDonutSlices` 순수함수) + `StageCompletionCard`(인라인 추출) / `api/factory.ts` `CustomerCount`+`by_customer?` / `useFactory.ts` `useMonthlyDetail` `enabled` / `FactoryDashboardPage` period 분기. `CustomerDonutCard.test.ts` 8 TC. 빌드 GREEN + vitest 72/72
 - **BE**: OPS #68 `by_customer` 배포 완료 (`factory.py` L281-292) — FE 변경만으로 동작
 
+### v1.44.1 — Sprint 44 후속 검토 fix (2026-05-18)
+- 자가 검토 catch 3건: ProductionChart 옵션 E(막대차트 stretch + 막대 % height, 병행 세션 작업 동반) / 막대 위 count 숫자 막대 따라가게 / handleRefreshAll 도넛 refetch 누락 보완 / useMonthlyDetail keepPreviousData
+- 동반 **OPS #69** — 월간 생산량 KPI `TEST CUSTOMER` 제외 (169→164, 도넛 정합). BE `monthly-kpi` `production_count` WHERE 1줄 — BE 작업 대기
+
 ### 다음 세션 참고
-- v1.44.0 Netlify 실기기 검증 — 공장 대시보드 30초 토글 시 월간 뷰에서 고객사 도넛 표시 확인
+- v1.44.1 Netlify 실기기 검증 — 공장 대시보드 월간 뷰 고객사 도넛 + 막대차트 stretch/숫자 위치 확인
+- **OPS #69 배포 후** — 월간 생산량 KPI 가 164 로 도넛과 일치하는지 확인
 - 우선순위 task: REF-V-01 `ProductionPerformancePage` 895줄 분할 (🔴 의존성 0) / Sprint 43 (OPS #66 BE 선행 대기)
 
 ---
