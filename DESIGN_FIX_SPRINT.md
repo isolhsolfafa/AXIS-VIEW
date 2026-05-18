@@ -20560,7 +20560,7 @@ AXIS-OPS/backend/app/routes/production.py
 > **작성자**: Claude Code (Twin파파 5-18 요청 — GST 자체공정 view 정리 + 테스트 필터)
 > **우선순위**: 🟡 MEDIUM (생산현황 view 정합 — 운영 차단 아님)
 > **추정 시간**: ~1.5~2h
-> **상태**: 🟢 OPEN — Codex 교차검증 대기
+> **상태**: 🟢 OPEN — Codex 1라운드 반영 완료 (영역 9), 구현 진입 가능
 > **선행 의존성**: 없음 (BE 변경 0 — `user.role`/`is_manager` 기존 필드 활용)
 > **예정 버전**: FE v1.45.0 (MINOR — 권한 기반 view 동작 추가)
 
@@ -20675,3 +20675,54 @@ interface UserScope {
 3. **테스트 토글은 신규 추가 아님** — 기존 `showTestSN` 토글의 의미만 "포함"→"전용" 변경.
 4. **BE 변경 0** — `user.role`/`is_manager` 기존 필드 활용.
 5. **새 route/페이지 없음** — 전부 기존 `SNStatusPage` 안.
+
+---
+
+## 📑 영역 9 — Codex 교차검증 반영 (2026-05-18, 1라운드)
+
+> Codex 1라운드 M2/A3/I3 → NO-GO. 모두 설계서 명문화 누락 (동작은 이미 확정). 아래 보강으로 설계 확정.
+
+### M-2 — GST 작업자 S/N 목록 필터 경로 (핵심 누락)
+
+**문제**: `seesAll` 전환 시 GST 작업자가 협력사 필터 경로(`COMPANY_CATEGORIES[user.company]`) 진입 → `'GST'` 키 부재 → `cats undefined` → **필터 skip → 전체 S/N 노출** (의도 위반: GST 작업자는 자기 공정 S/N 만 봐야 함).
+
+**해결** — `SNStatusPage` 필터에 사용자 유형별 분기 명시 (`COMPANY_CATEGORIES` 는 협력사 partner 전용 유지, 'GST' 키 추가 X):
+
+```
+필터용 "담당 카테고리" scopeCats 결정:
+  - seesAll (admin | GST+manager)      → null  → 필터 skip (전체)
+  - GST 작업자 (GST && !manager)        → role ∈ {PI,QI,SI} ? [role] : []
+  - 협력사                              → COMPANY_CATEGORIES[company]
+→ scopeCats 가 배열이면: result.filter(p => scopeCats.some(c => p.categories[c] != null))
+→ scopeCats 가 [] 면: 빈 목록 (edge — GST 작업자 role misconfig)
+```
+
+→ 필터 적용 위치 = L56-66(메인) + L168-174(모델칩 baseline) **2곳 동일**.
+
+### M-1 — `product.categories[role]` 없는 S/N 처리 명문화
+
+GST 작업자 `matched=[role]` 인데 특정 S/N 에 해당 공정 데이터 없는 경우:
+- `getCompanyScopedPercent` → `percents=[]` → **`null` 반환** (기존 로직 그대로)
+- 결과: 카드 진행률 **`—`**, 정렬 rank **3** (`scoped===null`), 모델칩 **제외** (`companyScopedPercent > 0` 기준)
+- ※ M-2 필터가 이미 `categories[role]!=null` S/N 만 남기므로 GST 작업자 화면엔 거의 안 보이나, 방어적 명문화.
+
+### A-1 — role 'TM' vs 카테고리 'TMS' 혼동 방지
+
+GST 작업자 **유효 role = PI/QI/SI 만** 기대. role 이 `TM`/`MECH`/`ELEC` (GST 에 없어야 하나 misconfig) 이면:
+- `PROCESS_ORDER.includes(role)` 체크 — `'TM'` 은 `PROCESS_ORDER`(키 `'TMS'`) 에 **없음** → 자동 `[]` → 빈 화면
+- `MECH`/`ELEC` 는 PROCESS_ORDER 에 있으나 GST 작업자엔 비정상 — 그래도 `[role]` 떨어짐. 운영상 GST role 은 PI/QI/SI 뿐이라 무해. 설계 의도 = "PI/QI/SI 만 정상".
+
+### A-2 — useMemo deps
+
+`sorted`(L99) / `inProgressByModel`(L187) deps 에 `user` 객체 전체가 이미 포함 → `seesAll`/`role`/`isManager` 는 `user` 파생이라 추가 deps 불요. **`user` deps 유지** 규칙만 지키면 stale 없음.
+
+### A-3 — `getCompanyScopedPercent`/`Categories` 호출처 전수 (partial patch 방지)
+
+구현 시 호출처 5곳 전부 인자(`isManager`/`role`) 보강 — 구현 전 `grep -rn "getCompanyScoped" src/` 로 확정:
+- `SNStatusPage.tsx` — 정렬 rank + (모델칩/기타) 약 3곳
+- `SNCard.tsx` — 1곳
+- `SNDetailPanel.tsx` — 1곳
+
+### 종합
+
+→ M-2(필터 경로) + M-1(null 처리) 명문화 + A-1/2/3 보강 완료. **설계 확정 (GO).** 구현 진입 시 영역 4 + 영역 9 = 단일 기준.
