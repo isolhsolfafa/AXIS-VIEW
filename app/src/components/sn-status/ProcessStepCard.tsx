@@ -268,8 +268,8 @@ export default function ProcessStepCard({
                 <span style={{ color: 'var(--gx-steel)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', marginLeft: 'auto' }}>
                   {(w.force_closed || displayStatus === 'waiting') ? '—' : formatDuration(w.duration_minutes)}
                 </span>
-                {/* 재활성화 버튼 */}
-                {w.completed_at && canReactivate && w.task_detail_id && (
+                {/* 재활성화 버튼 — 완료 task 또는 강제종료 task(미시작 placeholder 포함) */}
+                {(w.completed_at || w.force_closed) && canReactivate && w.task_detail_id && (
                   <button
                     onClick={(e) => { e.stopPropagation(); handleReactivate(w.task_detail_id!); }}
                     disabled={reactivate.isPending}
