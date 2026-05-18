@@ -1,11 +1,26 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-18 (v1.44.0 Sprint 44 공장 대시보드 고객사 도넛 → v1.44.1 후속 검토 fix + OPS #69 동반)
+> 마지막 업데이트: 2026-05-18 (Sprint 44 공장 대시보드 도넛 → v1.44.x 후속 → Sprint 45 v1.45.0 생산현황 view/filter 정리)
 
 ---
 
-## 🆕 2026-05-18 세션 — Sprint 44 공장 대시보드 월생산 고객사 비율 도넛 (v1.44.0)
+## 🆕 2026-05-18 세션 — Sprint 45 생산현황 view/filter 정리 (v1.45.0)
+
+- **트리거**: Twin파파 요청 — (A) 테스트 S/N 토글 의미 변경 / (B) GST 자체공정 PI/QI/SI 작업자별 view
+- **A — 테스트 토글 (옵션 B)**: `showTestSN` ON = 혼재 → **테스트 전용**. `matchesTestFilter()` 신규. `SNStatusSettingsPanel` 라벨 변경
+- **B — GST role 스코프**: 협력사 view 패턴 확장. `is_manager` 만 전체, 일반 GST 작업자는 자기 `role` 공정(PI/QI/SI)만. `companyScopedProgress.ts` `UserScope` +`isManager`/`role` + `userToScope()`. `SNStatusPage` `seesAll`/`scope`/`scopeCats`
+- **edge**: GST 작업자 role≠PI/QI/SI → 빈 목록 (전체 fallback 금지 — Twin파파 원칙)
+- **설계**: `DESIGN_FIX_SPRINT.md` Sprint 45 (영역 1~9). Codex 1라운드 M2/A3 → 영역 9 명문화 반영
+- **구현**: 5 파일 (companyScopedProgress / SNStatusPage / SNCard / SNDetailPanel / SNStatusSettingsPanel) + test 2 (21 + 3 TC). BE 변경 0. 빌드 GREEN + vitest 84/84
+
+### 다음 세션 참고
+- v1.45.0 Netlify 실기기 검증 — GST PI/QI/SI 계정으로 로그인 시 자기 공정만 보이는지 / 테스트 토글 ON=테스트 전용 확인
+- 우선순위 task: REF-V-01 `ProductionPerformancePage` 895줄 분할 / OPS #69 배포 후 월간 생산량 164 확인
+
+---
+
+## 🆕 2026-05-18 세션 (이전) — Sprint 44 공장 대시보드 월생산 고객사 비율 도넛 (v1.44.0)
 
 - **트리거**: Twin파파 요청 — 공장 대시보드 우측 "공정별 완료율" 패널을 주간/월간 토글에 연동, 월간 뷰에서 고객사 비율 표시
 - **설계**: `DESIGN_FIX_SPRINT.md` Sprint 44 — 영역 1~8. Codex 1라운드(M3/A3/I5) 영역 8 전건 반영

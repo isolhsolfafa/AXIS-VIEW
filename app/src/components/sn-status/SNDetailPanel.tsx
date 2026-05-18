@@ -23,7 +23,7 @@ import {
 } from './utils';
 import { ParallelConfirmDialog } from './ParallelConfirmDialog';
 import type { BatchResponse } from '@/api/snStatus';
-import { getCompanyScopedPercent } from '@/utils/companyScopedProgress';
+import { getCompanyScopedPercent, userToScope } from '@/utils/companyScopedProgress';
 import { useAuth } from '@/store/authStore';
 
 // 체크리스트 대상 카테고리 (MECH/ELEC/TMS만)
@@ -136,11 +136,8 @@ function formatBatchResult(res: BatchResponse, verb: string): string {
 
 export default function SNDetailPanel({ serialNumber, product, tasks, isLoading, onClose, canReactivate, canForceClose, currentUserCompany, isAdmin, orderProducts }: SNDetailPanelProps) {
   const { user } = useAuth();
-  // Sprint 41: 회사 분기 진행률 (admin/GST → 전체, 협력사 → 자기 카테고리만)
-  const displayPercent = getCompanyScopedPercent(product, {
-    company: user?.company,
-    isAdmin: user?.is_admin ?? false,
-  });
+  // Sprint 41/45: 회사·role 분기 진행률 (admin·GST manager → 전체, GST 작업자 → 자기 공정, 협력사 → 자기 카테고리)
+  const displayPercent = getCompanyScopedPercent(product, userToScope(user));
   const completedCount = PROCESS_ORDER.filter(cat => {
     const catData = product.categories[cat];
     return catData && catData.percent === 100;

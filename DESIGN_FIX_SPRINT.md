@@ -20560,7 +20560,7 @@ AXIS-OPS/backend/app/routes/production.py
 > **작성자**: Claude Code (Twin파파 5-18 요청 — GST 자체공정 view 정리 + 테스트 필터)
 > **우선순위**: 🟡 MEDIUM (생산현황 view 정합 — 운영 차단 아님)
 > **추정 시간**: ~1.5~2h
-> **상태**: 🟢 OPEN — Codex 1라운드 반영 완료 (영역 9), 구현 진입 가능
+> **상태**: ✅ 구현 완료 (v1.45.0, 2026-05-18) — 빌드 GREEN + vitest 84/84 PASS
 > **선행 의존성**: 없음 (BE 변경 0 — `user.role`/`is_manager` 기존 필드 활용)
 > **예정 버전**: FE v1.45.0 (MINOR — 권한 기반 view 동작 추가)
 

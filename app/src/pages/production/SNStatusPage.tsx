@@ -12,11 +12,18 @@ import { useSNProgress } from '@/hooks/useSNProgress';
 import { useSNTasks } from '@/hooks/useSNTasks';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/store/authStore';
-import { getCompanyScopedPercent } from '@/utils/companyScopedProgress';
+import { getCompanyScopedPercent, userToScope } from '@/utils/companyScopedProgress';
+import { PROCESS_ORDER } from '@/components/sn-status/constants';
 import type { SNProduct } from '@/types/snStatus';
 
-// 테스트 S/N 필터 — DOC_TEST- prefix 숨김 (TODO: 추후 설정 on/off 전환)
+// 테스트 S/N prefix (TEST-/DOC_TEST-)
 const TEST_SN_PREFIXES = ['DOC_TEST-', 'TEST-'];
+
+// Sprint 45: 테스트 S/N 필터 — showTestOnly=true 면 테스트 전용, false 면 운영 전용
+export function matchesTestFilter(sn: string, showTestOnly: boolean): boolean {
+  const isTest = TEST_SN_PREFIXES.some(pfx => sn.startsWith(pfx));
+  return showTestOnly ? isTest : !isTest;
+}
 
 // 협력사 company → 담당 카테고리 매핑 (BE _build_company_filter 기준)
 const COMPANY_CATEGORIES: Record<string, string[]> = {
@@ -30,7 +37,17 @@ const COMPANY_CATEGORIES: Record<string, string[]> = {
 
 export default function SNStatusPage() {
   const { user } = useAuth();
-  const isAdminOrGst = user?.is_admin || user?.company === 'GST';
+  // Sprint 45: 전체 view 권한 = admin | GST manager. 그 외(GST 작업자·협력사)는 공정 스코프
+  const seesAll = (user?.is_admin ?? false) || (user?.company === 'GST' && (user?.is_manager ?? false));
+  const scope = useMemo(() => userToScope(user), [user]);
+  // 필터용 담당 카테고리 — null=전체(seesAll) / GST 작업자=[role] / 협력사=COMPANY_CATEGORIES / 미일치=[]
+  const scopeCats = useMemo<string[] | null>(() => {
+    if (!user || seesAll) return null;
+    if (user.company === 'GST') {
+      return user.role && (PROCESS_ORDER as readonly string[]).includes(user.role) ? [user.role] : [];
+    }
+    return (user.company && COMPANY_CATEGORIES[user.company]) || [];
+  }, [user, seesAll]);
 
   const { data, isLoading, refetch, isFetching, dataUpdatedAt } = useSNProgress();
   const { settings, updateSetting } = useSettings();
@@ -52,17 +69,12 @@ export default function SNStatusPage() {
   const sorted = useMemo(() => {
     let result = products;
 
-    // 테스트 S/N 숨김 (설정에 따라)
-    if (!settings.showTestSN) {
-      result = result.filter(p => !TEST_SN_PREFIXES.some(pfx => p.serial_number.startsWith(pfx)));
-    }
+    // 테스트 S/N 필터 (Sprint 45: ON=테스트 전용 / OFF=운영 전용)
+    result = result.filter(p => matchesTestFilter(p.serial_number, settings.showTestSN));
 
-    // 협력사: 자사 담당 공정이 있는 S/N만 표시
-    if (!isAdminOrGst && user?.company) {
-      const cats = COMPANY_CATEGORIES[user.company];
-      if (cats) {
-        result = result.filter(p => cats.some(c => p.categories[c] != null));
-      }
+    // Sprint 45: 담당 공정 스코프 — 협력사 + GST 작업자는 자기 공정 S/N만 (seesAll → scopeCats null)
+    if (scopeCats) {
+      result = result.filter(p => scopeCats.some(c => p.categories[c] != null));
     }
 
     // 검색 필터 (부분매칭 — O/N · S/N · 모델명)
@@ -82,7 +94,7 @@ export default function SNStatusPage() {
 
     // 정렬: 진행중 > 대기 > 완료 > null (Sprint 41 A4+A2: companyScopedPercent 기준 + null=rank 3)
     const rank = (p: SNProduct) => {
-      const scoped = getCompanyScopedPercent(p, { company: user?.company, isAdmin: user?.is_admin ?? false });
+      const scoped = getCompanyScopedPercent(p, scope);
       if (scoped === null) return 3;
       if (scoped > 0 && !p.all_completed) return 0;
       if (!p.all_completed) return 1;
@@ -96,7 +108,7 @@ export default function SNStatusPage() {
       const bKey = b.last_activity_at ?? b.ship_plan_date ?? '';
       return bKey.localeCompare(aKey);
     });
-  }, [products, search, modelFilter, isAdminOrGst, user, settings.showTestSN]);
+  }, [products, search, modelFilter, scopeCats, scope, settings.showTestSN]);
 
   // O/N별 그룹핑 — Sprint 24
   // Sprint 34 (FE-21, v1.33.0): lineLabel 집계 추가 — 최빈값 + "외 N" (NULL row는 혼재 카운트 제외)
@@ -133,7 +145,7 @@ export default function SNStatusPage() {
     for (const g of groups) {
       // Sprint 41 M2 + A4: 회사 분기 적용 — null 제외 후 평균. 그룹 전체 NULL 가능 시 null
       const percents = g.products
-        .map(p => getCompanyScopedPercent(p, { company: user?.company, isAdmin: user?.is_admin ?? false }))
+        .map(p => getCompanyScopedPercent(p, scope))
         .filter((p): p is number => p !== null);
       g.overallPercent = percents.length > 0
         ? Math.round(percents.reduce((s, p) => s + p, 0) / percents.length)
@@ -157,7 +169,7 @@ export default function SNStatusPage() {
       }
     }
     return groups;
-  }, [sorted, user]);
+  }, [sorted, scope]);
 
   // Sprint 38: 진행 중 모델별 카운트 (search/modelFilter 미적용 baseline — Codex #A self-referential UI 회피)
   // - search 와 modelFilter 둘 다 deps 에서 의도적 제외
@@ -165,26 +177,21 @@ export default function SNStatusPage() {
   // - Codex A4: 모델 키 정규화 (p.model.trim()) — BE 데이터의 공백/대소문자 변형 안전
   const inProgressByModel = useMemo(() => {
     let result = products;
-    if (!settings.showTestSN) {
-      result = result.filter(p => !TEST_SN_PREFIXES.some(pfx => p.serial_number.startsWith(pfx)));
-    }
-    if (!isAdminOrGst && user?.company) {
-      const cats = COMPANY_CATEGORIES[user.company];
-      if (cats) {
-        result = result.filter(p => cats.some(c => p.categories[c] != null));
-      }
+    result = result.filter(p => matchesTestFilter(p.serial_number, settings.showTestSN));
+    if (scopeCats) {
+      result = result.filter(p => scopeCats.some(c => p.categories[c] != null));
     }
     const map = new Map<string, number>();
     for (const p of result) {
       // Sprint 41 A1: 회사 분기 적용 — companyScopedPercent > 0 기준 (자기 회사 미시작 모델 칩 안 보임)
-      const scoped = getCompanyScopedPercent(p, { company: user?.company, isAdmin: user?.is_admin ?? false });
+      const scoped = getCompanyScopedPercent(p, scope);
       if (scoped !== null && scoped > 0 && !p.all_completed) {
         const key = p.model.trim();
         map.set(key, (map.get(key) ?? 0) + 1);
       }
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  }, [products, isAdminOrGst, user, settings.showTestSN]);
+  }, [products, scopeCats, scope, settings.showTestSN]);
 
   const totalInProgress = useMemo(
     () => inProgressByModel.reduce((sum, [, n]) => sum + n, 0),

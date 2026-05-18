@@ -61,10 +61,10 @@ export default function SNStatusSettingsPanel({ open, onClose, settings, onUpdat
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-charcoal)' }}>
-              테스트 S/N 표시
+              테스트 S/N 전용 보기
             </span>
             <div style={{ fontSize: '10px', color: 'var(--gx-steel)', marginTop: '2px' }}>
-              DOC_TEST- / TEST- prefix S/N 포함
+              ON: 테스트 S/N(TEST- / DOC_TEST-)만 / OFF: 운영 S/N만
             </div>
           </div>
           <button

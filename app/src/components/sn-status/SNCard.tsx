@@ -4,7 +4,7 @@
 import type { SNProduct } from '@/types/snStatus';
 import { PROCESS_ORDER, TAB_LABEL } from './constants';
 import { maskName } from '@/utils/format';
-import { getCompanyScopedPercent } from '@/utils/companyScopedProgress';
+import { getCompanyScopedPercent, userToScope } from '@/utils/companyScopedProgress';
 import { useAuth } from '@/store/authStore';
 
 interface SNCardProps {
@@ -33,11 +33,8 @@ function formatActivityTime(isoStr: string | null): string {
 export default function SNCard({ product, isSelected, onClick }: SNCardProps) {
   const { serial_number, model, categories, all_completed, all_completed_at, last_worker, last_activity_at, last_task_name } = product;
   const { user } = useAuth();
-  // Sprint 41: 회사 분기 진행률 (admin/GST → overall_percent 그대로, 협력사 → 자기 카테고리만 평균)
-  const displayPercent = getCompanyScopedPercent(product, {
-    company: user?.company,
-    isAdmin: user?.is_admin ?? false,
-  });
+  // Sprint 41/45: 회사·role 분기 진행률 (admin·GST manager → 전체, GST 작업자 → 자기 공정, 협력사 → 자기 카테고리)
+  const displayPercent = getCompanyScopedPercent(product, userToScope(user));
 
   return (
     <div
