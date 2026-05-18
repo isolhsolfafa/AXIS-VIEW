@@ -1,7 +1,21 @@
 # AXIS-VIEW Handoff
 
 > 세션 종료 시 업데이트. 다음 세션이 즉시 작업을 이어갈 수 있도록 현재 상태를 기록합니다.
-> 마지막 업데이트: 2026-05-16 (v1.43.10~12 MECH 체크리스트 상세화면 + Tank Module DUAL → v1.43.13 체크리스트 성적서 검색 O/N·S/N 정합)
+> 마지막 업데이트: 2026-05-18 (v1.43.13 검색 정합 → v1.43.14 QR CSV 협력사 컬럼(병행) → v1.44.0 Sprint 44 공장 대시보드 고객사 도넛)
+
+---
+
+## 🆕 2026-05-18 세션 — Sprint 44 공장 대시보드 월생산 고객사 비율 도넛 (v1.44.0)
+
+- **트리거**: Twin파파 요청 — 공장 대시보드 우측 "공정별 완료율" 패널을 주간/월간 토글에 연동, 월간 뷰에서 고객사 비율 표시
+- **설계**: `DESIGN_FIX_SPRINT.md` Sprint 44 — 영역 1~8. Codex 1라운드(M3/A3/I5) 영역 8 전건 반영
+- **A2 충돌 해소**: 1차 결정 "useMonthlyDetail 직접 배선" → v1.34.4 "monthly-detail mech_start 영구 유지" 충돌 (Twin파파 catch) → **분기 방식** 재확정 (도넛 전용 useMonthlyDetail 별도 호출, 테이블/차트 불변)
+- **구현**: 신규 `CustomerDonutCard`(Recharts 도넛 + `buildDonutSlices` 순수함수) + `StageCompletionCard`(인라인 추출) / `api/factory.ts` `CustomerCount`+`by_customer?` / `useFactory.ts` `useMonthlyDetail` `enabled` / `FactoryDashboardPage` period 분기. `CustomerDonutCard.test.ts` 8 TC. 빌드 GREEN + vitest 72/72
+- **BE**: OPS #68 `by_customer` 배포 완료 (`factory.py` L281-292) — FE 변경만으로 동작
+
+### 다음 세션 참고
+- v1.44.0 Netlify 실기기 검증 — 공장 대시보드 30초 토글 시 월간 뷰에서 고객사 도넛 표시 확인
+- 우선순위 task: REF-V-01 `ProductionPerformancePage` 895줄 분할 (🔴 의존성 0) / Sprint 43 (OPS #66 BE 선행 대기)
 
 ---
 

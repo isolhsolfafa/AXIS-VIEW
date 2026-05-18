@@ -72,10 +72,17 @@ export interface ModelCount {
   count: number;
 }
 
+// #68 (Sprint 44): 월간 고객사별 생산 집계 — 공장 대시보드 고객사 도넛
+export interface CustomerCount {
+  customer: string;
+  count: number;
+}
+
 export interface MonthlyDetailResponse {
   month: string;
   items: ProductionItem[];
   by_model: ModelCount[];
+  by_customer?: CustomerCount[];  // #68 — BE 미배포 시 undefined (안전 degrade)
   total: number;
   page: number;
   per_page: number;

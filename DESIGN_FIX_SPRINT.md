@@ -20414,7 +20414,7 @@ AXIS-OPS/backend/app/routes/production.py
 > **작성자**: Claude Code (Twin파파 5-16 요청 + 차트 타입·색상 합의)
 > **우선순위**: 🟡 MEDIUM (공장 대시보드 신규 위젯 — 운영 차단 아님)
 > **추정 시간**: ~1.5~2h (도넛 컴포넌트 + 기존 패널 추출 + period 분기)
-> **상태**: 🟢 OPEN — Codex 1라운드 반영 완료 (영역 8), 구현 진입 가능
+> **상태**: ✅ 구현 완료 (v1.44.0, 2026-05-18) — 빌드 GREEN + vitest 72/72 PASS
 > **선행 의존성**: ✅ OPS `monthly-detail` `by_customer` 집계 — `OPS_API_REQUESTS.md #68` BE route 추가 완료 (2026-05-18)
 > **별 repo Sprint**: 본 sprint = AXIS-VIEW repo `Sprint 44` / OPS = `OPS_API_REQUESTS.md #68` (factory.py `get_monthly_detail()`)
 > **관련 OPS 명세**: `AXIS-VIEW/OPS_API_REQUESTS.md` #68 (`by_customer` 집계 필드)

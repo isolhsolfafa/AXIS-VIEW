@@ -9,12 +9,15 @@ import {
 
 type RefetchInterval = number | false | (() => number | false);
 
-export function useMonthlyDetail(params: MonthlyDetailParams & { refetchInterval?: RefetchInterval } = {}) {
-  const { refetchInterval, ...apiParams } = params;
+export function useMonthlyDetail(
+  params: MonthlyDetailParams & { enabled?: boolean; refetchInterval?: RefetchInterval } = {},
+) {
+  const { enabled, refetchInterval, ...apiParams } = params;
   return useQuery({
     queryKey: ['factory', 'monthly-detail', apiParams],
     queryFn: () => getMonthlyDetail(apiParams),
     staleTime: 5 * 60 * 1000,
+    enabled: enabled ?? true,
     refetchInterval: refetchInterval ?? false,
   });
 }

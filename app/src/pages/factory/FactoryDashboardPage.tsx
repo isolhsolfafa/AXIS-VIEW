@@ -8,6 +8,8 @@ import { useEtlChanges } from '@/hooks/useEtlChanges';
 import type { MonthlyKpiDateField, ShippedBasis } from '@/api/factory';
 import KpiSwipeDeck from './components/KpiSwipeDeck';
 import ProductionChart from './components/ProductionChart';
+import StageCompletionCard from './components/StageCompletionCard';
+import CustomerDonutCard from './components/CustomerDonutCard';
 import FactoryDashboardSettingsPanel from './components/FactoryDashboardSettingsPanel';
 
 // v1.35.0 Sprint 35 Phase 2: localStorage 키 (설비/모니터별 개별 설정)
@@ -101,6 +103,15 @@ export default function FactoryDashboardPage() {
     enabled: period === 'monthly',
     refetchInterval: autoRefreshInterval,
     date_field: monthlyDateField,  // Phase 2: 토글 값 전달
+  });
+
+  // Sprint 44: 고객사 도넛 전용 monthly-detail 호출 — date_field=monthlyDateField.
+  // 테이블/차트용 monthly 호출(mech_start 고정, v1.34.4)과 분리. per_page:1 로 items 최소화, by_customer 만 사용.
+  const { data: monthlyDonut, isLoading: monthlyDonutLoading } = useMonthlyDetail({
+    date_field: monthlyDateField,
+    per_page: 1,
+    enabled: period === 'monthly',
+    refetchInterval: autoRefreshInterval,
   });
 
   const handleRefreshAll = () => { refetchKpi(); refetchMonthly(); refetchEtl(); refetchMonthlyKpi(); };
@@ -313,34 +324,12 @@ export default function FactoryDashboardPage() {
             isLoading={isLoading}
           />
 
-          {/* Stage Completion */}
-          <div style={{
-            background: 'var(--gx-white)', borderRadius: 'var(--radius-gx-lg)',
-            boxShadow: 'var(--shadow-card)', padding: '24px',
-          }}>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--gx-charcoal)', marginBottom: '4px' }}>공정별 완료율</div>
-            <div style={{ fontSize: '11px', color: 'var(--gx-steel)', marginBottom: '24px' }}>
-              {kpi ? `W${kpi.week} 기준` : '—'}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {stageData.map(s => (
-                <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--gx-slate)', width: '44px', textAlign: 'right', flexShrink: 0 }}>{s.label}</span>
-                  <div style={{ flex: 1, height: '8px', background: 'var(--gx-cloud)', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%', width: `${s.value}%`, borderRadius: '4px',
-                      background: s.value >= 80 ? 'var(--gx-success)' : s.value >= 40 ? 'var(--gx-warning)' : 'var(--gx-danger)',
-                      transition: 'width 0.5s',
-                    }} />
-                  </div>
-                  <span style={{
-                    fontFamily: "'JetBrains Mono', monospace", fontSize: '12px',
-                    fontWeight: 600, color: 'var(--gx-graphite)', minWidth: '40px',
-                  }}>{s.value.toFixed(1)}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Sprint 44: 우측 패널 — 주간=공정별 완료율 / 월간=고객사 비율 도넛 */}
+          {period === 'monthly' ? (
+            <CustomerDonutCard byCustomer={monthlyDonut?.by_customer} isLoading={monthlyDonutLoading} />
+          ) : (
+            <StageCompletionCard stageData={stageData} weekLabel={kpi ? `W${kpi.week} 기준` : '—'} />
+          )}
         </div>
 
         {/* 생산 현황 상세 Table */}
