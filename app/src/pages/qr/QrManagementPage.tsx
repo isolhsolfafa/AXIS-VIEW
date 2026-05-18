@@ -227,12 +227,12 @@ function SortIndicator({ active, direction }: { active: boolean; direction: 'asc
 const TEST_SN_PREFIXES = ['DOC_TEST-', 'TEST-'];
 
 /* ── CSV 생성 & 다운로드 ── */
-function downloadCsv(items: { qr_doc_id: string; serial_number: string; sales_order?: string }[], filename: string) {
+function downloadCsv(items: { qr_doc_id: string; serial_number: string; sales_order?: string; mech_partner?: string; elec_partner?: string }[], filename: string) {
   const BOM = '\uFEFF';
-  const header = 'QR_DOC_ID,SN,O/N';
+  const header = 'QR_DOC_ID,SN,O/N,mech,elec';
   const rows = items.map(r => {
     const suffix = r.qr_doc_id.endsWith('-L') ? '-L' : r.qr_doc_id.endsWith('-R') ? '-R' : '';
-    return `${r.qr_doc_id},${r.serial_number}${suffix},${r.sales_order ?? ''}`;
+    return `${r.qr_doc_id},${r.serial_number}${suffix},${r.sales_order ?? ''},${r.mech_partner ?? ''},${r.elec_partner ?? ''}`;
   });
   const csv = BOM + [header, ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
