@@ -222,37 +222,6 @@ export default function Header({
           </svg>
         </div>
 
-        {/* 검색 버튼 */}
-        <button
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: 'var(--radius-gx-md)',
-            border: '1px solid var(--gx-mist)',
-            background: 'var(--gx-white)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'all 0.15s',
-            color: 'var(--gx-slate)',
-          }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget as HTMLButtonElement;
-            el.style.background = 'var(--gx-cloud)';
-            el.style.borderColor = 'var(--gx-silver)';
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget as HTMLButtonElement;
-            el.style.background = 'var(--gx-white)';
-            el.style.borderColor = 'var(--gx-mist)';
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M14.25 14.25L11.5 11.5M12.75 8.25a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"/>
-          </svg>
-        </button>
-
         {/* 알림 버튼 — 클릭 시 알림 패널 토글 */}
         <div style={{ position: 'relative' }}>
           <button
@@ -401,6 +370,40 @@ export default function Header({
             }}
           />
         </div>
+
+        {/* 메뉴얼 버튼 — 외부 사용 설명서 (axis-manual) 새 탭 열기 */}
+        <button
+          title="메뉴얼"
+          onClick={() => window.open('https://axis-manual.netlify.app/', '_blank', 'noopener,noreferrer')}
+          style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: 'var(--radius-gx-md)',
+            border: '1px solid var(--gx-mist)',
+            background: 'var(--gx-white)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+            color: 'var(--gx-slate)',
+          }}
+          onMouseEnter={(e) => {
+            const el = e.currentTarget as HTMLButtonElement;
+            el.style.background = 'var(--gx-cloud)';
+            el.style.borderColor = 'var(--gx-silver)';
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget as HTMLButtonElement;
+            el.style.background = 'var(--gx-white)';
+            el.style.borderColor = 'var(--gx-mist)';
+          }}
+        >
+          {/* 책(메뉴얼) 아이콘 */}
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 4.5C9 4.5 7.5 3 4.5 3C3.67 3 3 3.67 3 4.5V13.5C3 13.5 4.13 12.75 6.75 12.75C8.36 12.75 9 13.5 9 13.5M9 4.5C9 4.5 10.5 3 13.5 3C14.33 3 15 3.67 15 4.5V13.5C15 13.5 13.87 12.75 11.25 12.75C9.64 12.75 9 13.5 9 13.5M9 4.5V13.5"/>
+          </svg>
+        </button>
 
         {/* 설정 버튼 */}
         <div style={{ position: 'relative' }}>
