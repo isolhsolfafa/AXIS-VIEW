@@ -6460,7 +6460,7 @@ ORDER BY count DESC
 **Sprint**: AXIS-VIEW Sprint 44 후속 (고객사 도넛 vs 월간 생산량 카드 숫자 불일치)
 **날짜**: 2026-05-18 (Twin파파 catch)
 **관련 FE**: AXIS-VIEW 공장 대시보드 월간 생산량 KPI 카드 (`monthly-kpi` `production_count`)
-**상태**: 🔴 **OPEN** — BE 작업 필요
+**상태**: ✅ **BE DONE (2026-05-18, v2.15.21)**
 
 ---
 
@@ -6523,4 +6523,4 @@ WHERE p.{date_field} >= %s AND p.{date_field} < %s
 
 **OPS 측 반영 위치**: `AXIS-OPS/backend/app/routes/factory.py` `get_monthly_kpi()` L556-561
 **FE 상태**: 변경 0 (BE `production_count` 값만 바뀜 → 월간 생산량 카드 자동 164)
-**문서 상태**: 🔴 **OPEN** — BE WHERE 절 1줄 추가 요청
+**문서 상태**: ✅ **BE DONE (2026-05-18, v2.15.21)** — `get_monthly_kpi()` `production_count` 쿼리에 `AND COALESCE(p.customer, '') <> 'TEST CUSTOMER'` 추가. pytest test_factory 19/19 GREEN. FE 변경 0 (월간 생산량 카드 자동 164)
